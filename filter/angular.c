@@ -1,19 +1,22 @@
 #include "fd.h"
 
 /************************************************************/
-void calc_angular_exp(zomplex* psitot, grid_st *grid, int start, int stop, index_st *ist, par_st *par, parallel_st *parallel,
+void calc_angular_exp(double *psitot, grid_st *grid, int start, int stop, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel,
  	fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi){
-	int i, ipsi; long jx,jy,jz,jyz,jxyz;
+	
+	int i, ipsi; 
+	long jx, jy, jz, jyz, jxyz, jxyz_real, jxyz_imag;
 	double Jxexp, Jxsqr, Jyexp, Jysqr,Jzexp, Jzsqr, Jsqrexp, norm;
 	zomplex *psi, *Jxpsi, *Jypsi, *Jzpsi;
 	FILE* pf = fopen("angular.dat", "w");
+
 	fprintf(pf, "###\tJx\t\tJx^2\t\tJy\t\tJy^2\t\tJz\t\tJz^2\t\tJ^2\t\tnorm\n");
 	
 	//allocate memoRy for the operated wavefucntions
-	if ((Jxpsi  = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL)nerror("Jxpsi");
-  	if ((Jypsi  = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL)nerror("Jypsi");
-  	if ((Jzpsi  = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL)nerror("Jzpsi");
-  	if ((psi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL)nerror("psi");
+	if ((Jxpsi  = (zomplex*) calloc(ist->nspinngrid,sizeof(zomplex)))==NULL) nerror("Jxpsi");
+  	if ((Jypsi  = (zomplex*) calloc(ist->nspinngrid,sizeof(zomplex)))==NULL) nerror("Jypsi");
+  	if ((Jzpsi  = (zomplex*) calloc(ist->nspinngrid,sizeof(zomplex)))==NULL) nerror("Jzpsi");
+  	if ((psi = (zomplex*) calloc(ist->nspinngrid,sizeof(zomplex)))==NULL) nerror("psi");
 
 	for(ipsi = start; ipsi < stop; ipsi++){	  	
 	  	//psi = &psitot[ipsi*ist->nspinngrid];
@@ -22,51 +25,71 @@ void calc_angular_exp(zomplex* psitot, grid_st *grid, int start, int stop, index
 	  			jyz = grid->nx * (grid->ny * jz + jy);
 	  			for(jx = 0; jx<grid->nx;jx++){
 					jxyz = jyz + jx;
-					psi[jxyz].re = psitot[ipsi*ist->nspinngrid+jxyz].re;
-					psi[jxyz].im = psitot[ipsi*ist->nspinngrid+jxyz].im;
-					psi[jxyz+ist->ngrid].re = psitot[ipsi*ist->nspinngrid+jxyz+ist->ngrid].re;
-					psi[jxyz+ist->ngrid].im = psitot[ipsi*ist->nspinngrid+jxyz+ist->ngrid].im;
+					jxyz_real = ist->complex_idx * jxyz;
+            		jxyz_imag = ist->complex_idx * jxyz + 1;
+
+					psi[jxyz].re = psitot[ist->complex_idx*ipsi*ist->nspinngrid + jxyz_real];
+					if (1 == flag->isComplex){
+						psi[jxyz].im = psitot[ipsi*ist->nspinngrid+jxyz_imag];
+						// Uncomment these lines if, for some reason, people start
+						// using complex wavefunctions without spinors. I don't know why 
+						// someone would use complex numbers without spinors because if there is
+						// time reversal symmetry, the wavefunctions are guaranteed real,
+						// which is at least 2x less expensive. But anyway, uncommenting these 
+						// lines is how you would correctly handle that case.
+						//if (1 == flag->useSpinors){
+						psi[jxyz+ist->ngrid].re = psitot[ist->complex_idx*(ipsi*ist->nspinngrid + ist->ngrid) + jxyz_real];
+						psi[jxyz+ist->ngrid].im = psitot[ist->complex_idx*(ipsi*ist->nspinngrid + ist->ngrid) + jxyz_imag];
+						//}
+					}
+					
 				}
 			}		
 		}
 
 		
-		low_pass_filter(&psi[0],grid,planfw,planbw,fftwpsi, ist, par, parallel);
-		low_pass_filter(&psi[ist->ngrid],grid,planfw,planbw,fftwpsi, ist, par, parallel);
-		
+		low_pass_filter(&psi[0],grid,planfw,planbw,fftwpsi,ist,par,parallel);
+		if (1 == flag->useSpinors){
+			low_pass_filter(&psi[ist->ngrid],grid,planfw,planbw,fftwpsi,ist,par,parallel);
+		}
+
 		normalize(psi,par->dv,ist->nspinngrid,parallel->nthreads);
 
 		char filename[20];
-		double* rho = calloc(ist->ngrid,sizeof(double));
+		double *rho = calloc(ist->ngrid, sizeof(double));
 		
-		for (long jgrid = 0;jgrid<ist->ngrid; jgrid++){
+		for (long jgrid = 0; jgrid < ist->ngrid; jgrid++){
     		rho[jgrid] = (psi[jgrid].re);
 		 }
 		sprintf(filename, "smpsi%iUpRe.cube", ipsi);
 	  	write_cube_file(rho, grid, filename);
 
-	  	for (long jgrid = 0;jgrid<ist->ngrid; jgrid++){
-    		rho[jgrid] = (psi[jgrid].im);
-	  	}
-	  	sprintf(filename, "smpsi%iUpIm.cube", ipsi);
-	  	write_cube_file(rho, grid, filename);
+		if (1 == flag->isComplex){
+			for (long jgrid = 0; jgrid < ist->ngrid; jgrid++){
+				rho[jgrid] = (psi[jgrid].im);
+			}
+			sprintf(filename, "smpsi%iUpIm.cube", ipsi);
+			write_cube_file(rho, grid, filename);
 
-	  	for (long jgrid = 0;jgrid<ist->ngrid; jgrid++){
-   	 		rho[jgrid] = (psi[ist->ngrid+jgrid].re);
-	  	}
-	  	sprintf(filename, "smpsi%iDnRe.cube", ipsi);
-	  	write_cube_file(rho, grid, filename);
+			//if (1 == flag->useSpinors){
+			for (long jgrid = 0; jgrid < ist->ngrid; jgrid++){
+				rho[jgrid] = (psi[ist->ngrid+jgrid].re);
+			}
+			sprintf(filename, "smpsi%iDnRe.cube", ipsi);
+			write_cube_file(rho, grid, filename);
 
-	  	for (long jgrid = 0;jgrid<ist->ngrid; jgrid++){
-	    	rho[jgrid] = (psi[ist->ngrid+jgrid].im);
-	  	}
- 	 	sprintf(filename, "smpsi%iDnIm.cube", ipsi);
-	  	write_cube_file(rho, grid, filename);
-		
+			for (long jgrid = 0; jgrid < ist->ngrid; jgrid++){
+				rho[jgrid] = (psi[ist->ngrid+jgrid].im);
+			}
+			sprintf(filename, "smpsi%iDnIm.cube", ipsi);
+			write_cube_file(rho, grid, filename);
+			//}
+		}
+
 		//compute the action of the J operator
 	  	apply_J_op(Jxpsi, Jypsi, Jzpsi, psi, grid, planfw, planbw, fftwpsi, ist, par, parallel);
 
-	  	//compute Ji expectation as <psi|Jipsi> and J^2 as \sum_i <Jipsi|Jipsi>
+	  	//compute Ji expectation as <psi|Ji_psi> and J^2 as \sum_i <Ji_psi|Ji_psi>
 	  	Jxexp = Jxsqr = Jyexp = Jysqr = Jzexp = Jzsqr = Jsqrexp = norm = 0.00;
 	  	omp_set_dynamic(0);
 	  	omp_set_num_threads(parallel->nthreads);
@@ -118,7 +141,7 @@ void apply_J_op( zomplex* Jxpsi, zomplex* Jypsi, zomplex* Jzpsi,zomplex* psi,
 	double density,x,y,z;
 
 	/*** Find electron center of mass ***/
-	x=y=z=0;
+	x = y = z = 0;
 	omp_set_dynamic(0);
   	omp_set_num_threads(parallel->nthreads);
   	#pragma omp parallel for private (jz,jy,jyz,jx,jxyz) reduction(+:x,y,z)
@@ -142,14 +165,14 @@ void apply_J_op( zomplex* Jxpsi, zomplex* Jypsi, zomplex* Jzpsi,zomplex* psi,
 	*/
 	
 	//spin up part
-	apply_L_op(&Jxpsi[0],&Jypsi[0],&Jzpsi[0], &psi[0], 
-		grid,planfw,planbw, fftwpsi,ist, par, parallel);
+	apply_L_op(&Jxpsi[0],&Jypsi[0],&Jzpsi[0], &psi[0], grid,planfw,planbw, fftwpsi,ist, par, parallel);
 	
 
 	//spin dn part
-	apply_L_op(&Jxpsi[ist->ngrid],&Jypsi[ist->ngrid],&Jzpsi[ist->ngrid], &psi[ist->ngrid], 
-		grid,planfw,planbw, fftwpsi,ist, par, parallel);
-
+	if (2 == ist->complex_idx){
+		apply_L_op(&Jxpsi[ist->ngrid],&Jypsi[ist->ngrid],&Jzpsi[ist->ngrid], &psi[ist->ngrid], 
+			grid,planfw,planbw, fftwpsi,ist, par, parallel);
+	}
 
 	//add the spin part which acts locally
 	omp_set_dynamic(0);
@@ -242,8 +265,8 @@ void apply_L_op(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi,
   			for(jx = 0; jx<grid->nx;jx++){
 				jxyz = jyz + jx;
 				//multiply by kx to get partial along x-axis
-				fftwpsi[jxyz][0] *=kx[jx];
-				fftwpsi[jxyz][1] *=kx[jx];
+				fftwpsi[jxyz][0] *= kx[jx];
+				fftwpsi[jxyz][1] *= kx[jx];
 			}
 		}
 	}
@@ -314,7 +337,7 @@ void apply_L_op(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi,
 
 
 	/*** Now do the cross product part at each grid point***/
-	zomplex gradx,grady,gradz;
+	zomplex gradx, grady, gradz;
 	omp_set_dynamic(0);
   	omp_set_num_threads(parallel->nthreads);
 	#pragma omp parallel for private (jz,jy,jyz,jx,jxyz,gradx,grady,gradz,x,y,z)
@@ -349,11 +372,10 @@ void apply_L_op(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi,
 	}
 
 
-
-
 }
 /************************************************************/
 void low_pass_filter(zomplex* psi, grid_st *grid, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi,
+	
 	index_st *ist, par_st *par, parallel_st *parallel){
 	double *kx,*ky,*kz;
 	long jx,jy,jz,jyz,jxyz;

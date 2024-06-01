@@ -620,7 +620,7 @@ int main(int argc, char *argv[]){
         printf("\nCALCULATING SPIN & ANG. MOM. STATISTICS\n"); fflush(0);
         write_separation(stdout, bottom);
 
-        // calc_angular_exp(psitot, &grid,0, ist.mn_states_tot, &ist, &par, &parallel, planfw, planbw, fftwpsi);
+        calc_angular_exp(psitot, &grid,0, ist.mn_states_tot, &ist, &par, &flag, &parallel, planfw, planbw, fftwpsi);
       
       } 
       if ( (flag.printCubes != 1) && (flag.calcPotOverlap != 1) && (flag.calcSpinAngStat != 1) ) {

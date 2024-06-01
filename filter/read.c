@@ -734,6 +734,9 @@ void read_pot(double *r_pot_file, double *r_pot_file_LR, double *pot_for_atom, d
           pf = fopen(str , "w");
           for (i = 0; i < pot_file_lens[j]; i++) fprintf (pf,"%g %g\n",r_pot_file_LR[j*n+i], pot_for_atom_LR[j*n+i]);
           fclose(pf);
+        } else {
+          fprintf(stderr, "Invalid value of parameter scaleSurfaceCs = %lg > 1.0\n", par->scale_surface_Cs);
+          exit(EXIT_FAILURE);
         }
       } 
       // ******* ******* ******* ******* ******* ******* ******* *******
@@ -748,98 +751,266 @@ void read_pot(double *r_pot_file, double *r_pot_file_LR, double *pot_for_atom, d
         // 2*j*n while geom2 values are stored on all odd indices 2*j*n + 1
         // I assume ngeoms is 2. 
         // If ngeoms is larger than 2, you made a shite pseudopotential.
-
-        // ******* ******* ******* ******* ******* ******* *******
-        // CUBIC (Or geom1)
-        // ******* ******* ******* ******* ******* ******* *******
-        sprintf (str, "pot");
-        for (int strnum = 0; strnum < 3; strnum++){  
-          if(atype[strnum] == '\0') break;
-          strncat(str, &atype[strnum], 1);
-        }
-        
-        strcpy(tmpstr, str); // copy the base name including the atom type
-        
-        // Get the cubic pseudopotential
-        strcat(str, "_cubic.par");
-        pf = fopen(str , "r");
-        if (pf != NULL) {
-          // Loop until the end of the file pot[atype].par. Increment pot_file_lens[j] to count how long the pseudopotential file is
-          for (pot_file_lens[ngeoms * j] = iscan = 0; iscan != EOF; pot_file_lens[ngeoms * j]++) {
-            iscan = fscanf (pf,"%lg %lg",&r_pot_file[ngeoms*j*n + pot_file_lens[ngeoms*j]], &pot_for_atom[ngeoms*j*n + pot_file_lens[ngeoms*j]]);
+        if (1.0 == par->scale_surface_Cs){
+          // ******* ******* ******* ******* ******* ******* *******
+          // CUBIC (Or geom1)
+          // ******* ******* ******* ******* ******* ******* *******
+          sprintf (str, "pot");
+          for (int strnum = 0; strnum < 3; strnum++){  
+            if(atype[strnum] == '\0') break;
+            strncat(str, &atype[strnum], 1);
           }
+          
+          strcpy(tmpstr, str); // copy the base name including the atom type
+          
+          // Get the cubic pseudopotential
+          strcat(str, "_cubic.par");
+          pf = fopen(str , "r");
+          if (pf != NULL) {
+            // Loop until the end of the file pot[atype].par. Increment pot_file_lens[j] to count how long the pseudopotential file is
+            for (pot_file_lens[ngeoms * j] = iscan = 0; iscan != EOF; pot_file_lens[ngeoms * j]++) {
+              iscan = fscanf (pf,"%lg %lg",&r_pot_file[ngeoms*j*n + pot_file_lens[ngeoms*j]], &pot_for_atom[ngeoms*j*n + pot_file_lens[ngeoms*j]]);
+            }
+            fclose(pf);
+
+            // The last iteration returns the EOF signal, but still increments pot_file_lens[j]. 
+            // Decrement it now to avoid a seg fault by running outside the r_pot_file/pot array
+            pot_file_lens[ngeoms*j]--;
+
+            printf("%s ",str); // print the potential that finished reading
+          } else {
+            fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
+            exit(EXIT_FAILURE);
+          }
+          
+          // Get the r-spacing and add to the dr array 
+          // only evenly-spaced pseudopotential files are supported currently
+          dr[ngeoms*j] = r_pot_file[ngeoms*j*n + 1] - r_pot_file[ngeoms*j*n + 0]; // r spacing
+          
+          sprintf (str, "pot");
+          for (int strnum = 0;strnum<3; strnum++){
+            if(atype[strnum]=='\0') break;
+            strncat(str,&atype[strnum],1);
+          }
+          strcat(str, "_cubic.dat");
+          
+          printf("%s ",str); // print the potential that finished reading
+
+          pf = fopen(str , "w");
+          for (i = 0; i < pot_file_lens[ngeoms*j]; i++) fprintf (pf,"%g %g\n",r_pot_file[ngeoms*j*n + i],pot_for_atom[ngeoms*j*n + i]);
           fclose(pf);
 
-          // The last iteration returns the EOF signal, but still increments pot_file_lens[j]. 
-          // Decrement it now to avoid a seg fault by running outside the r_pot_file/pot array
-          pot_file_lens[ngeoms*j]--;
 
-          printf("%s ",str); // print the potential that finished reading
-        } else {
-          fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
-          exit(EXIT_FAILURE);
-        }
-        
-        // Get the r-spacing and add to the dr array 
-        // only evenly-spaced pseudopotential files are supported currently
-        dr[ngeoms*j] = r_pot_file[ngeoms*j*n + 1] - r_pot_file[ngeoms*j*n + 0]; // r spacing
-        
-        sprintf (str, "pot");
-        for (int strnum = 0;strnum<3; strnum++){
-          if(atype[strnum]=='\0') break;
-          strncat(str,&atype[strnum],1);
-        }
-        strcat(str, "_cubic.dat");
-        
-        printf("%s ",str); // print the potential that finished reading
+          // ******* ******* ******* ******* ******* ******* *******
+          // ORTHORHOMBIC GEOMETRY
+          // ******* ******* ******* ******* ******* ******* *******
+          // get ORTHO pseudopotential
+          strcat(tmpstr, "_ortho.par");
+          pf = fopen(tmpstr , "r");
+          if (pf != NULL) {
+            // Loop until the end of the file pot[atype].par. Increment pot_file_lens[j] to count how long the pseudopotential file is
+            for (pot_file_lens[ngeoms*j + 1] = iscan = 0; iscan != EOF; pot_file_lens[ngeoms*j + 1]++) {
+              iscan = fscanf (pf,"%lg %lg", &r_pot_file[ngeoms*j*n + n + pot_file_lens[ngeoms*j+1]],&pot_for_atom[ngeoms*j*n + n + pot_file_lens[ngeoms*j+1]]);
+            }
+            fclose(pf);
 
-        pf = fopen(str , "w");
-        for (i = 0; i < pot_file_lens[ngeoms*j]; i++) fprintf (pf,"%g %g\n",r_pot_file[ngeoms*j*n + i],pot_for_atom[ngeoms*j*n + i]);
-        fclose(pf);
+            // The last iteration returns the EOF signal, but still increments pot_file_lens[j]. 
+            // Decrement it now to avoid a seg fault by running outside the r_pot_file/pot_for_atom array
+            pot_file_lens[ngeoms*j+1]--;
 
+            printf("%s ",str); // print the potential that finished reading
+          }
+          else {
+            fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", tmpstr); fflush(0); 
+            exit(EXIT_FAILURE);
+          }
 
-        // ******* ******* ******* ******* ******* ******* *******
-        // ORTHORHOMBIC GEOMETRY
-        // ******* ******* ******* ******* ******* ******* *******
-        // get ORTHO pseudopotential
-        strcat(tmpstr, "_ortho.par");
-        pf = fopen(tmpstr , "r");
-        if (pf != NULL) {
-          // Loop until the end of the file pot[atype].par. Increment pot_file_lens[j] to count how long the pseudopotential file is
-          for (pot_file_lens[ngeoms*j + 1] = iscan = 0; iscan != EOF; pot_file_lens[ngeoms*j + 1]++) {
-            iscan = fscanf (pf,"%lg %lg", &r_pot_file[ngeoms*j*n + n + pot_file_lens[ngeoms*j+1]],&pot_for_atom[ngeoms*j*n + n + pot_file_lens[ngeoms*j+1]]);
+          // Get the r-spacing and add to the dr array 
+          // only evenly-spaced pseudopotential files are supported currently
+          dr[ngeoms*j + 1] = r_pot_file[ngeoms*j*n + n+1] - r_pot_file[ngeoms*j*n + n+0]; // r spacing
+
+          // 
+          sprintf (str, "pot");
+          for (int strnum = 0;strnum<3; strnum++){
+            if(atype[strnum]=='\0') break;
+            strncat(str,&atype[strnum],1);
+          }
+          strcat(str, "_ortho.dat");
+
+          pf = fopen(str , "w");
+          for (i = 0; i < pot_file_lens[ngeoms*j+1]; i++){
+            fprintf (pf,"%g %g\n", r_pot_file[ngeoms*j*n + n + i], pot_for_atom[ngeoms*j*n + n + i]);
           }
           fclose(pf);
-
-          // The last iteration returns the EOF signal, but still increments pot_file_lens[j]. 
-          // Decrement it now to avoid a seg fault by running outside the r_pot_file/pot_for_atom array
-          pot_file_lens[ngeoms*j+1]--;
-
-          printf("%s ",str); // print the potential that finished reading
         }
-        else {
-          fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", tmpstr); fflush(0); 
-          exit(EXIT_FAILURE);
-        }
+        // If par->scale_surface_Cs is 1.0, then we do not need to scale the surface Cs atoms
+        else if ( (1.0 != par->scale_surface_Cs) && (par->scale_surface_Cs < 1.0) ){
+          // ******* ******* ******* ******* ******* ******* *******
+          // CUBIC (Or geom1)
+          // ******* ******* ******* ******* ******* ******* *******
+          // The SR potential file name is pot[atype]_[geom1]_SR.dat
+          sprintf (str, "pot");
+          for (int strnum = 0; strnum < 3; strnum++){  
+            if(atype[strnum]=='\0') break;
+            strncat(str,&atype[strnum],1);
+          }
+          strcat(str, "_cubic_SR.par");
 
-        // Get the r-spacing and add to the dr array 
-        // only evenly-spaced pseudopotential files are supported currently
-        dr[ngeoms*j + 1] = r_pot_file[ngeoms*j*n + n+1] - r_pot_file[ngeoms*j*n + n+0]; // r spacing
+          pf = fopen(str , "r");
+          if (pf != NULL) {
+            for (iscan = 0; iscan != EOF; pot_file_lens[ngeoms*j]++) {
+              // The short range potential gets stored in r_pot_file and pot_file_lens
+              iscan = fscanf (pf, "%lg %lg", &r_pot_file[ngeoms*j*n + pot_file_lens[j]], &pot_for_atom[ngeoms*j*n + pot_file_lens[j]]);
+            }
+            fclose(pf);
 
-        // 
-        sprintf (str, "pot");
-        for (int strnum = 0;strnum<3; strnum++){
-          if(atype[strnum]=='\0') break;
-          strncat(str,&atype[strnum],1);
-        }
-        strcat(str, "_ortho.dat");
+            pot_file_lens[ngeoms*j]--;
+            printf("%s ",str); 
 
-        pf = fopen(str , "w");
-        for (i = 0; i < pot_file_lens[ngeoms*j+1]; i++){
-          fprintf (pf,"%g %g\n", r_pot_file[ngeoms*j*n + n + i], pot_for_atom[ngeoms*j*n + n + i]);
+          } else {
+            fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
+            exit(EXIT_FAILURE);
+          }
+
+          dr[ngeoms*j] = r_pot_file[ngeoms*j*n + 1] - r_pot_file[ngeoms*j*n + 0]; // r spacing
+          
+          // print pot[atom].dat to save a copy of the potential used internally by this run
+          sprintf (str, "pot");
+          for (int strnum = 0; strnum < 3; strnum++){
+            if(atype[strnum] == '\0') break;
+            strncat(str, &atype[strnum], 1);
+          }
+          strcat(str, "_cubic_SR.dat");
+
+          pf = fopen(str , "w");
+          for (i = 0; i < pot_file_lens[ngeoms*j]; i++) fprintf (pf,"%g %g\n",r_pot_file[ngeoms*j*n + i],pot_for_atom[ngeoms*j*n + i]);
+          fclose(pf);
+
+          // ***** LONG RANGE ***** ***** LONG RANGE ***** ***** LONG RANGE *****
+          // The LR potential file name is pot[atype]_[geom1]_LR.dat
+          sprintf (str, "pot");
+          for (int strnum = 0; strnum < 3; strnum++){  
+            if(atype[strnum]=='\0') break;
+            strncat(str,&atype[strnum],1);
+          }
+          strcat(str, "_cubic_LR.par");
+
+          pf = fopen(str , "r");
+          if (pf != NULL) {
+            for (iscan = 0, i = 0; iscan != EOF; i++) {
+              // The short range potential gets stored in r_pot_file_LR and pot_for_atom_LR
+              iscan = fscanf (pf, "%lg %lg", &r_pot_file_LR[ngeoms*j*n + i], &pot_for_atom_LR[ngeoms*j*n + i]);
+            }
+            fclose(pf);
+            i--;
+            printf("%s ",str); 
+
+          } else {
+            fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
+            exit(EXIT_FAILURE);
+          }
+
+          dr_check = r_pot_file_LR[ngeoms*j*n + 1] - r_pot_file_LR[ngeoms*j*n + 0];
+          if ((dr_check != dr[ngeoms*j]) || (i != pot_file_lens[ngeoms*j]) ){
+            fprintf(stderr, "ERROR: short and long range pseudopotential files have different r-spacing or length\n");
+            exit(EXIT_FAILURE);
+          }
+          
+          // print pot[atom]_LR.dat to save a copy of the potential used internally by this run
+          sprintf (str, "pot");
+          for (int strnum = 0; strnum < 3; strnum++){
+            if(atype[strnum] == '\0') break;
+            strncat(str, &atype[strnum], 1);
+          }
+          strcat(str, "_cubic_LR.dat");
+
+          pf = fopen(str , "w");
+          for (i = 0; i < pot_file_lens[ngeoms*j]; i++) fprintf (pf,"%g %g\n",r_pot_file_LR[ngeoms*j*n + i], pot_for_atom_LR[ngeoms*j*n + i]);
+          fclose(pf);
+
+          // ******* ******* ******* ******* ******* ******* *******
+          // ORTHORHOMBIC (Or geom2)
+          // ******* ******* ******* ******* ******* ******* *******
+          // The SR potential file name is pot[atype]_[geom2]_SR.dat
+          sprintf (str, "pot");
+          for (int strnum = 0; strnum < 3; strnum++){  
+            if(atype[strnum]=='\0') break;
+            strncat(str,&atype[strnum],1);
+          }
+          strcat(str, "_ortho_SR.par");
+
+          pf = fopen(str , "r");
+          if (pf != NULL) {
+            for (iscan = 0; iscan != EOF; pot_file_lens[ngeoms*j + 1]++) {
+              // The short range potential gets stored in r_pot_file and pot_file_lens
+              iscan = fscanf (pf, "%lg %lg", &r_pot_file[ngeoms*j*n + n + pot_file_lens[j]], &pot_for_atom[ngeoms*j*n + n + pot_file_lens[j]]);
+            }
+            fclose(pf);
+
+            pot_file_lens[ngeoms*j+1]--;
+            printf("%s ",str); 
+
+          } else {
+            fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
+            exit(EXIT_FAILURE);
+          }
+
+          dr[ngeoms*j + 1] = r_pot_file[ngeoms*j*n + n + 1] - r_pot_file[ngeoms*j*n + n + 0]; // r spacing
+          
+          // print pot[atom].dat to save a copy of the potential used internally by this run
+          sprintf (str, "pot");
+          for (int strnum = 0; strnum < 3; strnum++){
+            if(atype[strnum] == '\0') break;
+            strncat(str, &atype[strnum], 1);
+          }
+          strcat(str, "_ortho_SR.dat");
+
+          pf = fopen(str , "w");
+          for (i = 0; i < pot_file_lens[ngeoms*j + 1]; i++) fprintf (pf,"%g %g\n",r_pot_file[ngeoms*j*n + n + i],pot_for_atom[ngeoms*j*n + n + i]);
+          fclose(pf);
+
+          // ***** LONG RANGE ***** ***** LONG RANGE ***** ***** LONG RANGE *****
+          // The LR potential file name is pot[atype]_[geom2]_LR.dat
+          sprintf (str, "pot");
+          for (int strnum = 0; strnum < 3; strnum++){  
+            if(atype[strnum]=='\0') break;
+            strncat(str,&atype[strnum],1);
+          }
+          strcat(str, "_ortho_LR.par");
+
+          pf = fopen(str , "r");
+          if (pf != NULL) {
+            for (iscan = 0, i = 0; iscan != EOF; i++) {
+              // The short range potential gets stored in r_pot_file_LR and pot_for_atom_LR
+              iscan = fscanf (pf, "%lg %lg", &r_pot_file_LR[ngeoms*j*n + n + i], &pot_for_atom_LR[ngeoms*j*n + n + i]);
+            }
+            fclose(pf);
+            i--;
+            printf("%s ",str); 
+
+          } else {
+            fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
+            exit(EXIT_FAILURE);
+          }
+
+          dr_check = r_pot_file_LR[ngeoms*j*n + n + 1] - r_pot_file_LR[ngeoms*j*n + n + 0];
+          if ((dr_check != dr[ngeoms*j + 1]) || (i != pot_file_lens[ngeoms*j + 1]) ){
+            fprintf(stderr, "ERROR: short and long range pseudopotential files have different r-spacing or length\n");
+            exit(EXIT_FAILURE);
+          }
+          
+          // print pot[atom]_LR.dat to save a copy of the potential used internally by this run
+          sprintf (str, "pot");
+          for (int strnum = 0; strnum < 3; strnum++){
+            if(atype[strnum] == '\0') break;
+            strncat(str, &atype[strnum], 1);
+          }
+          strcat(str, "_ortho_LR.dat");
+
+          pf = fopen(str , "w");
+          for (i = 0; i < pot_file_lens[ngeoms*j + 1]; i++) fprintf (pf,"%g %g\n", r_pot_file_LR[ngeoms*j*n + n + i], pot_for_atom_LR[ngeoms*j*n + n + i]);
+          fclose(pf);
         }
-        fclose(pf);
-      
       }
     }
   }

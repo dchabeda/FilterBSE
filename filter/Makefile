@@ -26,7 +26,7 @@ CYGWIN_NT-6.3_OPTFLAGS = -O3 -ffast-math
 CYGWIN_NT-6.3_CFLAGS = $(${OS}_OPTFLAGS) -DFFT_FFTW
 CYGWIN_NT-6.3_FFLAGS = $(${OS}_OPTFLAGS) 
 
-MAINNAM = spinorFilter
+MAINNAM = Filter
 
 #compiler ...
 Linux_CC = icx
@@ -37,9 +37,9 @@ CYGWIN_NT-6.3_FF = gfortran
 CYGWIN_NT-6.3_LD = gcc
 
 OBJECTS = \
-	main.o init.o size.o norm.o nerror.o coeff.o read.o save.o interpolate.o \
-	ortho.o energy.o hamiltonian.o filter.o Hmat.o dipole.o rand.o \
-	projectors.o pseudopotential.o write.o
+	main.o read.o init.o save.o size.o projectors.o norm.o rand.o interpolate.o \
+	energy.o coeff.o hamiltonian.o filter.o ortho.o Hmat.o write.o nerror.o \
+        dipole.o angular.o pseudopotential.o
 
 TESTOBJECTS = \
 	      testmain.o angular.o norm.o nerror.o write.o init.o size.o rand.o\

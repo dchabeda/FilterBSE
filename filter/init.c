@@ -279,12 +279,11 @@ void build_local_pot(double *pot_local, double *r_pot_file, double *r_pot_file_L
   // ****** ****** ****** ****** ****** ******
   printf("\tReading atomic pseudopotentials...\n"); fflush(0);
   read_pot(r_pot_file, r_pot_file_LR, pot_for_atom, pot_for_atom_LR, pot_file_lens, dr, R, atom, ist, par, flag);
-  printf("\n\tdone\n"); fflush(0);
   
   // ****** ****** ****** ****** ****** ****** 
   // Construct pseudopotential on grid
   // ****** ****** ****** ****** ****** ******
-  printf("\tConstructing total pseudopotential on the grid...\n"); fflush(0);
+  printf("\tConstructing total pseudopotential on the grid...\n");
 
   omp_set_dynamic(0);
   omp_set_num_threads(parallel->nthreads);
@@ -301,13 +300,13 @@ void build_local_pot(double *pot_local, double *r_pot_file, double *r_pot_file_L
       	  del = sqrt(dx * dx + dy * dy + dz * dz);
 
           if (flag->interpolatePot == 1){
-            if ((jxyz == 0)&& (jatom == 0)) printf("\tComputing interpolated cubic/ortho potential\n"); fflush(0);
+            if ((jxyz == 0)&& (jatom == 0)) printf("\tComputing interpolated cubic/ortho potential\n"); 
             //cubic part of the function
             sum += (1.0-atom[jatom].geom_par)*interpolate(del,dr[2*atom[jatom].idx],r_pot_file,r_pot_file_LR,pot_for_atom,pot_for_atom_LR,ist->max_pot_file_len,pot_file_lens[2*atom[jatom].idx],2*atom[jatom].idx,scale_LR,atom[jatom].LR_par);
             //ortho part of the function
             sum += (atom[jatom].geom_par)*interpolate(del,dr[2*atom[jatom].idx+1],r_pot_file,r_pot_file_LR,pot_for_atom,pot_for_atom_LR,ist->max_pot_file_len,pot_file_lens[2*atom[jatom].idx+1],2*atom[jatom].idx+1,scale_LR,atom[jatom].LR_par);
           } else {
-            if ((jxyz == 0)&& (jatom == 0)) printf("\tComputing potential without interpolating over cubic/ortho parameters\n\n"); fflush(0);
+            if ((jxyz == 0)&& (jatom == 0)) printf("\tComputing potential without interpolating over cubic/ortho parameters\n\n"); 
       	    sum += interpolate(del,dr[atom[jatom].idx],r_pot_file,r_pot_file_LR,pot_for_atom,pot_for_atom_LR,ist->max_pot_file_len,pot_file_lens[atom[jatom].idx],atom[jatom].idx,scale_LR,atom[jatom].LR_par);
           }
       	}

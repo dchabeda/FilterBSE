@@ -77,6 +77,13 @@ void normalize_all(double *psitot, double dv, long ms, long ngrid, long nthreads
   * outputs: [double] the norm                                       *
   ********************************************************************/
 
+  // NOTE: If your calculation fails with error "norm is 0/NaN!", then  
+  // check what the calculated energy range of the Hamiltonian is in your calculation.
+  // If the range is very small, then it likely means that the energy min was not
+  // found by the algorithm. You can track the iterative convergence of E_min in the file
+  // Emin-init.dat. To better ensure convergence of the E_min, decrease the value of the tau
+  // parameter in get_energy_range energy.c
+
   long jgrid, jgrid_real, jgrid_imag, ie, ieg;
   double norm;
   //printf("This is dv coming into normalize: %g\n", dv);

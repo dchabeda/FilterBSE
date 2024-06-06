@@ -20,15 +20,16 @@ int main(int argc, char *argv[]){
   fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi; 
   long fft_flags=0;
   // custom structs 
-  grid_st grid; par_st par; index_st ist; parallel_st parallel; flag_st flag;
-  xyz_st *R; atom_info *atom; nlc_st *nlc = NULL; 
+  flag_st flag; index_st ist; par_st par; atom_info *atom; 
+  pot_st pot; grid_st grid; xyz_st *R; nlc_st *nlc = NULL; 
+  parallel_st parallel; 
   // double arrays
   double *psitot;
   double *ksqr, *zn, *pot_local, *rho; 
   double *eig_vals, *ene_targets, *sigma_E, inital_clock_t, initial_wall_t;
-  double *dr, *r_pot_file, *r_pot_file_LR = NULL, *pot_for_atom, *pot_for_atom_LR = NULL, *SO_projectors; 
+  double *SO_projectors; 
   // long int arrays and counters
-  long *pot_file_lens, *nl = NULL;
+  long *nl = NULL;
   long jstate, jgrid, jgrid_real, jgrid_imag, jspin, jms, jns, rand_seed, thread_id;
   
   // Clock/Wall time output and stdout formatting
@@ -48,8 +49,8 @@ int main(int argc, char *argv[]){
   // Initialize job from input file
   
   write_separation(stdout, top);
-  printf("\n1.\tINITIALIZING JOB\n"); fflush(0);
-  write_separation(stdout, bottom);
+  printf("\n1.\tINITIALIZING JOB\n");
+  write_separation(stdout, bottom); fflush(stdout);
 
   /*** read initial setup from input.par ***/
   printf("\nReading job specifications from input.par:\n");
@@ -112,17 +113,17 @@ int main(int argc, char *argv[]){
   planbw = fftw_plan_dft_3d(grid.nz, grid.ny, grid.nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
   
   // For reading the atomic potentials ***/
-  dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
-  r_pot_file = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+  pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
+  pot.r = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
   if (1.0 != par.scale_surface_Cs){
     // allocate memory for separately read LR potentials if the surface atoms will be charge balanced
-    r_pot_file_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+    pot.r_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
   }
-  pot_for_atom = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+  pot.pseudo = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
   if (1.0 != par.scale_surface_Cs){
-    pot_for_atom_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+    pot.pseudo_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
   }
-  pot_file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
+  pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
   
   // Wavefunction-type objects
   if ((psi = (zomplex *)calloc(ist.nspinngrid, sizeof(zomplex))) == NULL){
@@ -133,9 +134,6 @@ int main(int argc, char *argv[]){
   }
   if ((pot_local = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
     fprintf(stderr, "\nOUT OF MEMORY: pot_local\n\n"); exit(EXIT_FAILURE);
-  }
-  if ((rho = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
-    fprintf(stderr, "\nOUT OF MEMORY: rho\n\n"); exit(EXIT_FAILURE);
   }
   
   // For Newton interpolation coefficients
@@ -181,13 +179,17 @@ int main(int argc, char *argv[]){
       printf("\nInitializing potentials...\n");
       
       printf("\nLocal pseudopotential:\n");
-      build_local_pot(pot_local, r_pot_file, r_pot_file_LR, pot_for_atom, pot_for_atom_LR, pot_file_lens,
-          dr, R, ksqr, atom, &grid, &ist, &par, &flag, &parallel);
+      build_local_pot(pot_local, &pot, R, ksqr, atom, &grid, &ist, &par, &flag, &parallel);
       
-      free(r_pot_file); r_pot_file = NULL; free(r_pot_file_LR); r_pot_file_LR = NULL;
-      free(dr); dr = NULL; 
-      free(pot_for_atom); pot_for_atom = NULL; free(pot_for_atom_LR); pot_for_atom_LR = NULL; 
-      free(pot_file_lens); pot_file_lens = NULL;
+      free(pot.r); pot.r = NULL; 
+      free(pot.pseudo); pot.pseudo = NULL; 
+      free(pot.dr); pot.dr = NULL; 
+      free(pot.file_lens); pot.file_lens = NULL;
+      if (1.0 != par.scale_surface_Cs){
+        free(pot.r_LR); pot.r_LR = NULL;
+        free(pot.pseudo_LR); pot.pseudo_LR = NULL; 
+      }
+      
 
       write_cube_file(pot_local, &grid, "localPot.cube");
       
@@ -209,8 +211,8 @@ int main(int argc, char *argv[]){
       /**************************************************************************/
       /*** calculate the energy range of the hamitonian ***/
       write_separation(stdout, top);
-      printf("\n2. CALCULATING HAMILTONIAN ENERGY RANGE...\n"); fflush(0);
-      write_separation(stdout, bottom);
+      printf("\n2. CALCULATING HAMILTONIAN ENERGY RANGE...\n");
+      write_separation(stdout, bottom); fflush(stdout);
 
       inital_clock_t = (double)clock(); 
       initial_wall_t = (double)time(NULL);
@@ -220,13 +222,17 @@ int main(int argc, char *argv[]){
       printf("\ndone calculate energy range, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
       fflush(stdout);
+
+      // Free dynamically allocated memory that will no longer be used
+      free(phi); phi = NULL;
+      free(psi); psi = NULL;
     
       /**************************************************************************/
       // FILTER ALGORITHM
       /**************************************************************************/
       write_separation(stdout, top);
-      printf("\n3. GENERATING COEFFICIENTS\n"); fflush(0);
-      write_separation(stdout, bottom);
+      printf("\n3. GENERATING COEFFICIENTS\n");
+      write_separation(stdout, bottom); fflush(stdout);
       
       /*** set parameters for the newton interpolation ***/
       par.dt = sqr((double)(ist.ncheby) / (2.5*par.dE));
@@ -249,8 +255,8 @@ int main(int argc, char *argv[]){
         par.checkpoint_id = 0;
         write_separation(stdout, top);
         printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
-        write_separation(stdout, bottom);
-        printf("\n");
+        write_separation(stdout, bottom); 
+        printf("\n"); fflush(stdout);
 
         save_job_state("checkpoint_0.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       }
@@ -261,7 +267,7 @@ int main(int argc, char *argv[]){
         par.checkpoint_id = flag.restartFromCheckpoint;
         write_separation(stdout, top);
         printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
-        write_separation(stdout, bottom);
+        write_separation(stdout, bottom); fflush(stdout);
         
         restart_from_save("checkpoint_0.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       } 
@@ -270,12 +276,13 @@ int main(int argc, char *argv[]){
       /*** start filtering loop.  we run over n_filter_cycles cycles and calculate ***/
       /*** m_states_per_filter filtered states at each cycle ***/
       write_separation(stdout, top);
-      printf("\n4. STARTING FILTERING\n"); fflush(0);
-      write_separation(stdout, bottom);
+      printf("\n4. STARTING FILTERING\n");
+      write_separation(stdout, bottom); 
 
       printf("\nEnergy width, sigma, of filter function = %.6g a.u.\n", sqrt(1 / (2*par.dt)));
       printf("Suggested max span of spectrum for filtering = %.6g a.u.\n", ist.m_states_per_filter * sqrt(1 / (2*par.dt)));
-      
+      printf("Requested span of spectrum to filter = %.6g a.u.\n", (ene_targets[par.n_targets_VB] - ene_targets[0]) + (ene_targets[par.n_targets_VB+par.n_targets_CB] - ene_targets[par.n_targets_VB+1]));
+      fflush(stdout);
 
       for (jns = 0; jns < ist.n_filter_cycles; jns++) {
         for (jspin = 0; jspin < ist.nspin; jspin++) {
@@ -333,7 +340,7 @@ int main(int argc, char *argv[]){
         write_separation(stdout, top);
         printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
         write_separation(stdout, bottom);
-        printf("\n");
+        printf("\n"); fflush(stdout);
 
         save_job_state("checkpoint_1.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       }
@@ -343,7 +350,7 @@ int main(int argc, char *argv[]){
         par.checkpoint_id = flag.restartFromCheckpoint;
         write_separation(stdout, top);
         printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
-        write_separation(stdout, bottom);
+        write_separation(stdout, bottom); fflush(stdout);
         
         restart_from_save("checkpoint_1.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       }
@@ -352,12 +359,12 @@ int main(int argc, char *argv[]){
       /*** orthogonalize and normalize the filtered states using an svd routine ***/
       
       write_separation(stdout, top);
-      printf("\n5. ORTHOGONALIZATING FILTERED STATES\n"); fflush(0);
-      write_separation(stdout, bottom);
+      printf("\n5. ORTHOGONALIZATING FILTERED STATES\n"); 
+      write_separation(stdout, bottom); fflush(stdout);
 
       inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
       ist.mn_states_tot = ortho(psitot, grid.dv, &ist, &par, &flag);
-      printf("mn_states_tot ortho = %ld\n", ist.mn_states_tot); fflush(0);
+      printf("mn_states_tot ortho = %ld\n", ist.mn_states_tot); 
 
       normalize_all(&psitot[0],grid.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
       
@@ -368,8 +375,8 @@ int main(int argc, char *argv[]){
       if (1 == flag.saveCheckpoints){
         write_separation(stdout, top);
         printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
-        write_separation(stdout, bottom);
-        printf("\n");
+        write_separation(stdout, bottom); 
+        printf("\n"); fflush(stdout);
 
         save_job_state("checkpoint_2.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       }
@@ -379,7 +386,7 @@ int main(int argc, char *argv[]){
         par.checkpoint_id = flag.restartFromCheckpoint;
         write_separation(stdout, top);
         printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
-        write_separation(stdout, bottom);
+        write_separation(stdout, bottom); fflush(stdout);
         
         restart_from_save("checkpoint_2.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       }
@@ -389,8 +396,8 @@ int main(int argc, char *argv[]){
       /*** orthogonal filtered states, generating the eigenstates of the ***/
       /*** hamiltonian within the desired energy range ***/
       write_separation(stdout, top);
-      printf("\n6. DIAGONALIZING HAMILTONIAN\n"); fflush(0);
-      write_separation(stdout, bottom);
+      printf("\n6. DIAGONALIZING HAMILTONIAN\n"); 
+      write_separation(stdout, bottom); fflush(stdout);
       
       inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
       diag_H(psi,phi,psitot,pot_local,nlc,nl,ksqr,eig_vals,&ist,&par,&flag,planfw,planbw,fftwpsi);
@@ -403,7 +410,7 @@ int main(int argc, char *argv[]){
       if (1 == flag.saveCheckpoints){
         write_separation(stdout, top);
         printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
-        write_separation(stdout, bottom);
+        write_separation(stdout, bottom); fflush(stdout);
         printf("\n");
 
         save_job_state("checkpoint_3.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
@@ -414,7 +421,7 @@ int main(int argc, char *argv[]){
         par.checkpoint_id = flag.restartFromCheckpoint;
         write_separation(stdout, top);
         printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
-        write_separation(stdout, bottom);
+        write_separation(stdout, bottom); fflush(stdout);
         
         restart_from_save("checkpoint_3.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       }
@@ -423,10 +430,14 @@ int main(int argc, char *argv[]){
       /*** calculate the standard deviation of these states ***/
       /*** this is used to check if there are ghost states ***/
       write_separation(stdout, top);
-      printf("\n7. CALCULATING VARIANCE OF EIGENVALUES\n"); fflush(0);
-      write_separation(stdout, bottom);
+      printf("\n7. CALCULATING VARIANCE OF EIGENVALUES\n");
+      write_separation(stdout, bottom); fflush(stdout);
       
       calc_sigma_E(psi, phi, psitot, pot_local, nlc, nl, ksqr, sigma_E, &ist, &par, &flag, planfw, planbw, fftwpsi);
+
+      // Free memory for arrays that will no longer be used, increases available RAM for program operation
+      free(ene_targets); ene_targets = NULL;
+      free(ksqr); ksqr = NULL;
 
       /*** write the eigenstates/energies to a file ***/
       if (flag.getAllStates == 1) {printf("getAllStates flag on\nWriting all eigenstates to disk\n");}
@@ -450,7 +461,7 @@ int main(int argc, char *argv[]){
             fclose(ppsi);
           }
         }
-
+        // Write output in the case that
         else{
           long eig = 0;
           // Write only the eigenstates having variance less than 0.1 to disk (remove ghost states)
@@ -507,8 +518,8 @@ int main(int argc, char *argv[]){
       }
 
       write_separation(stdout, top);
-      printf("\nCALCULATING OPTIONAL OUTPUT\n"); fflush(0);
-      write_separation(stdout, bottom);
+      printf("\nCALCULATING OPTIONAL OUTPUT\n"); 
+      write_separation(stdout, bottom); fflush(stdout);
 
       long i, a, ieof, nval;
       char str[50];
@@ -545,12 +556,15 @@ int main(int argc, char *argv[]){
         /*** Write homo and lumo cube files ***/
         
         write_separation(stdout, top);
-        printf("\nWRITING CUBE FILES\n"); fflush(0);
-        write_separation(stdout, bottom);
+        printf("\nWRITING CUBE FILES\n"); 
+        write_separation(stdout, bottom); fflush(stdout);
 
         if ((ist.homo_idx == 0) || (ist.lumo_idx == 0)){
           printf("\nDid not converge enough electron or hole states to visualize cube files.\n");
         } else{
+        if ((rho = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
+          fprintf(stderr, "\nOUT OF MEMORY: rho\n\n"); exit(EXIT_FAILURE);
+        }
 
         inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
 
@@ -602,6 +616,7 @@ int main(int argc, char *argv[]){
             write_cube_file(rho, &grid, str);
           }
         }
+        free(rho);
 
         printf("\ndone calculating cubes, CPU time (sec) %g, wall run time (sec) %g\n",
           ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t);
@@ -611,14 +626,14 @@ int main(int argc, char *argv[]){
 
         write_separation(stdout, top);
         printf("\nCALCULATING POTENTIAL MATRIX ELEMENTS\n"); fflush(0);
-        write_separation(stdout, bottom);
+        write_separation(stdout, bottom); fflush(stdout);
 
         calc_pot_overlap(&psitot[0], pot_local, nlc, nl, eig_vals, &par, &ist, &flag);
       } 
       if (flag.calcSpinAngStat == 1) {
         write_separation(stdout, top);
-        printf("\nCALCULATING SPIN & ANG. MOM. STATISTICS\n"); fflush(0);
-        write_separation(stdout, bottom);
+        printf("\nCALCULATING SPIN & ANG. MOM. STATISTICS\n"); 
+        write_separation(stdout, bottom); fflush(stdout);
 
         calc_angular_exp(psitot, &grid,0, ist.mn_states_tot, &ist, &par, &flag, &parallel, planfw, planbw, fftwpsi);
       
@@ -630,11 +645,11 @@ int main(int argc, char *argv[]){
 
       /*************************************************************************/
       /*** free memory ***/
-      free(psitot); free(phi); free(psi); free(pot_local); free(eig_vals); free(an); free(zn);
+      free(psitot); free(pot_local); free(eig_vals); free(an); free(zn);
       free(sigma_E); 
-      free(ene_targets); free(ksqr); free(grid.x); free(grid.y); free(grid.z); free(R); 
+      free(grid.x); free(grid.y); free(grid.z); free(R); 
       free(atom);
-      free(nlc); free(nl); free(rho);
+      free(nlc); free(nl); 
 
 
       fftw_destroy_plan(planfw);

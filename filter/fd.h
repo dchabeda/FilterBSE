@@ -16,45 +16,13 @@
 /*****************************************************************************/
 // Application specific structures
 
-typedef fftw_plan fftw_plan_loc;
-
-typedef struct zomplex {
-  double re, im;
-} zomplex;
-
-typedef struct grid {
-  double *x, *y, *z; // stores the value of the grid points
-  double dx, dy, dz, dr, dv, dkx, dky, dkz;
-  double xmin, xmax, ymin, ymax, zmin, zmax;
-  long nx, ny, nz;
-  double nx_1, ny_1, nz_1;
-  // Redundancies
-  long ngrid;
-} grid_st;
-
 typedef struct flag {
-  int centerConf, setTargets, setSeed, interpolatePot;
+  int centerConf, setTargets, setSeed, interpolatePot, useStrain;
   int SO, NL, useSpinors, isComplex;
   int printPsiFilt, printOrtho, printNorm, printCubes;
   int calcPotOverlap, getAllStates, timeHamiltonian, calcSpinAngStat;
   int retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint;
 } flag_st;
-
-typedef struct par {
-  double Vmin, Vmax, VBmin, VBmax, CBmin, CBmax;
-  double scale_surface_Cs;
-  long n_targets_VB, n_targets_CB;
-  long rand_seed;
-  double KE_max, fermi_E, dt, dE, dE_1;
-  double R_NLcut2, sigma_E_cut;
-  int t_rev_factor;
-  int checkpoint_id;
-  int useStrain;
-
-  // Redundnacies
-  double dv;
-} par_st;
-
 
 typedef struct index {
   long m_states_per_filter, n_filter_cycles, mn_states_tot;
@@ -65,14 +33,26 @@ typedef struct index {
   long max_pot_file_len, n_NL_gridpts, n_NL_atoms, nproj;
   int nspin, ncubes, ngeoms;
   int complex_idx;
+  int crystal_structure_int, outmost_material_int;
   // Redundancies
   long nx, ny, nz;
   long nthreads;
 } index_st;
 
-typedef struct parallel{
-  long nthreads;
-} parallel_st;
+typedef struct par {
+  double Vmin, Vmax, VBmin, VBmax, CBmin, CBmax;
+  double scale_surface_Cs;
+  long n_targets_VB, n_targets_CB;
+  long rand_seed;
+  double KE_max, fermi_E, dt, dE, dE_1;
+  double R_NLcut2, sigma_E_cut;
+  int t_rev_factor;
+  int checkpoint_id;
+  char *crystalStructure = NULL, *outmostMaterial = NULL;
+  // Redundnacies
+  double dv;
+} par_st;
+
 
 typedef struct atom_info {
   long idx;
@@ -89,6 +69,30 @@ typedef struct st10 {
   double SO[2], NL1[2], NL2[2];
 } coeff_st;
 
+typedef struct grid {
+  double *x, *y, *z; // stores the value of the grid points
+  double dx, dy, dz, dr, dv, dkx, dky, dkz;
+  double xmin, xmax, ymin, ymax, zmin, zmax;
+  long nx, ny, nz;
+  double nx_1, ny_1, nz_1;
+  // Redundancies
+  long ngrid;
+} grid_st;
+
+typedef struct pot_st {
+  double *r, *r_LR;
+  double *pseudo, *pseudo_LR;
+  double *dr;
+  long *file_lens;
+  double *a4_params, *a5_params;
+} pot_st;
+
+
+typedef struct zomplex {
+  double re, im;
+} zomplex;
+
+
 typedef struct st11 {
   long jxyz;
   zomplex y1[3];
@@ -97,6 +101,13 @@ typedef struct st11 {
   int NL_proj_sign[5];
   double r, r2_1, r2, Vr;
 } nlc_st;
+
+typedef fftw_plan fftw_plan_loc;
+
+typedef struct parallel{
+  long nthreads;
+} parallel_st;
+
 
 
 /*****************************************************************************/
@@ -145,28 +156,26 @@ typedef struct st11 {
 //init.c
 void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par);
 void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_st *par);
-void build_local_pot(double *pot_local, double *r_pot_file, double *r_pot_file_LR, double *pot_for_atom, double *pot_for_atom_LR, long *pot_file_lens, double *dr, xyz_st *R,
-  double *ksqr, atom_info *atom, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
+void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, atom_info *atom, grid_st *grid,
+    index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *flag);
 void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par);
 void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag);
 void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, parallel_st *parallel);
+double calc_dot_dimension(double *R, long n);
 
 
 //read.c
 void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);
 void read_conf(xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag);
-void read_pot(double *r_pot_file, double *r_pot_file_LR, double *pot_for_atom, double *pot_for_atom_LR, long *pot_file_lens, double *dr, xyz_st *R,
-  atom_info *atom, index_st *ist, par_st *par, flag_st *flag);
+void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag);
 void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par);
 void calc_geom_par(xyz_st *R,atom_info *atm, index_st *ist );
 double calc_bond_angle(long index1,long index2,long index3, xyz_st *R);
 long assign_atom_number(char atyp[3]);
 void assign_atom_type(char *atype,long j);
 long get_number_of_atom_types(atom_info *atm,index_st *ist, long *list);
-
-//size.c
-double get_dot_ligand_size_z(double *R, long n);
+double get_ideal_bond_len(long natyp_1, long natyp_2, int crystalStructureInt);
 
 //interpolate.c
 double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,double *pot_LR,long potFileLen,long n,long j, int scale_LR, double scale_LR_par);

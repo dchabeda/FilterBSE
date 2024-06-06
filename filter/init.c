@@ -1,5 +1,5 @@
 #include "fd.h"
-
+#include "vector.h"
 
 /*****************************************************************************/
 
@@ -20,9 +20,9 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par){
   long ntmp; 
   double xd, yd, zd;
 
-  xd = rint(0.5 * get_dot_ligand_size_z(&R->x, ist->natoms) + 5.0);
-  yd = rint(0.5 * get_dot_ligand_size_z(&R->y, ist->natoms) + 5.0);
-  zd = rint(0.5 * get_dot_ligand_size_z(&R->z, ist->natoms) + 5.0);
+  xd = rint(0.5 * calc_dot_dimension(&R->x, ist->natoms) + 5.0);
+  yd = rint(0.5 * calc_dot_dimension(&R->y, ist->natoms) + 5.0);
+  zd = rint(0.5 * calc_dot_dimension(&R->z, ist->natoms) + 5.0);
   
   printf("\tMin. required box dimension for each direction (Bohr):\n");
   printf("\t-----------------------------------------------------\n");
@@ -247,8 +247,8 @@ void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *f
 
 
 /*****************************************************************************/
-void build_local_pot(double *pot_local, double *r_pot_file, double *r_pot_file_LR, double *pot_for_atom, double *pot_for_atom_LR, long *pot_file_lens, double *dr, xyz_st *R,
-  double *ksqr, atom_info *atom, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, atom_info *atom,
+    grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function calculates the local potential at all gridpoints.  *
   * inputs:                                                          *
@@ -277,9 +277,20 @@ void build_local_pot(double *pot_local, double *r_pot_file, double *r_pot_file_L
   // ****** ****** ****** ****** ****** ****** 
   // Read atomic pseudopotentials
   // ****** ****** ****** ****** ****** ******
-  printf("\tReading atomic pseudopotentials...\n"); fflush(0);
-  read_pot(r_pot_file, r_pot_file_LR, pot_for_atom, pot_for_atom_LR, pot_file_lens, dr, R, atom, ist, par, flag);
+  printf("\tReading atomic pseudopotentials...\n"); 
+  read_pot(pot, R, atom, ist, par, flag);
   
+  // ****** ****** ****** ****** ****** ****** 
+  // Calculate strain_scale for atomic pots
+  // ****** ****** ****** ****** ****** ******
+	if ((atomNeighborList = (vector *) calloc(4*ntot, sizeof(vector))) == NULL) nerror("atomNeighborList");
+	if ((strainScale = (double *) calloc(ntot, sizeof(double))) == NULL) nerror("strainScale");
+	if ((volRef = (double *) calloc(ntot, sizeof(double))) == NULL) nerror("volRef");
+
+  readNearestNeighbors(ntot, crystalStructureInt, atomNeighborList, volRef, outmostMaterialInt);
+	calculateStrainScale(ntot, volRef, atm, atomNeighborList, a4Params, a5Params, strainScale);
+	free(atomNeighborList); free(volRef); free(a4Params); free(a5Params);
+
   // ****** ****** ****** ****** ****** ****** 
   // Construct pseudopotential on grid
   // ****** ****** ****** ****** ****** ******
@@ -302,12 +313,12 @@ void build_local_pot(double *pot_local, double *r_pot_file, double *r_pot_file_L
           if (flag->interpolatePot == 1){
             if ((jxyz == 0)&& (jatom == 0)) printf("\tComputing interpolated cubic/ortho potential\n"); 
             //cubic part of the function
-            sum += (1.0-atom[jatom].geom_par)*interpolate(del,dr[2*atom[jatom].idx],r_pot_file,r_pot_file_LR,pot_for_atom,pot_for_atom_LR,ist->max_pot_file_len,pot_file_lens[2*atom[jatom].idx],2*atom[jatom].idx,scale_LR,atom[jatom].LR_par);
+            sum += (1.0-atom[jatom].geom_par)*interpolate(del,pot->dr[2*atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,pot->file_lens[2*atom[jatom].idx],2*atom[jatom].idx,scale_LR,atom[jatom].LR_par);
             //ortho part of the function
-            sum += (atom[jatom].geom_par)*interpolate(del,dr[2*atom[jatom].idx+1],r_pot_file,r_pot_file_LR,pot_for_atom,pot_for_atom_LR,ist->max_pot_file_len,pot_file_lens[2*atom[jatom].idx+1],2*atom[jatom].idx+1,scale_LR,atom[jatom].LR_par);
+            sum += (atom[jatom].geom_par)*interpolate(del,pot->dr[2*atom[jatom].idx+1],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,pot->file_lens[2*atom[jatom].idx+1],2*atom[jatom].idx+1,scale_LR,atom[jatom].LR_par);
           } else {
             if ((jxyz == 0)&& (jatom == 0)) printf("\tComputing potential without interpolating over cubic/ortho parameters\n\n"); 
-      	    sum += interpolate(del,dr[atom[jatom].idx],r_pot_file,r_pot_file_LR,pot_for_atom,pot_for_atom_LR,ist->max_pot_file_len,pot_file_lens[atom[jatom].idx],atom[jatom].idx,scale_LR,atom[jatom].LR_par);
+      	    sum += interpolate(del,pot->dr[atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,pot->file_lens[atom[jatom].idx],atom[jatom].idx,scale_LR,atom[jatom].LR_par);
           }
       	}
       	pot_local[jxyz] = sum;
@@ -548,6 +559,31 @@ void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, paral
   (*rand_seed) = randint;
 
   return;
+}
+
+/***************************************************************************/
+
+double calc_dot_dimension(double *R, long n_atoms){
+  /*******************************************************************
+  * This function calculates the size of the NC along one dimension  *
+  * inputs:                                                          *
+  *  [R] array of coordinates along one dimension                    *
+  *  [n_atoms] number of atoms in geometry                           *
+  * outputs: [double] distance between atoms in a.u.                 *
+  ********************************************************************/
+
+  long i, j;
+  double dr2, dis2;
+  
+  dr2 = 0.0;
+  for (i = 0; i < n_atoms-1; i++){
+    for (j = i+1; j < n_atoms; j++){
+      dis2 = sqr(R[i]-R[j]);
+      if (dis2 > dr2) dr2 = dis2;
+    }
+  }
+
+  return sqrt(dr2);
 }
 
 /*****************************************************************************/

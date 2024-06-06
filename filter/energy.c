@@ -122,7 +122,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
   long i, ispn, jgrid; 
   long rand_seed = -874917403;
   double ene_old; 
-  double norma, Emin, Emax, tau = 0.15; //tau = 0.025
+  double norma, Emin, Emax, tau = 0.05; //tau = 0.025
   long max_iter = 500;
   
   // Find E_min
@@ -132,7 +132,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
     init_psi(&phi[ispn*ist->ngrid], &rand_seed, flag->isComplex, grid, parallel);
   }
   
-  Emin = (ene_old = 0.0) + 0.1; // 
+  Emin = (ene_old = 0.0) + 10.0; // 
   for (i = 0; (fabs((Emin - ene_old) / Emin) > 1.0e-6) && (i < max_iter) ; i++){
     // Apply the Hamiltonian, shift orig by |phi>, and normalize (equivalent to forward imag. time propagation step)
     memcpy(&psi[0], &phi[0], ist->nspinngrid*sizeof(phi[0]));
@@ -150,7 +150,13 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
     ene_old = Emin;
     Emin = energy(phi, psi, pot_local, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
     // print progress
-    fprintf(pf, "%ld %.16g %.16g %.16g\n", i, ene_old, Emin, norma); fflush(pf);
+    fprintf(pf, "%ld %.16g %.16g %.16g\n", i, ene_old, Emin, fabs((Emin - ene_old) / Emin)); fflush(pf);
+
+    if ((i > 5) && (Emin - ene_old) > 0){
+      printf("\nWarning: positive step in energy minimization. Check Emin-init.dat\n");
+      fprintf(pf, "Warning: positive step in energy minimization\n");
+      tau -= 0.025;
+    }
   }
   fclose(pf);
 
@@ -172,7 +178,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
     ene_old = Emax;
     Emax = energy(psi,phi,pot_local,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
     // print progress
-    fprintf (pf,"%ld %.16g %.16g %.16g\n", i, ene_old, Emax, norma); fflush(pf);
+    fprintf (pf,"%ld %.16g %.16g %.16g\n", i, ene_old, Emax, fabs((Emax-ene_old)/Emax)); fflush(pf);
   }
   fclose(pf);
 

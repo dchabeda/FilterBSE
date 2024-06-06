@@ -48,7 +48,8 @@ typedef struct par {
   double R_NLcut2, sigma_E_cut;
   int t_rev_factor;
   int checkpoint_id;
-  char *crystalStructure = NULL, *outmostMaterial = NULL;
+  char *crystal_structure = NULL; 
+  char *outmost_material = NULL;
   // Redundnacies
   double dv;
 } par_st;

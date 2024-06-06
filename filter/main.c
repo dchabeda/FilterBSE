@@ -170,7 +170,7 @@ int main(int argc, char *argv[]){
     }
   }
   
-  printf("\tdone allocating memory.\n");
+  printf("\tdone allocating memory.\n"); fflush(stdout);
 
   // The filter code supports restarting the job from a saved state. See save.c for formatting
   // of checkpoint files. See read_input in read.c for specifying the checkpoint restart

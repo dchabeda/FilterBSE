@@ -493,15 +493,6 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
   double a[4] = { 0.64, -0.384, 0.04, -0.684};
   double b[4] = {2.2287033, 2.2287033, 2.2287033, 2.2287033};
 
-  // Allocate memory for strain parameters if strain-dependent potentials are requested
-  if (1 == flag->useStrain){
-    if ((pot->a4_params = (double *) calloc(ngeoms * ntype, sizeof(pot->a4_params[0]))) == NULL){
-    fprintf(stderr, "\nOUT OF MEMORY: a4params\n\n"); exit(EXIT_FAILURE);
-    }
-    if ((pot->a5_params = (double *) calloc(ngeoms * ntype, sizeof(pot->a5_params[0]))) == NULL){
-    fprintf(stderr, "\nOUT OF MEMORY: a4params\n\n"); exit(EXIT_FAILURE);
-    }
-  }
 
   // The array pot->r contains the r values in the psuedopotential file
   // The array pot->pseudo contains the Vloc values in the pseudopotential file

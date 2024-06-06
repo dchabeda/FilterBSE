@@ -272,24 +272,44 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
   double del, dx, dy, dz;
   double sum;
   int scale_LR = 0;
+
+  // turn on the scale LR flag if surface Cs atoms will be scaled
   if (1.0 != par->scale_surface_Cs) scale_LR = 1;
-  
+  // Allocate memory for strain parameters if strain-dependent potentials are requested
+  if (1 == flag->useStrain){
+    if ((pot->a4_params = (double *) calloc(ist->ngeoms * ist->n_atom_types, sizeof(pot->a4_params[0]))) == NULL){
+    fprintf(stderr, "\nOUT OF MEMORY: a4params\n\n"); exit(EXIT_FAILURE);
+    }
+    if ((pot->a5_params = (double *) calloc(ist->ngeoms * ist->n_atom_types, sizeof(pot->a5_params[0]))) == NULL){
+    fprintf(stderr, "\nOUT OF MEMORY: a4params\n\n"); exit(EXIT_FAILURE);
+    }
+    if ((atomNeighborList = (vector *) calloc(4 * ist->natoms, sizeof(vector))) == NULL){
+      fprintf(stderr, "OUT OF MEMORY: atomNeighborList\n");
+      exit(EXIT_FAILURE);
+    }
+    if ((strainScale = (double *) calloc(ist->natoms, sizeof(double))) == NULL){
+      fprintf(stderr, "OUT OF MEMORY: strainScale\n");
+      exit(EXIT_FAILURE);
+    }
+    if ((volRef = (double *) calloc(ntot, sizeof(double))) == NULL){
+      fprintf(stderr, "OUT OF MEMORY: volRef\n");
+      exit(EXIT_FAILURE);
+    }
+  }
+
   // ****** ****** ****** ****** ****** ****** 
   // Read atomic pseudopotentials
   // ****** ****** ****** ****** ****** ******
   printf("\tReading atomic pseudopotentials...\n"); 
   read_pot(pot, R, atom, ist, par, flag);
   
+  
   // ****** ****** ****** ****** ****** ****** 
   // Calculate strain_scale for atomic pots
   // ****** ****** ****** ****** ****** ******
-	if ((atomNeighborList = (vector *) calloc(4*ntot, sizeof(vector))) == NULL) nerror("atomNeighborList");
-	if ((strainScale = (double *) calloc(ntot, sizeof(double))) == NULL) nerror("strainScale");
-	if ((volRef = (double *) calloc(ntot, sizeof(double))) == NULL) nerror("volRef");
-
-  readNearestNeighbors(ntot, crystalStructureInt, atomNeighborList, volRef, outmostMaterialInt);
-	calculateStrainScale(ntot, volRef, atm, atomNeighborList, a4Params, a5Params, strainScale);
-	free(atomNeighborList); free(volRef); free(a4Params); free(a5Params);
+  readNearestNeighbors(ist->natoms, ist->crystal_structure_int, atomNeighborList, volRef, ist->outmost_material_int);
+	calculateStrainScale(ist->natoms, volRef, atom, atomNeighborList, pot->a4_params, pot->a5_params, strainScale);
+	free(atomNeighborList); free(volRef); free(pot->a4_params); free(pot->a5_params);
 
   // ****** ****** ****** ****** ****** ****** 
   // Construct pseudopotential on grid

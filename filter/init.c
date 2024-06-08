@@ -271,10 +271,15 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
   long jx, jy, jz, jyz, jxyz, jatom;
   double del, dx, dy, dz;
   double sum;
+  vector *atom_neighbor_list;
+  double *strain_scale;
+  double *vol_ref;
+  double strain_factor = 1.0; // Default: when the strain factor is 1.0, it has no effect on the potential
   int scale_LR = 0;
 
   // turn on the scale LR flag if surface Cs atoms will be scaled
   if (1.0 != par->scale_surface_Cs) scale_LR = 1;
+
   // Allocate memory for strain parameters if strain-dependent potentials are requested
   if (1 == flag->useStrain){
     if ((pot->a4_params = (double *) calloc(ist->ngeoms * ist->n_atom_types, sizeof(pot->a4_params[0]))) == NULL){
@@ -283,16 +288,16 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
     if ((pot->a5_params = (double *) calloc(ist->ngeoms * ist->n_atom_types, sizeof(pot->a5_params[0]))) == NULL){
     fprintf(stderr, "\nOUT OF MEMORY: a4params\n\n"); exit(EXIT_FAILURE);
     }
-    if ((atomNeighborList = (vector *) calloc(4 * ist->natoms, sizeof(vector))) == NULL){
-      fprintf(stderr, "OUT OF MEMORY: atomNeighborList\n");
+    if ((atom_neighbor_list = (vector *) calloc(4 * ist->natoms, sizeof(vector))) == NULL){
+      fprintf(stderr, "OUT OF MEMORY: atom_neighbor_list\n");
       exit(EXIT_FAILURE);
     }
-    if ((strainScale = (double *) calloc(ist->natoms, sizeof(double))) == NULL){
-      fprintf(stderr, "OUT OF MEMORY: strainScale\n");
+    if ((strain_scale = (double *) calloc(ist->natoms, sizeof(double))) == NULL){
+      fprintf(stderr, "OUT OF MEMORY: strain_scale\n");
       exit(EXIT_FAILURE);
     }
-    if ((volRef = (double *) calloc(ntot, sizeof(double))) == NULL){
-      fprintf(stderr, "OUT OF MEMORY: volRef\n");
+    if ((vol_ref = (double *) calloc(ist->natoms, sizeof(double))) == NULL){
+      fprintf(stderr, "OUT OF MEMORY: vol_ref\n");
       exit(EXIT_FAILURE);
     }
   }
@@ -303,13 +308,14 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
   printf("\tReading atomic pseudopotentials...\n"); 
   read_pot(pot, R, atom, ist, par, flag);
   
-  
   // ****** ****** ****** ****** ****** ****** 
   // Calculate strain_scale for atomic pots
   // ****** ****** ****** ****** ****** ******
-  readNearestNeighbors(ist->natoms, ist->crystal_structure_int, atomNeighborList, volRef, ist->outmost_material_int);
-	calculateStrainScale(ist->natoms, volRef, atom, atomNeighborList, pot->a4_params, pot->a5_params, strainScale);
-	free(atomNeighborList); free(volRef); free(pot->a4_params); free(pot->a5_params);
+  if (1 == flag->useStrain){
+    read_nearest_neighbors(atom_neighbor_list, vol_ref, ist->natoms, ist->crystal_structure_int, ist->outmost_material_int);
+    calc_strain_scale(strain_scale, atom_neighbor_list, vol_ref, atom, pot->a4_params, pot->a5_params, ist->natoms);
+    free(atom_neighbor_list); free(vol_ref); free(pot->a4_params); free(pot->a5_params);
+  }
 
   // ****** ****** ****** ****** ****** ****** 
   // Construct pseudopotential on grid
@@ -330,15 +336,25 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
       	  dz = grid->z[jz] - R[jatom].z;
       	  del = sqrt(dx * dx + dy * dy + dz * dz);
 
+          // If strain dependent terms are requested, then set strain_factor to be the strain term for this atom
+          if (1 == flag->useStrain){
+            strain_factor = strain_scale[jatom];
+          }
+          // If potential interpolation is requested, then the potential needs to be the weighted average of the two geometries
           if (flag->interpolatePot == 1){
             if ((jxyz == 0)&& (jatom == 0)) printf("\tComputing interpolated cubic/ortho potential\n"); 
             //cubic part of the function
-            sum += (1.0-atom[jatom].geom_par)*interpolate(del,pot->dr[2*atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,pot->file_lens[2*atom[jatom].idx],2*atom[jatom].idx,scale_LR,atom[jatom].LR_par);
+            sum += (1.0-atom[jatom].geom_par)*interpolate(del,pot->dr[2*atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
+                pot->file_lens[2*atom[jatom].idx],2*atom[jatom].idx,scale_LR,atom[jatom].LR_par, strain_factor);
             //ortho part of the function
-            sum += (atom[jatom].geom_par)*interpolate(del,pot->dr[2*atom[jatom].idx+1],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,pot->file_lens[2*atom[jatom].idx+1],2*atom[jatom].idx+1,scale_LR,atom[jatom].LR_par);
-          } else {
+            sum += (atom[jatom].geom_par)*interpolate(del,pot->dr[2*atom[jatom].idx+1],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
+                pot->file_lens[2*atom[jatom].idx+1],2*atom[jatom].idx+1,scale_LR,atom[jatom].LR_par, strain_factor);
+          } 
+          // Default route without potential interpolation between geometries
+          else {
             if ((jxyz == 0)&& (jatom == 0)) printf("\tComputing potential without interpolating over cubic/ortho parameters\n\n"); 
-      	    sum += interpolate(del,pot->dr[atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,pot->file_lens[atom[jatom].idx],atom[jatom].idx,scale_LR,atom[jatom].LR_par);
+      	    sum += interpolate(del,pot->dr[atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
+                pot->file_lens[atom[jatom].idx],atom[jatom].idx,scale_LR,atom[jatom].LR_par, strain_factor);
           }
       	}
       	pot_local[jxyz] = sum;
@@ -357,6 +373,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
 
   printf("\tVmin = %g Vmax = %g dV = %g \n", par->Vmin, par->Vmax, par->Vmax-par->Vmin);
 
+  if (1 == flag->useStrain) free(strain_scale);
   return;
 }
 
@@ -492,14 +509,14 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
             //write projectors to nlc struct and scale projectors by the SO scaling for this atom
             for (iproj = 0; iproj< ist->nproj; iproj++){ 
                 nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj] = 
-                  interpolate(sqrt(dr2),dr_proj,vr,NULL, &SO_projectors[N*iproj],NULL,0, N,0,0,1.0);
+                  interpolate(sqrt(dr2),dr_proj,vr,NULL, &SO_projectors[N*iproj],NULL,0, N,0,0,1.0, 1.0);
                 //scale projectors by the SO scaling for this atom
                 nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj] *= sqrt(atom[jatom].SO_par);
                 //fprintf(pf, "%li %i %f %f %f\n", jatom, iproj,nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r,nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj], sqrt(atom[jatom].SO_par) );
 
                 if (flag->NL == 1){
                   nlc[jatom*ist->n_NL_gridpts + nl[jatom]].NL_proj[iproj] =
-                  interpolate(sqrt(dr2),dr_proj,vr,NULL, &nlcprojectors[N*iproj],NULL,0, N,0,0,1.0);
+                  interpolate(sqrt(dr2),dr_proj,vr,NULL, &nlcprojectors[N*iproj],NULL,0, N,0,0,1.0,1.0);
                   nlc[jatom*ist->n_NL_gridpts + nl[jatom]].NL_proj_sign[iproj] = sgnProj[iproj];
                 }
             }

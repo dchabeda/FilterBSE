@@ -17,8 +17,8 @@ LIB = $(${OS}_LIB) $(${OS}_CLIB) $(${OS}_FCLIB) $(${OS}_MYLIB)
 
 # flags ...
 #Linux_OPTFLAGS = -fast -qopenmp -static
-Linux_OPTFLAGS = -DMKL_ILP64 -O3 -xSSE3  -qopenmp -static
-#Linux_OPTFLAGS = -O0 -g
+#Linux_OPTFLAGS = -DMKL_ILP64 -O3 -xSSE3  -qopenmp -static
+Linux_OPTFLAGS = -O0 -g
 Linux_CFLAGS = $(${OS}_OPTFLAGS) -DFFT_FFTW -I${HOME}/usr/include -I /opt/rocks/include -I"${MKLROOT}/include" -Wall -pedantic 
 Linux_FFLAGS = $(${OS}_OPTFLAGS)
 
@@ -37,9 +37,9 @@ CYGWIN_NT-6.3_FF = gfortran
 CYGWIN_NT-6.3_LD = gcc
 
 OBJECTS = \
-	main.o read.o init.o save.o projectors.o norm.o rand.o interpolate.o \
+	main.o read.o init.o save.o projectors.o norm.o rand.o interpolate.o strain.o \
 	energy.o coeff.o hamiltonian.o filter.o ortho.o Hmat.o write.o nerror.o \
-        dipole.o angular.o pseudopotential.o
+        vector.o dipole.o angular.o pseudopotential.o
 
 TESTOBJECTS = \
 	      testmain.o angular.o norm.o nerror.o write.o init.o size.o rand.o\

@@ -67,7 +67,7 @@ long ortho(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag)
   }*/
   
   for (cutoff = ist->mn_states_tot, i = 0; i<ist->mn_states_tot; i++) {
-    if ((S[i] / S[0]) < 1.0e-10) {
+    if ((S[i] / S[0]) < SVDEPS) {
       cutoff = i;
       break;
     }

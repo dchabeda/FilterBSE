@@ -36,7 +36,5 @@ void copyDoublesToVectors(vector *vectors, double *array, long numVectors);
 void copyVectorsToDoubles(double *array, vector *vectors, long numVectors);
 
 /****************************************************************************/
-
 #endif
-
 /****************************************************************************/

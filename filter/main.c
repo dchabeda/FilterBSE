@@ -31,7 +31,7 @@ int main(int argc, char *argv[]){
   // long int arrays and counters
   long *nl = NULL;
   long jstate, jgrid, jgrid_real, jgrid_imag, jspin, jms, jns, rand_seed, thread_id;
-  
+  ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
   // Clock/Wall time output and stdout formatting
   time_t start_time = time(NULL); // Get the actual time for total wall runtime
   time_t start_clock = clock(); // Get the starting CPU clock time for total CPU runtime
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]){
   if ((psitot = (double *) calloc(ist.complex_idx * par.t_rev_factor * ist.nspinngrid * ist.mn_states_tot, sizeof(psitot[0]))) == NULL){
     fprintf(stderr,"\nOUT OF MEMORY: psitot\n\n"); exit(EXIT_FAILURE);
   }
-  // the filtered energies 
+  // the quasiparticle energies and standard deviations
   if ((eig_vals = (double *) calloc(par.t_rev_factor*ist.mn_states_tot, sizeof(double))) == NULL){
     fprintf(stderr, "\nOUT OF MEMORY: eig_vals\n\n"); exit(EXIT_FAILURE);
   }
@@ -222,10 +222,6 @@ int main(int argc, char *argv[]){
       printf("\ndone calculate energy range, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
       fflush(stdout);
-
-      // Free dynamically allocated memory that will no longer be used
-      free(phi); phi = NULL;
-      free(psi); psi = NULL;
     
       /**************************************************************************/
       // FILTER ALGORITHM
@@ -281,12 +277,12 @@ int main(int argc, char *argv[]){
 
       printf("\nEnergy width, sigma, of filter function = %.6g a.u.\n", sqrt(1 / (2*par.dt)));
       printf("Suggested max span of spectrum for filtering = %.6g a.u.\n", ist.m_states_per_filter * sqrt(1 / (2*par.dt)));
-      printf("Requested span of spectrum to filter = %.6g a.u.\n", (ene_targets[par.n_targets_VB] - ene_targets[0]) + (ene_targets[par.n_targets_VB+par.n_targets_CB] - ene_targets[par.n_targets_VB+1]));
+      printf("Requested span of spectrum to filter = %.6g a.u.\n", (ene_targets[par.n_targets_VB-1] - ene_targets[0]) + (ene_targets[par.n_targets_VB+par.n_targets_CB-1] - ene_targets[par.n_targets_VB]));
       fflush(stdout);
 
       for (jns = 0; jns < ist.n_filter_cycles; jns++) {
         for (jspin = 0; jspin < ist.nspin; jspin++) {
-          fprintf(pseed, "%ld %ld\n", 2*jns + jspin, rand_seed);
+          fprintf(pseed, "%ld %ld\n", ist.nspin*jns + jspin, rand_seed);
           init_psi(&psi[jspin*ist.ngrid], &rand_seed, flag.isComplex, &grid, &parallel);
         }
 
@@ -310,7 +306,7 @@ int main(int argc, char *argv[]){
         }
       }
       fclose(pseed);
-      
+
       inital_clock_t = (double)clock(); 
       initial_wall_t = (double)time(NULL);
       omp_set_dynamic(0);
@@ -363,8 +359,14 @@ int main(int argc, char *argv[]){
       write_separation(stdout, bottom); fflush(stdout);
 
       inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
-      ist.mn_states_tot = ortho(psitot, grid.dv, &ist, &par, &flag);
-      printf("mn_states_tot ortho = %ld\n", ist.mn_states_tot); 
+      printf("mn_states_tot before ortho = %ld\n", ist.mn_states_tot);
+      if (1 == flag.isComplex){
+        ist.mn_states_tot = ortho((MKL_Complex16 *)psitot, grid.dv, &ist, &par, &flag);      
+      } else if (0 == flag.isComplex) {
+        ist.mn_states_tot = ortho(psitot, grid.dv, &ist, &par, &flag);
+      }
+      printf("mn_states_tot after ortho = %ld\n", ist.mn_states_tot);
+      psitot = (double *) realloc(psitot, ist.mn_states_tot * ist.nspinngrid * ist.complex_idx * sizeof(psitot[0]) );
 
       normalize_all(&psitot[0],grid.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
       
@@ -434,10 +436,6 @@ int main(int argc, char *argv[]){
       write_separation(stdout, bottom); fflush(stdout);
       
       calc_sigma_E(psi, phi, psitot, pot_local, nlc, nl, ksqr, sigma_E, &ist, &par, &flag, planfw, planbw, fftwpsi);
-
-      // Free memory for arrays that will no longer be used, increases available RAM for program operation
-      free(ene_targets); ene_targets = NULL;
-      free(ksqr); ksqr = NULL;
 
       /*** write the eigenstates/energies to a file ***/
       if (flag.getAllStates == 1) {printf("getAllStates flag on\nWriting all eigenstates to disk\n");}
@@ -645,13 +643,15 @@ int main(int argc, char *argv[]){
 
       /*************************************************************************/
       /*** free memory ***/
-      free(psitot); free(pot_local); free(eig_vals); free(an); free(zn);
-      free(sigma_E); 
-      free(grid.x); free(grid.y); free(grid.z); free(R); 
-      free(atom);
+      free(ist.atom_types);
+      free(grid.x); free(grid.y); free(grid.z); 
+      free(R); free(atom);
+      free(psitot); free(psi); free(phi); 
+      free(pot_local); free(ksqr);
       free(nlc); free(nl); 
-
-
+      free(eig_vals); free(ene_targets); free(sigma_E);
+      free(an); free(zn);      
+      
       fftw_destroy_plan(planfw);
       fftw_destroy_plan(planbw);
       fftw_free(fftwpsi);
@@ -660,12 +660,13 @@ int main(int argc, char *argv[]){
       time_t end_clock = clock();
 
       write_separation(stdout, top);
-      printf("\nDONE WITH PROGRAM: PEROVCUBE FILTER DIAGONALIZATION\n");
+      printf("\nDONE WITH PROGRAM: FILTER DIAGONALIZATION\n");
       printf("This calculation ended at: %s\n", ctime(&end_time)); 
       printf("Total job CPU time (sec) %.4g, wall run time (sec) %.4g",
                 ((double)end_clock - (double)start_clock)/(double)(CLOCKS_PER_SEC), (double)end_time - (double)start_time );fflush(0);
       write_separation(stdout, bottom);
       
+      free(top); free(bottom);
       exit(0);
 
   } // End of switch statement

@@ -28,9 +28,10 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\t--------------------------\n");
     if (1 == flag->interpolatePot) fprintf(pf, "\tPseudopotential parameters will be interpolated based on NC geometry\n");
     else fprintf(pf, "\tPseudopotential parameters will not be interpolated\n");
-    if (1 == par->useStrain) fprintf(pf, "\tStrain dependent pseudopotential will be calculated\n");
+    if (1 == flag->useStrain) fprintf(pf, "\tStrain dependent pseudopotential will be calculated\n");
     else fprintf(pf, "\tStrain dependent pseudopotential will NOT be calculated\n");
-
+    fprintf(pf, "\tCrystal structure: %s\n", par->crystal_structure);
+    fprintf(pf, "\tOutmost material: %s\n", par->outmost_material);
     if (par->scale_surface_Cs != 1.0) fprintf(pf, "\tLong range component of surface Cs atom potentials scaled by %lg\n", par->scale_surface_Cs);
     else fprintf(pf, "\tSurface Cs atoms NOT rescaled for charge balancing\n");
 
@@ -161,6 +162,7 @@ void save_job_state(char *file_name, int checkpoint_id, double *psitot, double *
     fprintf(pf, "\n%ld %ld %ld %ld\n", ist->max_pot_file_len, ist->n_NL_gridpts, ist->n_NL_atoms, ist->nproj);
     fprintf(pf, "%d %d %d\n", ist->nspin, ist->ncubes, ist->ngeoms);
     fprintf(pf, "%d\n", ist->complex_idx);
+    fprintf(pf, "%d %d\n", ist->crystal_structure_int, ist->outmost_material_int);
     fprintf(pf, "%ld %ld %ld\n", ist->nx, ist->ny, ist->nz);
     fprintf(pf, "%ld\n", ist->nthreads);
     
@@ -172,10 +174,10 @@ void save_job_state(char *file_name, int checkpoint_id, double *psitot, double *
     fprintf(pf, "%lg %lg\n", par->R_NLcut2, par->sigma_E_cut);
     fprintf(pf, "%d\n", par->t_rev_factor);
     fprintf(pf, "%d\n", par->checkpoint_id);
-    fprintf(pf, "%d\n", par->useStrain);
+    fprintf(pf, "%s %s\n", par->crystal_structure, par->outmost_material);
     fprintf(pf, "%lg\n", par->dv);
     
-    fprintf(pf, "%d %d %d %d\n", flag->centerConf, flag->setTargets, flag->setSeed, flag->interpolatePot);
+    fprintf(pf, "%d %d %d %d %d\n", flag->centerConf, flag->setTargets, flag->setSeed, flag->interpolatePot, flag->useStrain);
     fprintf(pf, "%d %d %d %d\n", flag->SO, flag->NL, flag->useSpinors, flag->isComplex);
     fprintf(pf, "%d %d %d %d\n", flag->calcPotOverlap, flag->getAllStates, flag->timeHamiltonian, flag->calcSpinAngStat);
     fprintf(pf, "%d %d %d\n", flag->retryFilter, flag->alreadyTried, flag->saveCheckpoints);
@@ -199,7 +201,7 @@ void save_job_state(char *file_name, int checkpoint_id, double *psitot, double *
     fwrite(grid->x, sizeof(grid->x[0]), grid->nx, pf);
     fwrite(grid->y, sizeof(grid->x[0]), grid->ny, pf);
     fwrite(grid->z, sizeof(grid->x[0]), grid->nz, pf);
-    
+
     fwrite(ksqr, sizeof(double), ist->ngrid, pf); 
     fwrite(pot_local, sizeof(double), ist->ngrid, pf);
     fwrite(an, sizeof(an[0]), ist->ncheby * ist->m_states_per_filter, pf);
@@ -256,6 +258,7 @@ void restart_from_save(char *file_name, int checkpoint_id, double *psitot, doubl
     fscanf(pf, "%ld %ld %ld %ld", &ist->max_pot_file_len, &ist->n_NL_gridpts, &ist->n_NL_atoms, &ist->nproj);
     fscanf(pf, "%d %d %d", &ist->nspin, &ist->ncubes, &ist->ngeoms);
     fscanf(pf, "%d", &ist->complex_idx);
+    fscanf(pf, "%d %d", &ist->crystal_structure_int, &ist->outmost_material_int);
     fscanf(pf, "%ld %ld %ld", &ist->nx, &ist->ny, &ist->nz);
     fscanf(pf, "%ld", &ist->nthreads);
     
@@ -267,10 +270,10 @@ void restart_from_save(char *file_name, int checkpoint_id, double *psitot, doubl
     fscanf(pf, "%lg %lg", &par->R_NLcut2, &par->sigma_E_cut);
     fscanf(pf, "%d", &par->t_rev_factor);
     fscanf(pf, "%d", &par->checkpoint_id);
-    fscanf(pf, "%d", &par->useStrain);
+    fscanf(pf, "%s %s", par->crystal_structure, par->outmost_material);
     fscanf(pf, "%lg", &par->dv);
     
-    fscanf(pf, "%d %d %d %d", &flag->centerConf, &flag->setTargets, &flag->setSeed, &flag->interpolatePot);
+    fscanf(pf, "%d %d %d %d %d", &flag->centerConf, &flag->setTargets, &flag->setSeed, &flag->interpolatePot, &flag->useStrain);
     fscanf(pf, "%d %d %d %d", &flag->SO, &flag->NL, &flag->useSpinors, &flag->isComplex);
     fscanf(pf, "%d %d %d %d", &flag->calcPotOverlap, &flag->getAllStates, &flag->timeHamiltonian, &flag->calcSpinAngStat);
     fscanf(pf, "%d %d %d", &flag->retryFilter, &flag->alreadyTried, &flag->saveCheckpoints);

@@ -75,8 +75,8 @@ void gen_SO_projectors(double dx, double rcut, long nproj, double*  projectors, 
 			}
 			projectors[N * projector + rpoint] = sum * preFactor;
 			fprintf(pf, "%f \t %f\n", r, sum*preFactor);
-		
 		}
+		fclose(pf);
 	}
 
 	free(W); free(WORK); free(A);
@@ -109,6 +109,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	
 	pproj = fopen("projectors.dat", "w");
 	fprintf(pproj, "For atom %ld with Zval %d we have l1=%g l2=%f\n", jatom, atm[jatom].Zval, lam1, lam2);
+	fclose(pproj);
 	// printf("Checkpoint 1\n"); fflush(0);
 	if (lam1==0 && lam2==0){
 		// printf("inside loop\n"); fflush(0);

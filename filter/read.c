@@ -24,8 +24,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // ****** ****** ****** ****** ****** ****** 
 
   // NC configuration parameters
-  ist->n_max_atom_types = 20;
-  ist->atom_types = malloc(ist->n_max_atom_types*sizeof(ist->atom_types[0]));
+  ist->n_max_atom_types = N_MAX_ATOM_TYPES;
   flag->centerConf = 1; // this should honestly always be 1
   // Filter algorithm parameters
   par->KE_max = 10.0; //NOTE: lowered this to 10 for tests
@@ -36,14 +35,14 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // Pseudopotential parameters
   ist->max_pot_file_len = 8192;
   flag->useStrain = 0; // By default, do not compute strain dependent terms in pseudopotential
-  par->crystal_structure = NULL; // set the following parameters for strain dependent potentials to NULL
-  par->outmost_material = NULL;
+  strcpy(par->crystal_structure, "unknown"); // set the following parameters for strain dependent potentials to NULL
+  strcpy(par->outmost_material, "unknown");
   ist->crystal_structure_int = -1;
   ist->outmost_material_int = -1;
   ist->ngeoms = 1; // number of different psuedopotential geometries (eg. cubic/ortho) for interpolating psuedopotentials
   par->scale_surface_Cs = 1.0; // By default, do not charge balance the surface Cs atoms
   // Spin-orbit and non-local terms
-  flag->useSpinors = 0; // default is to usu non-spinor wavefunctions
+  flag->useSpinors = 0; // default is to use non-spinor wavefunctions
   flag->isComplex = 0;
   ist->nspin = 1; // turning on the useSpinors flag will set nspin to 2.
   flag->SO = 0; // computes the spin-orbit terms in the Hamiltonian
@@ -111,10 +110,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "useStrain")) {
           flag->useStrain = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
-      } else if (!strcmp(field, "crystalStructure")) {
-          par->crystalStructure = tmp;
-      } else if (!strcmp(field, "outmostMaterial")) {
-          par->outmostMaterial = tmp;
+      } else if (0 == strcmp(field, "crystalStructure")) {
+          strcpy(par->crystal_structure, tmp);
+      } else if (0 == strcmp(field, "outmostMaterial")) {
+          strcpy(par->outmost_material, tmp);
       }
       // ****** ****** ****** ****** ****** ****** 
       // Set parameters&counters for filter algorithm
@@ -244,6 +243,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("CBmax = double (top of conduction band energy window)\n");
           printf("interpolatePot = int (if 1, interpolate between cubic and orthorhombic potentials)\n");
           printf("useStrain = int (if 1, calculate strain dependent pseudopots)\n");
+          printf("crystalStructure = string (name of crystal structure e.g. wurtzite)\n");
+          printf("outmostMaterial = string (name of outmost layer if core-shell e.g. CdS)\n");
           printf("scaleSurfaceCs = double (fractional scaling factor of surface Cs to balance charge)\n");
           printf("nThreads = 1-16 (number of compute threads to parallelize over)\n");
           printf("fermiEnergy = double (fermi_E of the system)\n");
@@ -397,7 +398,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
         exit(EXIT_FAILURE);
       }
     }
-  
+
     // increment the n_NL_atoms parameter if NL flag is on
     // (number of atoms for which nonlocal terms will be computed)
     if ((flag->NL == 1) && (atom[i].Zval > 13)) ist->n_NL_atoms++;
@@ -407,6 +408,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
     yd += R[i].y;
     zd += R[i].z;
   }
+  fclose(pf);
 
   printf("\tnatoms = %ld\n", ist->natoms);
   printf("\tn_atom_types = %ld\n", ist->n_atom_types);
@@ -452,10 +454,9 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
 	if (flag->useStrain){
     ist->crystal_structure_int = assign_crystal_structure(par->crystal_structure);
     
-    if (par->outmost_material != NULL){
-      /*** Assign outmostMaterialInt ***/
-      ist->outmost_material_int = assign_outmost_material(par->outmost_material);
-    }
+    /*** Assign outmostMaterialInt ***/
+    ist->outmost_material_int = assign_outmost_material(par->outmost_material);
+    
   }
 
   return;
@@ -480,7 +481,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
   xyz_st R_min, R_max;
   double dr_check;
   long i, j, iscan; 
-  char str[100], tmpstr[100], atype[3];
+  char str[30], tmpstr[30], atype[3];
   // The number of geometries in the pseudopotential for each atom type. usually 1, more if interpolating
   long ngeoms = ist->ngeoms; 
   // pot->file_lens is the number of points in the pseudopotential file (also equivalent to the number of lines in the file)
@@ -490,7 +491,8 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
 
   // The ligand potentials are constructed internally by creating a Gaussian on the grid with
   // equation lig = a * exp(- r^2 / b)
-  double a[4] = { 0.64, -0.384, 0.04, -0.684};
+  //               P1        P2         P3         P4
+  double a[4] = { 0.64,    -0.384,     0.04,     -0.684};
   double b[4] = {2.2287033, 2.2287033, 2.2287033, 2.2287033};
 
 
@@ -558,7 +560,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
     if (iatm <= 5){
       // Get the name of the ligand potential (stored in atype)
       sprintf (str, "pot");
-      for (int strnum = 0;strnum<3; strnum++){  
+      for (int strnum = 0; strnum < 3; strnum++){  
         if(atype[strnum]=='\0') break;
         strncat(str,&atype[strnum],1);
       }
@@ -599,10 +601,11 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
         fclose(pf);
 
       } else {
+        printf("\n\tNo ligand potential file %s\n\t Using default Gaussian parameters a = %lg b = %lg\n", str, a[iatm-2], b[iatm-2]);
         pot->file_lens[j] = pot->file_lens[0];
         for (i = 0; i < pot->file_lens[j]; i++) {
           pot->r[j*n+i] = pot->r[i];
-          pot->pseudo[j*n+i] = (a[iatm-5] * exp(-sqr(pot->r[j*n+i]) / b[iatm-5]));
+          pot->pseudo[j*n+i] = (a[iatm-2] * exp(-sqr(pot->r[j*n+i]) / b[iatm-2]));
         } 
       }
     }
@@ -680,8 +683,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
                 fscanf(pf, "%lg", &pot->a4_params[j]);
                 fclose(pf);
             } else {
-                fprintf(stderr, "ERROR: strain dependent pseudopotential requested; no %s file...\n", str);
-                exit(EXIT_FAILURE);
+                pot->a4_params[j] = 0.0;
+                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+                // exit(EXIT_FAILURE);
             }
 
             sprintf (str, "pot");
@@ -695,8 +699,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
                 fscanf(pf, "%lg", &pot->a5_params[j]);
                 fclose(pf);
             } else {
-                fprintf(stderr, "ERROR: strain dependent pseudopotential requested; no %s file...\n", str);
-                exit(EXIT_FAILURE);
+              pot->a5_params[j] = 0.0;
+                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+                // exit(EXIT_FAILURE);
             }
           }
         }
@@ -806,8 +811,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
               fscanf(pf, "%lg", &pot->a4_params[j]);
               fclose(pf);
           } else {
-              fprintf(stderr, "ERROR: strain dependent pseudopotential requested; no %s file...\n", str);
-              exit(EXIT_FAILURE);
+              pot->a4_params[j] = 0.0;
+              fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+              // exit(EXIT_FAILURE);
           }
           
           sprintf (str, "pot");
@@ -821,8 +827,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
               fscanf(pf, "%lg", &pot->a5_params[j]);
               fclose(pf);
           } else {
-              fprintf(stderr, "ERROR: strain dependent pseudopotential requested; no %s file...\n", str);
-              exit(EXIT_FAILURE);
+              pot->a5_params[j] = 0.0;
+              fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+              // exit(EXIT_FAILURE);
           }
         }
       } 
@@ -902,8 +909,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
                 fscanf(pf, "%lg", &pot->a4_params[ngeoms*j]);
                 fclose(pf);
             } else {
-                fprintf(stderr, "ERROR: strain dependent pseudopotential requested; no %s file...\n", str);
-                exit(EXIT_FAILURE);
+                pot->a4_params[ngeoms*j] = 0.0;
+                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+                // exit(EXIT_FAILURE);
             }
             
             sprintf (str, "pot");
@@ -917,8 +925,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
                 fscanf(pf, "%lg", &pot->a5_params[ngeoms*j]);
                 fclose(pf);
             } else {
-                fprintf(stderr, "ERROR: strain dependent pseudopotential requested; no %s file...\n", str);
-                exit(EXIT_FAILURE);
+                pot->a5_params[j] = 0.0;
+                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+                // exit(EXIT_FAILURE);
             }
           }
 
@@ -979,8 +988,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
                 fscanf(pf, "%lg", &pot->a4_params[ngeoms*j + 1]);
                 fclose(pf);
             } else {
-                fprintf(stderr, "ERROR: strain dependent pseudopotential requested; no %s file...\n", str);
-                exit(EXIT_FAILURE);
+                pot->a4_params[ngeoms*j + 1] = 0.0;
+                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+                // exit(EXIT_FAILURE);
             }
             
             sprintf (str, "pot");
@@ -994,8 +1004,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
                 fscanf(pf, "%lg", &pot->a5_params[ngeoms*j + 1]);
                 fclose(pf);
             } else {
-                fprintf(stderr, "ERROR: strain dependent pseudopotential requested; no %s file...\n", str);
-                exit(EXIT_FAILURE);
+                pot->a5_params[j] = 0.0;
+                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+                // exit(EXIT_FAILURE);
             }
           }
         }
@@ -1093,14 +1104,15 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
               if(atype[strnum]=='\0') break;
               strncat(str,&atype[strnum],1);
             }
-            strcat(str, "_a4_ortho.par");
+            strcat(str, "_a4_cubic.par");
             pf = fopen(str, "r");
             if (pf != NULL) {
-                fscanf(pf, "%lg", &pot->a4_params[ngeoms*j + 1]);
+                fscanf(pf, "%lg", &pot->a4_params[ngeoms*j]);
                 fclose(pf);
             } else {
-                fprintf(stderr, "ERROR: strain dependent pseudopotential requested; no %s file...\n", str);
-                exit(EXIT_FAILURE);
+                pot->a4_params[ngeoms*j] = 0.0;
+                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+                // exit(EXIT_FAILURE);
             }
             
             sprintf (str, "pot");
@@ -1108,14 +1120,15 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
               if(atype[strnum]=='\0') break;
               strncat(str,&atype[strnum],1);
             }
-            strcat(str, "_a5_ortho.par");
+            strcat(str, "_a5_cubic.par");
             pf = fopen(str, "r");
             if (pf != NULL) {
-                fscanf(pf, "%lg", &pot->a5_params[ngeoms*j + 1]);
+                fscanf(pf, "%lg", &pot->a5_params[ngeoms*j]);
                 fclose(pf);
             } else {
-                fprintf(stderr, "ERROR: strain dependent pseudopotential requested; no %s file...\n", str);
-                exit(EXIT_FAILURE);
+                pot->a5_params[ngeoms*j] = 0.0;
+                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+                // exit(EXIT_FAILURE);
             }
           }
           // ******* ******* ******* ******* ******* ******* *******
@@ -1216,8 +1229,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
                 fscanf(pf, "%lg", &pot->a4_params[ngeoms*j + 1]);
                 fclose(pf);
             } else {
-                fprintf(stderr, "ERROR: strain dependent pseudopotential requested; no %s file...\n", str);
-                exit(EXIT_FAILURE);
+                pot->a4_params[ngeoms*j + 1] = 0.0;
+                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+                // exit(EXIT_FAILURE);
             }
             
             sprintf (str, "pot");
@@ -1231,8 +1245,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
                 fscanf(pf, "%lg", &pot->a5_params[ngeoms*j + 1]);
                 fclose(pf);
             } else {
+                pot->a5_params[ngeoms*j + 1] = 0.0;
                 fprintf(stderr, "ERROR: strain dependent pseudopotential requested; no %s file...\n", str);
-                exit(EXIT_FAILURE);
+                // exit(EXIT_FAILURE);
             }
           }
         }
@@ -1240,6 +1255,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
     }
   }
 
+  printf("\n");
   // ****** ****** ****** ****** ****** ****** 
   // Handle spin-orbit potentials
   // ****** ****** ****** ****** ****** ****** 
@@ -1284,7 +1300,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
 
       if (1 != flag->interpolatePot){
         // This is a job that uses spin-orbit and NL, but does not interpolate the potentials
-        if (i == 0) printf("\n\tReading SO & non-local pot parameters\n");
+        if (i == 0) printf("\tReading SO & non-local pot parameters\n");
         
         strcat(str, ".par");
         pf = fopen(str , "r");
@@ -1673,7 +1689,7 @@ int assign_crystal_structure(char *crystal_structure){
   ********************************************************************/
   char *wurtzite; wurtzite = malloc(10*sizeof(wurtzite[0]));
   strcpy(wurtzite, "wurtzite");
-  char *zincblende; zincblende = malloc(10*sizeof(zincblende[0]));
+  char *zincblende; zincblende = malloc(11*sizeof(zincblende[0]));
   strcpy(zincblende, "zincblende");
 
   if ( 0 == strcmp(crystal_structure, (const char *) wurtzite) ) return 0;
@@ -1697,19 +1713,19 @@ int assign_outmost_material(char *outmost_material){
   ********************************************************************/
 
   if (! strcmp(outmost_material, "CdS")) {  return 0;}
-	else if (! strcmp(outmostMaterial, "CdSe")) {  return 1;}
-	else if (! strcmp(outmostMaterial, "InP")) {  return 2;}
-	else if (! strcmp(outmostMaterial, "InAs")) {  return 3;}
-	else if (! strcmp(outmostMaterial, "alloyInGaP")) {  return 4;} //cation terminated surface only
-	else if (! strcmp(outmostMaterial, "alloyInGaAs")) {  return 5;} // cation terminated surface only
-	else if (! strcmp(outmostMaterial, "GaAs")) {  return 6;}
-	else if (! strcmp(outmostMaterial, "ZnSe")) {   return 7;}
-	else if (! strcmp(outmostMaterial, "ZnS")) {   return 8;}
-	else if (! strcmp(outmostMaterial, "alloyGaAsP")) {  return 9;} // cation terminated surface only
-	else if (! strcmp(outmostMaterial, "alloyGaAsSb")) {  return 10; } // cation terminated surface only
-  else if (! strcmp(outmostMaterial, "GaP")) {  return 11;}
+	else if (! strcmp(outmost_material, "CdSe")) {  return 1;}
+	else if (! strcmp(outmost_material, "InP")) {  return 2;}
+	else if (! strcmp(outmost_material, "InAs")) {  return 3;}
+	else if (! strcmp(outmost_material, "alloyInGaP")) {  return 4;} //cation terminated surface only
+	else if (! strcmp(outmost_material, "alloyInGaAs")) {  return 5;} // cation terminated surface only
+	else if (! strcmp(outmost_material, "GaAs")) {  return 6;}
+	else if (! strcmp(outmost_material, "ZnSe")) {   return 7;}
+	else if (! strcmp(outmost_material, "ZnS")) {   return 8;}
+	else if (! strcmp(outmost_material, "alloyGaAsP")) {  return 9;} // cation terminated surface only
+	else if (! strcmp(outmost_material, "alloyGaAsSb")) {  return 10; } // cation terminated surface only
+  else if (! strcmp(outmost_material, "GaP")) {  return 11;}
 	else {
-		fprintf(stderr, "\n\nOutmostMaterial type %s not recognized -- the program is exiting!!!\n\n", outmost_material);
+		fprintf(stderr, "\n\nOutmost material %s not recognized -- the program is exiting!!!\n\n", outmost_material);
 		fflush(stdout);
 		exit(EXIT_FAILURE);
 	}
@@ -1719,30 +1735,30 @@ int assign_outmost_material(char *outmost_material){
 
 /*****************************************************************************/
 
-double get_ideal_bond_len(long natyp_1, long natyp_2, int crystalStructureInt){
+double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int){
 	
-  if (((natyp_1==48) && (natyp_2==34)) && (crystalStructureInt==0)) return(2.6326);  // CdSe, wz
-  else if (((natyp_1==34) && (natyp_2==48)) && (crystalStructureInt==0)) return(2.6326); 
-  else if (((natyp_1==48) && (natyp_2==34)) && (crystalStructureInt==1)) return(2.6233); // CdSe, zb
-  else if (((natyp_1==34) && (natyp_2==48)) && (crystalStructureInt==1)) return(2.6233); 
-  else if (((natyp_1==48) && (natyp_2==16)) && (crystalStructureInt==0)) return(2.5292); // CdS, wz
-  else if (((natyp_1==16) && (natyp_2==48)) && (crystalStructureInt==0)) return(2.5292); 
-  else if (((natyp_1==48) && (natyp_2==16)) && (crystalStructureInt==1)) return(2.5193); // CdS, zb
-  else if (((natyp_1==16) && (natyp_2==48)) && (crystalStructureInt==1)) return(2.5193); 
-  else if (((natyp_1==49) && (natyp_2==33)) && (crystalStructureInt==1)) return(2.6228); // InAs, zb
-  else if (((natyp_1==33) && (natyp_2==49)) && (crystalStructureInt==1)) return(2.6228); 
-  else if (((natyp_1==49) && (natyp_2==15)) && (crystalStructureInt==1)) return(2.5228); // InP, zb
-  else if (((natyp_1==15) && (natyp_2==49)) && (crystalStructureInt==1)) return(2.5228); 
-  else if (((natyp_1==31) && (natyp_2==33)) && (crystalStructureInt==1)) return(2.4480); // GaAs, zb
-  else if (((natyp_1==33) && (natyp_2==31)) && (crystalStructureInt==1)) return(2.4480); 
-  else if (((natyp_1==31) && (natyp_2==15)) && (crystalStructureInt==1)) return(2.360); // GaP, zb
-  else if (((natyp_1==15) && (natyp_2==31)) && (crystalStructureInt==1)) return(2.360); 
-  else if (((natyp_1==30) && (natyp_2==34)) && (crystalStructureInt==1)) return(2.45); // ZnSe, zb
-  else if (((natyp_1==34) && (natyp_2==30)) && (crystalStructureInt==1)) return(2.45); 
-  else if (((natyp_1==30) && (natyp_2==16)) && (crystalStructureInt==1)) return(2.33); // ZnS, zb
-  else if (((natyp_1==16) && (natyp_2==30)) && (crystalStructureInt==1)) return(2.33); 
+  if (((natyp_1==48) && (natyp_2==34)) && (crystal_structure_int==0)) return(2.6326);  // CdSe, wz
+  else if (((natyp_1==34) && (natyp_2==48)) && (crystal_structure_int==0)) return(2.6326); 
+  else if (((natyp_1==48) && (natyp_2==34)) && (crystal_structure_int==1)) return(2.6233); // CdSe, zb
+  else if (((natyp_1==34) && (natyp_2==48)) && (crystal_structure_int==1)) return(2.6233); 
+  else if (((natyp_1==48) && (natyp_2==16)) && (crystal_structure_int==0)) return(2.5292); // CdS, wz
+  else if (((natyp_1==16) && (natyp_2==48)) && (crystal_structure_int==0)) return(2.5292); 
+  else if (((natyp_1==48) && (natyp_2==16)) && (crystal_structure_int==1)) return(2.5193); // CdS, zb
+  else if (((natyp_1==16) && (natyp_2==48)) && (crystal_structure_int==1)) return(2.5193); 
+  else if (((natyp_1==49) && (natyp_2==33)) && (crystal_structure_int==1)) return(2.6228); // InAs, zb
+  else if (((natyp_1==33) && (natyp_2==49)) && (crystal_structure_int==1)) return(2.6228); 
+  else if (((natyp_1==49) && (natyp_2==15)) && (crystal_structure_int==1)) return(2.5228); // InP, zb
+  else if (((natyp_1==15) && (natyp_2==49)) && (crystal_structure_int==1)) return(2.5228); 
+  else if (((natyp_1==31) && (natyp_2==33)) && (crystal_structure_int==1)) return(2.4480); // GaAs, zb
+  else if (((natyp_1==33) && (natyp_2==31)) && (crystal_structure_int==1)) return(2.4480); 
+  else if (((natyp_1==31) && (natyp_2==15)) && (crystal_structure_int==1)) return(2.360); // GaP, zb
+  else if (((natyp_1==15) && (natyp_2==31)) && (crystal_structure_int==1)) return(2.360); 
+  else if (((natyp_1==30) && (natyp_2==34)) && (crystal_structure_int==1)) return(2.45); // ZnSe, zb
+  else if (((natyp_1==34) && (natyp_2==30)) && (crystal_structure_int==1)) return(2.45); 
+  else if (((natyp_1==30) && (natyp_2==16)) && (crystal_structure_int==1)) return(2.33); // ZnS, zb
+  else if (((natyp_1==16) && (natyp_2==30)) && (crystal_structure_int==1)) return(2.33); 
   else {
-    fprintf(stderr, "Atom pair type %ld %ld with crystalStructureInt %d not in current list of bond lengths.\n", natyp_1, natyp_2, crystalStructureInt);
+    fprintf(stderr, "Atom pair type %ld %ld with crystal_structure_int %d not in current list of bond lengths.\n", natyp_1, natyp_2, crystal_structure_int);
     exit(EXIT_FAILURE);
   }
   return(0);

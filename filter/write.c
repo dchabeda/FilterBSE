@@ -109,6 +109,8 @@ void write_separation(FILE *pf, char *top_bttm) {
     fprintf(stderr, "Invalid string supplied to writeSeparation. Exiting!\n");
     exit(EXIT_FAILURE);
   }
+
+  free(top_key); free(bttm_key);
   
   return;
 }

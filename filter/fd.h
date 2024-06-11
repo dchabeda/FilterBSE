@@ -12,6 +12,7 @@
 #include <fftw3.h>
 #include <omp.h>
 #include <mkl.h>
+#include "vector.h"
 
 /*****************************************************************************/
 // Application specific structures
@@ -48,12 +49,10 @@ typedef struct par {
   double R_NLcut2, sigma_E_cut;
   int t_rev_factor;
   int checkpoint_id;
-  char *crystal_structure = NULL; 
-  char *outmost_material = NULL;
+  char crystal_structure[15], outmost_material[15];
   // Redundnacies
   double dv;
 } par_st;
-
 
 typedef struct atom_info {
   long idx;
@@ -88,11 +87,9 @@ typedef struct pot_st {
   double *a4_params, *a5_params;
 } pot_st;
 
-
 typedef struct zomplex {
   double re, im;
 } zomplex;
-
 
 typedef struct st11 {
   long jxyz;
@@ -144,8 +141,7 @@ typedef struct parallel{
 #define EPSDX     1.0e-20
 #define ANGTOBOHR 1.889726125
 #define PROJ_LEN	1024
-#define IMAG_IDX  1; //sizeof(double);
-
+#define N_MAX_ATOM_TYPES 20
 // physical parameters
 #define PbIBondMax  ( (3.3) * (ANGTOBOHR) ) 
 #define orthoBondAngle  160.6344 
@@ -164,7 +160,7 @@ void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_in
 void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag);
 void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, parallel_st *parallel);
 double calc_dot_dimension(double *R, long n);
-
+double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int);
 
 //read.c
 void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);
@@ -176,10 +172,17 @@ double calc_bond_angle(long index1,long index2,long index3, xyz_st *R);
 long assign_atom_number(char atyp[3]);
 void assign_atom_type(char *atype,long j);
 long get_number_of_atom_types(atom_info *atm,index_st *ist, long *list);
+int assign_crystal_structure(char *crystal_structure);
+int assign_outmost_material(char *outmost_material);
 double get_ideal_bond_len(long natyp_1, long natyp_2, int crystalStructureInt);
 
+// strain.c
+void read_nearest_neighbors(vector *atom_neighbors, double *tetrahedron_vol_ref, long natoms, int crystal_structure, int outmost_material);
+void calc_strain_scale(double *strain_scale, vector *atom_neighbors, double *tetrahedron_vol_ref, atom_info *atom, double *a4_params, double *a5_params, long natoms);
+double calc_regular_tetrahedron_volume(double bond_length1, double bond_length2, double bond_length3, double bond_length4);
+
 //interpolate.c
-double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,double *pot_LR,long potFileLen,long n,long j, int scale_LR, double scale_LR_par);
+double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,double *pot_LR,long potFileLen,long n,long j, int scale_LR, double scale_LR_par, double strain_factor);
 
 //rand.c
 double ran_nrc(long *rand_seed);

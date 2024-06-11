@@ -180,3 +180,4 @@ void copyVectorsToDoubles(double *array, vector *vectors, long numVectors) {
 }
 
 /****************************************************************************/
+

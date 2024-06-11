@@ -37,9 +37,9 @@ CYGWIN_NT-6.3_FF = gfortran
 CYGWIN_NT-6.3_LD = gcc
 
 OBJECTS = \
-	main.o read.o init.o save.o projectors.o norm.o rand.o interpolate.o \
+	main.o read.o init.o save.o projectors.o norm.o rand.o interpolate.o strain.o \
 	energy.o coeff.o hamiltonian.o filter.o ortho.o Hmat.o write.o nerror.o \
-        dipole.o angular.o pseudopotential.o
+        vector.o dipole.o angular.o pseudopotential.o
 
 TESTOBJECTS = \
 	      testmain.o angular.o norm.o nerror.o write.o init.o size.o rand.o\

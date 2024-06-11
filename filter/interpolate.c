@@ -2,7 +2,7 @@
 
 /*****************************************************************************/
 
-double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,double *pot_LR,long potFileLen,long n,long j, int scale_LR, double scale_LR_par){
+double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,double *pot_LR,long potFileLen,long n,long j, int scale_LR, double scale_LR_par, double strain_factor){
 
   double a, b;
   double a_LR, b_LR;
@@ -12,8 +12,8 @@ double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,doubl
   i = (long)(r / dr);
   if (i > (n - 2)) return (0.0);
 
-  a = (pot[j*potFileLen+i+1] - pot[j*potFileLen+i]) / (vr[j*potFileLen+i+1] - vr[j*potFileLen+i]);
-  b = pot[j*potFileLen+i] - vr[j*potFileLen+i] * a;
+  a = strain_factor * (pot[j*potFileLen+i+1] - pot[j*potFileLen+i]) / (vr[j*potFileLen+i+1] - vr[j*potFileLen+i]);
+  b = strain_factor * pot[j*potFileLen+i] - vr[j*potFileLen+i] * a;
   
   val_at_gridpt = a * r + b;
   

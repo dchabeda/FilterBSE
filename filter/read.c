@@ -24,8 +24,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // ****** ****** ****** ****** ****** ****** 
 
   // NC configuration parameters
-  ist->n_max_atom_types = 20;
-  ist->atom_types = malloc(ist->n_max_atom_types*sizeof(ist->atom_types[0]));
+  ist->n_max_atom_types = N_MAX_ATOM_TYPES;
   flag->centerConf = 1; // this should honestly always be 1
   // Filter algorithm parameters
   par->KE_max = 10.0; //NOTE: lowered this to 10 for tests
@@ -399,7 +398,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
         exit(EXIT_FAILURE);
       }
     }
-  
+
     // increment the n_NL_atoms parameter if NL flag is on
     // (number of atoms for which nonlocal terms will be computed)
     if ((flag->NL == 1) && (atom[i].Zval > 13)) ist->n_NL_atoms++;
@@ -409,6 +408,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
     yd += R[i].y;
     zd += R[i].z;
   }
+  fclose(pf);
 
   printf("\tnatoms = %ld\n", ist->natoms);
   printf("\tn_atom_types = %ld\n", ist->n_atom_types);

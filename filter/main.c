@@ -31,7 +31,7 @@ int main(int argc, char *argv[]){
   // long int arrays and counters
   long *nl = NULL;
   long jstate, jgrid, jgrid_real, jgrid_imag, jspin, jms, jns, rand_seed, thread_id;
-  
+  ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
   // Clock/Wall time output and stdout formatting
   time_t start_time = time(NULL); // Get the actual time for total wall runtime
   time_t start_clock = clock(); // Get the starting CPU clock time for total CPU runtime
@@ -360,7 +360,11 @@ int main(int argc, char *argv[]){
 
       inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
       printf("mn_states_tot before ortho = %ld\n", ist.mn_states_tot);
-      ist.mn_states_tot = ortho(psitot, grid.dv, &ist, &par, &flag);
+      if (1 == flag.isComplex){
+        ist.mn_states_tot = ortho((MKL_Complex16 *)psitot, grid.dv, &ist, &par, &flag);      
+      } else if (0 == flag.isComplex) {
+        ist.mn_states_tot = ortho(psitot, grid.dv, &ist, &par, &flag);
+      }
       printf("mn_states_tot after ortho = %ld\n", ist.mn_states_tot);
       psitot = (double *) realloc(psitot, ist.mn_states_tot * ist.nspinngrid * ist.complex_idx * sizeof(psitot[0]) );
 
@@ -639,6 +643,7 @@ int main(int argc, char *argv[]){
 
       /*************************************************************************/
       /*** free memory ***/
+      free(ist.atom_types);
       free(grid.x); free(grid.y); free(grid.z); 
       free(R); free(atom);
       free(psitot); free(psi); free(phi); 
@@ -661,6 +666,7 @@ int main(int argc, char *argv[]){
                 ((double)end_clock - (double)start_clock)/(double)(CLOCKS_PER_SEC), (double)end_time - (double)start_time );fflush(0);
       write_separation(stdout, bottom);
       
+      free(top); free(bottom);
       exit(0);
 
   } // End of switch statement

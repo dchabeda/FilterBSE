@@ -31,26 +31,30 @@ long ortho(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag)
   S = (double*) malloc(mn_states_tot * sizeof(S[0]));
   
   if (0 == flag->isComplex) {
+    printf("Scalar wavefunctions used. Allocating \"work\" for real SVD\n"); fflush(0);
     work = (double*) malloc(lwork * sizeof(work[0]));
-
+    printf("Computing real-valued SVD...\n"); fflush(0);
     // Do real-valued SVD
     dgesvd_("O","N",&(ngrid),&(mn_states_tot),&(psitot[0]),&(ngrid),&(S[0]),
 	    NULL,&one,NULL,&one,&(work[0]),&(lwork),&info);
-    
+    printf("Done with SVD!\n"); fflush(0);
     if (info != 0) {
-      fprintf(stderr, "error in dgesvd(2) %lld, exiting\n",info); exit(EXIT_FAILURE);
-  }
+      fprintf(stderr, "error in dgesvd(2) %lld, exiting\n",info); fflush(stderr); 
+      exit(EXIT_FAILURE);
+    }
   }
   if (1 == flag->isComplex) {
+    printf("Complex wavefunctions used. Allocating \"rwork & work_z\" for complex SVD\n"); fflush(0);
     work_z = (MKL_Complex16*) malloc(lwork * sizeof(MKL_Complex16));
     rwork = (double*) malloc(5*mn_states_tot * sizeof(rwork[0]));
-
+    printf("Doing complex-valued SVD...\n"); fflush(0);
     // Do complex-valued SVD
     zgesvd_("O","N",&(ngrid),&(mn_states_tot),&(psitot[0]),&(ngrid),&(S[0]),
 	      NULL,&one,NULL,&one,&(work_z[0]),&(lwork),&(rwork[0]),&info);
-    
+    printf("Done with SVD\n"); fflush(0);
     if (info != 0) {
-      fprintf(stderr, "error in zgesvd(1) %lld, exiting\n",info); exit(EXIT_FAILURE);
+      fprintf(stderr, "error in zgesvd(1) %lld, exiting\n", info); fflush(stderr); 
+      exit(EXIT_FAILURE);
     }
 
   }
@@ -66,7 +70,7 @@ long ortho(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag)
     omp_set_nested(1);
   }*/
   
-  for (cutoff = ist->mn_states_tot, i = 0; i<ist->mn_states_tot; i++) {
+  for (cutoff = mn_states_tot, i = 0; i < mn_states_tot; i++) {
     if ((S[i] / S[0]) < SVDEPS) {
       cutoff = i;
       break;
@@ -77,9 +81,11 @@ long ortho(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag)
   // Free memory
   free(S);
   if (0 == flag->isComplex){
+    printf("Scalar wavefunctions used. Freeing work\n"); fflush(0);
     free(work); 
   }
   if (1 == flag->isComplex) {
+    printf("Scalar wavefunctions used. Freeing rwork and work_z\n"); fflush(0);
     free(rwork);
     free(work_z); 
   }

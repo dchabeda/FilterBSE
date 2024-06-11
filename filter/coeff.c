@@ -71,7 +71,7 @@ void gen_newton_coeff(zomplex *an, double *samp, double *ene_targets, index_st *
       an[ist->ncheby*ie+j].im = (-an[ist->ncheby*ie+0].im - sumim) / res;
       fprintf (pf,"%ld %g %g\n", j, an[ist->ncheby*ie+j].re, an[ist->ncheby*ie+j].im);
     }
-
+    fflush(pf);
     fclose(pf);
   }
   

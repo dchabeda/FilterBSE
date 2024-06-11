@@ -141,8 +141,7 @@ typedef struct parallel{
 #define EPSDX     1.0e-20
 #define ANGTOBOHR 1.889726125
 #define PROJ_LEN	1024
-#define IMAG_IDX  1; //sizeof(double);
-
+#define N_MAX_ATOM_TYPES 20
 // physical parameters
 #define PbIBondMax  ( (3.3) * (ANGTOBOHR) ) 
 #define orthoBondAngle  160.6344 

@@ -119,11 +119,11 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       // ****** ****** ****** ****** ****** ****** 
       // Set parameters&counters for filter algorithm
       // ****** ****** ****** ****** ****** ****** 
-      else if (!strcmp(field, "mStatesPerFilter")) {
-          ist->m_states_per_filter = strtol(tmp, &endptr, 10);
-          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-      } else if (!strcmp(field, "nFilterCycles")) {
+      else if (!strcmp(field, "nFilterCycles")) {
           ist->n_filter_cycles = strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "mStatesPerFilter")) {
+          ist->m_states_per_filter = strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "nCheby")) {
           ist->ncheby = strtol(tmp, &endptr, 10);

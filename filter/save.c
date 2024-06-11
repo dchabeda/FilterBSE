@@ -207,8 +207,10 @@ void save_job_state(char *file_name, int checkpoint_id, double *psitot, double *
     fwrite(ene_targets, sizeof(ene_targets[0]), ist->m_states_per_filter, pf);
     fwrite(nl, sizeof(nl[0]), ist->natoms, pf);
 
-    if (checkpoint_id > 0){
+    if ((checkpoint_id > 0) && checkpoint_id <= 1){
         fwrite(psitot, sizeof(psitot[0]), ist->complex_idx * par->t_rev_factor * ist->nspinngrid * ist->mn_states_tot, pf);
+    } else if (checkpoint_id > 1){
+        fwrite(psitot, sizeof(psitot[0]), ist->complex_idx * ist->nspinngrid * ist->mn_states_tot, pf);
     }
     fprintf(pf, "\nEOF\n");
 
@@ -300,8 +302,10 @@ void restart_from_save(char *file_name, int checkpoint_id, double *psitot, doubl
     fread(ene_targets, sizeof(ene_targets[0]), ist->m_states_per_filter, pf);
     fread(nl, sizeof(nl[0]), ist->natoms, pf);
     
-    if (checkpoint_id > 0){
+    if ((checkpoint_id > 0) && (checkpoint_id <= 1)) {
         fread(psitot, sizeof(psitot[0]), ist->complex_idx * par->t_rev_factor * ist->nspinngrid * ist->mn_states_tot, pf);
+    } else if (checkpoint_id > 1) {
+        fread(psitot, sizeof(psitot[0]), ist->complex_idx * ist->nspinngrid * ist->mn_states_tot, pf);
     }
 
     fseek(pf, 1, SEEK_CUR);

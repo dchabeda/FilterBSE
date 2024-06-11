@@ -17,8 +17,8 @@ LIB = $(${OS}_LIB) $(${OS}_CLIB) $(${OS}_FCLIB) $(${OS}_MYLIB)
 
 # flags ...
 #Linux_OPTFLAGS = -fast -qopenmp -static
-Linux_OPTFLAGS = -DMKL_ILP64 -O3 -xSSE3  -qopenmp -static
-#Linux_OPTFLAGS = -O0 -g
+#Linux_OPTFLAGS = -DMKL_ILP64 -O3 -xSSE3  -qopenmp -static
+Linux_OPTFLAGS = -O0 -g
 Linux_CFLAGS = $(${OS}_OPTFLAGS) -DFFT_FFTW -I${HOME}/usr/include -I /opt/rocks/include -I"${MKLROOT}/include" -Wall -pedantic 
 Linux_FFLAGS = $(${OS}_OPTFLAGS)
 

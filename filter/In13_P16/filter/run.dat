@@ -1,0 +1,219 @@
+******************************************************************************
+
+RUNNING PROGRAM: FILTER DIAGONALIZATION
+This calculation began at: Fri Jun  7 16:20:35 2024
+
+******************************************************************************
+
+
+******************************************************************************
+
+1.	INITIALIZING JOB
+
+******************************************************************************
+
+Reading job specifications from input.par:
+
+	Grid parameters (preliminary):
+	------------------------------
+	nx = 36, ny = 36, nz = 36
+	dx = 0.8, dy = 0.8, dz = 0.8
+	ngrid = 46656 nspin = 1
+	Nanocrystal COM will be centered at the origin
+
+	Pseudopotential options:
+	--------------------------
+	Pseudopotential parameters will not be interpolated
+	Strain dependent pseudopotential will be calculated
+	Crystal structure: zincblende
+	Outmost material: InP
+	Surface Cs atoms NOT rescaled for charge balancing
+
+	Parameters & counters for filter algorithm:
+	-------------------------------------------
+	statesPerFilter (# energy targets) = 12
+	nFilterCycles (# random initial states) = 16
+	nCheby = 2048
+	VBmin = -0.23, VBmax = -0.19
+	CBmin = -0.15, CBmax = -0.1
+	KEmax = 10 a.u.
+	fermiEnergy = -0.16 a.u.
+	setNumEnergyTargets flag on: n_targets_VB = 7 n_targets_CB = 5
+	Random seed will be generated based on clock at runtime
+	Intermediate filter wavefunctions will not be output to disk
+	Orthogonalized wavefunctions will not be output to disk
+
+	Parameters for parallelization:
+	-------------------------------
+	nThreads (# OMP threads) = 1
+
+	Parameters for spin-orbit and non-local:
+	----------------------------------------
+	Spinor wavefunctions turned OFF!
+	Spin-orbit coupling is OFF!
+	Non-local potential is OFF!
+	Wavefunctions are REAL valued!
+	  complex_idx = 1
+
+	Flags for optional output:
+	--------------------------
+	Matrix elements of the potential will not be calculated
+	All eigenstates will be saved to disk regardless of variance
+	Hamiltonian timing specs will not be printed
+	Cube files of top 4 states (sigma_E_cut < 0.001) in VB & CB will be printed
+	Spin and Ang. Mom. statistics will not be computed
+
+	Flags for restarting computation:
+	---------------------------------
+	Filter will NOT restart if no eigenstates obtained after diag.
+	No checkpoint saves requested
+	No checkpoint specified for restart. Job will run in normal sequence.
+
+Reading atomic configuration from conf.par:
+	natoms = 65
+	n_atom_types = 4
+	the atoms are [ P In P2 P1 ]
+
+Initializing the grid parameters:
+	Min. required box dimension for each direction (Bohr):
+	-----------------------------------------------------
+	xd = 26 yd = 26 zd = 26
+
+	Final grid parameters:
+	----------------------
+	xd = 28.8 yd = 28.8 zd = 28.8
+	dx = 0.8 dy = 0.8 dz = 0.8 dv = 0.512 dr = 1.38564
+	nx = 36  ny = 36  nz = 36
+	ngrid = 46656, nspin = 1, nspinngrid = 46656
+
+Building the real-space and k-space grids:
+	Building the grid...
+	Count max no. grid points in Rnlcut of an atom
+	n_NL_gridpts = 0
+
+Setting the filter energy targets:
+	Spacing between states in VB: 0.00571429 a.u.
+	Spacing between states in CB: 0.01 a.u.
+
+	Energy target list:
+	-------------------
+	-0.224286
+	-0.218571
+	-0.212857
+	-0.207143
+	-0.201429
+	-0.195714
+	-0.19
+	-0.15
+	-0.14
+	-0.13
+	-0.12
+	-0.11
+
+Allocating memory for FFT, pot, psi, eig_vals...	done allocating memory.
+
+Initializing potentials...
+
+Local pseudopotential:
+	Reading atomic pseudopotentials...
+	potP.par potIn.par 
+	No ligand potential file potP2.par
+	 Using default Gaussian parameters a = -0.384 b = 2.2287
+
+	No ligand potential file potP1.par
+	 Using default Gaussian parameters a = 0.64 b = 2.2287
+
+	Constructing total pseudopotential on the grid...
+	Computing potential without interpolating over cubic/ortho parameters
+
+	Vmin = -2.46619 Vmax = -0.0217044 dV = 2.44448 
+
+
+******************************************************************************
+
+2. CALCULATING HAMILTONIAN ENERGY RANGE...
+
+******************************************************************************
+Emin = -2.28858, Emax = 11.1058, dE = 13.3943
+
+done calculate energy range, CPU time (sec) 1.9, wall run time (sec) 2
+
+
+******************************************************************************
+
+3. GENERATING COEFFICIENTS
+
+******************************************************************************
+
+Calculating Newton interpolation coefficients for filter functions.
+ncheby = 2048 dt = 3740.57 dE = 13.3943
+
+
+******************************************************************************
+
+4. STARTING FILTERING
+
+******************************************************************************
+
+Energy width, sigma, of filter function = 0.0115616 a.u.
+Suggested max span of spectrum for filtering = 0.138739 a.u.
+Requested span of spectrum to filter = 0.0742857 a.u.
+
+done calculating filter, CPU time (sec) 52.4, wall run time (sec) 52
+
+
+******************************************************************************
+
+5. ORTHOGONALIZATING FILTERED STATES
+
+******************************************************************************
+
+SVD cutoff (no. orthogonal vectors) is 192
+mn_states_tot ortho = 192
+
+done calculating ortho, CPU time (sec) 0.56, wall run time (sec) 1
+
+
+******************************************************************************
+
+6. DIAGONALIZING HAMILTONIAN
+
+******************************************************************************
+
+done calculating Hmat, CPU time (sec) 2.8, wall run time (sec) 2
+
+
+******************************************************************************
+
+7. CALCULATING VARIANCE OF EIGENVALUES
+
+******************************************************************************
+getAllStates flag on
+Writing all eigenstates to disk
+
+
+******************************************************************************
+
+CALCULATING OPTIONAL OUTPUT
+
+******************************************************************************
+index of homo, homo_idx = 0; index of lumo, nlumo = 0
+total_homo = 1 total_lumo = 191
+
+
+******************************************************************************
+
+WRITING CUBE FILES
+
+******************************************************************************
+
+Did not converge enough electron or hole states to visualize cube files.
+
+
+******************************************************************************
+
+DONE WITH PROGRAM: PEROVCUBE FILTER DIAGONALIZATION
+This calculation ended at: Fri Jun  7 16:21:35 2024
+
+Total job CPU time (sec) 59.69, wall run time (sec) 60
+******************************************************************************

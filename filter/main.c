@@ -95,7 +95,7 @@ int main(int argc, char *argv[]){
 
   /*** build the real- and k-space grids ***/
   printf("\nBuilding the real-space and k-space grids:\n");
-  build_grid_ksqr(ksqr, R, &grid, &ist, &par);
+  build_grid_ksqr(ksqr, R, &grid, &ist, &par, &flag);
   
   /*** set the energy targets ***/
   printf("\nSetting the filter energy targets:\n");

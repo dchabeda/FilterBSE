@@ -47,6 +47,11 @@ TESTOBJECTS = \
 
 CUBEOBJECTS = \
 		makecube.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o
+
+POTMATOBJECTS = \
+                pot_mat_elems.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o\
+		hamiltonian.o strain.o vector.o
+
 # compilation ...
 
 .f.o:
@@ -59,12 +64,14 @@ all: $(MAINNAM)
 $(MAINNAM): $(OBJECTS) 
 	$(${OS}_LD) -o $(MAINNAM).x $(${OS}_CFLAGS) $(OBJECTS) $(LIB)
 
-
 test: $(TESTOBJECTS)
 	$(${OS}_LD) -o test.x $(${OS}_CFLAGS) $(TESTOBJECTS) $(LIB)
 
 cube: $(CUBEOBJECTS)
 	$(${OS}_LD) -o makecube.x $(${OS}_CFLAGS) $(CUBEOBJECTS) $(LIB)
+
+potmat: $(POTMATOBJECTS)
+	$(${OS}_LD) -o pot_mat_elems.x $(${OS}_CFLAGS) $(POTMATOBJECTS) $(LIB)
 
 clean:
 	/bin/rm *.o *.x

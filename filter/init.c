@@ -19,10 +19,13 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par){
 
   long ntmp; 
   double xd, yd, zd;
+  char *X; X = malloc(2*sizeof(X[0])); strcpy(X, "X");
+  char *Y; Y = malloc(2*sizeof(Y[0])); strcpy(Y, "Y");
+  char *Z; Z = malloc(2*sizeof(Z[0])); strcpy(Z, "Z");
 
-  xd = rint(0.5 * calc_dot_dimension(&R->x, ist->natoms) + 5.0);
-  yd = rint(0.5 * calc_dot_dimension(&R->y, ist->natoms) + 5.0);
-  zd = rint(0.5 * calc_dot_dimension(&R->z, ist->natoms) + 5.0);
+  xd = rint(0.5 * calc_dot_dimension(R, ist->natoms, X) + 5.0);
+  yd = rint(0.5 * calc_dot_dimension(R, ist->natoms, Y) + 5.0);
+  zd = rint(0.5 * calc_dot_dimension(R, ist->natoms, Z) + 5.0);
   
   printf("\tMin. required box dimension for each direction (Bohr):\n");
   printf("\t-----------------------------------------------------\n");
@@ -31,6 +34,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par){
   /***initial parameters for the pot reduce mass, etc. in the x direction ***/
   grid->xmin = -xd;
   grid->xmax = xd;
+  printf("\tThe x_max = %lg and x_min %lg\n", grid->xmax, grid->xmin);
   ntmp  = (long)((grid->xmax - grid->xmin) / grid->dx);
   if (ntmp > grid->nx){
     printf("\tinput nx insufficient; updating parameter.\n");
@@ -44,6 +48,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par){
   /***initial parameters for the pot reduce mass, etc. in the y direction ***/
   grid->ymin = -yd;
   grid->ymax = yd;
+  printf("\tThe y_max = %lg and y_min %lg\n", grid->ymax, grid->ymin);
   ntmp  = (long)((grid->ymax - grid->ymin) / grid->dy);
   if (ntmp > grid->ny){
     printf("\tinput ny insufficient; updating parameter.\n");
@@ -58,6 +63,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par){
   grid->zmin = -zd;
   grid->zmax = zd;
   ntmp  = (long)((grid->zmax - grid->zmin) / grid->dz);
+  printf("\tThe z_max = %lg and z_min %lg\n", grid->zmax, grid->zmin);
   if (ntmp > grid->nz){
     printf("\tinput nz insufficient; updating parameter.\n");
     grid->nz = ntmp;
@@ -93,7 +99,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par){
 
 /*****************************************************************************/
 
-void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_st *par){
+void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_st *par, flag_st *flag){
   /*******************************************************************
   * This function builds the real- and k-space grids.                *
   * inputs:                                                          *
@@ -101,6 +107,7 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_
   *  [grid] struct holding the grid and grid parameters (dx, xmin...)*
   *  [ist] ptr to counters, indices, and lengths                     *
   *  [par] ptr to par_st holding VBmin, VBmax... params              *
+  *  [flag_st *par] ptr to flag_st holding job flags                 *
   * outputs: void                                                    *
   ********************************************************************/
 
@@ -153,26 +160,28 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_
   }
   fclose(pf);
 
-  // Count the max number of grid points within Rnlcut of an atom***/
-  printf("\tCount max no. grid points in Rnlcut of an atom\n");
-  ist->n_NL_gridpts = 0;
-  for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
-    for (jtmp =0, jz = 0; jz < grid->nz; jz++) {
-      for (jy = 0; jy < grid->ny; jy++) {
-      	for (jx = 0; jx < grid->nx; jx++) {
-      	  dx = grid->x[jx] - R[jatom].x;
-      	  dy = grid->y[jy] - R[jatom].y;
-      	  dz = grid->z[jz] - R[jatom].z;
-      	  if (dx*dx + dy*dy + dz*dz < par->R_NLcut2) {
-            jtmp++; 
+  if ((1 == flag->NL) || (1 == flag->SO)){
+    // Count the max number of grid points within Rnlcut of an atom***/
+    printf("\tCount max no. grid points in Rnlcut of an atom\n");
+    ist->n_NL_gridpts = 0;
+    for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
+      for (jtmp =0, jz = 0; jz < grid->nz; jz++) {
+        for (jy = 0; jy < grid->ny; jy++) {
+          for (jx = 0; jx < grid->nx; jx++) {
+            dx = grid->x[jx] - R[jatom].x;
+            dy = grid->y[jy] - R[jatom].y;
+            dz = grid->z[jz] - R[jatom].z;
+            if (dx*dx + dy*dy + dz*dz < par->R_NLcut2) {
+              jtmp++; 
+            }
           }
-      	}
+        }
       }
+      if (jtmp > ist->n_NL_gridpts) ist->n_NL_gridpts = jtmp;
     }
-    if (jtmp > ist->n_NL_gridpts) ist->n_NL_gridpts = jtmp;
+    printf("\tn_NL_gridpts = %ld\n", ist->n_NL_gridpts);
+    fflush(stdout); 
   }
-  printf("\tn_NL_gridpts = %ld\n", ist->n_NL_gridpts);
-  fflush(stdout);
 
   free(ksqrx); free(ksqry);  free(ksqrz);
 }
@@ -278,8 +287,10 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
   int scale_LR = 0;
 
   // turn on the scale LR flag if surface Cs atoms will be scaled
-  if (1.0 != par->scale_surface_Cs) scale_LR = 1;
-
+  if (1.0 != par->scale_surface_Cs){
+    printf("Surface Cs atom charges being scaled by %lg\n", par->scale_surface_Cs);
+    scale_LR = 1;
+  }
   // Allocate memory for strain parameters if strain-dependent potentials are requested
   if (1 == flag->useStrain){
     if ((pot->a4_params = (double *) calloc(ist->ngeoms * ist->n_atom_types, sizeof(pot->a4_params[0]))) == NULL){
@@ -314,7 +325,6 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
   if (1 == flag->useStrain){
     read_nearest_neighbors(atom_neighbor_list, vol_ref, ist->natoms, ist->crystal_structure_int, ist->outmost_material_int);
     calc_strain_scale(strain_scale, atom_neighbor_list, vol_ref, atom, pot->a4_params, pot->a5_params, ist->natoms);
-    free(atom_neighbor_list); free(vol_ref); free(pot->a4_params); free(pot->a5_params);
   }
 
   // ****** ****** ****** ****** ****** ****** 
@@ -352,7 +362,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
           } 
           // Default route without potential interpolation between geometries
           else {
-            if ((jxyz == 0)&& (jatom == 0)) printf("\tComputing potential without interpolating over cubic/ortho parameters\n\n"); 
+            if ((jxyz == 0) && (jatom == 0)) printf("\tComputing potential without interpolating over cubic/ortho parameters\n\n"); 
       	    sum += interpolate(del,pot->dr[atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
                 pot->file_lens[atom[jatom].idx],atom[jatom].idx,scale_LR,atom[jatom].LR_par, strain_factor);
           }
@@ -373,7 +383,10 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
 
   printf("\tVmin = %g Vmax = %g dV = %g \n", par->Vmin, par->Vmax, par->Vmax-par->Vmin);
 
-  if (1 == flag->useStrain) free(strain_scale);
+  if (1 == flag->useStrain){
+    free(atom_neighbor_list); free(vol_ref); free(strain_scale);
+    free(pot->a4_params); free(pot->a5_params);
+  }
   return;
 }
 
@@ -600,7 +613,7 @@ void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, paral
 
 /***************************************************************************/
 
-double calc_dot_dimension(double *R, long n_atoms){
+double calc_dot_dimension(xyz_st *R, long n_atoms, char *dir){
   /*******************************************************************
   * This function calculates the size of the NC along one dimension  *
   * inputs:                                                          *
@@ -611,12 +624,39 @@ double calc_dot_dimension(double *R, long n_atoms){
 
   long i, j;
   double dr2, dis2;
+  char *X; X = malloc(2*sizeof(X[0]));
+  char *Y; Y = malloc(2*sizeof(Y[0]));
+  char *Z; Z = malloc(2*sizeof(Z[0]));
+
+  strcpy(X, "X"); strcpy(Y, "Y"); strcpy(Z, "Z");
   
-  dr2 = 0.0;
-  for (i = 0; i < n_atoms-1; i++){
-    for (j = i+1; j < n_atoms; j++){
-      dis2 = sqr(R[i]-R[j]);
-      if (dis2 > dr2) dr2 = dis2;
+  if (0 == strcmp(dir, (const char *)X ) ){
+    dr2 = 0.0;
+    for (i = 0; i < n_atoms-1; i++){
+      for (j = i+1; j < n_atoms; j++){
+        dis2 = sqr(R[i].x - R[j].x);
+        if (dis2 > dr2) dr2 = dis2;
+      }
+    }
+  }
+
+  if (0 == strcmp(dir, "Y") ){
+    dr2 = 0.0;
+    for (i = 0; i < n_atoms-1; i++){
+      for (j = i+1; j < n_atoms; j++){
+        dis2 = sqr(R[i].y - R[j].y);
+        if (dis2 > dr2) dr2 = dis2;
+      }
+    }
+  }
+
+  if (0 == strcmp(dir, "Z") ){
+    dr2 = 0.0;
+    for (i = 0; i < n_atoms-1; i++){
+      for (j = i+1; j < n_atoms; j++){
+        dis2 = sqr(R[i].z - R[j].z);
+        if (dis2 > dr2) dr2 = dis2;
+      }
     }
   }
 

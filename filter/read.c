@@ -603,9 +603,12 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
       } else {
         printf("\n\tNo ligand potential file %s\n\t Using default Gaussian parameters a = %lg b = %lg\n", str, a[iatm-2], b[iatm-2]);
         pot->file_lens[j] = pot->file_lens[0];
+        printf("The length of %s pot file = %ld\n", str, pot->file_lens[j]);
         for (i = 0; i < pot->file_lens[j]; i++) {
           pot->r[j*n+i] = pot->r[i];
           pot->pseudo[j*n+i] = (a[iatm-2] * exp(-sqr(pot->r[j*n+i]) / b[iatm-2]));
+          printf("%lg %lg\n", pot->r[j*n + i], pot->pseudo[j*n + i]);
+
         } 
       }
     }

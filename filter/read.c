@@ -508,9 +508,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
 
   // The ligand potentials are constructed internally by creating a Gaussian on the grid with
   // equation lig = a * exp(- r^2 / b)
-  //               P1        P2         P3         P4     PC5    PC6
-  double a[4] = { 0.64,    -0.384,     0.050,-0.684,     0.065, 0.080};
-  double b[4] = {2.2287033, 2.2287033, 6.000, 2.2287033, 6.000, 6.000};
+  //               P1        P2         P3       P4        PC5    PC6
+  double a[6] = { 0.64,    -0.384,     0.050, -0.684,     0.065, 0.080};
+  double b[6] = {2.2287033, 2.2287033, 6.000,  2.2287033, 6.000, 6.000};
 
 
   // The array pot->r contains the r values in the psuedopotential file

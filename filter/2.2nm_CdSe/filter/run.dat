@@ -1,7 +1,7 @@
 ******************************************************************************
 
 RUNNING PROGRAM: FILTER DIAGONALIZATION
-This calculation began at: Thu Jun 13 16:06:07 2024
+This calculation began at: Thu Jun 13 18:01:09 2024
 
 ******************************************************************************
 
@@ -75,19 +75,22 @@ Reading atomic configuration from conf.par:
 	the atoms are [ Cd Se P1 P2 ]
 
 Initializing the grid parameters:
-	Min. required box dimension for each direction (Bohr):
+The direction is X!The direction is Y!The direction is Z!	Min. required box dimension for each direction (Bohr):
 	-----------------------------------------------------
-	xd = 34 yd = 34 zd = 34
+	xd = 46 yd = 42 zd = 36
+The x_max = 23 and x_min -23
 	input nx insufficient; updating parameter.
+The y_max = 21 and y_min -21
 	input ny insufficient; updating parameter.
+The z_max = 18 and z_min -18
 	input nz insufficient; updating parameter.
 
 	Final grid parameters:
 	----------------------
-	xd = 33.6 yd = 33.6 zd = 33.6
+	xd = 45.6 yd = 41.6 zd = 36.0
 	dx = 0.8 dy = 0.8 dz = 0.8 dv = 0.512 dr = 1.38564
-	nx = 42  ny = 42  nz = 42
-	ngrid = 74088, nspin = 1, nspinngrid = 74088
+	nx = 57  ny = 52  nz = 45
+	ngrid = 133380, nspin = 1, nspinngrid = 133380
 
 Building the real-space and k-space grids:
 	Building the grid...
@@ -133,7 +136,7 @@ Local pseudopotential:
 	Constructing total pseudopotential on the grid...
 	Computing potential without interpolating over cubic/ortho parameters
 
-	Vmin = -1.95067 Vmax = 0.349896 dV = 2.30057 
+	Vmin = -1.95091 Vmax = 0.366802 dV = 2.31771 
 
 
 ******************************************************************************
@@ -141,9 +144,9 @@ Local pseudopotential:
 2. CALCULATING HAMILTONIAN ENERGY RANGE...
 
 ******************************************************************************
-Emin = -1.20007, Emax = 12.3324, dE = 13.5325
+Emin = -1.13271, Emax = 12.3281, dE = 13.4608
 
-done calculate energy range, CPU time (sec) 3.46, wall run time (sec) 4
+done calculate energy range, CPU time (sec) 9.42, wall run time (sec) 10
 
 
 ******************************************************************************
@@ -153,7 +156,7 @@ done calculate energy range, CPU time (sec) 3.46, wall run time (sec) 4
 ******************************************************************************
 
 Calculating Newton interpolation coefficients for filter functions.
-ncheby = 2048 dt = 3664.58 dE = 13.5325
+ncheby = 2048 dt = 3703.7 dE = 13.4608
 
 
 ******************************************************************************
@@ -162,11 +165,11 @@ ncheby = 2048 dt = 3664.58 dE = 13.5325
 
 ******************************************************************************
 
-Energy width, sigma, of filter function = 0.0116808 a.u.
-Suggested max span of spectrum for filtering = 0.280339 a.u.
+Energy width, sigma, of filter function = 0.011619 a.u.
+Suggested max span of spectrum for filtering = 0.278855 a.u.
 Requested span of spectrum to filter = 0.179375 a.u.
 
-done calculating filter, CPU time (sec) 115.11, wall run time (sec) 115
+done calculating filter, CPU time (sec) 306.8, wall run time (sec) 307
 
 
 ******************************************************************************
@@ -179,11 +182,11 @@ Scalar wavefunctions used. Allocating "work" for real SVD
 Computing real-valued SVD...
 Done with SVD!
 
-SVD cutoff (no. orthogonal vectors) is 191
+SVD cutoff (no. orthogonal vectors) is 183
 Scalar wavefunctions used. Freeing work
-mn_states_tot after ortho = 191
+mn_states_tot after ortho = 183
 
-done calculating ortho, CPU time (sec) 3.08, wall run time (sec) 4
+done calculating ortho, CPU time (sec) 5.98, wall run time (sec) 6
 
 
 ******************************************************************************
@@ -192,7 +195,7 @@ done calculating ortho, CPU time (sec) 3.08, wall run time (sec) 4
 
 ******************************************************************************
 
-done calculating Hmat, CPU time (sec) 4.41, wall run time (sec) 4
+done calculating Hmat, CPU time (sec) 7.7, wall run time (sec) 8
 
 
 ******************************************************************************
@@ -209,8 +212,8 @@ Writing all eigenstates to disk
 CALCULATING OPTIONAL OUTPUT
 
 ******************************************************************************
-index of homo, homo_idx = 101; index of lumo, nlumo = 102
-total_homo = 102 total_lumo = 89
+index of homo, homo_idx = 110; index of lumo, nlumo = 111
+total_homo = 111 total_lumo = 72
 
 
 ******************************************************************************
@@ -219,13 +222,13 @@ WRITING CUBE FILES
 
 ******************************************************************************
 
-done calculating cubes, CPU time (sec) 0.16, wall run time (sec) 0
+done calculating cubes, CPU time (sec) 0.31, wall run time (sec) 0
 
 
 ******************************************************************************
 
 DONE WITH PROGRAM: FILTER DIAGONALIZATION
-This calculation ended at: Thu Jun 13 16:08:16 2024
+This calculation ended at: Thu Jun 13 18:06:44 2024
 
-Total job CPU time (sec) 128.9, wall run time (sec) 129
+Total job CPU time (sec) 334.3, wall run time (sec) 335
 ******************************************************************************

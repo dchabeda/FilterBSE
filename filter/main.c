@@ -518,9 +518,9 @@ int main(int argc, char *argv[]){
 
       // The standard portion of the filter diagonalization procedure has concluded
       // Print the output.dat file for use in future workflows unless explicitly requested to NOT save output
-      if (0 != flag->saveOutput){
-        save_job_state("output.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
-      }
+      // if (0 != flag.saveOutput){
+      //   save_job_state("output.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
+      // }
 
       write_separation(stdout, top);
       printf("\nCALCULATING OPTIONAL OUTPUT\n"); 

@@ -182,7 +182,7 @@ void save_job_state(char *file_name, int checkpoint_id, double *psitot, double *
     fprintf(pf, "%d %d %d %d %d\n", flag->centerConf, flag->setTargets, flag->setSeed, flag->interpolatePot, flag->useStrain);
     fprintf(pf, "%d %d %d %d %d\n", flag->SO, flag->NL, flag->LR, flag->useSpinors, flag->isComplex);
     fprintf(pf, "%d %d %d %d\n", flag->calcPotOverlap, flag->getAllStates, flag->timeHamiltonian, flag->calcSpinAngStat);
-    fprintf(pf, "%d %d %d\n", flag->retryFilter, flag->alreadyTried, flag->saveCheckpoints);
+    fprintf(pf, "%d %d %d %d %d\n", flag->retryFilter, flag->alreadyTried, flag->saveCheckpoints, flag->restartFromCheckpoint, flag->saveOutput);
     
     fprintf(pf, "%ld\n", parallel->nthreads);
 
@@ -323,6 +323,7 @@ void restart_from_save(char *file_name, int checkpoint_id, double *psitot, doubl
         exit(EXIT_FAILURE);
     }
 
+    free(eof); free(end_buffer);
     return;
 
 }

@@ -35,7 +35,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // Pseudopotential parameters
   ist->max_pot_file_len = 8192;
   flag->useStrain = 0; // By default, do not compute strain dependent terms in pseudopotential
-  flag->LR = 0; // By default, pseudopotentials are short ranged.
+  flag->LR = 0; // Long range flag. By default, pseudopotentials are short ranged.
   strcpy(par->crystal_structure, "unknown"); // set the following parameters for strain dependent potentials to NULL
   strcpy(par->outmost_material, "unknown");
   ist->crystal_structure_int = -1;
@@ -499,7 +499,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
   xyz_st R_min, R_max;
   double dr_check;
   long i, j, atyp_idx; 
-  char str[30], tmpstr[30], atype[3], *req; req = malloc(10*sizeof(req[0]));
+  char str[30], tmpstr[30], atype[4], *req; req = malloc(10*sizeof(req[0]));
   // The number of geometries in the pseudopotential for each atom type. usually 1, more if interpolating
   long ngeoms = ist->ngeoms; 
   // pot->file_lens is the number of points in the pseudopotential file (also equivalent to the number of lines in the file)
@@ -1279,7 +1279,7 @@ double calc_bond_angle(long index1, long index2, long index3, xyz_st *R){
 
 /*****************************************************************************/
 
-long assign_atom_number(char atyp[3]){
+long assign_atom_number(char atyp[4]){
   /*******************************************************************
   * This function assigns the atomic number (ID) based on name       *
   * inputs:                                                          *
@@ -1331,8 +1331,8 @@ void assign_atom_type(char *atyp, long j){
   else if (j == 3) {atyp[0] = 'P'; atyp[1] = '2'; atyp[2] = '\0';}
   else if (j == 4) {atyp[0] = 'P'; atyp[1] = '3'; atyp[2] = '\0';}
   else if (j == 5) {atyp[0] = 'P'; atyp[1] = '4'; atyp[2] = '\0';}
-  else if (j == 6) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '5';}
-  else if (j == 7) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '6';}
+  else if (j == 6) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '5'; atyp[3] = '\0';}
+  else if (j == 7) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '6'; atyp[3] = '\0';}
   else if (j == 14) {atyp[0] = 'S'; atyp[1] = 'i'; atyp[2] = '\0';}
   else if (j == 15) {atyp[0] = 'P'; atyp[1] = '\0'; atyp[2] = '\0';}
   else if (j == 16) {atyp[0] = 'S'; atyp[1] = '\0'; atyp[2] = '\0';}

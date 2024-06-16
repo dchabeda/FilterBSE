@@ -22,8 +22,7 @@ typedef struct flag {
   int SO, NL, LR, useSpinors, isComplex;
   int printPsiFilt, printOrtho, printNorm, printCubes;
   int calcPotOverlap, getAllStates, timeHamiltonian, calcSpinAngStat;
-  int retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint;
-  int saveOutput;
+  int retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint, saveOutput;
 } flag_st;
 
 typedef struct index {
@@ -172,7 +171,7 @@ void read_pot_file(FILE *pf, pot_st *pot, long j, long n, char *req);
 void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par);
 void calc_geom_par(xyz_st *R,atom_info *atm, index_st *ist );
 double calc_bond_angle(long index1,long index2,long index3, xyz_st *R);
-long assign_atom_number(char atyp[3]);
+long assign_atom_number(char atyp[4]);
 void assign_atom_type(char *atype,long j);
 long get_number_of_atom_types(atom_info *atm,index_st *ist, long *list);
 int assign_crystal_structure(char *crystal_structure);

@@ -596,8 +596,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
         for (i = 0; i < pot->file_lens[atyp_idx]; i++) {
           pot->r[atyp_idx*ist->max_pot_file_len + i] = pot->r[i];
           pot->pseudo[atyp_idx*ist->max_pot_file_len + i] = (a[iatm-2] * exp(-sqr(pot->r[atyp_idx*ist->max_pot_file_len + i]) / b[iatm-2]));
-          printf("%lg %lg\n", pot->r[atyp_idx*ist->max_pot_file_len + i], pot->pseudo[atyp_idx*ist->max_pot_file_len + i]);
+          
         } 
+        pot->dr[atyp_idx] = pot->r[atyp_idx*ist->max_pot_file_len + 1] - pot->r[atyp_idx*ist->max_pot_file_len]
       }
     }
     // ******* ******* ******* ******* ******* ******* ******* *******

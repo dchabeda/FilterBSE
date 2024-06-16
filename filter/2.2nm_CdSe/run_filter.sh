@@ -34,8 +34,8 @@ rm $cwd/*_input.par
 # Pseudopotentials
 cp $pseudoDir/potCd.par $sFilterDir/
 cp $pseudoDir/potSe.par $sFilterDir/
-cp $pseudoDir/potP1.par $sFilterDir/
-cp $pseudoDir/potP2.par $sFilterDir/
+#cp $pseudoDir/potP1.par $sFilterDir/
+#cp $pseudoDir/potP2.par $sFilterDir/
 
 # Neighbor list and conf
 cp $cwd/conf.par $sFilterDir/

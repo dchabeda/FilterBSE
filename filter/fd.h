@@ -19,7 +19,7 @@
 
 typedef struct flag {
   int centerConf, setTargets, setSeed, interpolatePot, useStrain;
-  int SO, NL, useSpinors, isComplex;
+  int SO, NL, LR, useSpinors, isComplex;
   int printPsiFilt, printOrtho, printNorm, printCubes;
   int calcPotOverlap, getAllStates, timeHamiltonian, calcSpinAngStat;
   int retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint;
@@ -53,6 +53,7 @@ typedef struct par {
   char crystal_structure[15], outmost_material[15];
   // Redundnacies
   double dv;
+  int potloc_dv, potSO_dv, potNL_dv;
 } par_st;
 
 typedef struct atom_info {
@@ -167,6 +168,7 @@ double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int)
 void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);
 void read_conf(xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag);
 void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag);
+void read_pot_file(FILE *pf, pot_st *pot, long j, long n, char *req);
 void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par);
 void calc_geom_par(xyz_st *R,atom_info *atm, index_st *ist );
 double calc_bond_angle(long index1,long index2,long index3, xyz_st *R);

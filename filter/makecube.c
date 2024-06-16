@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
   // long int arrays and counters
   long i, jms;
   int j, start, end;
-  
+  ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
   time_t currentTime = time(NULL);
 
 
@@ -56,11 +56,11 @@ int main(int argc, char *argv[])
   if ((atom = (atom_info *) calloc(ist.natoms, sizeof(atom_info))) == NULL) nerror("atom");
   
   /*** read the nanocrystal configuration ***/
-  printf("\nReading atomic configuration from conf.par:\n");
+  printf("\nReading atomic configuration from conf.par:\n"); fflush(0);
   read_conf(R, atom, &ist, &par, &flag);
   
   /*** initialize the grid ***/
-  printf("\nInitializing the grid parameters:\n");
+  printf("\nInitializing the grid parameters:\n"); fflush(0);
   init_grid_params(&grid, R, &ist, &par);
 
   if ((rho = (double *)calloc(ist.ngrid, sizeof(double)))==NULL) nerror("rho");
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 
   //count number of states found
   jms = countlines("eval.dat");
-  printf("%ld total states in psi.dat\n", jms);
+  printf("%ld total states in psi.dat\n", jms); fflush(0);
   
   //allocate memory for psi
   if ((psi = (zomplex *) calloc(ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");

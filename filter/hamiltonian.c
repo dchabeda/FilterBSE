@@ -35,7 +35,7 @@ void hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *
       kinetic(&psi_out[jspin*ist->ngrid], ksqr, planfw, planbw, fftwpsi, ist); //spin up/down
   } 
 
-  // Calculate the action of the potential on the wavefunction
+  // Calculate the action of the potential on the wavefunction: |psi_out> = V|psi_tmp>
   potential(psi_out, psi_tmp, pot_local, nlc, nl, ist, par, flag);
 
   return;
@@ -119,6 +119,10 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
 
       psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
       psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
+      if (1 == par->potloc_dv){
+        psi_out[jtmp].re *= par->dv;
+        psi_out[jtmp].im *= par->dv;
+      }
     }
   }
 
@@ -208,8 +212,12 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
             proj.im -= psi_tmp[r].re * nlc[index1].y1[m_p].im * nlc[index1].proj[iproj];
             
           }
-          proj.re *= par->dv;
-          proj.im *= par->dv;   
+          if (1 == par->potSO_dv){
+            proj.re *= par->dv;
+            proj.im *= par->dv;
+          }
+          // proj.re *= par->dv;
+          // proj.im *= par->dv;   
           for (spin = 0; spin<2; spin++){
             for (m = 0; m < 3; m++){
               //get L_{m,m'}\cdot S_{s,s'}*P_{n,m,s} = PLS_{n,m,m',s,s'}
@@ -307,9 +315,12 @@ void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl
             proj.im -= psi_tmp[r].re * nlc[index1].y1[m].im * nlc[index1].NL_proj[iproj];
             
           }
-          proj.re *= par->dv*nlc[index1].NL_proj_sign[iproj];
-          proj.im *= par->dv*nlc[index1].NL_proj_sign[iproj];   
-          
+          proj.re *= nlc[index1].NL_proj_sign[iproj];
+          proj.im *= nlc[index1].NL_proj_sign[iproj];   
+          if (1 == par->potNL_dv){
+            proj.re *= par->dv;
+            proj.im *= par->dv;
+          }
           for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
             index2 = jatom * ist->n_NL_gridpts + NL_gridpt;
             r_p = nlc[index2].jxyz + (ist->ngrid)*spin;

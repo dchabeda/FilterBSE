@@ -26,10 +26,12 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     // ****** ****** ****** ****** ****** ****** 
     fprintf(pf, "\n\tPseudopotential options:\n");
     fprintf(pf, "\t--------------------------\n");
-    if (1 == flag->interpolatePot) fprintf(pf, "\tPseudopotential parameters will be interpolated based on NC geometry\n");
-    else fprintf(pf, "\tPseudopotential parameters will not be interpolated\n");
     if (1 == flag->useStrain) fprintf(pf, "\tStrain dependent pseudopotential will be calculated\n");
     else fprintf(pf, "\tStrain dependent pseudopotential will NOT be calculated\n");
+    if (1 == flag->interpolatePot) fprintf(pf, "\tPseudopotential parameters will be interpolated based on NC geometry\n");
+    else fprintf(pf, "\tPseudopotential parameters will not be interpolated\n");
+    if (1 == flag->LR) fprintf(pf, "\tPseudopotentials are long ranged.\n");
+    else fprintf(pf, "\tPseudopotentials are short ranged.\n");
     fprintf(pf, "\tCrystal structure: %s\n", par->crystal_structure);
     fprintf(pf, "\tOutmost material: %s\n", par->outmost_material);
     if (par->scale_surface_Cs != 1.0) fprintf(pf, "\tLong range component of surface Cs atom potentials scaled by %lg\n", par->scale_surface_Cs);
@@ -178,7 +180,7 @@ void save_job_state(char *file_name, int checkpoint_id, double *psitot, double *
     fprintf(pf, "%lg\n", par->dv);
     
     fprintf(pf, "%d %d %d %d %d\n", flag->centerConf, flag->setTargets, flag->setSeed, flag->interpolatePot, flag->useStrain);
-    fprintf(pf, "%d %d %d %d\n", flag->SO, flag->NL, flag->useSpinors, flag->isComplex);
+    fprintf(pf, "%d %d %d %d %d\n", flag->SO, flag->NL, flag->LR, flag->useSpinors, flag->isComplex);
     fprintf(pf, "%d %d %d %d\n", flag->calcPotOverlap, flag->getAllStates, flag->timeHamiltonian, flag->calcSpinAngStat);
     fprintf(pf, "%d %d %d\n", flag->retryFilter, flag->alreadyTried, flag->saveCheckpoints);
     
@@ -274,7 +276,7 @@ void restart_from_save(char *file_name, int checkpoint_id, double *psitot, doubl
     fscanf(pf, "%lg", &par->dv);
     
     fscanf(pf, "%d %d %d %d %d", &flag->centerConf, &flag->setTargets, &flag->setSeed, &flag->interpolatePot, &flag->useStrain);
-    fscanf(pf, "%d %d %d %d", &flag->SO, &flag->NL, &flag->useSpinors, &flag->isComplex);
+    fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);
     fscanf(pf, "%d %d %d %d", &flag->calcPotOverlap, &flag->getAllStates, &flag->timeHamiltonian, &flag->calcSpinAngStat);
     fscanf(pf, "%d %d %d", &flag->retryFilter, &flag->alreadyTried, &flag->saveCheckpoints);
     

@@ -409,25 +409,6 @@ int main(int argc, char *argv[]){
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t);
       fflush(stdout);
 
-      if (1 == flag.saveCheckpoints){
-        write_separation(stdout, top);
-        printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
-        write_separation(stdout, bottom); fflush(stdout);
-        printf("\n");
-
-        save_job_state("checkpoint_3.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
-      }
-    // If checkpoint_id is 3, restart job right after diagonalization, before calculating output
-    case 3:
-      if (flag.restartFromCheckpoint == 3){
-        par.checkpoint_id = flag.restartFromCheckpoint;
-        write_separation(stdout, top);
-        printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
-        write_separation(stdout, bottom); fflush(stdout);
-        
-        restart_from_save("checkpoint_3.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
-      }
-      par.checkpoint_id++;
       /***********************************************************************/
       /*** calculate the standard deviation of these states ***/
       /*** this is used to check if there are ghost states ***/
@@ -459,10 +440,10 @@ int main(int argc, char *argv[]){
             fclose(ppsi);
           }
         }
-        // Write output in the case that
+        // Write output in the case that only converged eigenstates will be printed
         else{
           long eig = 0;
-          // Write only the eigenstates having variance less than 0.1 to disk (remove ghost states)
+          // Write only the eigenstates having variance less than sigma_E_cut to disk (remove ghost states)
           if (((peig = fopen("eval.dat" , "w"))==NULL) || ((ppsi = fopen("psi.dat" , "w"))==NULL)) {
             printf("Out of disk space!\n Writing energy levels to stdout...\n\n\n\n");
             for (jms = 0; jms < ist.mn_states_tot; jms++) printf ("%ld %.16g %g\n", jms, eig_vals[jms], sigma_E[jms]); 
@@ -518,9 +499,13 @@ int main(int argc, char *argv[]){
 
       // The standard portion of the filter diagonalization procedure has concluded
       // Print the output.dat file for use in future workflows unless explicitly requested to NOT save output
-      // if (0 != flag.saveOutput){
-      //   save_job_state("output.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
-      // }
+      if (0 != flag.saveOutput){
+        save_output("output.dat",psitot,eig_vals,sigma_E,pot_local,ksqr,nl,nlc,&grid,&ist,&par,&flag);
+      }
+
+      /**************************************************************************************************************/
+      /**************************************************************************************************************/
+      /**************************************************************************************************************/
 
       write_separation(stdout, top);
       printf("\nCALCULATING OPTIONAL OUTPUT\n"); 

@@ -1,7 +1,7 @@
-compute-0-9.local
+compute-0-6.local
  
 :: initializing oneAPI environment ...
-   68502.pippen.cchem.berkeley.edu.SC: BASH_VERSION = 4.2.46(2)-release
+   68543.pippen.cchem.berkeley.edu.SC: BASH_VERSION = 4.2.46(2)-release
 :: advisor -- latest
 :: ccl -- latest
 :: clck -- latest

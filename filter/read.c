@@ -35,6 +35,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // Pseudopotential parameters
   ist->max_pot_file_len = 8192;
   flag->useStrain = 0; // By default, do not compute strain dependent terms in pseudopotential
+  flag->LR = 0; // By default, pseudopotentials are short ranged.
   strcpy(par->crystal_structure, "unknown"); // set the following parameters for strain dependent potentials to NULL
   strcpy(par->outmost_material, "unknown");
   ist->crystal_structure_int = -1;
@@ -63,6 +64,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->retryFilter = 0; // When = 1, if no eigstates acquired, then retry the filter job 
   flag->alreadyTried = 0; // gets tripped to 1 after the first time retrying a Filter.
   
+  par->potloc_dv = 0;
+  par->potSO_dv = 1;
+  par->potNL_dv = 1;
   // Parse the input file
   if( access( "input.par", F_OK) != -1 ) {
     pf = fopen("input.par", "r");
@@ -218,6 +222,15 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "restartFromCheckpoint")) {
           flag->restartFromCheckpoint = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "potloc_dv")) {
+          par->potloc_dv = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "potSO_dv")) {
+          par->potSO_dv = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "potNL_dv")) {
+          par->potNL_dv = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
@@ -381,7 +394,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
     
     // update list of unique atoms in ist->atom_types
     for (j = 0; j <= ist->n_atom_types; j++){
-      //if atomtype already in list, just set the atom index and break
+      //if atomtype already in list, add its index to the list and break
       if (atom[i].Zval == ist->atom_types[j]){
         atom[i].idx = j; 
         break;
@@ -442,7 +455,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
   fprintf(pw,"%ld\n", ist->natoms);
   for (i = 0; i < ist->natoms; i++) {
     if (flag->SO != 1){
-      fprintf(pw, "%s %g %g %g\n", atom[i].atyp, R[i].x, R[i].y, R[i].z);
+      fprintf(pw, "%s %g %g %g %ld\n", atom[i].atyp, R[i].x, R[i].y, R[i].z, atom[i].idx);
     } 
     if (flag->SO == 1){
       fprintf(pw, "%s %g %g %g %g\n", atom[i].atyp, R[i].x, R[i].y, R[i].z, atom[i].SO_par);
@@ -480,12 +493,11 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
   FILE *pf;  
   xyz_st R_min, R_max;
   double dr_check;
-  long i, j, iscan; 
-  char str[30], tmpstr[30], atype[3];
+  long i, j, atyp_idx; 
+  char str[30], tmpstr[30], atype[3], *req; req = malloc(10*sizeof(req[0]));
   // The number of geometries in the pseudopotential for each atom type. usually 1, more if interpolating
   long ngeoms = ist->ngeoms; 
   // pot->file_lens is the number of points in the pseudopotential file (also equivalent to the number of lines in the file)
-  long n  = ist->max_pot_file_len;
   // n_atom_types is the number of distinct atoms in the NC configuration. Ex. 2 for CdSe, 3 for CsPbI3
   long ntype = ist->n_atom_types;
 
@@ -498,11 +510,14 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
 
   // The array pot->r contains the r values in the psuedopotential file
   // The array pot->pseudo contains the Vloc values in the pseudopotential file
-  for (j = 0; j < ngeoms * ntype * n; j++) pot->r[j] = pot->pseudo[j] = 0;
+  for (atyp_idx = 0; atyp_idx < ngeoms * ntype * ist->max_pot_file_len; atyp_idx++) {
+    pot->r[atyp_idx] = pot->pseudo[atyp_idx] = 0;
+  }
   // The number of lines in the pseudopotential file can differ for different systems
   // the array pot->file_lens contains the number of lines in the pseudopotential file for each atom type
-  for (j = 0; j < ngeoms * ntype; j++) pot->file_lens[j] = 0;
-
+  for (atyp_idx = 0; atyp_idx < ngeoms * ntype; atyp_idx++) {
+    pot->file_lens[atyp_idx] = 0;
+  }
   // If the surface Cs atoms will be charge rescaled, then the surface atoms need to be identified
   // Find the min and max value of the configuration to find the edge Cs atoms
   
@@ -545,70 +560,38 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
   // ******  ****** ****** ****** ****** ****** ****** ****** ******
   // ******  ****** ****** ****** ****** ****** ****** ****** ******
   // Loop over all of the atom types to read the pseudopot files
-  for (j = 0; j < ntype; j++){
+  for (atyp_idx = 0; atyp_idx < ntype; atyp_idx++){
 
     // iatm is the unique numerical index for the atom type (atomic number). 
-    long iatm  = ist->atom_types[j];
+    long iatm  = ist->atom_types[atyp_idx];
     assign_atom_type(atype, iatm); // atype now contains the atomic symbol. Ex. if iatm = 48, atype = Cd.
     
-    /* ****** ****** ****** ****** ****** ****** ****** ****** ****** ****** ****** ***/
-    // Handle ligand potentials. Currently, all of the ligand potentials have fictitious Z values less than 5
-    // If more potentials are added, then this hardcoded value needs to change so that ligand potentials are read.
-    // The current method could present an issue if light element pseudopotentials are generated (e.g. boron nitride, or carbon-based).
-    // A complete workaround is to specify all potentials with files rather than Gaussian a and b parameters. Then
-    // the ligand/other distinction is a non-issue.
-    if (iatm <= 5){
+    /* ****** ****** ****** *****/
+    // Handle ligand potentials. 
+    if ( (0 == strcmp(atype, "P1")) || (0 == strcmp(atype, "P2")) ||
+         (0 == strcmp(atype, "P3")) || (0 == strcmp(atype, "P4")) ||
+         (0 == strcmp(atype, "PC5")) || (0 == strcmp(atype, "PC6"))){
       // Get the name of the ligand potential (stored in atype)
-      sprintf (str, "pot");
-      for (int strnum = 0; strnum < 3; strnum++){  
-        if(atype[strnum]=='\0') break;
-        strncat(str,&atype[strnum],1);
-      }
+      sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
       strcat(str, ".par");
-
       // open the ligand potential file if it exists
       pf = fopen(str , "r");
       if (pf != NULL) {
-        // Loop until the end of the file pot[atype].par and read the contents 
-        // Increment pot->file_lens[j] to count how long the pseudopotential file is
-        for (pot->file_lens[j] = iscan = 0; iscan != EOF; pot->file_lens[j]++) {
-          iscan = fscanf (pf,"%lg %lg", &pot->r[j*n + pot->file_lens[j]], &pot->pseudo[j*n + pot->file_lens[j]]);
-          // pot->r and pot->pseudo store all the r values and v(r) values for each atomic pseudopotential
-          // Each atom's entry is spaced apart by j*n, where j is the index of this atom in the array of
-          // atoms in conf.par (max is n_atom_types) and n is the max length of a potential file, currently
-          // hardcoded to be 8192.
-        }
+        strcpy(req, "std");
+        read_pot_file(pf, pot, atyp_idx, ist->max_pot_file_len, req);
         fclose(pf);
-        // The last iteration returns the EOF signal, but still increments pot->file_lens[j]. 
-        // Decrement it now to avoid a seg fault by running outside the pot->r/pot->pseudo array
-        pot->file_lens[j]--;
-
-        /*** Get the r-spacing ***/
-        pot->dr[j] = pot->r[j*n+1] - pot->r[j*n+0]; // r spacing
-
-        sprintf (str, "pot");
-        for (int strnum = 0;strnum<3; strnum++){
-          if(atype[strnum]=='\0') break;
-          strncat(str,&atype[strnum],1);
-        }
-        strcat(str, ".dat");
-        
         // print the potential that finished reading
         printf("%s ",str);
-
-        pf = fopen(str , "w");
-        for (i = 0; i < pot->file_lens[j]; i++) fprintf (pf,"%g %g\n",pot->r[j*n+i],pot->pseudo[j*n+i]);
-        fclose(pf);
-
       } else {
+        // If there is no file for the ligands in the directory, construct the ligand potentials by using hardcoded 
+        // Gaussian parameters a and b
         printf("\n\tNo ligand potential file %s\n\t Using default Gaussian parameters a = %lg b = %lg\n", str, a[iatm-2], b[iatm-2]);
-        pot->file_lens[j] = pot->file_lens[0];
-        printf("The length of %s pot file = %ld\n", str, pot->file_lens[j]);
-        for (i = 0; i < pot->file_lens[j]; i++) {
-          pot->r[j*n+i] = pot->r[i];
-          pot->pseudo[j*n+i] = (a[iatm-2] * exp(-sqr(pot->r[j*n+i]) / b[iatm-2]));
-          printf("%lg %lg\n", pot->r[j*n + i], pot->pseudo[j*n + i]);
-
+        pot->file_lens[atyp_idx] = pot->file_lens[0];
+        printf("The length of %s pot file = %ld\n", str, pot->file_lens[atyp_idx]);
+        for (i = 0; i < pot->file_lens[atyp_idx]; i++) {
+          pot->r[atyp_idx*ist->max_pot_file_len + i] = pot->r[i];
+          pot->pseudo[atyp_idx*ist->max_pot_file_len + i] = (a[iatm-2] * exp(-sqr(pot->r[atyp_idx*ist->max_pot_file_len + i]) / b[iatm-2]));
+          printf("%lg %lg\n", pot->r[atyp_idx*ist->max_pot_file_len + i], pot->pseudo[atyp_idx*ist->max_pot_file_len + i]);
         } 
       }
     }
@@ -616,96 +599,25 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
     // Handle atomic pseudopotentials here
     // ******* ******* ******* ******* ******* ******* ******* *******
     else {
-
       // Handle potential reading if potentials will not be interpolated
       if (flag->interpolatePot == 0){
         // If par->scale_surface_Cs is 1.0, then we do not need to scale the surface Cs atoms
+        // This is the default path.
         if (1.0 == par->scale_surface_Cs){
-          
           // The standard format for the file names is pot[atype].dat
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){  
-            if(atype[strnum]=='\0') break;
-            strncat(str,&atype[strnum],1);
-          }
+          sprintf(str, "pot%c%c%c", atype[0], atype[1], atype[2]);
           strcat(str, ".par");
 
           pf = fopen(str , "r");
           if (pf != NULL) {
-            // Loop until the end of the file pot[atype].par
-            // Increment pot->file_lens[j] to count how long the pseudopotential file is
-            for (iscan = 0; iscan != EOF; pot->file_lens[j]++) {
-              iscan = fscanf (pf, "%lg %lg", &pot->r[j*n + pot->file_lens[j]], &pot->pseudo[j*n + pot->file_lens[j]]);
-              // pot->r and pot->pseudo store all the r values and v_r values for each atomic pseudopotential
-              // each atom's entry is spaced apart by j*n, where j is the index of this atom in the array of
-              // atoms in conf.par (max is n_atom_types) and n is the max length of a potential file, currently
-              // hardcoded to be 8192.
-            }
+            strcpy(req, "std");
+            read_pot_file(pf, pot, atyp_idx, ist->max_pot_file_len, req);
             fclose(pf);
-
-            // The last iteration returns the EOF signal, but still increments pot->file_lens[j]. 
-            // Decrement it now to avoid a seg fault by running outside the pot->r/pot->pseudo array
-            pot->file_lens[j]--;
-
             // print the name of the potential file that was successfully read
             printf("%s ",str); 
           } else {
             fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
             exit(EXIT_FAILURE);
-          }
-
-          // Get the r-spacing and add to the pot->dr array 
-          // only evenly-spaced pseudopotential files are supported currently
-          pot->dr[j] = pot->r[j*n + 1] - pot->r[j*n + 0]; // r spacing
-          
-          // print pot[atom].dat to save a copy of the potential used internally by this run
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){
-            if(atype[strnum] == '\0') break;
-            strncat(str, &atype[strnum], 1);
-          }
-          strcat(str, ".dat");
-
-          pf = fopen(str , "w");
-          for (i = 0; i < pot->file_lens[j]; i++){
-            fprintf(pf, "%g %g\n", pot->r[j*n + i], pot->pseudo[j*n + i]);
-          }
-          fclose(pf);
-
-          if (1 == flag->useStrain){
-            // Read parameters for strain dependent pseudopotential terms
-            // The standard format for the file names is pot[atype]_a[4 or 5].dat
-            sprintf (str, "pot");
-            for (int strnum = 0; strnum < 3; strnum++){  
-              if(atype[strnum]=='\0') break;
-              strncat(str,&atype[strnum],1);
-            }
-            strcat(str, "_a4.par");
-            pf = fopen(str, "r");
-            if (pf != NULL) {
-                fscanf(pf, "%lg", &pot->a4_params[j]);
-                fclose(pf);
-            } else {
-                pot->a4_params[j] = 0.0;
-                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
-                // exit(EXIT_FAILURE);
-            }
-
-            sprintf (str, "pot");
-            for (int strnum = 0; strnum < 3; strnum++){  
-              if(atype[strnum]=='\0') break;
-              strncat(str,&atype[strnum],1);
-            }
-            strcat(str, "_a5.par");
-            pf = fopen(str, "r");
-            if (pf != NULL) {
-                fscanf(pf, "%lg", &pot->a5_params[j]);
-                fclose(pf);
-            } else {
-              pot->a5_params[j] = 0.0;
-                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
-                // exit(EXIT_FAILURE);
-            }
           }
         }
         // If par->scale_surface_Cs is 1.0, then we do not need to scale the surface Cs atoms
@@ -713,64 +625,30 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
           // We need to read in the short and long range potentials separately
           // in order to scale just the LR portion of the Cs atom potentials
           // The SR potential file name is pot[atype]_SR.dat
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){  
-            if(atype[strnum]=='\0') break;
-            strncat(str,&atype[strnum],1);
-          }
+          sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
           strcat(str, "_SR.par");
-
           pf = fopen(str , "r");
           if (pf != NULL) {
-            for (iscan = 0; iscan != EOF; pot->file_lens[j]++) {
-              // The short range potential gets stored in pot->r and pot->file_lens
-              iscan = fscanf (pf, "%lg %lg", &pot->r[j*n + pot->file_lens[j]], &pot->pseudo[j*n + pot->file_lens[j]]);
-            }
-            fclose(pf);
-
-            pot->file_lens[j]--;
+            strcpy(req, "std");
+            read_pot_file(pf, pot, atyp_idx, ist->max_pot_file_len, req);
             printf("%s ",str); 
-
+            i = pot->file_lens[atyp_idx];
+            dr_check = pot->dr[atyp_idx];
           } else {
             fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
             exit(EXIT_FAILURE);
           }
 
-          // Get the r-spacing and add to the pot->dr array 
-          // only evenly-spaced pseudopotential files are supported currently
-          pot->dr[j] = pot->r[j*n + 1] - pot->r[j*n + 0]; // r spacing
-          
-          // print pot[atom].dat to save a copy of the potential used internally by this run
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){
-            if(atype[strnum] == '\0') break;
-            strncat(str, &atype[strnum], 1);
-          }
-          strcat(str, "_SR.dat");
-
-          pf = fopen(str , "w");
-          for (i = 0; i < pot->file_lens[j]; i++) fprintf (pf,"%g %g\n",pot->r[j*n+i],pot->pseudo[j*n+i]);
-          fclose(pf);
-
           // ***** LONG RANGE ***** ***** LONG RANGE ***** ***** LONG RANGE *****
           // The LR potential file name is pot[atype]_LR.dat
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){  
-            if(atype[strnum]=='\0') break;
-            strncat(str,&atype[strnum],1);
-          }
+          sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
           strcat(str, "_LR.par");
-
           pf = fopen(str , "r");
           if (pf != NULL) {
-            for (iscan = 0, i = 0; iscan != EOF; i++) {
-              // The short range potential gets stored in pot->r_LR and pot->pseudo_LR
-              iscan = fscanf (pf, "%lg %lg", &pot->r_LR[j*n + i], &pot->pseudo_LR[j*n + i]);
-            }
+            strcpy(req, "LR");
+            read_pot_file(pf, pot, atyp_idx, ist->max_pot_file_len, req);
             fclose(pf);
-            i--;
             printf("%s ",str); 
-
           } else {
             fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
             exit(EXIT_FAILURE);
@@ -778,36 +656,19 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
 
           // Get the r-spacing and file length
           // check that it is the same as for the short range
-          dr_check = pot->r_LR[j*n + 1] - pot->r_LR[j*n + 0]; // r spacing
           if ((dr_check != pot->dr[j]) || (i != pot->file_lens[j]) ){
             fprintf(stderr, "ERROR: short and long range pseudopotential files have different r-spacing or length\n");
             exit(EXIT_FAILURE);
           }
-          
-          // print pot[atom]_LR.dat to save a copy of the potential used internally by this run
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){
-            if(atype[strnum] == '\0') break;
-            strncat(str, &atype[strnum], 1);
-          }
-          strcat(str, "_LR.dat");
-
-          pf = fopen(str , "w");
-          for (i = 0; i < pot->file_lens[j]; i++) fprintf (pf,"%g %g\n",pot->r_LR[j*n+i], pot->pseudo_LR[j*n+i]);
-          fclose(pf);
         } else {
           fprintf(stderr, "Invalid value of parameter scaleSurfaceCs = %lg > 1.0\n", par->scale_surface_Cs);
           exit(EXIT_FAILURE);
         }
-
+        // Read in a4 and a5 parameters for strain dependent pseudopotential terms
         if (1 == flag->useStrain){
           // Read parameters for strain dependent pseudopotential terms
           // The standard format for the file names is pot[atype]_a[4 or 5].dat
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){  
-            if(atype[strnum]=='\0') break;
-            strncat(str,&atype[strnum],1);
-          }
+          sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
           strcat(str, "_a4.par");
           pf = fopen(str, "r");
           if (pf != NULL) {
@@ -819,11 +680,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
               // exit(EXIT_FAILURE);
           }
           
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){  
-            if(atype[strnum]=='\0') break;
-            strncat(str,&atype[strnum],1);
-          }
+          sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
           strcat(str, "_a5.par");
           pf = fopen(str, "r");
           if (pf != NULL) {
@@ -852,165 +709,36 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
           // ******* ******* ******* ******* ******* ******* *******
           // CUBIC (Or geom1)
           // ******* ******* ******* ******* ******* ******* *******
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){  
-            if(atype[strnum] == '\0') break;
-            strncat(str, &atype[strnum], 1);
-          }
-          
-          strcpy(tmpstr, str); // copy the base name including the atom type
-          
-          // Get the cubic pseudopotential
+          sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
           strcat(str, "_cubic.par");
+          // Get the cubic pseudopotential
           pf = fopen(str , "r");
           if (pf != NULL) {
-            // Loop until the end of the file pot[atype].par. Increment pot->file_lens[j] to count how long the pseudopotential file is
-            for (pot->file_lens[ngeoms * j] = iscan = 0; iscan != EOF; pot->file_lens[ngeoms * j]++) {
-              iscan = fscanf (pf,"%lg %lg",&pot->r[ngeoms*j*n + pot->file_lens[ngeoms*j]], &pot->pseudo[ngeoms*j*n + pot->file_lens[ngeoms*j]]);
-            }
+            strcpy(req, "std");
+            read_pot_file(pf, pot, ngeoms*atyp_idx, ist->max_pot_file_len, req);
             fclose(pf);
-
-            // The last iteration returns the EOF signal, but still increments pot->file_lens[j]. 
-            // Decrement it now to avoid a seg fault by running outside the pot->r/pot array
-            pot->file_lens[ngeoms*j]--;
-
             printf("%s ",str); // print the potential that finished reading
           } else {
             fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
             exit(EXIT_FAILURE);
-          }
-          
-          // Get the r-spacing and add to the pot->dr array 
-          // only evenly-spaced pseudopotential files are supported currently
-          pot->dr[ngeoms*j] = pot->r[ngeoms*j*n + 1] - pot->r[ngeoms*j*n + 0]; // r spacing
-          
-          sprintf (str, "pot");
-          for (int strnum = 0;strnum<3; strnum++){
-            if(atype[strnum]=='\0') break;
-            strncat(str,&atype[strnum],1);
-          }
-          strcat(str, "_cubic.dat");
-          
-          printf("%s ",str); // print the potential that finished reading
-
-          pf = fopen(str , "w");
-          for (i = 0; i < pot->file_lens[ngeoms*j]; i++) fprintf (pf,"%g %g\n",pot->r[ngeoms*j*n + i],pot->pseudo[ngeoms*j*n + i]);
-          fclose(pf);
-
-          // Read strain dependent parameters if necessary
-          if (1 == flag->useStrain){
-            // Read parameters for strain dependent pseudopotential terms
-            // The standard format for the file names is pot[atype]_a[4 or 5].dat
-            sprintf (str, "pot");
-            for (int strnum = 0; strnum < 3; strnum++){  
-              if(atype[strnum]=='\0') break;
-              strncat(str,&atype[strnum],1);
-            }
-            strcat(str, "_a4_cubic.par");
-            pf = fopen(str, "r");
-            if (pf != NULL) {
-                fscanf(pf, "%lg", &pot->a4_params[ngeoms*j]);
-                fclose(pf);
-            } else {
-                pot->a4_params[ngeoms*j] = 0.0;
-                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
-                // exit(EXIT_FAILURE);
-            }
-            
-            sprintf (str, "pot");
-            for (int strnum = 0; strnum < 3; strnum++){  
-              if(atype[strnum]=='\0') break;
-              strncat(str,&atype[strnum],1);
-            }
-            strcat(str, "_a5_cubic.par");
-            pf = fopen(str, "r");
-            if (pf != NULL) {
-                fscanf(pf, "%lg", &pot->a5_params[ngeoms*j]);
-                fclose(pf);
-            } else {
-                pot->a5_params[j] = 0.0;
-                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
-                // exit(EXIT_FAILURE);
-            }
           }
 
           // ******* ******* ******* ******* ******* ******* *******
           // ORTHORHOMBIC GEOMETRY
           // ******* ******* ******* ******* ******* ******* *******
           // get ORTHO pseudopotential
-          strcat(tmpstr, "_ortho.par");
+          sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
+          strcat(str, "_ortho.par");
           pf = fopen(tmpstr , "r");
           if (pf != NULL) {
-            // Loop until the end of the file pot[atype].par. Increment pot->file_lens[j] to count how long the pseudopotential file is
-            for (pot->file_lens[ngeoms*j + 1] = iscan = 0; iscan != EOF; pot->file_lens[ngeoms*j + 1]++) {
-              iscan = fscanf (pf,"%lg %lg", &pot->r[ngeoms*j*n + n + pot->file_lens[ngeoms*j+1]],&pot->pseudo[ngeoms*j*n + n + pot->file_lens[ngeoms*j+1]]);
-            }
+            strcpy(req, "ortho");
+            read_pot_file(pf, pot, ngeoms*atyp_idx, ist->max_pot_file_len, req);
             fclose(pf);
-
-            // The last iteration returns the EOF signal, but still increments pot->file_lens[j]. 
-            // Decrement it now to avoid a seg fault by running outside the pot->r/pot->pseudo array
-            pot->file_lens[ngeoms*j+1]--;
-
             printf("%s ",str); // print the potential that finished reading
           }
           else {
             fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", tmpstr); fflush(0); 
             exit(EXIT_FAILURE);
-          }
-
-          // Get the r-spacing and add to the pot->dr array 
-          // only evenly-spaced pseudopotential files are supported currently
-          pot->dr[ngeoms*j + 1] = pot->r[ngeoms*j*n + n+1] - pot->r[ngeoms*j*n + n+0]; // r spacing
-
-          // 
-          sprintf (str, "pot");
-          for (int strnum = 0;strnum<3; strnum++){
-            if(atype[strnum]=='\0') break;
-            strncat(str,&atype[strnum],1);
-          }
-          strcat(str, "_ortho.dat");
-
-          pf = fopen(str , "w");
-          for (i = 0; i < pot->file_lens[ngeoms*j+1]; i++){
-            fprintf (pf,"%g %g\n", pot->r[ngeoms*j*n + n + i], pot->pseudo[ngeoms*j*n + n + i]);
-          }
-          fclose(pf);
-
-          // Read strain dependent parameters if necessary
-          if (1 == flag->useStrain){
-            // Read parameters for strain dependent pseudopotential terms
-            // The standard format for the file names is pot[atype]_a[4 or 5].dat
-            sprintf (str, "pot");
-            for (int strnum = 0; strnum < 3; strnum++){  
-              if(atype[strnum]=='\0') break;
-              strncat(str,&atype[strnum],1);
-            }
-            strcat(str, "_a4_ortho.par");
-            pf = fopen(str, "r");
-            if (pf != NULL) {
-                fscanf(pf, "%lg", &pot->a4_params[ngeoms*j + 1]);
-                fclose(pf);
-            } else {
-                pot->a4_params[ngeoms*j + 1] = 0.0;
-                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
-                // exit(EXIT_FAILURE);
-            }
-            
-            sprintf (str, "pot");
-            for (int strnum = 0; strnum < 3; strnum++){  
-              if(atype[strnum]=='\0') break;
-              strncat(str,&atype[strnum],1);
-            }
-            strcat(str, "_a5_ortho.par");
-            pf = fopen(str, "r");
-            if (pf != NULL) {
-                fscanf(pf, "%lg", &pot->a5_params[ngeoms*j + 1]);
-                fclose(pf);
-            } else {
-                pot->a5_params[j] = 0.0;
-                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
-                // exit(EXIT_FAILURE);
-            }
           }
         }
         // If par->scale_surface_Cs is 1.0, then we do not need to scale the surface Cs atoms
@@ -1019,239 +747,127 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
           // CUBIC (Or geom1)
           // ******* ******* ******* ******* ******* ******* *******
           // The SR potential file name is pot[atype]_[geom1]_SR.dat
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){  
-            if(atype[strnum]=='\0') break;
-            strncat(str,&atype[strnum],1);
-          }
+          sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
           strcat(str, "_cubic_SR.par");
-
           pf = fopen(str , "r");
           if (pf != NULL) {
-            for (iscan = 0; iscan != EOF; pot->file_lens[ngeoms*j]++) {
-              // The short range potential gets stored in pot->r and pot->file_lens
-              iscan = fscanf (pf, "%lg %lg", &pot->r[ngeoms*j*n + pot->file_lens[j]], &pot->pseudo[ngeoms*j*n + pot->file_lens[j]]);
-            }
+            strcpy(req, "std");
+            read_pot_file(pf, pot, ngeoms*atyp_idx, ist->max_pot_file_len, req);
             fclose(pf);
-
-            pot->file_lens[ngeoms*j]--;
             printf("%s ",str); 
-
+            i = pot->file_lens[ngeoms*atyp_idx];
+            dr_check = pot->dr[ngeoms*atyp_idx];
           } else {
             fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
             exit(EXIT_FAILURE);
           }
-
-          pot->dr[ngeoms*j] = pot->r[ngeoms*j*n + 1] - pot->r[ngeoms*j*n + 0]; // r spacing
-          
-          // print pot[atom].dat to save a copy of the potential used internally by this run
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){
-            if(atype[strnum] == '\0') break;
-            strncat(str, &atype[strnum], 1);
-          }
-          strcat(str, "_cubic_SR.dat");
-
-          pf = fopen(str , "w");
-          for (i = 0; i < pot->file_lens[ngeoms*j]; i++) fprintf (pf,"%g %g\n",pot->r[ngeoms*j*n + i],pot->pseudo[ngeoms*j*n + i]);
-          fclose(pf);
 
           // ***** LONG RANGE ***** ***** LONG RANGE ***** ***** LONG RANGE *****
           // The LR potential file name is pot[atype]_[geom1]_LR.dat
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){  
-            if(atype[strnum]=='\0') break;
-            strncat(str,&atype[strnum],1);
-          }
+          sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
           strcat(str, "_cubic_LR.par");
-
           pf = fopen(str , "r");
           if (pf != NULL) {
-            for (iscan = 0, i = 0; iscan != EOF; i++) {
-              // The short range potential gets stored in pot->r_LR and pot->pseudo_LR
-              iscan = fscanf (pf, "%lg %lg", &pot->r_LR[ngeoms*j*n + i], &pot->pseudo_LR[ngeoms*j*n + i]);
-            }
+            strcpy(req, "LR");
+            read_pot_file(pf, pot, ngeoms*atyp_idx, ist->max_pot_file_len, req);
             fclose(pf);
-            i--;
             printf("%s ",str); 
-
           } else {
             fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
             exit(EXIT_FAILURE);
           }
 
-          dr_check = pot->r_LR[ngeoms*j*n + 1] - pot->r_LR[ngeoms*j*n + 0];
-          if ((dr_check != pot->dr[ngeoms*j]) || (i != pot->file_lens[ngeoms*j]) ){
+          if ((dr_check != pot->dr[ngeoms*atyp_idx]) || (i != pot->file_lens[ngeoms*atyp_idx]) ){
             fprintf(stderr, "ERROR: short and long range pseudopotential files have different r-spacing or length\n");
             exit(EXIT_FAILURE);
-          }
-          
-          // print pot[atom]_LR.dat to save a copy of the potential used internally by this run
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){
-            if(atype[strnum] == '\0') break;
-            strncat(str, &atype[strnum], 1);
-          }
-          strcat(str, "_cubic_LR.dat");
-
-          pf = fopen(str , "w");
-          for (i = 0; i < pot->file_lens[ngeoms*j]; i++) fprintf (pf,"%g %g\n",pot->r_LR[ngeoms*j*n + i], pot->pseudo_LR[ngeoms*j*n + i]);
-          fclose(pf);
-
-          // Read strain dependent parameters if necessary
-          if (1 == flag->useStrain){
-            // Read parameters for strain dependent pseudopotential terms
-            // The standard format for the file names is pot[atype]_a[4 or 5].dat
-            sprintf (str, "pot");
-            for (int strnum = 0; strnum < 3; strnum++){  
-              if(atype[strnum]=='\0') break;
-              strncat(str,&atype[strnum],1);
-            }
-            strcat(str, "_a4_cubic.par");
-            pf = fopen(str, "r");
-            if (pf != NULL) {
-                fscanf(pf, "%lg", &pot->a4_params[ngeoms*j]);
-                fclose(pf);
-            } else {
-                pot->a4_params[ngeoms*j] = 0.0;
-                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
-                // exit(EXIT_FAILURE);
-            }
-            
-            sprintf (str, "pot");
-            for (int strnum = 0; strnum < 3; strnum++){  
-              if(atype[strnum]=='\0') break;
-              strncat(str,&atype[strnum],1);
-            }
-            strcat(str, "_a5_cubic.par");
-            pf = fopen(str, "r");
-            if (pf != NULL) {
-                fscanf(pf, "%lg", &pot->a5_params[ngeoms*j]);
-                fclose(pf);
-            } else {
-                pot->a5_params[ngeoms*j] = 0.0;
-                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
-                // exit(EXIT_FAILURE);
-            }
           }
           // ******* ******* ******* ******* ******* ******* *******
           // ORTHORHOMBIC (Or geom2)
           // ******* ******* ******* ******* ******* ******* *******
-          // The SR potential file name is pot[atype]_[geom2]_SR.dat
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){  
-            if(atype[strnum]=='\0') break;
-            strncat(str,&atype[strnum],1);
-          }
+          // The SR potential file name is pot[atype]_[geom2]_SR.par
+          sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
           strcat(str, "_ortho_SR.par");
-
           pf = fopen(str , "r");
           if (pf != NULL) {
-            for (iscan = 0; iscan != EOF; pot->file_lens[ngeoms*j + 1]++) {
-              // The short range potential gets stored in pot->r and pot->file_lens
-              iscan = fscanf (pf, "%lg %lg", &pot->r[ngeoms*j*n + n + pot->file_lens[j]], &pot->pseudo[ngeoms*j*n + n + pot->file_lens[j]]);
-            }
+            strcpy(req, "ortho");
+            read_pot_file(pf, pot, ngeoms*atyp_idx, ist->max_pot_file_len, req);
             fclose(pf);
-
-            pot->file_lens[ngeoms*j+1]--;
             printf("%s ",str); 
-
+            i = pot->file_lens[ngeoms*atyp_idx+1];
+            dr_check = pot->dr[ngeoms*atyp_idx+1];
           } else {
             fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
             exit(EXIT_FAILURE);
           }
-
-          pot->dr[ngeoms*j + 1] = pot->r[ngeoms*j*n + n + 1] - pot->r[ngeoms*j*n + n + 0]; // r spacing
-          
-          // print pot[atom].dat to save a copy of the potential used internally by this run
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){
-            if(atype[strnum] == '\0') break;
-            strncat(str, &atype[strnum], 1);
-          }
-          strcat(str, "_ortho_SR.dat");
-
-          pf = fopen(str , "w");
-          for (i = 0; i < pot->file_lens[ngeoms*j + 1]; i++) fprintf (pf,"%g %g\n",pot->r[ngeoms*j*n + n + i],pot->pseudo[ngeoms*j*n + n + i]);
-          fclose(pf);
-
           // ***** LONG RANGE ***** ***** LONG RANGE ***** ***** LONG RANGE *****
-          // The LR potential file name is pot[atype]_[geom2]_LR.dat
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){  
-            if(atype[strnum]=='\0') break;
-            strncat(str,&atype[strnum],1);
-          }
+          // The LR potential file name is pot[atype]_[geom2]_LR.par
+          sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
           strcat(str, "_ortho_LR.par");
-
           pf = fopen(str , "r");
           if (pf != NULL) {
-            for (iscan = 0, i = 0; iscan != EOF; i++) {
-              // The short range potential gets stored in pot->r_LR and pot->pseudo_LR
-              iscan = fscanf (pf, "%lg %lg", &pot->r_LR[ngeoms*j*n + n + i], &pot->pseudo_LR[ngeoms*j*n + n + i]);
-            }
+            strcpy(req, "orthoLR");
+            read_pot_file(pf, pot, ngeoms*atyp_idx, ist->max_pot_file_len, req);
             fclose(pf);
-            i--;
             printf("%s ",str); 
-
           } else {
             fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
             exit(EXIT_FAILURE);
           }
 
-          dr_check = pot->r_LR[ngeoms*j*n + n + 1] - pot->r_LR[ngeoms*j*n + n + 0];
-          if ((dr_check != pot->dr[ngeoms*j + 1]) || (i != pot->file_lens[ngeoms*j + 1]) ){
+          if ((dr_check != pot->dr[ngeoms*atyp_idx + 1]) || (i != pot->file_lens[ngeoms*atyp_idx + 1]) ){
             fprintf(stderr, "ERROR: short and long range pseudopotential files have different r-spacing or length\n");
             exit(EXIT_FAILURE);
           }
-          
-          // print pot[atom]_LR.dat to save a copy of the potential used internally by this run
-          sprintf (str, "pot");
-          for (int strnum = 0; strnum < 3; strnum++){
-            if(atype[strnum] == '\0') break;
-            strncat(str, &atype[strnum], 1);
+        }
+
+        // Read strain dependent parameters if necessary
+        if (1 == flag->useStrain){
+          // CUBIC
+          sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
+          strcat(str, "_a4_cubic.par");
+          pf = fopen(str, "r");
+          if (pf != NULL) {
+              fscanf(pf, "%lg", &pot->a4_params[ngeoms*j]);
+              fclose(pf);
+          } else {
+              pot->a4_params[ngeoms*j] = 0.0;
+              fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+              // exit(EXIT_FAILURE);
           }
-          strcat(str, "_ortho_LR.dat");
-
-          pf = fopen(str , "w");
-          for (i = 0; i < pot->file_lens[ngeoms*j + 1]; i++) fprintf (pf,"%g %g\n", pot->r_LR[ngeoms*j*n + n + i], pot->pseudo_LR[ngeoms*j*n + n + i]);
-          fclose(pf);
-
-          // Read strain dependent parameters if necessary
-          if (1 == flag->useStrain){
-            // Read parameters for strain dependent pseudopotential terms
-            // The standard format for the file names is pot[atype]_a[4 or 5].dat
-            sprintf (str, "pot");
-            for (int strnum = 0; strnum < 3; strnum++){  
-              if(atype[strnum]=='\0') break;
-              strncat(str,&atype[strnum],1);
-            }
-            strcat(str, "_a4_ortho.par");
-            pf = fopen(str, "r");
-            if (pf != NULL) {
-                fscanf(pf, "%lg", &pot->a4_params[ngeoms*j + 1]);
-                fclose(pf);
-            } else {
-                pot->a4_params[ngeoms*j + 1] = 0.0;
-                fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
-                // exit(EXIT_FAILURE);
-            }
-            
-            sprintf (str, "pot");
-            for (int strnum = 0; strnum < 3; strnum++){  
-              if(atype[strnum]=='\0') break;
-              strncat(str,&atype[strnum],1);
-            }
-            strcat(str, "_a5_ortho.par");
-            pf = fopen(str, "r");
-            if (pf != NULL) {
-                fscanf(pf, "%lg", &pot->a5_params[ngeoms*j + 1]);
-                fclose(pf);
-            } else {
-                pot->a5_params[ngeoms*j + 1] = 0.0;
-                fprintf(stderr, "ERROR: strain dependent pseudopotential requested; no %s file...\n", str);
-                // exit(EXIT_FAILURE);
-            }
+          
+          sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
+          strcat(str, "_a5_cubic.par");
+          pf = fopen(str, "r");
+          if (pf != NULL) {
+              fscanf(pf, "%lg", &pot->a5_params[ngeoms*j]);
+              fclose(pf);
+          } else {
+              pot->a5_params[j] = 0.0;
+              fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+              // exit(EXIT_FAILURE);
+          }
+          // ORTHORHOMBIC
+          sprintf (str, "pot%c%c%c_a4", atype[0], atype[1], atype[2]);
+          strcat(str, "_a4_ortho.par");
+          pf = fopen(str, "r");
+          if (pf != NULL) {
+              fscanf(pf, "%lg", &pot->a4_params[ngeoms*j + 1]);
+              fclose(pf);
+          } else {
+              pot->a4_params[ngeoms*j + 1] = 0.0;
+              fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+              // exit(EXIT_FAILURE);
+          }
+          
+          sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
+          strcat(str, "_a5_ortho.par");
+          if (pf != NULL) {
+              fscanf(pf, "%lg", &pot->a5_params[ngeoms*j + 1]);
+              fclose(pf);
+          } else {
+              pot->a5_params[j] = 0.0;
+              fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
+              // exit(EXIT_FAILURE);
           }
         }
       }
@@ -1327,10 +943,78 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
     interpolate_pot(R, atom, ist, par);
   }
 
+  free(req);
   return;
 }
 
 /*****************************************************************************/
+
+void read_pot_file(FILE *pf, pot_st *pot, long j, long n, char *req){
+  /*******************************************************************
+  * This function reads the potential files for each atom in conf    *
+  * inputs:                                                          *
+  *  [FILE *pf] file stream containing the pot file                  *
+  *  [pot] struct containing arrays for reading atom pseudopot files *
+  *  [long j] index of the atom type (0 to ngeoms * n_atom_types)    *
+  *  [long n] max length of a potential file (8192)                  *
+  *  [char *req] the requested type of pot file to read              *
+  *  [flag_st *flag] ptr to flag_st holding job flags                *
+  * outputs: void                                                    *
+  ********************************************************************/
+  long iscan;
+  char *std, *LR, *orthoLR, *ortho;
+  std = malloc(4 * sizeof(std[0])); strcpy(std, "std"); 
+  LR = malloc(2 * sizeof(std[0])); strcpy(LR, "LR");
+  ortho = malloc(6 * sizeof(ortho[0])); strcpy(ortho, "ortho");
+  orthoLR = malloc(8 * sizeof(ortho[0])); strcpy(orthoLR, "orthoLR");
+
+  if (0 == strcmp(req, (const char *)std)){
+    // Loop until the end of the file pot[atype].par and read the contents 
+    // Increment pot->file_lens[j] to count how long the pseudopotential file is
+    pot->file_lens[j] = 0;
+    for (iscan = 0; iscan != EOF; pot->file_lens[j]++){
+      iscan = fscanf(pf, "%lg %lg", &pot->r[j*n + pot->file_lens[j]], &pot->pseudo[j*n + pot->file_lens[j]]);
+      // pot->r and pot->pseudo store all the r values and v(r) values for each atomic pseudopotential
+      // Each atom's entry is spaced apart by j*n, where j is the index of this atom in the array of
+      // atoms in conf.par (max is n_atom_types) and n is the max length of a potential file, currently
+      // hardcoded to be 8192.
+    }
+    pot->file_lens[j]--;
+    // The last iteration returns the EOF signal, but still increments pot->file_lens[j]. 
+    // Decrement it now to avoid a seg fault by running outside the pot->r/pot->pseudo array
+
+    // Get the r-spacing and add to the pot->dr array 
+    // only evenly-spaced pseudopotential files are supported currently
+    pot->dr[j] = pot->r[j*n+1] - pot->r[j*n+0]; // r spacing
+
+  } else if ((0 == strcmp(req, (const char *)LR))){
+    for (pot->file_lens[j] = iscan = 0; iscan != EOF; pot->file_lens[j]++) {
+      iscan = fscanf (pf,"%lg %lg", &pot->r_LR[j*n + pot->file_lens[j]], &pot->pseudo_LR[j*n + pot->file_lens[j]]);
+    }
+    pot->file_lens[j]--;
+    pot->dr[j] = pot->r_LR[j*n+1] - pot->r_LR[j*n+0];
+
+  } else if ((0 == strcmp(req, (const char *)ortho))){
+    for (pot->file_lens[j+1] = iscan = 0; iscan != EOF; pot->file_lens[j+1]++) {
+      iscan = fscanf (pf,"%lg %lg", &pot->r[j*n + n + pot->file_lens[j+1]], &pot->pseudo[j*n + n + pot->file_lens[j+1]]);
+    }
+    pot->file_lens[j+1]--;
+    
+    pot->dr[j+1] = pot->r[j*n+n+1] - pot->r[j*n+n+0];
+
+  } else if ((0 == strcmp(req, (const char *)orthoLR))){
+    for (pot->file_lens[j+1] = iscan = 0; iscan != EOF; pot->file_lens[j+1]++) {
+      iscan = fscanf (pf,"%lg %lg", &pot->r_LR[j*n + n + pot->file_lens[j+1]], &pot->pseudo_LR[j*n + n + pot->file_lens[j+1]]);
+    }
+    pot->file_lens[j+1]--;
+    pot->dr[j+1] = pot->r_LR[j*n+n+1] - pot->r_LR[j*n+n+0];
+  }
+
+  // Free memory for all strings
+  free(std); free(LR); free(ortho); free(orthoLR);
+
+  return;
+}
 
 void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par){
   /*******************************************************************

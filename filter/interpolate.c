@@ -2,7 +2,7 @@
 
 /*****************************************************************************/
 
-double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,double *pot_LR,long potFileLen,long n,long j, int scale_LR, double scale_LR_par, double strain_factor){
+double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,double *pot_LR,long potFileLen,long n,long j, int scale_LR, double scale_LR_par, double strain_factor, flag_st *flag){
 
   double a, b;
   double a_LR, b_LR;
@@ -10,8 +10,13 @@ double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,doubl
   long i;
 
   i = (long)(r / dr);
-  if (i > (n - 2)) return (0.0);
 
+  // This line causing the potential to be set to zero at some distance cutoff from an atomic center.
+  // This is incorrect behavior for the long range potentials. 
+  if (0 == flag->LR){
+    if (i > (n - 2)) return (0.0);
+  }
+  
   a = strain_factor * (pot[j*potFileLen+i+1] - pot[j*potFileLen+i]) / (vr[j*potFileLen+i+1] - vr[j*potFileLen+i]);
   b = strain_factor * pot[j*potFileLen+i] - vr[j*potFileLen+i] * a;
   

@@ -355,16 +355,16 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
             if ((jxyz == 0)&& (jatom == 0)) printf("\tComputing interpolated cubic/ortho potential\n"); 
             //cubic part of the function
             sum += (1.0-atom[jatom].geom_par)*interpolate(del,pot->dr[2*atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
-                pot->file_lens[2*atom[jatom].idx],2*atom[jatom].idx,scale_LR,atom[jatom].LR_par, strain_factor);
+                pot->file_lens[2*atom[jatom].idx],2*atom[jatom].idx,scale_LR,atom[jatom].LR_par, strain_factor, flag->LR);
             //ortho part of the function
             sum += (atom[jatom].geom_par)*interpolate(del,pot->dr[2*atom[jatom].idx+1],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
-                pot->file_lens[2*atom[jatom].idx+1],2*atom[jatom].idx+1,scale_LR,atom[jatom].LR_par, strain_factor);
+                pot->file_lens[2*atom[jatom].idx+1],2*atom[jatom].idx+1,scale_LR,atom[jatom].LR_par, strain_factor, flag->LR);
           } 
           // Default route without potential interpolation between geometries
           else {
             if ((jxyz == 0) && (jatom == 0)) printf("\tComputing potential without interpolating over cubic/ortho parameters\n\n"); 
       	    sum += interpolate(del,pot->dr[atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
-                pot->file_lens[atom[jatom].idx],atom[jatom].idx,scale_LR,atom[jatom].LR_par, strain_factor);
+                pot->file_lens[atom[jatom].idx],atom[jatom].idx,scale_LR,atom[jatom].LR_par, strain_factor, flag->LR);
           }
       	}
       	pot_local[jxyz] = sum;
@@ -522,14 +522,14 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
             //write projectors to nlc struct and scale projectors by the SO scaling for this atom
             for (iproj = 0; iproj< ist->nproj; iproj++){ 
                 nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj] = 
-                  interpolate(sqrt(dr2),dr_proj,vr,NULL, &SO_projectors[N*iproj],NULL,0, N,0,0,1.0, 1.0);
+                  interpolate(sqrt(dr2),dr_proj,vr,NULL, &SO_projectors[N*iproj],NULL,0, N,0,0,1.0, 1.0, 0);
                 //scale projectors by the SO scaling for this atom
                 nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj] *= sqrt(atom[jatom].SO_par);
                 //fprintf(pf, "%li %i %f %f %f\n", jatom, iproj,nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r,nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj], sqrt(atom[jatom].SO_par) );
 
                 if (flag->NL == 1){
                   nlc[jatom*ist->n_NL_gridpts + nl[jatom]].NL_proj[iproj] =
-                  interpolate(sqrt(dr2),dr_proj,vr,NULL, &nlcprojectors[N*iproj],NULL,0, N,0,0,1.0,1.0);
+                  interpolate(sqrt(dr2),dr_proj,vr,NULL, &nlcprojectors[N*iproj],NULL,0, N,0,0,1.0,1.0,0);
                   nlc[jatom*ist->n_NL_gridpts + nl[jatom]].NL_proj_sign[iproj] = sgnProj[iproj];
                 }
             }

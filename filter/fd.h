@@ -185,7 +185,7 @@ void calc_strain_scale(double *strain_scale, vector *atom_neighbors, double *tet
 double calc_regular_tetrahedron_volume(double bond_length1, double bond_length2, double bond_length3, double bond_length4);
 
 //interpolate.c
-double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,double *pot_LR,long potFileLen,long n,long j, int scale_LR, double scale_LR_par, double strain_factor);
+double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,double *pot_LR,long pot_file_len,long n,long j, int scale_LR, double scale_LR_par, double strain_factor, int is_LR);
 
 //rand.c
 double ran_nrc(long *rand_seed);

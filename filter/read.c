@@ -106,14 +106,17 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       // ****** ****** ****** ****** ****** ****** 
       // Set options for pseudopotentials
       // ****** ****** ****** ****** ****** ******
-      else if (!strcmp(field, "interpolatePot")) {
+      else if (!strcmp(field, "useStrain")) {
+          flag->useStrain = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "interpolatePot")) {
           flag->interpolatePot = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "scaleSurfaceCs")) {
           par->scale_surface_Cs = strtod(tmp, &endptr);
           if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
-      } else if (!strcmp(field, "useStrain")) {
-          flag->useStrain = (int) strtol(tmp, &endptr, 10);
+      } else if (!strcmp(field, "longRange")) {
+          flag->LR = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (0 == strcmp(field, "crystalStructure")) {
           strcpy(par->crystal_structure, tmp);
@@ -255,8 +258,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("VBmax = double (top of valence band energy window)\n");
           printf("CBmin = double (bottom of conduction band energy window)\n");
           printf("CBmax = double (top of conduction band energy window)\n");
-          printf("interpolatePot = int (if 1, interpolate between cubic and orthorhombic potentials)\n");
           printf("useStrain = int (if 1, calculate strain dependent pseudopots)\n");
+          printf("interpolatePot = int (if 1, interpolate between cubic and orthorhombic potentials)\n");
+          printf("longRange = int (if 1, the pseudopots have long range terms; no truncate)\n");
           printf("crystalStructure = string (name of crystal structure e.g. wurtzite)\n");
           printf("outmostMaterial = string (name of outmost layer if core-shell e.g. CdS)\n");
           printf("scaleSurfaceCs = double (fractional scaling factor of surface Cs to balance charge)\n");

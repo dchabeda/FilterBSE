@@ -13,7 +13,7 @@ double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,doubl
 
   // This line causing the potential to be set to zero at some distance cutoff from an atomic center.
   // This is incorrect behavior for the long range potentials. 
-  if (0 == isLR){
+  if (0 == is_LR){
     if (i > (n - 2)) return (0.0);
   }
   

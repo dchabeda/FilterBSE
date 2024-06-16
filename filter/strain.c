@@ -71,7 +71,7 @@ void read_nearest_neighbors(vector *atom_neighbors, double *tetrahedron_vol_ref,
         for (int jneighbor = 0; jneighbor < 4; jneighbor++) {
           bond_lengths[jneighbor] = 0.;
           // If neighbor is a passivation ligand, replace it with the corresponding semiconductor atom
-          if ((2 == neighbors_natyp[jneighbor]) || (3 == neighbors_natyp[jneighbor]) || (4 == neighbors_natyp[jneighbor]) || (5 == neighbors_natyp[jneighbor])){ 
+          if ((2 == neighbors_natyp[jneighbor]) || (3 == neighbors_natyp[jneighbor]) || (5 == neighbors_natyp[jneighbor])){ 
             if ((0 == outmost_material) && (48 == ctr_atom_natyp)) neighbors_natyp[jneighbor] = 16; // CdS, Center-Cd, Replace with S. 
             else if ((0 == outmost_material) && (16 == ctr_atom_natyp)) neighbors_natyp[jneighbor] = 48; // CdS, Center-S, Replace with Cd. 
             else if ((0 == outmost_material) && (ctr_atom_natyp != 48) && (ctr_atom_natyp != 16)) {
@@ -139,8 +139,13 @@ void read_nearest_neighbors(vector *atom_neighbors, double *tetrahedron_vol_ref,
               nerror (strerror);
             }
 		      }
-          
+          // Chiral ligands should not contribute to strain
+          if ((4 == neighbors_natyp[jneighbor]) || (6 == neighbors_natyp[jneighbor]) || (7 == neighbors_natyp[jneighbor])){
+            continue;
+          } else{
+            // Default path!
           bond_lengths[jneighbor] = ret_ideal_bond_len(ctr_atom_natyp, neighbors_natyp[jneighbor], crystal_structure); 
+          }
           // printf("ctr_atom_natyp = %d, jneighbor = %d, neighbors_natyp[jneighbor] = %d, bond_lengths[jneighbor]=%g \n", ctr_atom_natyp, jneighbor, neighbors_natyp[jneighbor], bond_lengths[jneighbor]); 
 	      }
         

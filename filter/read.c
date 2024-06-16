@@ -508,9 +508,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
 
   // The ligand potentials are constructed internally by creating a Gaussian on the grid with
   // equation lig = a * exp(- r^2 / b)
-  //               P1        P2         P3         P4
-  double a[4] = { 0.64,    -0.384,     0.04,     -0.684};
-  double b[4] = {2.2287033, 2.2287033, 2.2287033, 2.2287033};
+  //               P1        P2         P3         P4     PC5    PC6
+  double a[4] = { 0.64,    -0.384,     0.050,-0.684,     0.065, 0.080};
+  double b[4] = {2.2287033, 2.2287033, 6.000, 2.2287033, 6.000, 6.000};
 
 
   // The array pot->r contains the r values in the psuedopotential file
@@ -592,7 +592,6 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
         // Gaussian parameters a and b
         printf("\n\tNo ligand potential file %s\n\t Using default Gaussian parameters a = %lg b = %lg\n", str, a[iatm-2], b[iatm-2]);
         pot->file_lens[atyp_idx] = pot->file_lens[0];
-        printf("The length of %s pot file = %ld\n", str, pot->file_lens[atyp_idx]);
         for (i = 0; i < pot->file_lens[atyp_idx]; i++) {
           pot->r[atyp_idx*ist->max_pot_file_len + i] = pot->r[i];
           pot->pseudo[atyp_idx*ist->max_pot_file_len + i] = (a[iatm-2] * exp(-sqr(pot->r[atyp_idx*ist->max_pot_file_len + i]) / b[iatm-2]));
@@ -1293,6 +1292,8 @@ long assign_atom_number(char atyp[3]){
   else if ((atyp[0] == 'P') && (atyp[1] == '2')  && (atyp[2] == '\0')) return 3;
   else if ((atyp[0] == 'P') && (atyp[1] == '3')  && (atyp[2] == '\0')) return 4;
   else if ((atyp[0] == 'P') && (atyp[1] == '4')  && (atyp[2] == '\0')) return 5;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'C')  && (atyp[2] == '5'))  return 6;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'C')  && (atyp[2] == '6'))  return 7;
   else if ((atyp[0] == 'S') && (atyp[1] == 'i')  && (atyp[2] == '\0')) return 14;
   else if ((atyp[0] == 'P') && (atyp[1] == '\0')  && (atyp[2] == '\0')) return 15;
   else if ((atyp[0] == 'S') && (atyp[1] == '\0')  && (atyp[2] == '\0')) return 16;
@@ -1330,6 +1331,8 @@ void assign_atom_type(char *atyp, long j){
   else if (j == 3) {atyp[0] = 'P'; atyp[1] = '2'; atyp[2] = '\0';}
   else if (j == 4) {atyp[0] = 'P'; atyp[1] = '3'; atyp[2] = '\0';}
   else if (j == 5) {atyp[0] = 'P'; atyp[1] = '4'; atyp[2] = '\0';}
+  else if (j == 6) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '5';}
+  else if (j == 7) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '6';}
   else if (j == 14) {atyp[0] = 'S'; atyp[1] = 'i'; atyp[2] = '\0';}
   else if (j == 15) {atyp[0] = 'P'; atyp[1] = '\0'; atyp[2] = '\0';}
   else if (j == 16) {atyp[0] = 'S'; atyp[1] = '\0'; atyp[2] = '\0';}

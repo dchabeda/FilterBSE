@@ -1,0 +1,2 @@
+/home/dchabeda/FilterBSE/filter/2.7_nm_chiral_CdSe/run_filter.sh: line 47: 31828 Segmentation fault      ./Filter.x 2> error.dat > run.dat
+cp: cannot stat ‘strain*’: No such file or directory

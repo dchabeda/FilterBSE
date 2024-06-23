@@ -27,9 +27,9 @@ int main(int argc, char *argv[]){
     zomplex *lx, *ly, *lz, *lsqr, *ls;
     // custom structs
     par_st par; index_st ist; grid_st *grid; flag_st flag; xyz_st *R = NULL; parallel_st parallel; 
-    (&grid).x = NULL;
-    (&grid).y = NULL;
-    (&grid).z = NULL;
+    (*grid).x = NULL;
+    (*grid).y = NULL;
+    (*grid).z = NULL;
     // FFT 
     fftw_plan_loc *planfw, *planbw; fftw_complex *fftwpsi;
     long fft_flags=0;

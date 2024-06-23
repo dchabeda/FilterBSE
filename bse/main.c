@@ -84,7 +84,7 @@ int main(int argc, char *argv[]){
         printf("%lg %lg\n", eig_vals[i], sigma_E[i]);
     }
     fflush(0);
-    
+
     rho = malloc(ist.ngrid * sizeof(rho[0]));
     for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
         jgrid_real = ist.complex_idx * jgrid;
@@ -425,13 +425,14 @@ int main(int argc, char *argv[]){
     
     
     /***********************************************************************/
-    free(psi); free(eig_vals); free(sigma_E); 
-    free(poth); free(potq); free(potqx);
-    free(bsmat); free(h0mat); free(mux); free(muy); free(muz);
-    //free(mx); free(my); free(mz); free(rs);
-    free(sx); free(sy); free(sz);
-    free(lx); free(ly); free(lz); free(lsqr);
-    free(planfw); free(planbw);
+    // free(psi); 
+    free(eig_vals); free(sigma_E); 
+    // free(poth); free(potq); free(potqx);
+    // free(bsmat); free(h0mat); free(mux); free(muy); free(muz);
+    // //free(mx); free(my); free(mz); free(rs);
+    // free(sx); free(sy); free(sz);
+    // free(lx); free(ly); free(lz); free(lsqr);
+    // free(planfw); free(planbw);
 
     time_t end_time = time(NULL);
     time_t end_clock = clock();

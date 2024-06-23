@@ -71,7 +71,7 @@ int main(int argc, char *argv[]){
         printf("%lg %lg %lg\n", R[i].x, R[i].y, R[i].z);
     }
     printf("\nTHE GRID:\n");
-    for (i=0; i < grid->nx; i++){
+    for (i=0; i < grid.nx; i++){
         printf("%lg %lg %lg\n", gridx[i], gridy[i], gridz[i]);
     }
     printf("\nTHE EIGVALS:\n");

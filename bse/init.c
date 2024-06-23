@@ -8,7 +8,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
   //this is where we set which is eleectron and what is hole
 
   FILE *pf;
-  long i, cntr, eval_homo, eval_lumo, old_n_holes;
+  long i, cntr, eval_homo_idx, eval_lumo_idx, old_n_holes;
   double deltaE;
   
   // Allocate memory for eval_hole_idxs etc if it is NULL
@@ -31,7 +31,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] < par->fermi_E){
       ist->n_holes++; // increment the counter for number of hole states
       ist->homo_idx = cntr; // homo_idx in RAM is the value of cntr for which condition is met
-      eval_homo = i; // the value of homo_idx from the eval.dat file
+      eval_homo_idx = i; // the value of homo_idx from the eval.dat file
       
       eig_vals[cntr] = eig_vals[i]; // reorder the eig_vals
       sigma_E[cntr] = sigma_E[i]; // reorder the sigma_E
@@ -41,14 +41,14 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     // Find LUMO and total number of CB states
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] > par->fermi_E){
       if (0 == ist->lumo_idx){
-        eval_lumo = i;
+        eval_lumo_idx = i;
         ist->lumo_idx = ist->homo_idx + 1; // Get first value of i for which condition is met
       }
       ist->n_elecs++; 
       
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
-      (*eval_elec_idxs)[cntr] = i;
+      (*eval_elec_idxs)[cntr - ist->n_holes] = i;
       cntr++;
     }
   }
@@ -56,7 +56,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
 
   printf("\n\tTotal # of filtered hole eigenstates = %ld\n", ist->n_holes);
   printf("\tTotal # of filtered electron eigenstates = %ld\n", ist->n_elecs);
-  printf("\tThe filter eval.dat index of the HOMO state = %ld  LUMO state = %ld\n", eval_homo, eval_lumo);
+  printf("\tThe filter eval.dat index of the HOMO state = %ld  LUMO state = %ld\n", eval_homo_idx, eval_lumo_idx);
   
   // Check how the quasiparticle basis compares to the desired energy range
   // First, in the VB
@@ -123,7 +123,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     for (i = ist->n_holes + 1; i < ist->n_holes + ist->n_elecs; i++){
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
-      (*eval_elec_idxs)[cntr] = (*eval_elec_idxs)[i];
+      (*eval_elec_idxs)[cntr - ist->n_holes] = (*eval_elec_idxs)[i];
       cntr++;
     }
  

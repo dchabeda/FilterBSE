@@ -8,7 +8,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
   //this is where we set which is eleectron and what is hole
 
   FILE *pf;
-  long i, cntr, eval_homo, eval_lumo, old_total_homo;
+  long i, cntr, eval_homo, eval_lumo, old_n_holes;
   double deltaE;
   
   // Allocate memory for eval_hole_idxs etc if it is NULL
@@ -52,7 +52,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
       cntr++;
     }
   }
-  old_total_homo = ist->n_holes;
+  old_n_holes = ist->n_holes;
 
   printf("\n\tTotal # of filtered hole eigenstates = %ld\n", ist->n_holes);
   printf("\tTotal # of filtered electron eigenstates = %ld\n", ist->n_elecs);
@@ -85,7 +85,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
   if ((-1 != ist->max_hole_states) && (ist->n_holes > ist->max_hole_states)){
     
     ist->n_holes = ist->max_hole_states;
-    ist->homo_idx = ist->homo_idx - (old_total_homo - ist->n_holes);
+    ist->homo_idx = ist->homo_idx - (old_n_holes - ist->n_holes);
     printf("\n\tConstraining hole basis states to maxHoleStates\n\t  new ist->n_holes = %ld\n", ist->n_holes);
     
     // Reorder eig_vals and sigma_E to only contain eigenstates

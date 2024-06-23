@@ -349,7 +349,7 @@ void save_output(char *file_name, double *psitot, double *eig_vals, double *sigm
     fprintf(pf, "%d %d %d %d %d\n", flag->SO, flag->NL, flag->LR, flag->useSpinors, flag->isComplex);
     
     for (j = 0; j < ist->natoms; j++){
-        fprintf(pf, "%lg %lg %lg\n", R[j]->x, R[j]->y, R[j]->z);
+        fprintf(pf, "%lg %lg %lg\n", R[j].x, R[j].y, R[j].z);
     }
 
     fprintf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg\n", grid->dx, grid->dy, grid->dz, grid->dr, grid->dv, grid->dkx, grid->dky, grid->dkz);

@@ -88,7 +88,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
       printf("ERROR: something went wrong reordering eig_vals in get_qp_basis_indices\n");
       exit(EXIT_FAILURE);
     }
-    
+
     // Determine the new energy span
     deltaE = eig_vals[ist->homo_idx] - eig_vals[ist->homo_idx - ist->total_homo + 1];
     if (deltaE < par->delta_E_hole){
@@ -106,7 +106,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
     printf("\tConstraining elec basis states to maxElecStates\n\t  new ist->total_lumo = %ld\n", ist->total_lumo);
     
     // Reorder eig_vals and sigma_E to only contain eigenstates
-    cntr = ist->total_homo + 1;
+    cntr = ist->homo_idx + 1;
     for (i = ist->total_homo + 1; i < ist->total_homo + ist->total_lumo; i++){
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];

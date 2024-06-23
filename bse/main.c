@@ -104,7 +104,7 @@ int main(int argc, char *argv[]){
     sigma_E = realloc(sigma_E, ist.n_qp * sizeof(sigma_E[0]));
 
     for (i = 0; i < ist.n_qp; i++){
-    fprintf(pf, "% .12f %lg\n", eig_vals[i], sigma_E[i]);
+        printf("% .12f %lg\n", eig_vals[i], sigma_E[i]);
     }
 
     // // init_size(argc, argv, &par, &ist);

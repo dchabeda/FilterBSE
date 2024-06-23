@@ -4,7 +4,7 @@
 
 /****************************************************************************/
 
-void dipole(double *vx,double *vy,double *vz,zomplex *psi,zomplex *mux,zomplex *muy,zomplex *muz,double *eval,long_st ist,par_st par)
+void dipole(double *vx,double *vy,double *vz,zomplex *psi,zomplex *mux,zomplex *muy,zomplex *muz,double *eval,index_st ist,par_st par)
 {
   FILE *pf1, *pf2, *pf3, *pf; 
   long a, i, jx, jy, jz, jgridup,jgriddn, jyz; 
@@ -16,12 +16,12 @@ void dipole(double *vx,double *vy,double *vz,zomplex *psi,zomplex *mux,zomplex *
   pf1 = fopen("ux.dat", "w"); pf2 = fopen("uy.dat", "w"); pf3 = fopen("uz.dat", "w");
 
   // Make sure mux, muy and muz are zero to begin with
-  for (i = 0; i < ist.totallumo*ist.totalhomo; i++) mux[i].re = muy[i].re = muz[i].re = mux[i].im = muy[i].im = muz[i].im = 0.0;
+  for (i = 0; i < ist.total_lumo*ist.total_homo; i++) mux[i].re = muy[i].re = muz[i].re = mux[i].im = muy[i].im = muz[i].im = 0.0;
 
   // Main computional work of function performed here - must loop over all electron-hole (i-a) pairs
   // compute $$\vec{\mu} = <i|\vec{r}|a> = \int dr \sum_\simga \psi_{i}^{*}(r,\sigma) \vec{r} \psi_a*(r,\sigma)$$
-  for (i = 0; i < ist.totalhomo; i++, fprintf(pf1,"\n"),fprintf(pf2,"\n"),fprintf(pf3,"\n")){
-    for (a = ist.nlumo; a < ist.nlumo+ist.totallumo; a++) {
+  for (i = 0; i < ist.total_homo; i++, fprintf(pf1,"\n"),fprintf(pf2,"\n"),fprintf(pf3,"\n")){
+    for (a = ist.nlumo; a < ist.nlumo+ist.total_lumo; a++) {
       sumX.re = sumY.re = sumZ.re = sumX.im = sumY.im = sumZ.im = 0.0;
       for (jz = 0; jz < ist.nz; jz++) {
         dz = vz[jz];
@@ -45,19 +45,19 @@ void dipole(double *vx,double *vy,double *vz,zomplex *psi,zomplex *mux,zomplex *
           }
         }
       }
-      mux[i*ist.totallumo+(a-ist.nlumo)].re = sumX.re;  mux[i*ist.totallumo+(a-ist.nlumo)].im = sumX.im; 
-      muy[i*ist.totallumo+(a-ist.nlumo)].re = sumY.re;  muy[i*ist.totallumo+(a-ist.nlumo)].im = sumY.im;
-      muz[i*ist.totallumo+(a-ist.nlumo)].re = sumZ.re;  muz[i*ist.totallumo+(a-ist.nlumo)].im = sumZ.im;
-      fprintf (pf1,"%ld %ld %g %g\n",i,a,mux[i*ist.totallumo+(a-ist.nlumo)].re, mux[i*ist.totallumo+(a-ist.nlumo)].im);
-      fprintf (pf2,"%ld %ld %g %g\n",i,a,muy[i*ist.totallumo+(a-ist.nlumo)].re, muy[i*ist.totallumo+(a-ist.nlumo)].im);
-      fprintf (pf3,"%ld %ld %g %g\n",i,a,muz[i*ist.totallumo+(a-ist.nlumo)].re, muz[i*ist.totallumo+(a-ist.nlumo)].im);
+      mux[i*ist.total_lumo+(a-ist.nlumo)].re = sumX.re;  mux[i*ist.total_lumo+(a-ist.nlumo)].im = sumX.im; 
+      muy[i*ist.total_lumo+(a-ist.nlumo)].re = sumY.re;  muy[i*ist.total_lumo+(a-ist.nlumo)].im = sumY.im;
+      muz[i*ist.total_lumo+(a-ist.nlumo)].re = sumZ.re;  muz[i*ist.total_lumo+(a-ist.nlumo)].im = sumZ.im;
+      fprintf (pf1,"%ld %ld %g %g\n",i,a,mux[i*ist.total_lumo+(a-ist.nlumo)].re, mux[i*ist.total_lumo+(a-ist.nlumo)].im);
+      fprintf (pf2,"%ld %ld %g %g\n",i,a,muy[i*ist.total_lumo+(a-ist.nlumo)].re, muy[i*ist.total_lumo+(a-ist.nlumo)].im);
+      fprintf (pf3,"%ld %ld %g %g\n",i,a,muz[i*ist.total_lumo+(a-ist.nlumo)].re, muz[i*ist.total_lumo+(a-ist.nlumo)].im);
 
       os=((sqr(sumX.re)+sqr(sumX.im)) + (sqr(sumY.re)+sqr(sumY.im)) + (sqr(sumZ.re)+sqr(sumZ.im)));
       ev = eval[a] - eval[i];
       fprintf(pf,"%ld %ld %.8f %.12f %.8f %.8f %.8f %.8f %.8f %.8f %.8f\n", i, a, sqrt(os), ev, (2.0/3.0)*ev*os,
-	       mux[i*ist.totallumo+(a-ist.nlumo)].re, mux[i*ist.totallumo+(a-ist.nlumo)].im,
-	       muy[i*ist.totallumo+(a-ist.nlumo)].re, muy[i*ist.totallumo+(a-ist.nlumo)].im,
-	       muz[i*ist.totallumo+(a-ist.nlumo)].re, muz[i*ist.totallumo+(a-ist.nlumo)].im);
+	       mux[i*ist.total_lumo+(a-ist.nlumo)].re, mux[i*ist.total_lumo+(a-ist.nlumo)].im,
+	       muy[i*ist.total_lumo+(a-ist.nlumo)].re, muy[i*ist.total_lumo+(a-ist.nlumo)].im,
+	       muz[i*ist.total_lumo+(a-ist.nlumo)].re, muz[i*ist.total_lumo+(a-ist.nlumo)].im);
     }
   }
   fclose(pf); fclose(pf1); fclose(pf2); fclose(pf3);
@@ -72,7 +72,7 @@ void dipole(double *vx,double *vy,double *vz,zomplex *psi,zomplex *mux,zomplex *
 
 
 void mag_dipole(double *vx, double *vy, double *vz, double *psi, double *mx, double *my, double *mz, 
-  double *eval, fftw_plan_loc *planfw,fftw_plan_loc *planbw,fftw_complex *fftwpsi, long_st ist, par_st par)
+  double *eval, fftw_plan_loc *planfw,fftw_plan_loc *planbw,fftw_complex *fftwpsi, index_st ist, par_st par)
 {
   FILE *pf1, *pf2, *pf3, *pf; 
   long a, i, jx, jy, jz, jgrid, jyz; 
@@ -90,7 +90,7 @@ void mag_dipole(double *vx, double *vy, double *vz, double *psi, double *mx, dou
   pf3 = fopen("mz.dat", "w");
 
   // Make sure mx, my and mz are zero to begin with
-  for (i = 0; i < ist.totallumo*ist.totalhomo; i++) mx[i] = my[i] = mz[i] = 0.0;
+  for (i = 0; i < ist.total_lumo*ist.total_homo; i++) mx[i] = my[i] = mz[i] = 0.0;
 
   // Allocate memory 
   if ((kx = (double *) calloc(ist.nx, sizeof(double)))==NULL) nerror("kx");
@@ -132,7 +132,7 @@ void mag_dipole(double *vx, double *vy, double *vz, double *psi, double *mx, dou
   if ((cpsi = (zomplex *) calloc(ist.ngrid, sizeof(zomplex)))==NULL) nerror("cpsi");
 
   // Main computional work of function performed here - must loop over all electron-hole (i-a) pairs
-  for (i = 0; i < ist.totalhomo; i++, fprintf(pf1,"\n"),fprintf(pf2,"\n"),fprintf(pf3,"\n")) {
+  for (i = 0; i < ist.total_homo; i++, fprintf(pf1,"\n"),fprintf(pf2,"\n"),fprintf(pf3,"\n")) {
     // Fourier transform the hole wavefunctions
     for (jgrid = 0; jgrid < ist.ngrid; jgrid++) {
       cpsi[jgrid].re = psi[i*ist.ngrid+jgrid]; 
@@ -168,7 +168,7 @@ void mag_dipole(double *vx, double *vy, double *vz, double *psi, double *mx, dou
       psidz[jgrid] = fftwpsi[jgrid][0]; // z-derivative of the hole wavefunction
     }
 
-    for (a = ist.nlumo; a < ist.nlumo+ist.totallumo; a++) {
+    for (a = ist.nlumo; a < ist.nlumo+ist.total_lumo; a++) {
       sumX = sumY = sumZ = 0.0;
       for (jz = 0; jz < ist.nz; jz++) {
         z = vz[jz];
@@ -185,19 +185,19 @@ void mag_dipole(double *vx, double *vy, double *vz, double *psi, double *mx, dou
           }
         }
       }
-      mx[i*ist.totallumo+(a-ist.nlumo)] =  sumX;
-      my[i*ist.totallumo+(a-ist.nlumo)] =  sumY;
-      mz[i*ist.totallumo+(a-ist.nlumo)] =  sumZ;
+      mx[i*ist.total_lumo+(a-ist.nlumo)] =  sumX;
+      my[i*ist.total_lumo+(a-ist.nlumo)] =  sumY;
+      mz[i*ist.total_lumo+(a-ist.nlumo)] =  sumZ;
       fprintf(pf1,"%ld %ld %g\n",i,a,sumX);
       fprintf(pf2,"%ld %ld %g\n",i,a,sumY);
       fprintf(pf3,"%ld %ld %g\n",i,a,sumZ);
 
-      ms=(sqr(mx[i*ist.totallumo+(a-ist.nlumo)]) + sqr(my[i*ist.totallumo+(a-ist.nlumo)]) + sqr(mz[i*ist.totallumo+(a-ist.nlumo)]));
+      ms=(sqr(mx[i*ist.total_lumo+(a-ist.nlumo)]) + sqr(my[i*ist.total_lumo+(a-ist.nlumo)]) + sqr(mz[i*ist.total_lumo+(a-ist.nlumo)]));
       ev = eval[a] - eval[i];
       fprintf(pf,"%ld %ld %.8f %.12f %.8f %.8f %.8f %.8f\n", i, a, sqrt(ms), ev, (4.0/3.0)*ev*ms,
-         sqr(mx[i*ist.totallumo+(a-ist.nlumo)]),
-         sqr(my[i*ist.totallumo+(a-ist.nlumo)]),
-         sqr(mz[i*ist.totallumo+(a-ist.nlumo)]));
+         sqr(mx[i*ist.total_lumo+(a-ist.nlumo)]),
+         sqr(my[i*ist.total_lumo+(a-ist.nlumo)]),
+         sqr(mz[i*ist.total_lumo+(a-ist.nlumo)]));
     }
   }
   fclose(pf); fclose(pf1); fclose(pf2); fclose(pf3);
@@ -214,14 +214,14 @@ void mag_dipole(double *vx, double *vy, double *vz, double *psi, double *mx, dou
 /****************************************************************************/
 
 void rotational_strength(double *rs, double *mux, double *muy, double *muz, double *mx, 
-  double *my, double *mz, double *eval, long_st ist) {
+  double *my, double *mz, double *eval, index_st ist) {
   FILE *pf;
   int i, a, index;
 
   pf = fopen("rs0.dat", "w");
-  for (i = 0; i < ist.totalhomo; i++) {
-    for (a = ist.nlumo; a < ist.nlumo+ist.totallumo; a++) {
-      index = i*ist.totallumo + (a-ist.nlumo);
+  for (i = 0; i < ist.total_homo; i++) {
+    for (a = ist.nlumo; a < ist.nlumo+ist.total_lumo; a++) {
+      index = i*ist.total_lumo + (a-ist.nlumo);
       rs[index] = mux[index]*mx[index] + muy[index]*my[index] + muz[index]*mz[index];
       fprintf(pf, "%d %d %.12f  %.16f\n", i, a, eval[a] - eval[i], rs[index]);
     }

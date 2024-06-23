@@ -5,7 +5,7 @@
 
 /*****************************************************************************/
 
-void init_size(long argc, char *argv[],par_st *par,long_st *ist) {
+void init_size(long argc, char *argv[],par_st *par,index_st *ist) {
   long ieof, i, a, nval; 
   double evalloc, deloc, *eval, *de;
   char field[100], tmp[100];
@@ -20,18 +20,18 @@ void init_size(long argc, char *argv[],par_st *par,long_st *ist) {
   printf("ist->ny = %ld\tist->dy = %lf\n", ist->ny, par->dy); fflush(0);
   fscanf (pf,"%ld %lf",&ist->nz, &par->dz);  /*** number of grid polong in z ***/
   printf("ist->nz = %ld\tist->dz = %lf\n", ist->nz, par->dz);fflush(0);
-  fscanf (pf,"%lg %lg %lg",&par->epsx,&par->epsy,&par->epsz);  /*** dielectric constant for the x,y,z directions ***/
-  printf("par->espz = %lg par->espz = %lg par->espz = %lg\n", par->epsx, par->epsy, par->epsz);fflush(0);
-  fscanf (pf,"%lg %lg %lg",&par->deltae,&par->deltah,&par->deps);  /*** energy windows for h+ and e- states allowed and sige check ***/
-  fscanf (pf,"%ld %ld", &ist->maxElecStates, &ist->maxHoleStates);  /*** maximum number of single-particle states used ***/
+  fscanf (pf,"%lg %lg %lg",&par->epsX,&par->epsY,&par->epsZ);  /*** dielectric constant for the x,y,z directions ***/
+  printf("par->espz = %lg par->espz = %lg par->espz = %lg\n", par->epsX, par->epsY, par->epsZ);fflush(0);
+  fscanf (pf,"%lg %lg %lg",&par->delta_E_elec,&par->delta_E_hole,&par->sigma_E_cut);  /*** energy windows for h+ and e- states allowed and sige check ***/
+  fscanf (pf,"%ld %ld", &ist->max_elec_states, &ist->max_hole_states);  /*** maximum number of single-particle states used ***/
   fscanf (pf,"%ld",&ist->nthreads);  /*** number of grid polong in z ***/
   fclose(pf);
 
   // Set Defaults
-  par->Ekinmax = 10.0; // kinetic energy maximum 
-  par->fermiEnergy = -0.19;
+  par->KE_max = 10.0; // kinetic energy maximum 
+  par->fermi_E = -0.19;
   ist->npot = 8192;    // length of pseudopotential files
-  ist->natomtype = 12;
+  ist->n_atom_types = 12;
   ist->printFPDensity = 0; // do not print fixed point quasiparticle densities
   ist->calcDarkStates = 0; // calculate the bright excitonic states (with exchange-like term)
 
@@ -46,9 +46,9 @@ void init_size(long argc, char *argv[],par_st *par,long_st *ist) {
       else if (! strcmp(field, "calcDarkStates")) {
         fscanf(pf, "%s %ld", tmp, &(ist->calcDarkStates));
       }
-      else if (! strcmp(field, "fermiEnergy")) {
-        printf("found custom fermiEnergy\n");
-        fscanf(pf, "%s %lg", tmp, &par->fermiEnergy);
+      else if (! strcmp(field, "fermi_E")) {
+        printf("found custom fermi_E\n");
+        fscanf(pf, "%s %lg", tmp, &par->fermi_E);
       }
       else {
         printf("Invalid input field and/ or format - equal sign required after each field\n");
@@ -61,42 +61,13 @@ void init_size(long argc, char *argv[],par_st *par,long_st *ist) {
     fclose(pf);
   }
 
-  printf("fermiEnergy = %lg\n", par->fermiEnergy);
+  printf("fermi_E = %lg\n", par->fermi_E);
 
-  // TODO: have input file have input fields = format
-  // Open and read input.par if it exists - use defaults otherwise 
-  // if( access( "input.par", F_OK) != -1 ) {
-  //   pf = fopen("input.par", "r");
-  //   i = 0;
-  //   while (fscanf(pf, "%s", field) != EOF && i < 7) {
-  //     if (! strcmp(field, "numGridPoints")) fscanf(pf, "%s %ld %ld %ld", tmp, &(ist->nx), &(ist->ny), &(ist->nz));
-  //     else if (! strcmp(field, "epsilon")) fscanf(pf, "%s %lg %lg %lg", tmp, &(par->epsx), &(par->epsy), &(par->epsz));
-  //     else if (! strcmp(field, "eigSigma")) fscanf(pf, "%s %lg", tmp, &(par->deps));
-  //     else if (! strcmp(field, "energyWindows")) fscanf(pf, "%s %lg %lg", tmp, &(par->deltae), &(par->deltah));
-  //     else if (! strcmp(field, "maxNumStates")) fscanf(pf, "%s %ld %ld", tmp, &(ist->maxElecStates), &(ist->maxHoleStates));
-  //     else if (! strcmp(field, "numThreads")) fscanf(pf, "%s %ld", tmp, &(ist->nthreads));
-  //     else {
-  //       printf("Invalid input field and/ or format - equal sign required after each field\n");
-  //       printf("Only allowed fields are (case-sensitive): numGridPoints, epsilon, eigSigma, energyWindows, maxNumStates, numThreads\n");
-  //       printf("numGridPoints = numXGridPoints numYGridPoints numZGridPoints\n");
-  //       printf("epsilon = epsX epsY epzZ\n");
-  //       printf("eigSigma = 0.02 (for example - in atomic units)\n");
-  //       printf("energyWindows = elecEnergyWindow holeEnergyWindow\n");
-  //       printf("maxNumStates = maxElecStates maxHoleStates\n");
-  //       printf("numThreads = numOpenMPThreads (= 1 is default)\n");
-  //       exit(EXIT_FAILURE);
-  //     }
-  //     i++;
-  //   }
-  //   fclose(pf);
-  // } else {
-  //   terminate("No input.par file detected in cwd - exiting program!");
-  // }
-
+  
   // Error checking related to the input.par file
-  if (par->epsx < 0.0) nerror("error in epsilonx");
-  if (par->epsy < 0.0) nerror("error in epsilony");
-  if (par->epsz < 0.0) nerror("error in epsilonz");
+  if (par->epsX < 0.0) nerror("error in epsilonx");
+  if (par->epsY < 0.0) nerror("error in epsilony");
+  if (par->epsZ < 0.0) nerror("error in epsilonz");
 
 
   // Get the total number of atoms from the conf.par
@@ -117,7 +88,7 @@ void init_size(long argc, char *argv[],par_st *par,long_st *ist) {
   ist->ngrid_1 = 1.0 / (double)(ist->ngrid);
 
   //
-  ist->nhomo = ist->nlumo = ist->totalhomo = ist->totallumo = 0;
+  ist->nhomo = ist->nlumo = ist->total_homo = ist->total_lumo = 0;
   pf = fopen("eval.par" , "r");
   if (pf ==NULL) {
     printf("no eval in cwd\n");
@@ -128,9 +99,9 @@ void init_size(long argc, char *argv[],par_st *par,long_st *ist) {
 
   for (i = ieof = 0; ieof != EOF; i++){
     ieof = fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
-    if (deloc < par->deps && evalloc < par->fermiEnergy) ist->nhomo = i;
-    if (deloc < par->deps && evalloc < par->fermiEnergy) ist->totalhomo++; 
-    if (deloc < par->deps && evalloc > par->fermiEnergy) ist->totallumo++; 
+    if (deloc < par->sigma_E_cut && evalloc < par->fermi_E) ist->nhomo = i;
+    if (deloc < par->sigma_E_cut && evalloc < par->fermi_E) ist->total_homo++; 
+    if (deloc < par->sigma_E_cut && evalloc > par->fermi_E) ist->total_lumo++; 
   }
   fclose(pf);
 
@@ -139,7 +110,7 @@ void init_size(long argc, char *argv[],par_st *par,long_st *ist) {
   for (i = 0; i <= ist->nhomo; i++) fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
   for (i = ist->nhomo+1; i < nval; i++) {
     fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
-    if (deloc < par->deps) {
+    if (deloc < par->sigma_E_cut) {
       ist->nlumo = i;
       break;
     }
@@ -148,8 +119,8 @@ void init_size(long argc, char *argv[],par_st *par,long_st *ist) {
 
   // 
   printf("The number of openMP threads used = %ld\n", ist->nthreads);
-  printf("Total # of filtered hole eigenstates = %ld\n", ist->totalhomo);
-  printf("Total # of filtered electron eigenstates = %ld\n", ist->totallumo);
+  printf("Total # of filtered hole eigenstates = %ld\n", ist->total_homo);
+  printf("Total # of filtered electron eigenstates = %ld\n", ist->total_lumo);
   printf("The eval.par index of the HOMO state = %ld\n", ist->nhomo);
   printf("The eval.par index of the LUMO state = %ld\n", ist->nlumo);
 
@@ -167,23 +138,23 @@ void init_size(long argc, char *argv[],par_st *par,long_st *ist) {
     (eval[ist->nlumo]-eval[ist->nhomo])*AUTOEV);
 
   // 
-  for (ist->totalhomo = 0, i = ist->nhomo; i >= 0; i--)
-    if ((eval[ist->nhomo] - eval[i] <= par->deltah) && de[i] < par->deps) ist->totalhomo++;
+  for (ist->total_homo = 0, i = ist->nhomo; i >= 0; i--)
+    if ((eval[ist->nhomo] - eval[i] <= par->delta_E_hole) && de[i] < par->sigma_E_cut) ist->total_homo++;
 
-  for (ist->totallumo = 0, i = ist->nlumo; i < nval; i++)
-    if ((eval[i] - eval[ist->nlumo] <= par->deltae) && de[i] < par->deps) ist->totallumo++; 
-  ist->ms = ist->totalhomo + ist->totallumo;
+  for (ist->total_lumo = 0, i = ist->nlumo; i < nval; i++)
+    if ((eval[i] - eval[ist->nlumo] <= par->delta_E_elec) && de[i] < par->sigma_E_cut) ist->total_lumo++; 
+  ist->ms = ist->total_homo + ist->total_lumo;
 
   // 
   printf("The total number of atoms = %ld\n", ist->natom);
   printf("Number of grid points used: nx = %ld  ny = %ld  nz = %ld\n", ist->nx, ist->ny, ist->nz);
   printf("Length of pseudopotential files, npot = %ld\n", ist->npot);
-  printf("Kinetic energy maximum = %.4f\n", par->Ekinmax);
-  printf("Dielectric Constant: epsx = %.4f epsy = %.4f epsz = %.4f\n", par->epsx, par->epsy, par->epsz);
-  printf("Maximum sigma for an eigenstate, deps = %.4f\n", par->deps);
-  printf("Energy windows, electrons = %.4f holes = %.4f\n", par->deltae, par->deltah);
-  printf("The number of hole eigenstates within %.4f of the HOMO energy = %ld\n", par->deltah, ist->totalhomo);
-  printf("The number of electron eigenstates within %.4f of the LUMO energy = %ld\n", par->deltae, ist->totallumo);
+  printf("Kinetic energy maximum = %.4f\n", par->KE_max);
+  printf("Dielectric Constant: epsX = %.4f epsY = %.4f epsZ = %.4f\n", par->epsX, par->epsY, par->epsZ);
+  printf("Maximum sigma for an eigenstate, sigma_E_cut = %.4f\n", par->sigma_E_cut);
+  printf("Energy windows, electrons = %.4f holes = %.4f\n", par->delta_E_elec, par->delta_E_hole);
+  printf("The number of hole eigenstates within %.4f of the HOMO energy = %ld\n", par->delta_E_hole, ist->total_homo);
+  printf("The number of electron eigenstates within %.4f of the LUMO energy = %ld\n", par->delta_E_elec, ist->total_lumo);
   printf("Total number of carrier states, ms = %ld\n", ist->ms);
   
   // Free the memory that was dynamically allocated within this function
@@ -194,13 +165,12 @@ void init_size(long argc, char *argv[],par_st *par,long_st *ist) {
 
 /*****************************************************************************/
 
-void init(double *potl, double *vx, double *vy, double *vz, double *ksqr, double *rx, double *ry, double *rz, par_st *par, long_st *ist)
+void init(double *potl, double *vx, double *vy, double *vz, double *ksqr, double *rx, double *ry, double *rz, par_st *par, index_st *ist)
 {
   FILE *pf; 
   long ntmp, jx, jy, jz, jyz, jxyz, ie, ntot, jp, *npot, nn, flags=0;
   double del, mx, my, mz, xd, yd, zd, dx, dy, dz, *ksqrx, *ksqry, *ksqrz;
   double *vr, *potatom, *dr;
-  atm_st *atm;
 
   // Allocate memory 
   if ((ksqrx = (double *) calloc(ist->nx, sizeof(double)))==NULL)nerror("ksqrx");
@@ -211,8 +181,7 @@ void init(double *potl, double *vx, double *vy, double *vz, double *ksqr, double
   pf = fopen("conf.par" , "r");
   fscanf(pf,"%ld",&ntot);
   assert(fabs((double)(ntot - ist->natom)) < 1.0e-15);
-  if ((atm = (atm_st *) calloc(ist->natom, sizeof(atm_st)))==NULL)nerror("atm");
-  read_conf(rx,ry,rz,atm,ntot,pf);
+  read_conf(R);
   fclose (pf);
 
   // Set the box size  
@@ -296,12 +265,12 @@ void init(double *potl, double *vx, double *vy, double *vz, double *ksqr, double
     ksqrz[jz] = (ksqrz[ist->nz-jz] = 0.5 * sqr((double)(jz) * par->dkz) *
 		ist->nz_1 * ist->nx_1 * ist->ny_1 / mz);
 
-  par->Ekinmax *= (ist->ny_1 * ist->nx_1 * ist->nz_1);
+  par->KE_max *= (ist->ny_1 * ist->nx_1 * ist->nz_1);
   for (jz = 0; jz < ist->nz; jz++) for (jy = 0; jy < ist->ny; jy++){
     for (jyz = ist->nx * (ist->ny * jz + jy), jx = 0; jx < ist->nx; jx++){
       jxyz = jyz + jx;
       ksqr[jxyz] = ksqrx[jx] + ksqry[jy] + ksqrz[jz];
-      if (ksqr[jxyz] > par->Ekinmax) ksqr[jxyz] = par->Ekinmax;
+      if (ksqr[jxyz] > par->KE_max) ksqr[jxyz] = par->KE_max;
     }
   }
   free(ksqrx); free(ksqry);  free(ksqrz); free(atm);
@@ -311,43 +280,6 @@ void init(double *potl, double *vx, double *vy, double *vz, double *ksqr, double
   for (jy = 0, dy = par->ymin; jy < ist->ny; jy++, dy += par->dy) vy[jy] = dy;
   for (jz = 0, dz = par->zmin; jz < ist->nz; jz++, dz += par->dz) vz[jz] = dz;
 
-  // TODO: check if this is even needed  
-  /*** read pseudopotentials ***/
-  //dr  = (double *) calloc(ist->natomtype, sizeof(double));
-  //vr  = (double *) calloc(ist->npot*ist->natomtype, sizeof(double));
-  //potatom = (double *) calloc(ist->npot*ist->natomtype, sizeof(double));
-  //npot = (long *) calloc(ist->natomtype, sizeof(long));
-  //read_pot(vr, potatom, npot, dr, atm, ist->npot, ist->natomtype);
-  
-  /*  for (jz = 0; jz < ist->nz; jz++){
-    for (jy = 0; jy < ist->ny; jy++){
-      jyz = ist->nx * (ist->ny * jz + jy);
-      for (jx = 0; jx < ist->nx; jx++){
-	jxyz = jyz + jx;
-	
-	for (potl[jxyz] = 0.0, ie = 0; ie < ntot; ie++){
-	  dx = vx[jx] - rx[ie];
-	  dy = vy[jy] - ry[ie];
-	  dz = vz[jz] - rz[ie];
-	  del = sqrt(dx * dx + dy * dy + dz * dz);
-	  potl[jxyz] += interpolate(del,dr[atm[ie].natyp],vr,potatom,ist->npot,npot[atm[ie].natyp],atm[ie].natyp);
-	}
-	if (par->Vmax < potl[jxyz]) par->Vmax = potl[jxyz];
-	if (par->Vmin > potl[jxyz]) par->Vmin = potl[jxyz];
-      }
-    }
-    }*/
-  //free(vr);  free(potatom);  free(dr); free(npot); 
-
-  /*write_pot(vx,vy,vz,potl);*/
-  /*par->Vmin = -5.0;*/
-  /*printf ("dV = %g vmin = %g Vmax = %g\n",
-    par->Vmax-par->Vmin,par->Vmin,par->Vmax);*/
-
-  /*par->dE = 0.5 * sqr(PIE) / (mx*par->dx*par->dx) +
-    0.5 * sqr(PIE) / (my*par->dy*par->dy) +    
-    0.5 * sqr(PIE) / (mz*par->dz*par->dz);
-    printf ("dT = %g\n",par->dE);*/
   
   return;
 }
@@ -355,7 +287,7 @@ void init(double *potl, double *vx, double *vy, double *vz, double *ksqr, double
 
 /****************************************************************************/
 
-void init_pot(double *vx,double *vy,double *vz,zomplex *potq,zomplex *potqx,par_st par,long_st ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi)
+void init_pot(double *vx,double *vy,double *vz,zomplex *potq,zomplex *potqx,par_st par,index_st ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi)
 {
   long jx, jy, jz, jyz, jxyz, sx, sy, sz;
   double dr, dr2, x2, y2, z2, *kx2, *ky2, *kz2, alpha, cosa, sina;
@@ -363,11 +295,11 @@ void init_pot(double *vx,double *vy,double *vz,zomplex *potq,zomplex *potqx,par_
   double gammaeps;
   zomplex *potr, *potrx, tmp;
 
-  ex_1 = 1.0 / par.epsx;
-  ey_1 = 1.0 / par.epsy;
-  ez_1 = 1.0 / par.epsz;
-  sqrtexeyez_1 = 1.0 / sqrt(par.epsx * par.epsy * par.epsz);
-  sqrtaveps = sqrt((par.epsx + par.epsy + par.epsz) / 3.0);
+  ex_1 = 1.0 / par.epsX;
+  ey_1 = 1.0 / par.epsY;
+  ez_1 = 1.0 / par.epsZ;
+  sqrtexeyez_1 = 1.0 / sqrt(par.epsX * par.epsY * par.epsZ);
+  sqrtaveps = sqrt((par.epsX + par.epsY + par.epsZ) / 3.0);
   gammaeps = par.gamma * sqrtaveps;
 
   /*** no yukawa screening for the exchange ***/
@@ -447,9 +379,9 @@ void init_pot(double *vx,double *vy,double *vz,zomplex *potq,zomplex *potqx,par_
 
       	potqx[jxyz].re = (tmp.re * cosa - tmp.im * sina) * par.dv;
       	potqx[jxyz].im = (tmp.re * sina + tmp.im * cosa) * par.dv;
-      	//potqx[jxyz].re += FOURPI / (par.epsx * x2 + par.epsy * y2 + par.epsz * z2 + sqrk0);
-      	potqx[jxyz].re += (FOURPI * (1.0 - exp(-0.25* (par.epsx * x2 + par.epsy * y2 + par.epsz * z2) / sqrk0)) / (par.epsx * x2 + par.epsy * y2 + par.epsz * z2 + EPSR));
-        //printf("denominator = % .12f\n", par.epsx * x2 + par.epsy * y2 + par.epsz * z2);
+      	//potqx[jxyz].re += FOURPI / (par.epsX * x2 + par.epsY * y2 + par.epsZ * z2 + sqrk0);
+      	potqx[jxyz].re += (FOURPI * (1.0 - exp(-0.25* (par.epsX * x2 + par.epsY * y2 + par.epsZ * z2) / sqrk0)) / (par.epsX * x2 + par.epsY * y2 + par.epsZ * z2 + EPSR));
+        //printf("denominator = % .12f\n", par.epsX * x2 + par.epsY * y2 + par.epsZ * z2);
 		    potqx[jxyz].re *= ist.ngrid_1;
       	potqx[jxyz].im *= ist.ngrid_1;
       }
@@ -463,7 +395,7 @@ void init_pot(double *vx,double *vy,double *vz,zomplex *potq,zomplex *potqx,par_
   
 /****************************************************************************/
 
-void init_pot_old(double *vx,double *vy,double *vz,zomplex *potq,par_st par,long_st ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi)
+void init_pot_old(double *vx,double *vy,double *vz,zomplex *potq,par_st par,index_st ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi)
 {
   long jx, jy, jz, jyz, jxyz, sx, sy, sz;
   double dr, x2, y2, z2, *kx2, *ky2, *kz2, alpha, cosa, sina;
@@ -557,7 +489,7 @@ double screenedcoulomb(double dr, double gamma)
 
 /************************************************************************/
 
-void init_psi(zomplex *psi,double *vx,double *vy,double *vz,long_st ist,par_st par,long *idum)
+void init_psi(zomplex *psi,double *vx,double *vy,double *vz,index_st ist,par_st par,long *idum)
 {
   long jx, jy, jz, jzy, jxyz;
   long tidum = (*idum);

@@ -1,18 +1,18 @@
 #include "fd.h"
 
 int main(int argc, char *argv[]){
-	if (argc!=9) {printf("Usage: merge_psi_spinor.x homoeval homopsi lumoeval lumopsi ngrid nhomo nlumo deps\n"); exit(EXIT_FAILURE);}
+	if (argc!=9) {printf("Usage: merge_psi_spinor.x homoeval homopsi lumoeval lumopsi ngrid nhomo nlumo sigma_E_cut\n"); exit(EXIT_FAILURE);}
 	long ngrid = atol(argv[5]);
 	long nspinngrid = 2*ngrid;
 	FILE *pevalhomo,  *pevallumo, *ppsihomo, *ppsilumo, *peval, *ppsi;
 	zomplex *psihomo, *psilumo;
 	double *eval, *deval;
 	double evalloc, deloc;
-	double fermiEnergy = -0.19;
+	double fermi_E = -0.19;
 	long i, a, ieof, j, k, ihomo, ilumo;
 	long nhomo = atol(argv[6]);
 	long nlumo = atol(argv[7]);
-	double deps = atof(argv[8]);
+	double sigma_E_cut = atof(argv[8]);
 	
 	printf("\nRunning merge_psi.c with the following inputs:\n");
 	printf("homo eval file: %s\n", argv[1]);
@@ -22,7 +22,7 @@ int main(int argc, char *argv[]){
 	printf("ngrid: %ld\n", ngrid);
 	printf("nspinngrid: %ld\n", nspinngrid);
 	printf("nhomo = %ld; nlumo = %ld\n", nhomo, nlumo);
-	printf("deps = %g\n", deps);
+	printf("sigma_E_cut = %g\n", sigma_E_cut);
 	printf("nhomo+nlumo = %ld\n", nhomo+nlumo);
 
 	// allocate memory for the energies and variances
@@ -44,8 +44,8 @@ int main(int argc, char *argv[]){
 	// // determine index
 	for (i = ieof = 0; ieof != EOF; i++){
         ieof = fscanf(pevalhomo, "%ld %lg %lg", &a, &evalloc, &deloc);
-        if (deloc < deps && evalloc < fermiEnergy) ihomo = i; // Grabs the last state with small variance before exceeding the fermiEnergy 
-	if (evalloc > fermiEnergy) break; // do not search through the electron states
+        if (deloc < sigma_E_cut && evalloc < fermi_E) ihomo = i; // Grabs the last state with small variance before exceeding the fermi_E 
+	if (evalloc > fermi_E) break; // do not search through the electron states
   	}
   	fclose(pevalhomo);
 	printf("\nThe index of the homo is: %ld\n", ihomo);
@@ -60,9 +60,9 @@ int main(int argc, char *argv[]){
 	for (i = ieof = 0; i != EOF; i++){
 		ieof = fscanf(pevallumo, "%ld %lg %lg", &a, &evalloc, &deloc);
 		//printf("The current i: %ld\n", i);fflush(0);
-		if (deloc < deps && evalloc > fermiEnergy){
+		if (deloc < sigma_E_cut && evalloc > fermi_E){
 			ilumo = i;
-			break; // Grabs the first state above the fermiEnergy with small variance
+			break; // Grabs the first state above the fermi_E with small variance
 		} 
 	}
 	fclose(pevallumo);
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]){
 	
 	// Populate the first nspinngrid*nhomo positions of *psi with psihomo[ihomo-nhomo->nhomo]
 	// open lumoeval, determine the index of the lumo, ilumo
-	// Populate *eval with nlumo states with de < deps
+	// Populate *eval with nlumo states with de < sigma_E_cut
 	// Populate the next nspinngrid*nlumo positions of *psi with psilumo[ilumo->ilumo+nlumo]
 
 

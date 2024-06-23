@@ -71,7 +71,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     else fprintf(pf, "\tTiming specs will NOT be printed\n");
 
     if (flag->printFPDensity == 1) fprintf(pf, "\tFixed point densities of %d excitons will be printed\n", ist->n_FP_density);
-    else fprintf(pf, "\tCube files will NOT be printed\n");
+    else fprintf(pf, "\tFixed point densities will NOT be printed\n");
 
     if (flag->calcSpinAngStat == 1) fprintf(pf, "\tSpin and Ang. Mom. statistics will be computed\n");
     else fprintf(pf, "\tSpin and Ang. Mom. statistics will NOT be computed\n");

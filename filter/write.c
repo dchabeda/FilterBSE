@@ -106,7 +106,7 @@ void write_separation(FILE *pf, char *top_bttm) {
   } else if ( 0 == strcmp(top_bttm, (const char *) bttm_key) ){
     fprintf(pf, "\n******************************************************************************\n");
   } else {
-    fprintf(stderr, "Invalid string supplied to write_separation. Exiting!\n");
+    fprintf(stderr, "Invalid string supplied to writeSeparation. Exiting!\n");
     exit(EXIT_FAILURE);
   }
 

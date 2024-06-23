@@ -35,6 +35,7 @@ int main(int argc, char *argv[]){
     double *eig_vals = NULL, *sigma_E = NULL;
     double *h0mat;
     double *gridx = NULL, *gridy = NULL, *gridz = NULL;
+    double *rho;
     // long int arrays and counters
     long i, a, j, thomo, tlumo, indexfirsthomo;
     ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
@@ -63,6 +64,24 @@ int main(int argc, char *argv[]){
     printf("\nReading filter output from output.dat:\n");
 
     read_filter_output("output.dat", &psitot, &eig_vals, &sigma_E, &R, &grid, &gridx, &gridy, &gridz, &ist, &par, &flag);
+
+    // Check that we obtained the correct grid etc.
+    printf("\nTHE CONF:\n");
+    for (i=0; i < ist.natoms; i++){
+        printf("%lg %lg %lg\n", R[i].x, R[i].y, R[i].z);
+    }
+    printf("\nTHE GRID:\n");
+    for (i=0; i < grid->nx; i++){
+        printf("%lg %lg %lg\n", gridx[i], gridy[i], gridz[i]);
+    }
+    printf("\nTHE EIGVALS:\n");
+    for (i=0; i < ist.mn_states_tot; i++){
+        printf("%lg %lg\n", eig_vals[i], sigma_E[i]);
+    }
+    rho = malloc(ist.ngrid * sizeof(rho[0]));
+    memcpy(rho, psitot, ist.ngrid * sizeof(rho[0]));
+    
+    write_cube_file(rho, &grid, "output_psitot.cube");
 
     /*** read initial setup from input.par ***/
     printf("\nReading BSE job specifications from input.par:\n");

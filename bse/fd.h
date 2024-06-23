@@ -188,6 +188,7 @@ void print_cube(double *pgrid,index_st ist,par_st par,char *fName);
 void print_fixed_qp_density(double *psi, double *Cbs, double *vz, index_st ist, par_st par);
 
 // Functions that write input or output - write.c
+void write_cube_file(double *rho, grid_st *grid, char *fileName);
 void write_current_time(FILE *pf);
 void write_separation(FILE *pf, char *top_bttm);
 

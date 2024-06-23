@@ -26,10 +26,7 @@ int main(int argc, char *argv[]){
     zomplex *sx, *sy, *sz;
     zomplex *lx, *ly, *lz, *lsqr, *ls;
     // custom structs
-    par_st par; index_st ist; grid_st *grid; flag_st flag; xyz_st *R = NULL; parallel_st parallel; 
-    (*grid).x = NULL;
-    (*grid).y = NULL;
-    (*grid).z = NULL;
+    par_st par; index_st ist; grid_st grid; flag_st flag; xyz_st *R = NULL; parallel_st parallel; 
     // FFT 
     fftw_plan_loc *planfw, *planbw; fftw_complex *fftwpsi;
     long fft_flags=0;
@@ -37,6 +34,7 @@ int main(int argc, char *argv[]){
     double *psitot = NULL;
     double *eig_vals = NULL, *sigma_E = NULL;
     double *h0mat;
+    double *gridx = NULL, *gridy = NULL, *gridz = NULL;
     // long int arrays and counters
     long i, a, j, thomo, tlumo, indexfirsthomo;
     ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
@@ -64,7 +62,7 @@ int main(int argc, char *argv[]){
     /*** read output from filter output.par ***/
     printf("\nReading filter output from output.dat:\n");
 
-    read_filter_output("output.dat", &psitot, &eig_vals, &sigma_E, &R, &grid, &ist, &par, &flag);
+    read_filter_output("output.dat", &psitot, &eig_vals, &sigma_E, &R, &grid, &gridx, &gridy, &gridz, &ist, &par, &flag);
 
     /*** read initial setup from input.par ***/
     printf("\nReading BSE job specifications from input.par:\n");

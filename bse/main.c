@@ -120,11 +120,11 @@ int main(int argc, char *argv[]){
     ist.eval_hole_idxs = realloc(ist.eval_hole_idxs, ist.n_holes * sizeof(long));
     ist.eval_elec_idxs = realloc(ist.eval_hole_idxs, ist.n_elecs * sizeof(long));
 
-    print("\neval_hole_idxs:\n");
+    printf("\neval_hole_idxs:\n");
     for (i = 0; i < ist.n_holes; i++){
         printf("%ld\n", ist.eval_hole_idxs[i]);
     }
-    print("\neval_elec_idxs:\n");
+    printf("\neval_elec_idxs:\n");
     for (i = 0; i < ist.n_elecs; i++){
         printf("%ld\n", ist.eval_elec_idxs[i]);
     }

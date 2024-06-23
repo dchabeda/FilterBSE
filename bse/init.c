@@ -112,7 +112,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
       sigma_E[cntr] = sigma_E[i];
       cntr++;
     }
-
+ 
     // Determine the new energy span
     deltaE = eig_vals[ist->total_lumo + ist->lumo_idx - 1] - eig_vals[ist->lumo_idx];
     if (deltaE < par->delta_E_elec){

@@ -221,9 +221,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
 
 /****************************************************************************/
 
-long assign_atom_number(char atyp[3])
-{
-  char strerror[100];
+long assign_atom_number(char atyp[3]){
   
   if ((atyp[0] == 'C') && (atyp[1] == 'd')  && (atyp[2] == '\0')) return(0);
   else if ((atyp[0] == 'S') && (atyp[1] == 'e') && (atyp[2] == '\0')) return(1);
@@ -247,8 +245,7 @@ long assign_atom_number(char atyp[3])
 
 
   else {
-    sprintf (strerror,"atom type %s not in current list",atyp);
-    nerror (strerror);
+    fprintf (stderr,"atom type %s not in current list",atyp);
   }
   return(0);
 }

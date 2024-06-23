@@ -1,7 +1,7 @@
 ******************************************************************************
 
 RUNNING PROGRAM: BETHE-SALPETHER
-This calculation began at: Sun Jun 23 08:58:57 2024
+This calculation began at: Sun Jun 23 09:06:38 2024
 
 ******************************************************************************
 
@@ -57,7 +57,8 @@ Reading BSE job specifications from input.par:
 	maxHoleStates (# h+ in basis) = 4
 	maxElecStates (# e- in basis) = 4
 	sigmaECut = 0.0001
-	DeltaE_hole = 0.02, 	DeltaE_elec = 0.02, 	KEmax = 10 a.u.
+	DeltaE_hole = 0.02,   DeltaE_elec = 0.02
+	KEmax = 10 a.u.
 	fermiEnergy = -0.18 a.u.
 
 	Dielectric screening options:
@@ -89,3 +90,12 @@ Reading BSE job specifications from input.par:
 	---------------------------------
 	No checkpoint saves requested
 	No checkpoint specified for restart. Job will run in normal sequence.
+
+
+******************************************************************************
+
+DONE WITH PROGRAM: BETHE-SALPETHER
+This calculation ended at: Sun Jun 23 09:06:38 2024
+
+Total job CPU time (sec) 0, wall run time (sec) 0
+******************************************************************************

@@ -66,7 +66,7 @@ int main(int argc, char *argv[]){
 
     /*** read initial setup from input.par ***/
     printf("\nReading BSE job specifications from input.par:\n");
-    read_input(&flag, grid, &ist, &par, &parallel);
+    read_input(&flag, &grid, &ist, &par, &parallel);
     
 
     // /*** initial allocation of memory for reading conf ***/

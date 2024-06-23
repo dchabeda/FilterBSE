@@ -25,7 +25,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\tmaxElecStates (# e- in basis) = %ld\n", ist->max_elec_states);
     fprintf(pf, "\tsigmaECut = %lg\n", par->sigma_E_cut);
     fprintf(pf, "\tDeltaE_hole = %lg, ", par->delta_E_hole);
-    fprintf(pf, "\tDeltaE_elec = %lg, ", par->delta_E_elec);
+    fprintf(pf, "  DeltaE_elec = %lg\n", par->delta_E_elec);
     fprintf(pf, "\tKEmax = %lg a.u.\n", par->KE_max);
     fprintf(pf, "\tfermiEnergy = %lg a.u.\n", par->fermi_E); 
 

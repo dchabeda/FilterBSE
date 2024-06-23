@@ -117,9 +117,7 @@ int main(int argc, char *argv[]){
     // Reallocate the eig_vals and sigma_E arrays to only contain the n_qp states
     eig_vals = realloc(eig_vals, ist.n_qp * sizeof(eig_vals[0]));
     sigma_E = realloc(sigma_E, ist.n_qp * sizeof(sigma_E[0]));
-    ist.eval_hole_idxs = realloc(ist.eval_hole_idxs, ist.n_holes * sizeof(long));
-    ist.eval_elec_idxs = realloc(ist.eval_hole_idxs, ist.n_elecs * sizeof(long));
-
+    
     printf("\neval_hole_idxs:\n");
     for (i = 0; i < ist.n_holes; i++){
         printf("%ld\n", ist.eval_hole_idxs[i]);
@@ -128,6 +126,9 @@ int main(int argc, char *argv[]){
     for (i = 0; i < ist.n_elecs; i++){
         printf("%ld\n", ist.eval_elec_idxs[i]);
     }
+    ist.eval_hole_idxs = realloc(ist.eval_hole_idxs, ist.n_holes * sizeof(long));
+    ist.eval_elec_idxs = realloc(ist.eval_hole_idxs, ist.n_elecs * sizeof(long));
+
     // Allocate memory for the electron and hole wavefunctions
     // set_qp_basis()
 

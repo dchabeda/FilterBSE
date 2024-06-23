@@ -1,7 +1,7 @@
 ******************************************************************************
 
 RUNNING PROGRAM: BETHE-SALPETHER
-This calculation began at: Sun Jun 23 08:52:49 2024
+This calculation began at: Sun Jun 23 08:58:57 2024
 
 ******************************************************************************
 
@@ -11,3 +11,81 @@ This calculation began at: Sun Jun 23 08:52:49 2024
 1.	INITIALIZING JOB
 
 ******************************************************************************
+
+Reading filter output from output.dat:
+
+Output tag = 629580952
+Check that this output tag matches your filter run.dat!
+
+THE CONF:
+0 0 0
+
+THE GRID:
+-5.2 -5.2 -5.2
+-4.4 -4.4 -4.4
+-3.6 -3.6 -3.6
+-2.8 -2.8 -2.8
+-2 -2 -2
+-1.2 -1.2 -1.2
+-0.4 -0.4 -0.4
+0.4 0.4 0.4
+1.2 1.2 1.2
+2 2 2
+2.8 2.8 2.8
+3.6 3.6 3.6
+4.4 4.4 4.4
+
+THE EIGVALS:
+-0.481157 6.00685e-08
+-0.481157 0.000100808
+-0.229251 1.31709e-08
+-0.229251 8.43671e-05
+-0.112018 6.12128e-08
+-0.0861938 9.05896e-07
+0.259504 1.57854
+
+Reading BSE job specifications from input.par:
+
+	Grid parameters:
+	---------------------
+	nx = 13, ny = 13, nz = 13
+	dx = 0.8, dy = 0.8, dz = 0.8
+	ngrid = 2197 nspin = 2
+
+	Parameters & counters for BSE algorithm:
+	-------------------------------------------
+	maxHoleStates (# h+ in basis) = 4
+	maxElecStates (# e- in basis) = 4
+	sigmaECut = 0.0001
+	DeltaE_hole = 0.02, 	DeltaE_elec = 0.02, 	KEmax = 10 a.u.
+	fermiEnergy = -0.18 a.u.
+
+	Dielectric screening options:
+	-------------------------------
+	epsX = 6.1
+	epsY = 6.1
+	epsZ = 6.1
+	Pseudopotentials were short ranged.
+
+	Parameters for spin-orbit and non-local:
+	----------------------------------------
+	Spinor wavefunctions turned ON!
+	Spin-orbit coupling is ON!
+	Non-local potential is ON!
+	Wavefunctions are COMPLEX valued! complex_idx = 2
+
+	Flags for optional output:
+	--------------------------
+	Computing spin-allowed sector of BSE matrix -> bright states
+	Timing specs will NOT be printed
+	Fixed point densities will NOT be printed
+	Spin and Ang. Mom. statistics will NOT be computed
+
+	Parameters for parallelization:
+	-------------------------------
+	nThreads (# OMP threads) = 4
+
+	Flags for restarting computation:
+	---------------------------------
+	No checkpoint saves requested
+	No checkpoint specified for restart. Job will run in normal sequence.

@@ -24,8 +24,8 @@ Windows_NT_FCLIB =
 LIB = $(${OS}_LIB) $(${OS}_CLIB) $(${OS}_FCLIB) $(${OS}_MYLIB)
 
 # flags ...
-Linux_OPTFLAGS = -DMKL_ILP64 -O3 -xSSE3 -fp-model=fast -qopenmp -static 
-#Linux_OPTFLAGS = -O0 -g -qopenmp
+#Linux_OPTFLAGS = -DMKL_ILP64 -O3 -xSSE3 -fp-model=fast -qopenmp -static 
+Linux_OPTFLAGS = -O0 -g
 Linux_CFLAGS = $(${OS}_OPTFLAGS) -DFFT_FFTW
 Linux_FFLAGS = $(${OS}_OPTFLAGS)
 
@@ -38,7 +38,7 @@ Windows_NT_CFLAGS = $(${OS}_OPTFLAGS) -DFFT_FFTW
 Windows_NT_FFLAGS = $(${OS}_OPTFLAGS) 
 
 
-MAINNAM = bs
+MAINNAM = BSE
 
 #compiler ...
 Linux_CC = icx
@@ -54,8 +54,10 @@ Windows_NT_FF = gfortran
 Windows_NT_LD = gcc
 
 OBJECTS = \
-	main.o init.o size.o norm.o nerror.o read.o hartree.o single.o energy.o interpolate.o \
-	bethe-salpeter.o diag.o rand.o dipole.o hamiltonian.o write.o angular.o
+	main.o read.o write.o save.o
+
+#init.o size.o norm.o nerror.o read.o hartree.o single.o interpolate.o \
+#	bethe-salpeter.o diag.o rand.o dipole.o write.o angular.o
 
 
 

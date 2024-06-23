@@ -4,7 +4,7 @@
 
 int main(int argc, char *argv[]){
   /*****************************************************************
-  * This is the main function for filter.x. It is the driver that  *
+  * This is the main function for Filter.x. It is the driver that  *
   * controls memory allocation, structs, and the filter algorithm. *
   * The algorithm computes quasiparticle excited states using      *
   * sparse-matrix techniques. It is applied to nanocrystal         *

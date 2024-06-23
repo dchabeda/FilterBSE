@@ -76,16 +76,6 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
     ist->homo_idx = ist->homo_idx - (old_total_homo - ist->total_homo);
     printf("\n\tConstraining hole basis states to maxHoleStates\n\t  new ist->total_homo = %ld\n", ist->total_homo);
     
-    // Determine the new energy span
-    deltaE = eig_vals[ist->homo_idx] - eig_vals[ist->homo_idx - ist->total_homo + 1];
-    if (deltaE < par->delta_E_hole){
-      printf("\tConstrained energy span of holes, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
-      printf("\tIncrease size of VB basis states to reach desired result\n");
-    } else {
-      printf("\n\tConstrained energy span of holes %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
-      printf("\tFewer VB basis states would reach the desired result\n");
-    }
-
     // Reorder eig_vals and sigma_E to only contain eigenstates
     cntr = 0;
     for (i = 0; i < ist->total_homo; i++){
@@ -98,6 +88,16 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
       printf("ERROR: something went wrong reordering eig_vals in get_qp_basis_indices\n");
       exit(EXIT_FAILURE);
     }
+    
+    // Determine the new energy span
+    deltaE = eig_vals[ist->homo_idx] - eig_vals[ist->homo_idx - ist->total_homo + 1];
+    if (deltaE < par->delta_E_hole){
+      printf("\tConstrained energy span of holes, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
+      printf("\tIncrease size of VB basis states to reach desired result\n");
+    } else {
+      printf("\n\tConstrained energy span of holes %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
+      printf("\tFewer VB basis states would reach the desired result\n");
+    }
 
   } else if ((-1 != ist->max_elec_states) && (ist->total_lumo > ist->max_elec_states) ){
     
@@ -105,6 +105,14 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
     ist->lumo_idx = ist->homo_idx + 1;
     printf("\tConstraining elec basis states to maxElecStates\n\t  new ist->total_lumo = %ld\n", ist->total_lumo);
     
+    // Reorder eig_vals and sigma_E to only contain eigenstates
+    cntr = ist->total_homo + 1;
+    for (i = ist->total_homo + 1; i < ist->total_homo + ist->total_lumo; i++){
+      eig_vals[cntr] = eig_vals[i];
+      sigma_E[cntr] = sigma_E[i];
+      cntr++;
+    }
+
     // Determine the new energy span
     deltaE = eig_vals[ist->total_lumo + ist->lumo_idx - 1] - eig_vals[ist->lumo_idx];
     if (deltaE < par->delta_E_elec){
@@ -113,14 +121,6 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
     } else {
       printf("\tConstrained energy span of elecs %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
       printf("\tFewer CB basis states would reach the desired result\n");
-    }
-
-    // Reorder eig_vals and sigma_E to only contain eigenstates
-    cntr = ist->total_homo + 1;
-    for (i = ist->total_homo + 1; i < ist->total_homo + ist->total_lumo; i++){
-      eig_vals[cntr] = eig_vals[i];
-      sigma_E[cntr] = sigma_E[i];
-      cntr++;
     }
 
   } else {

@@ -21,7 +21,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] < par->fermi_E){
       ist->total_homo++;
       ist->homo_idx = i; // Get the largest value of i for which condition is met
-      printf("hole filter = %lg %lg\n", eig_vals[i], sigma_E[i]);
+      
       eig_vals[cntr] = eig_vals[i]; // reorder the eigvals
       sigma_E[cntr] = sigma_E[i];
       cntr++;
@@ -38,13 +38,11 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
       cntr++;
     }
   }
-
-  printf("\tThe eval.dat index of the HOMO state = %ld  LUMO state = %ld\n", ist->homo_idx, ist->lumo_idx);
-
   old_total_homo = ist->total_homo;
-  for (i = 0; i < cntr; i++){
-    printf("%lg %lg\n", eig_vals[i], sigma_E[i]);
-  }
+
+  printf("\n\tTotal # of filtered hole eigenstates = %ld\n", ist->total_homo);
+  printf("\tTotal # of filtered electron eigenstates = %ld\n", ist->total_lumo);
+  printf("\tThe eval.dat index of the HOMO state = %ld  LUMO state = %ld\n", ist->homo_idx, ist->lumo_idx);
   
   // Check how the quasiparticle basis compares to the desired energy range
   // First, in the VB
@@ -128,15 +126,11 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
   }
 
   ist->n_qp = ist->total_homo + ist->total_lumo;
-  printf("\tTotal number of quasiparticle states, n_qp = %ld\n", ist->n_qp);
-  
-  for (i = 0; i < ist->n_qp; i++){
-    printf("%lg %lg\n", eig_vals[i], sigma_E[i]);
-  }
 
   // Print QP basis info
-  printf("\n\tTotal # of filtered hole eigenstates = %ld\n", ist->total_homo);
-  printf("\tTotal # of filtered electron eigenstates = %ld\n", ist->total_lumo);
+  printf("\n\tSelected # of filtered h+ qp basis states = %ld\n", ist->total_homo);
+  printf("\tSelected # of filtered e- qp basis states = %ld\n", ist->total_lumo);
+  printf("\tTotal number of quasiparticle states, n_qp = %ld\n", ist->n_qp);
   printf("\tThe BSEeval.par index of the HOMO state = %ld  LUMO state = %ld\n", ist->homo_idx, ist->lumo_idx);
   printf("\tThe HOMO energy = % .6g a.u. % .5f eV\n", eig_vals[ist->homo_idx], eig_vals[ist->homo_idx]*AUTOEV);
   printf("\tThe LUMO energy = % .6g a.u. % .5f eV\n", eig_vals[ist->lumo_idx], eig_vals[ist->lumo_idx]*AUTOEV);

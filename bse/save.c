@@ -29,19 +29,14 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\tKEmax = %lg a.u.\n", par->KE_max);
     fprintf(pf, "\tfermiEnergy = %lg a.u.\n", par->fermi_E); 
 
-    if (flag->setSeed == 1){
-            fscanf(pf, "%ld", &par->rand_seed);
-            fprintf(pf,"\tSetting initial filter random seed to -%ld\n", par->rand_seed);
-    } else {fprintf(pf,"\tRandom seed will be generated based on clock at runtime\n");}
-    
     // ****** ****** ****** ****** ****** ****** 
     // Set options for dielectric properties
     // ****** ****** ****** ****** ****** ****** 
     fprintf(pf, "\n\tDielectric screening options:\n");
     fprintf(pf, "\t-------------------------------\n");
-    fprintf(pf, "\tepsX = %ld\n", par->epsX);
-    fprintf(pf, "\tepsY = %ld\n", par->epsY);
-    fprintf(pf, "\tepsZ = %ld\n", par->epsZ);
+    fprintf(pf, "\tepsX = %lg\n", par->epsX);
+    fprintf(pf, "\tepsY = %lg\n", par->epsY);
+    fprintf(pf, "\tepsZ = %lg\n", par->epsZ);
     if (1 == flag->LR) fprintf(pf, "\tPseudopotentials were long ranged.\n");
     else fprintf(pf, "\tPseudopotentials were short ranged.\n");
      
@@ -59,8 +54,6 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
 
     if (flag->NL == 1) fprintf(pf, "\tNon-local potential is ON!\n");
     else fprintf(pf, "\tNon-local potential is OFF!\n");
-
-    if (flag->SO == 1) fprintf(pf, "\tRnlcut = %g Bohr\n", sqrt(par->R_NLcut2));
 
     if (0 == flag->isComplex) fprintf(pf, "\tWavefunctions are REAL valued!\n\t  complex_idx = %d\n", ist->complex_idx);
     else if (1 == flag->isComplex) fprintf(pf, "\tWavefunctions are COMPLEX valued! complex_idx = %d\n", ist->complex_idx); 
@@ -109,6 +102,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
 
 void read_filter_output(char *file_name, double **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st **grid, index_st *ist, par_st *par, flag_st *flag){
 
+    FILE *pf;
     long j;
     long output_tag;
     char *end_buffer, *eof; 
@@ -128,7 +122,7 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     // number printed at the bottom of the filter "run.dat"
     fprintf(pf, "%ld\n", output_tag);
     printf("\nOutput tag = %ld\n", output_tag);
-    printf("Check that this output tag matches your filter run.dat!\n")
+    printf("Check that this output tag matches your filter run.dat!\n");
 
     fscanf(pf, "%ld %ld", ist->ngrid, ist->nspinngrid);
     fscanf(pf, "%ld", ist->mn_states_tot);
@@ -141,20 +135,13 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     
     fscanf(pf, "%d %d %d %d %d", flag->SO, flag->NL, flag->LR, flag->useSpinors, flag->isComplex);
     
-    if(( *R->x = malloc(ist->natoms * sizeof(double))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for R->x in read_filter_output\n");
+    if(( *R = malloc(ist->natoms * sizeof(xyz_st))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for R in read_filter_output\n");
         exit(EXIT_FAILURE);
     }
-    if(( *R->y = malloc(ist->natoms * sizeof(double))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for R->x in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
-    if(( *R->z = malloc(ist->natoms * sizeof(double))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for R->x in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
-    for (i = 0; i < ist->natoms; i++){
-        fscanf(pf, "%lg %lg %lg", *R[i]->x, *R[i]->y, *R[i]->z);
+    
+    for (j = 0; j < ist->natoms; j++){
+        fscanf(pf, "%lg %lg %lg", *R[j]->x, *R[j]->y, *R[j]->z);
     }
 
     fscanf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg", *grid->dx, *grid->dy, *grid->dz, *grid->dr, *grid->dv, *grid->dkx, *grid->dky, *grid->dkz);

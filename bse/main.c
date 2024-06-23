@@ -113,7 +113,7 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "WARNING: allocating memory for ist.eval_elec_idxs in main.c returns NULL\n");
         printf("WARNING: allocating memory for ist.eval_elec_idxs in main.c returns NULL\n");
     }
-    get_qp_basis_indices(eig_vals, &ist.eval_hole_idxs, &ist.eval_elec_idxs, sigma_E, &ist, &par, &flag);
+    get_qp_basis_indices(eig_vals, sigma_E, &ist.eval_hole_idxs, &ist.eval_elec_idxs, &ist, &par, &flag);
     // Reallocate the eig_vals and sigma_E arrays to only contain the n_qp states
     eig_vals = realloc(eig_vals, ist.n_qp * sizeof(eig_vals[0]));
     sigma_E = realloc(sigma_E, ist.n_qp * sizeof(sigma_E[0]));

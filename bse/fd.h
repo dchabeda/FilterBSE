@@ -103,7 +103,7 @@ typedef struct parallel{
 
 // init.c
 void init(double *potl,double *vx,double *vy,double *vz,double *ksqr,double *rx,double *ry,double *rz,par_st *par,index_st *ist);
-void get_qp_basis_indices(double *eig_vals, long **eval_hole_idxs, long **eval_elec_idxs, double *sigma_E, index_st *ist, par_st *par, flag_st *flag);
+void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag);
 void init_pot(zomplex *potq, zomplex *potqx, grid_st *grid, par_st *par,index_st *ist, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 void init_psi(zomplex *psi,double *vx,double *vy,double *vz,index_st ist,par_st par,long *idum);
 double screenedcoulomb(double dr, double gamma);

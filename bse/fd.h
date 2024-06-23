@@ -59,8 +59,8 @@ typedef struct st4 {
   double nx_1, ny_1, nz_1, ngrid_1;
   long n_FP_density;
   long max_elec_states, max_hole_states, mn_states_tot;
-  long printFPDensity; // 0 = False (default) or 1 = True
-  long calcDarkStates; // 0 = False (default) or 1 = True
+  int printFPDensity; // 0 = False (default) or 1 = True
+  int calcDarkStates; // 0 = False (default) or 1 = True
   int nspin, complex_idx;
 } index_st;
 

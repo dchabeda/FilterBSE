@@ -37,7 +37,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->SO = 0; // computes the spin-orbit terms in the Hamiltonian
   flag->NL = 0; // computes the non-local terms in the Hamiltonian; automatically on if SO flag on
   // Optional output flags
-  flag->calcSpinAngStat = 0; // Are angular momentum statistics computed. Only available with SO coupling
+  flag->calcDarkStates = 0;
+  flag->calcSpinAngStat = 1; // Are angular momentum statistics computed. Only available with SO coupling
   flag->timingSpecs = 0; // print timing info for computing the Hamiltonian
   par->fermi_E = -0.18; // This default value is not good for LR potentials.
   par->sigma_E_cut = 0.0001;
@@ -76,10 +77,6 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "fermiEnergy")) {
           par->fermi_E = strtod(tmp, &endptr);
           if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
-      } else if (!strcmp(field, "setSeed")) {
-          flag->setSeed = (int) strtol(tmp, &endptr, 10);
-          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-          if (flag->setSeed == 1){fscanf(pf, "%ld", &par->rand_seed);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for dielectric properties
@@ -121,12 +118,15 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       // Set options for additional output
       // ****** ****** ****** ****** ****** ******
       else if (!strcmp(field, "timingSpecs")) {
-          flag->timeSpecs = (int) strtol(tmp, &endptr, 10);
+          flag->timingSpecs = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "printFPDensity")) {
           flag->printFPDensity = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
           if (flag->printFPDensity == 1){fscanf(pf, "%d", &ist->n_FP_density);}
+      } else if (!strcmp(field, "calcDarkStates")) {
+          flag->calcSpinAngStat = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "calcSpinAngStat")) {
           flag->calcSpinAngStat = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
@@ -161,9 +161,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("timingSpecs = int (if 1 print timing specs)\n");
           printf("printFPDensity = int (1 to print fixed point exciton densities, 0 to not)\n");
           printf("If printCubes = 1, the next entry MUST specify the number of excitons to print\n");
-          printf("calcSpinAngStat = int (calculate spin and ang. mom. statistics for eigenstates)\n");
-          printf("setSeed = int (if 1, set the random seed in for filter to generate exactly reproducible wavefunctions)\n");
-          printf("If setSeed = 1, the next entry MUST specify the random seed as an integer \'rand_seed\'\n");
+          printf("calcDarkStates = int (if 1, calculate dark (spin-forbidden) manifold of excitons)\n");
+          printf("calcSpinAngStat = int (if 1, calculate spin and ang. mom. statistics for eigenstates)\n");
           printf("saveCheckpoints = int, if 1 then save states will be generated along the job run.\n");
           printf("restartFromCheckpoint = int, value is the ID of the checkpoint that the job should restart from.\n");
           

@@ -12,12 +12,12 @@ dGrid="0.8"
 setTargets="1"
 calcPotOverlap="0"
 getAllStates="1"
-sigmaECut="0.001"
+sigmaECut="0.1"
 timeHamiltonian="0"
 interpolatePot="0"
 setSeed="0"; randSeed="123"
 printNorm="0"
-printCubes="0"; 
+printCubes="1"; ncubes="2" 
 saveCheckpoints="0"
 ncubes="2"
 
@@ -25,7 +25,7 @@ ncubes="2"
 # Filter settings
 mStatesPerFilter='4'
 nFilterCycles='1'
-newtonLength='256'
+newtonLength='512'
 vbMin='-0.47'; vbMax='-0.37'
 cbMin='-0.35'; cbMax='-0.27'
 msVB="2"; msCB="2"
@@ -58,6 +58,7 @@ getAllStates = $getAllStates
 sigmaECut = $sigmaECut 
 timeHamiltonian = $timeHamiltonian
 fermiEnergy = $fermiEnergy
+printCubes = $printCubes $ncubes
 setSeed = $setSeed 
 printNorm = $printNorm
 EOF

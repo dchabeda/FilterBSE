@@ -21,7 +21,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] < par->fermi_E){
       ist->total_homo++;
       ist->nhomo = i; // Get the largest value of i for which condition is met
-      printf("This is sigma_E = %lg\n", sigma_E[i]);
+      printf("hole filter = %lg %lg\n", eig_vals[i], sigma_E[i]);
       eig_vals[cntr] = eig_vals[i]; // reorder the eigvals
       sigma_E[cntr] = sigma_E[i];
     }
@@ -35,6 +35,10 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
     }
+  }
+
+  for (i = 0; i < cntr; i++){
+    printf("%lg %lg\n", eig_vals[i], sigma_E[i]);
   }
   
 
@@ -128,6 +132,10 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
   ist->n_qp = ist->total_homo + ist->total_lumo;
   printf("\tTotal number of quasiparticle states, n_qp = %ld\n", ist->n_qp);
   
+  for (i = 0; i < ist->n_qp; i++){
+    printf("%lg %lg\n", eig_vals[i], sigma_E[i]);
+  }
+
   // Print BSEeval.par
   pf = fopen("BSEeval.par", "w");
   for (i = 0; i < ist->n_qp; i++){

@@ -51,14 +51,14 @@ typedef struct st1 {
 } par_st;
 
 typedef struct st4 {
+  long max_elec_states, max_hole_states, mn_states_tot;
   long n1, n2, n12, natom, nthreads;
   long ms, ms2, niter, nc, npot, npsi;
   long nx, ny, nz, ngrid, nspinngrid, n_atom_types;
   long *atom_types;
   long natoms, nhomo, nlumo, total_homo, total_lumo;
   double nx_1, ny_1, nz_1, ngrid_1;
-  long n_FP_density;
-  long max_elec_states, max_hole_states, mn_states_tot;
+  int n_FP_density;
   int printFPDensity; // 0 = False (default) or 1 = True
   int calcDarkStates; // 0 = False (default) or 1 = True
   int nspin, complex_idx;

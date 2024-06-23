@@ -10,5 +10,5 @@ export I_MPI_FABRICS=shm
 
 cwd=$PBS_O_WORKDIR
 
-#bash $cwd/run_filter.sh
+bash $cwd/run_filter.sh
 bash $cwd/run_bse.sh

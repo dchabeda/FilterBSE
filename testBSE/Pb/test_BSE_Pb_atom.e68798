@@ -1,1 +1,0 @@
-/home/dchabeda/project/perov_dynamics/validation/testBSE/Pb/run_bse.sh: line 43: 22831 Segmentation fault      ./BSE.x 2> error.dat > run.dat

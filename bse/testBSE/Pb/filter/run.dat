@@ -1,7 +1,7 @@
 ******************************************************************************
 
 RUNNING PROGRAM: FILTER DIAGONALIZATION
-This calculation began at: Sun Jun 23 00:24:18 2024
+This calculation began at: Sun Jun 23 08:37:15 2024
 
 ******************************************************************************
 
@@ -61,7 +61,7 @@ Reading job specifications from input.par:
 	Matrix elements of the potential will not be calculated
 	All eigenstates will be saved to disk regardless of variance
 	Hamiltonian timing specs will not be printed
-	Cube files will not be printed
+	Cube files of top 2 states (sigma_E_cut < 0.1) in VB & CB will be printed
 	Spin and Ang. Mom. statistics will not be computed
 
 	Flags for restarting computation:
@@ -134,7 +134,7 @@ Non-local pseudopotential:
 ******************************************************************************
 Emin = -0.577366, Emax = 13.0837, dE = 13.6611
 
-done calculate energy range, CPU time (sec) 0.7, wall run time (sec) 1
+done calculate energy range, CPU time (sec) 0.68, wall run time (sec) 1
 
 
 ******************************************************************************
@@ -195,7 +195,7 @@ done calculating Hmat, CPU time (sec) 0.01, wall run time (sec) 0
 getAllStates flag on
 Writing all eigenstates to disk
 
-Output_tag = 561717988
+Output_tag = 572660336
 
 
 ******************************************************************************
@@ -203,16 +203,23 @@ Output_tag = 561717988
 CALCULATING OPTIONAL OUTPUT
 
 ******************************************************************************
-index of homo, homo_idx = 0; index of lumo, nlumo = 2
-total_homo = 1 total_lumo = 6
+index of homo, homo_idx = 1; index of lumo, nlumo = 2
+total_homo = 2 total_lumo = 5
 
-No optional output requested.
+
+******************************************************************************
+
+WRITING CUBE FILES
+
+******************************************************************************
+
+done calculating cubes, CPU time (sec) 0.01, wall run time (sec) 0
 
 
 ******************************************************************************
 
 DONE WITH PROGRAM: FILTER DIAGONALIZATION
-This calculation ended at: Sun Jun 23 00:24:46 2024
+This calculation ended at: Sun Jun 23 08:37:43 2024
 
-Total job CPU time (sec) 28.5, wall run time (sec) 28
+Total job CPU time (sec) 28.45, wall run time (sec) 28
 ******************************************************************************

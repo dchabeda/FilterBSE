@@ -12,12 +12,12 @@ dGrid="0.8"
 setTargets="1"
 calcPotOverlap="0"
 getAllStates="1"
-sigmaECut="0.001"
+sigmaECut="0.1"
 timeHamiltonian="0"
 interpolatePot="0"
 setSeed="0"; randSeed="123"
 printNorm="0"
-printCubes="0"; 
+printCubes="1"; 
 saveCheckpoints="0"
 ncubes="2"
 
@@ -60,4 +60,5 @@ timeHamiltonian = $timeHamiltonian
 fermiEnergy = $fermiEnergy
 setSeed = $setSeed 
 printNorm = $printNorm
+printCubes = $printCubes $ncubes
 EOF

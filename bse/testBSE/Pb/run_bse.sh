@@ -34,6 +34,7 @@ cp $cwd/bse_input.par $hBSEDir/input.par
 rm $cwd/*_input.par
 
 # Filter output
+cp $filterDir/conf.dat $sBSEDir
 ln -s $filterDir/output.dat $sBSEDir
 
 ln -s $BSEXDir/BSE.x $sBSEDir/
@@ -45,5 +46,5 @@ cd $sBSEDir
 wait
 
 # Move filter results to home directory and scratch BSE directory 
-cp err* run.dat input.par $hBSEDir/
+cp *cube err* run.dat input.par $hBSEDir/
 

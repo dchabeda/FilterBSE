@@ -134,21 +134,21 @@ int main(int argc, char *argv[]){
     // init_pot(potq, potqx, &grid, &par, &ist, planfw[0], planbw[0], &fftwpsi[0]);
 
     // /*************************************************************************/
-    // eig_vals = (double *) calloc(ist.nhomo+1, sizeof(double)); 
-    // sigma_E = (double *) calloc(ist.nhomo+1, sizeof(double)); 
+    // eig_vals = (double *) calloc(ist.homo_idx+1, sizeof(double)); 
+    // sigma_E = (double *) calloc(ist.homo_idx+1, sizeof(double)); 
 
     // peval = fopen("eval.par" , "r");
-    // for (i = 0; i < ist.nhomo+1; i++)
+    // for (i = 0; i < ist.homo_idx+1; i++)
     //     fscanf (peval,"%ld %lg %lg",&a,&eig_vals[i],&sigma_E[i]);
     // fclose (peval);
 
     // peval = fopen("eval.dat" , "w");
-    // for (i = 0; i < ist.nhomo+1; i++){
+    // for (i = 0; i < ist.homo_idx+1; i++){
     //     fprintf (peval,"%ld %g %g\n",i,eig_vals[i],sigma_E[i]);
     // }
     // fclose(peval);
   
-    // for (thomo = 0, i = ist.nhomo; i >= 0; i--){
+    // for (thomo = 0, i = ist.homo_idx; i >= 0; i--){
     //     if (sigma_E[i] < par.sigma_E_cut) thomo++;
     //     if (thomo == ist.total_homo) {
     //         indexfirsthomo = i;
@@ -224,8 +224,8 @@ int main(int argc, char *argv[]){
     // char fname[80] = {0};
     // long nstates = 0;  // Total number of states
     
-    // fseek(ppsi, foffset * ist.nhomo, SEEK_SET); 
-    // counter = ist.nhomo; // Set loop counter to HOMO index
+    // fseek(ppsi, foffset * ist.homo_idx, SEEK_SET); 
+    // counter = ist.homo_idx; // Set loop counter to HOMO index
     // thomo = 0;           // Counter for hole states used
     // while (counter >= indexfirsthomo && thomo < ist.max_hole_states) {
     //     fread(psidummy, sizeof(zomplex), ist.nspinngrid, ppsi);
@@ -253,8 +253,8 @@ int main(int argc, char *argv[]){
         
     // }
 
-    // fseek(ppsi, foffset * (ist.nhomo + 1), SEEK_SET);
-    // counter = ist.nhomo + 1;
+    // fseek(ppsi, foffset * (ist.homo_idx + 1), SEEK_SET);
+    // counter = ist.homo_idx + 1;
     // tlumo = 0;
 
     // while (tlumo < ist.max_elec_states && tlumo < ist.total_lumo) {
@@ -346,8 +346,8 @@ int main(int argc, char *argv[]){
     // fclose(pf);
     // /*************************************************************************/
     // ist.n_qp = nstates;
-    // ist.nlumo = thomo;
-    // ist.nhomo = thomo - 1;
+    // ist.lumo_idx = thomo;
+    // ist.homo_idx = thomo - 1;
     // ist.total_lumo = tlumo;
     // ist.total_homo = thomo;
   

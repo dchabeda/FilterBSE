@@ -73,11 +73,11 @@ pfx = fopen("sx.dat", "w"); pfy = fopen("sy.dat", "w"); pfz = fopen("sz.dat", "w
 		}
 	}
 //calculate spin matrix elements between all unoccupied (electron) orbitals
-	for (a = ist.nlumo; a < ist.nlumo+ist.total_lumo; a++) 
+	for (a = ist.lumo_idx; a < ist.lumo_idx+ist.total_lumo; a++) 
 	{
-		for (b = ist.nlumo; b < ist.nlumo+ist.total_lumo; b++) 
+		for (b = ist.lumo_idx; b < ist.lumo_idx+ist.total_lumo; b++) 
 		{
-			index= sqr(ist.total_homo)+(a-ist.nlumo)*ist.total_lumo+(b-ist.nlumo);
+			index= sqr(ist.total_homo)+(a-ist.lumo_idx)*ist.total_lumo+(b-ist.lumo_idx);
 			for (jz = 0; jz < ist.nz; jz++) {
         		for (jy = 0; jy < ist.ny; jy++) {
           			jyz = ist.nx * (ist.ny * jz + jy);
@@ -339,7 +339,7 @@ void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, 
 	}
 
 	printf("Electron States:\n");
-	for (a = ist.nlumo;a<ist.total_lumo+ist.nlumo;a++){
+	for (a = ist.lumo_idx;a<ist.total_lumo+ist.lumo_idx;a++){
 		//spin up part
 		lOpp(&Lxpsi[0],&Lypsi[0],&Lzpsi[0], &psi[a*ist.nspinngrid], 
 			vx,vy,vz,planfw,planbw, fftwpsi,ist, par);
@@ -375,8 +375,8 @@ void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, 
 			vx,vy,vz,planfw,planbw, fftwpsi,ist, par);
 		
 
-		for (b = ist.nlumo;b<ist.total_lumo+ist.nlumo;b++){
-			index= sqr(ist.total_homo)+(a-ist.nlumo)*ist.total_lumo+(b-ist.nlumo);
+		for (b = ist.lumo_idx;b<ist.total_lumo+ist.lumo_idx;b++){
+			index= sqr(ist.total_homo)+(a-ist.lumo_idx)*ist.total_lumo+(b-ist.lumo_idx);
 
 			lx[index].re=lx[index].im=0.0;
 			ly[index].re=ly[index].im=0.0;

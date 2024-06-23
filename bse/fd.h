@@ -56,7 +56,7 @@ typedef struct st4 {
   long n_qp, ms2, niter, nc, npot, npsi;
   long nx, ny, nz, ngrid, nspinngrid, n_atom_types;
   long *atom_types;
-  long natoms, nhomo, nlumo, total_homo, total_lumo;
+  long natoms, homo_idx, lumo_idx, total_homo, total_lumo;
   double nx_1, ny_1, nz_1, ngrid_1;
   int n_FP_density;
   int printFPDensity; // 0 = False (default) or 1 = True

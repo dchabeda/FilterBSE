@@ -203,16 +203,6 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->nthreads = parallel->nthreads;
   ist->complex_idx = flag->isComplex + 1;
 
-  // Get the number of atoms (needed to initialize the R array)
-  pf = fopen("conf.dat" , "r");
-  if (pf) {
-    fscanf(pf, "%ld", &ist->natoms); 
-    fclose(pf);
-    } else {
-    fprintf(stderr, "ERROR: conf.dat must be in current working directory\n");
-    exit(EXIT_FAILURE);
-  } 
-
   // Using input parameters, print the current job state
   print_input_state(stdout, flag, grid, par, ist, parallel);
 
@@ -222,7 +212,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
 /****************************************************************************/
 
 long assign_atom_number(char atyp[3]){
-  
+
   if ((atyp[0] == 'C') && (atyp[1] == 'd')  && (atyp[2] == '\0')) return(0);
   else if ((atyp[0] == 'S') && (atyp[1] == 'e') && (atyp[2] == '\0')) return(1);
   else if ((atyp[0] == 'I') && (atyp[1] == 'n') && (atyp[2] == '\0')) return(2);

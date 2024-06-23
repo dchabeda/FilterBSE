@@ -126,9 +126,16 @@ int main(int argc, char *argv[]){
     for (i = 0; i < ist.n_elecs; i++){
         printf("%ld\n", ist.eval_elec_idxs[i]);
     }
-    ist.eval_hole_idxs = realloc(ist.eval_hole_idxs, ist.n_holes * sizeof(long));
-    ist.eval_elec_idxs = realloc(ist.eval_hole_idxs, ist.n_elecs * sizeof(long));
-
+    
+    // Resize the index arrays to tightly contain the indices of eigenstates in VB/CB
+    // The conditional checks whether n_holes saturated the memory block (if so, no need to resize)
+    // or if they are not equal, then n_holes is smaller and we should shrink the array
+    if (ist.n_holes != ist->max_hole_states){
+        ist.eval_hole_idxs = realloc(ist.eval_hole_idxs, ist.n_holes * sizeof(long));
+    }
+    if (ist.n_elecs != ist->max_elec_states){
+        ist.eval_elec_idxs = realloc(ist.eval_elec_idxs, ist.n_elecs * sizeof(long));
+    }
     printf("\neval_hole_idxs:\n");
     for (i = 0; i < ist.n_holes; i++){
         printf("%ld\n", ist.eval_hole_idxs[i]);
@@ -137,7 +144,7 @@ int main(int argc, char *argv[]){
     for (i = 0; i < ist.n_elecs; i++){
         printf("%ld\n", ist.eval_elec_idxs[i]);
     }
-    
+
     // Allocate memory for the electron and hole wavefunctions
     // set_qp_basis()
 

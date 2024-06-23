@@ -403,6 +403,9 @@ int main(int argc, char *argv[]){
     free(lx); free(ly); free(lz); free(lsqr);
     free(planfw); free(planbw);
 
+    time_t end_time = time(NULL);
+    time_t end_clock = clock();
+
     write_separation(stdout, top);
     printf("\nDONE WITH PROGRAM: BETHE-SALPETHER\n");
     printf("This calculation ended at: %s\n", ctime(&end_time)); 

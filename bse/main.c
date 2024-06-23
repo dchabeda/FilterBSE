@@ -38,6 +38,7 @@ int main(int argc, char *argv[]){
     double *rho;
     // long int arrays and counters
     long i, a, j, thomo, tlumo, indexfirsthomo;
+    long jgrid, jgrid_real, jgrid_imag;
     ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
     // Clock/Wall time output and stdout formatting
     time_t start_time = time(NULL); // Get the actual time for total wall runtime
@@ -70,24 +71,36 @@ int main(int argc, char *argv[]){
     for (i=0; i < ist.natoms; i++){
         printf("%lg %lg %lg\n", R[i].x, R[i].y, R[i].z);
     }
+    fflush(0);
+
     printf("\nTHE GRID:\n");
     for (i=0; i < grid.nx; i++){
         printf("%lg %lg %lg\n", gridx[i], gridy[i], gridz[i]);
     }
+    fflush(0);
+
     printf("\nTHE EIGVALS:\n");
     for (i=0; i < ist.mn_states_tot; i++){
         printf("%lg %lg\n", eig_vals[i], sigma_E[i]);
     }
+    fflush(0);
+    
     rho = malloc(ist.ngrid * sizeof(rho[0]));
-    memcpy(rho, psitot, ist.ngrid * sizeof(rho[0]));
+    for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+        jgrid_real = ist.complex_idx * jgrid;
+        jgrid_imag = ist.complex_idx * jgrid + 1;
+        
+        rho[jgrid] = sqr(psitot[ist.complex_idx*(1)*ist.nspinngrid + jgrid_real]);
+        if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*(1)*ist.nspinngrid + jgrid_imag]);
+    }
     
     write_cube_file(rho, &grid, "output_psitot.cube");
+    fflush(0);
 
     /*** read initial setup from input.par ***/
     printf("\nReading BSE job specifications from input.par:\n");
     read_input(&flag, &grid, &ist, &par, &parallel);
-    
-
+    fflush(0);
     // /*** initial allocation of memory for reading conf ***/
     // // the positions of the atoms in the x, y, and z directions 
     // if ((R = (xyz_st *) calloc(ist.natoms, sizeof(xyz_st))) == NULL) {

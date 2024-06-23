@@ -107,7 +107,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
 
 /*****************************************************************************/
 
-void read_filter_output(char *file_name, double **psitot, double **eig_vals, double **sigma_E, grid_st *grid, index_st *ist, par_st *par, flag_st *flag){
+void read_filter_output(char *file_name, double **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st **grid, index_st *ist, par_st *par, flag_st *flag){
 
     long j;
     long output_tag;
@@ -141,39 +141,55 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     
     fscanf(pf, "%d %d %d %d %d", flag->SO, flag->NL, flag->LR, flag->useSpinors, flag->isComplex);
     
-    fscanf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg", grid->dx, grid->dy, grid->dz, grid->dr, grid->dv, grid->dkx, grid->dky, grid->dkz);
-    fscanf(pf, "%lg %lg %lg %lg %lg %lg", grid->xmin, grid->xmax, grid->ymin, grid->ymax, grid->zmin, grid->zmax);
-    fscanf(pf, "%ld %ld %ld", grid->nx, grid->ny, grid->nz);
-    fscanf(pf, "%lg %lg %lg", grid->nx_1, grid->ny_1, grid->nz_1);
-    fscanf(pf, "%ld", grid->ngrid);
+    if(( *R->x = malloc(ist->natoms * sizeof(double))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for R->x in read_filter_output\n");
+        exit(EXIT_FAILURE);
+    }
+    if(( *R->y = malloc(ist->natoms * sizeof(double))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for R->x in read_filter_output\n");
+        exit(EXIT_FAILURE);
+    }
+    if(( *R->z = malloc(ist->natoms * sizeof(double))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for R->x in read_filter_output\n");
+        exit(EXIT_FAILURE);
+    }
+    for (i = 0; i < ist->natoms; i++){
+        fscanf(pf, "%lg %lg %lg", *R[i]->x, *R[i]->y, *R[i]->z);
+    }
 
-    if(( *grid->x = malloc(grid->nx * sizeof(double))) == NULL){
+    fscanf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg", *grid->dx, *grid->dy, *grid->dz, *grid->dr, *grid->dv, *grid->dkx, *grid->dky, *grid->dkz);
+    fscanf(pf, "%lg %lg %lg %lg %lg %lg", *grid->xmin, *grid->xmax, *grid->ymin, *grid->ymax, *grid->zmin, *grid->zmax);
+    fscanf(pf, "%ld %ld %ld", *grid->nx, *grid->ny, *grid->nz);
+    fscanf(pf, "%lg %lg %lg", *grid->nx_1, *grid->ny_1, *grid->nz_1);
+    fscanf(pf, "%ld", *grid->ngrid);
+
+    if(( *grid->x = malloc(*grid->nx * sizeof(double))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");
         exit(EXIT_FAILURE);
     }
-    if(( *grid->y = malloc(grid->ny * sizeof(double))) == NULL){
+    if(( *grid->y = malloc(*grid->ny * sizeof(double))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for grid.y in read_filter_output\n");
         exit(EXIT_FAILURE);
     }
-    if(( *grid->z = malloc(grid->nz * sizeof(double))) == NULL){
+    if(( *grid->z = malloc(*grid->nz * sizeof(double))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");
         exit(EXIT_FAILURE);
     }
 
-    fread(grid->x, sizeof(grid->x[0]), grid->nx, pf);
-    fread(grid->y, sizeof(grid->x[0]), grid->ny, pf);
-    fread(grid->z, sizeof(grid->x[0]), grid->nz, pf);
+    fread(*grid->x, sizeof(*grid->x[0]), *grid->nx, pf);
+    fread(*grid->y, sizeof(*grid->x[0]), *grid->ny, pf);
+    fread(*grid->z, sizeof(*grid->x[0]), *grid->nz, pf);
 
-    if ((*eig_vals = malloc(ist->mn_states_tot * sizeof(eig_vals[0]))) == NULL){
+    if ((*eig_vals = malloc(ist->mn_states_tot * sizeof(*eig_vals[0]))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
         exit(EXIT_FAILURE);
     }
-    if ((*sigma_E = malloc(ist->mn_states_tot * sizeof(eig_vals[0]))) == NULL){
+    if ((*sigma_E = malloc(ist->mn_states_tot * sizeof(*sigma_E[0]))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
         exit(EXIT_FAILURE);
     }
-    fread(eig_vals, sizeof(eig_vals[0]), ist->mn_states_tot, pf);
-    fread(sigma_E, sizeof(sigma_E[0]), ist->mn_states_tot, pf);
+    fread(*eig_vals, sizeof(*eig_vals[0]), ist->mn_states_tot, pf);
+    fread(*sigma_E, sizeof(*sigma_E[0]), ist->mn_states_tot, pf);
 
     if ((*psitot = malloc(ist->complex_idx * ist->mn_states_tot * ist->nspinngrid * sizeof(psitot[0]))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for psitot in read_filter_output\n");

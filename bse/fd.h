@@ -12,6 +12,7 @@
 #include <fftw3.h>
 #include <omp.h>
 #include "mkl.h"
+#include "unistd.h"
 
 /*****************************************************************************/
 typedef struct flag {
@@ -200,5 +201,5 @@ void lOpp(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi,
 
 // save.c
 void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel);
-void read_filter_output(char *file_name, double **psitot, double **eig_vals, double **sigma_E, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
+void read_filter_output(char *file_name, double **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st **grid, index_st *ist, par_st *par, flag_st *flag);
 /*****************************************************************************/

@@ -20,7 +20,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
     // Find HOMO and total number of VB states
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] < par->fermi_E){
       ist->total_homo++;
-      ist->homo_idx = i; // Get the largest value of i for which condition is met
+      ist->homo_idx = cntr; // Get the largest value of i for which condition is met
       
       eig_vals[cntr] = eig_vals[i]; // reorder the eigvals
       sigma_E[cntr] = sigma_E[i];
@@ -29,7 +29,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
     // Find LUMO and total number of CB states
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] > par->fermi_E){
       if (0 == ist->lumo_idx){
-        ist->lumo_idx = i; // Get first value of i for which condition is met
+        ist->lumo_idx = ist->homo_idx + 1; // Get first value of i for which condition is met
       }
       ist->total_lumo++; 
       

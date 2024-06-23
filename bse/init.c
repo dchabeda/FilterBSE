@@ -12,11 +12,11 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
   double deltaE;
   
   // Allocate memory for eval_hole_idxs etc if it is NULL
-  if (NULL = *eval_hole_idxs){
+  if (NULL == *eval_hole_idxs){
     printf("\tAllocating new memory for eval_hole_idxs\n");
     *eval_hole_idxs = malloc(500 * sizeof(long));
   }
-  if (NULL = *eval_elec_idxs){
+  if (NULL == *eval_elec_idxs){
     printf("\tAllocating new memory for eval_hole_idxs\n");
     *eval_elec_idxs = malloc(500 * sizeof(long));
   }
@@ -93,7 +93,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     for (i = 0; i < ist->n_holes; i++){
       eig_vals[cntr] = eig_vals[ist->homo_idx - ist->n_holes + i + 1];
       sigma_E[cntr] = sigma_E[ist->homo_idx - ist->n_holes + i + 1];
-      *eval_hole_idxs[cntr] = *eval_hole_idxs[ist->homo_idx - ist->n_holes + i + 1]
+      *eval_hole_idxs[cntr] = *eval_hole_idxs[ist->homo_idx - ist->n_holes + i + 1];
       cntr++;
     }
     // check that the counter has the same value as ist->n_holes

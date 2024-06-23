@@ -31,11 +31,12 @@ int main(int argc, char *argv[]){
     grid.y = NULL;
     grid.z = NULL;
     // FFT 
-    fftw_plan_loc *planfw, *planbw; fftw_complex *fftwpsi, fft_flags=0;
+    fftw_plan_loc *planfw, *planbw; fftw_complex *fftwpsi;
+    long fft_flags=0;
     // double arrays
     double *psitot = NULL;
     double *eig_vals = NULL, *sigma_E = NULL;
-    double *h0mat, *mx, *my, *mz, *rs;
+    double *h0mat;
     // long int arrays and counters
     long i, a, j, thomo, tlumo, indexfirsthomo;
     ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
@@ -75,19 +76,17 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "\nOUT OF MEMORY: R array\n\n"); exit(EXIT_FAILURE);
     }
 
-    init_size(argc, argv, &par, &ist);
+    // init_size(argc, argv, &par, &ist);
   
     /*************************************************************************/
     fftwpsi = fftw_malloc(sizeof (fftw_complex )*ist.ngrid*ist.nthreads);
-    potl  = (double *) calloc(ist.ngrid, sizeof(double));
     potq  = (zomplex *) calloc(ist.ngrid, sizeof(zomplex));
     potqx  = (zomplex *) calloc(ist.ngrid, sizeof(zomplex));
     poth = (zomplex *) calloc(ist.ngrid*ist.nthreads, sizeof(zomplex));
-    ksqr = (double *) calloc(ist.ngrid, sizeof(double));
     
     /**************************************************************************/
     //Seems to initilize con figuration, grid, and ksqr grid
-    init(potl, vx, vy, vz, ksqr, rx, ry, rz, &par, &ist);
+    // init(potl, vx, vy, vz, ksqr, rx, ry, rz, &par, &ist);
     //printf("Done with init"); fflush(0);
     /*** initialization for the fast Fourier transform ***/
     fftw_plan_with_nthreads(ist.nthreads);
@@ -100,7 +99,8 @@ int main(int argc, char *argv[]){
         planbw[i] = fftw_plan_dft_3d(ist.nz, ist.ny, ist.nx, &fftwpsi[i*ist.ngrid],
                                      &fftwpsi[i*ist.ngrid], FFTW_BACKWARD, fft_flags);
     }
-    init_pot(vx, vy, vz, potq, potqx, par, ist, planfw[0], planbw[0], &fftwpsi[0]);
+    
+    init_pot(potq, potqx, &grid, &par, &ist, planfw[0], planbw[0], &fftwpsi[0]);
 
     /*************************************************************************/
     eig_vals = (double *) calloc(ist.nhomo+1, sizeof(double)); 

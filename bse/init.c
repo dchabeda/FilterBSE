@@ -5,224 +5,107 @@
 
 /*****************************************************************************/
 
-void init_size(long argc, char *argv[],par_st *par,index_st *ist) {
-  long ieof, i, a, nval; 
-  double evalloc, deloc, *eval, *de;
-  char field[100], tmp[100];
-  FILE *pf = fopen("input.par" , "r");
-  if (pf ==NULL) {
-    printf("no input in cwd\n");
-    exit(EXIT_FAILURE);
-  }
-  fscanf (pf,"%ld %lf",&ist->nx, &par->dx);  /*** number of grid point in x and dx ***/
-  printf("ist->nx = %ld\tist->dx = %lf\n", ist->nx, par->dx);fflush(0);
-  fscanf (pf,"%ld %lf",&ist->ny, &par->dy);  /*** number of grid polong in y ***/
-  printf("ist->ny = %ld\tist->dy = %lf\n", ist->ny, par->dy); fflush(0);
-  fscanf (pf,"%ld %lf",&ist->nz, &par->dz);  /*** number of grid polong in z ***/
-  printf("ist->nz = %ld\tist->dz = %lf\n", ist->nz, par->dz);fflush(0);
-  fscanf (pf,"%lg %lg %lg",&par->epsX,&par->epsY,&par->epsZ);  /*** dielectric constant for the x,y,z directions ***/
-  printf("par->espz = %lg par->espz = %lg par->espz = %lg\n", par->epsX, par->epsY, par->epsZ);fflush(0);
-  fscanf (pf,"%lg %lg %lg",&par->delta_E_elec,&par->delta_E_hole,&par->sigma_E_cut);  /*** energy windows for h+ and e- states allowed and sige check ***/
-  fscanf (pf,"%ld %ld", &ist->max_elec_states, &ist->max_hole_states);  /*** maximum number of single-particle states used ***/
-  fscanf (pf,"%ld",&ist->nthreads);  /*** number of grid polong in z ***/
-  fclose(pf);
+void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag){
+  //this is where we set which is eleectron and what is hole
 
-  // Set Defaults
-  par->KE_max = 10.0; // kinetic energy maximum 
-  par->fermi_E = -0.19;
-  ist->npot = 8192;    // length of pseudopotential files
-  ist->n_atom_types = 12;
-  ist->printFPDensity = 0; // do not print fixed point quasiparticle densities
-  ist->calcDarkStates = 0; // calculate the bright excitonic states (with exchange-like term)
+  long i;
+  double deltaE;
 
-  // Optional functionality of the code, optional inputs
-  if( access( "optionalInput.par", F_OK) != -1 ) {
-    pf = fopen("optionalInput.par", "r");
-    printf("...reading optionalInput.par\n");
-    while (fscanf(pf, "%s", field) != EOF) {
-      if (! strcmp(field, "printFPDensity")) {
-  	    fscanf(pf, "%s %ld", tmp, &(ist->printFPDensity));
-  	  }
-      else if (! strcmp(field, "calcDarkStates")) {
-        fscanf(pf, "%s %ld", tmp, &(ist->calcDarkStates));
-      }
-      else if (! strcmp(field, "fermi_E")) {
-        printf("found custom fermi_E\n");
-        fscanf(pf, "%s %lg", tmp, &par->fermi_E);
-      }
-      else {
-        printf("Invalid input field and/ or format - equal sign required after each field\n");
-        printf("Only allowed fields are (case-sensitive): printFPDensity, calcDarkStates\n");
-        printf("printFPDensity = 1 (= 0 is default)\n");
-        printf("calcDarkStates = 1 (= 0 is default)\n");
-        exit(EXIT_FAILURE);
-      }
-    }
-    fclose(pf);
-  }
-
-  printf("fermi_E = %lg\n", par->fermi_E);
-
-  
-  // Error checking related to the input.par file
-  if (par->epsX < 0.0) nerror("error in epsilonx");
-  if (par->epsY < 0.0) nerror("error in epsilony");
-  if (par->epsZ < 0.0) nerror("error in epsilonz");
-
-
-  // Get the total number of atoms from the conf.par
-  pf = fopen("conf.par" , "r");
-  if (pf ==NULL) {
-    printf("no conf in cwd\n");
-    exit(EXIT_FAILURE);
-  }
-  fscanf(pf, "%ld", &ist->natom);
-  fclose(pf);
-
-  // Calculate the parameters that depend on the parameters from input.par 
-  ist->nx_1 = 1.0 / (double)(ist->nx);
-  ist->ny_1 = 1.0 / (double)(ist->ny);
-  ist->nz_1 = 1.0 / (double)(ist->nz);
-  ist->ngrid = ist->nx * ist->ny * ist->nz;
-  ist->nspinngrid = 2*ist->nx * ist->ny * ist->nz;
-  ist->ngrid_1 = 1.0 / (double)(ist->ngrid);
-
-  //
+  // Set the quasiparticle basis indices to zero
   ist->nhomo = ist->nlumo = ist->total_homo = ist->total_lumo = 0;
-  pf = fopen("eval.par" , "r");
-  if (pf ==NULL) {
-    printf("no eval in cwd\n");
-    exit(EXIT_FAILURE);
-  }
-//this is where we set which is eleectron and what is hole
-  //TODO: Have the fermi energy setable!!
-
-  for (i = ieof = 0; ieof != EOF; i++){
-    ieof = fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
-    if (deloc < par->sigma_E_cut && evalloc < par->fermi_E) ist->nhomo = i;
-    if (deloc < par->sigma_E_cut && evalloc < par->fermi_E) ist->total_homo++; 
-    if (deloc < par->sigma_E_cut && evalloc > par->fermi_E) ist->total_lumo++; 
-  }
-  fclose(pf);
-
-  nval = i - 1;
-  pf = fopen("eval.par" , "r");
-  for (i = 0; i <= ist->nhomo; i++) fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
-  for (i = ist->nhomo+1; i < nval; i++) {
-    fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
-    if (deloc < par->sigma_E_cut) {
-      ist->nlumo = i;
-      break;
+  
+  // Get the indices of the HOMO, LUMO, and also the number of eigstates in VB/CB 
+  for (i = 0; i < ist->mn_states_tot; i++){
+    // Find HOMO and total number of VB states
+    if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] < par->fermi_E){
+      ist->total_homo++;
+      ist->nhomo = i; // Get the largest value of i for which condition is met
+    }
+    // Find LUMO and total number of CB states
+    if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] > par->fermi_E){
+      if (0 == ist->nlumo){
+        ist->nlumo = i; // Get first value of i for which condition is met
+      }
+      ist->total_lumo++; 
     }
   }
-  fclose(pf);
 
-  // 
-  printf("The number of openMP threads used = %ld\n", ist->nthreads);
-  printf("Total # of filtered hole eigenstates = %ld\n", ist->total_homo);
-  printf("Total # of filtered electron eigenstates = %ld\n", ist->total_lumo);
-  printf("The eval.par index of the HOMO state = %ld\n", ist->nhomo);
-  printf("The eval.par index of the LUMO state = %ld\n", ist->nlumo);
+  // Print QP basis info
+  printf("\tTotal # of filtered hole eigenstates = %ld\n", ist->total_homo);
+  printf("\tTotal # of filtered electron eigenstates = %ld\n", ist->total_lumo);
+  printf("\tThe eval.par index of the HOMO state = %ld  LUMO state = %ld\n", ist->nhomo, ist->nlumo);
+  printf("\tThe HOMO energy = % .6g a.u. % .5f eV\n", eig_vals[ist->nhomo], eig_vals[ist->nhomo]*AUTOEV);
+  printf("\tThe LUMO energy = % .6g a.u. % .5f eV\n", eig_vals[ist->nlumo], eig_vals[ist->nlumo]*AUTOEV);
+  printf("\tFundamental gap = %.6g a.u. %.5f eV\n", eig_vals[ist->nlumo]-eig_vals[ist->nhomo], (eig_vals[ist->nlumo]-eig_vals[ist->nhomo])*AUTOEV);
 
-  // 
-  eval = (double *) calloc(nval, sizeof(double)); 
-  de = (double *) calloc(nval, sizeof(double)); 
+  // Check how the quasiparticle basis compares to the desired energy range
+  // First, in the VB
+  deltaE = eig_vals[ist->nhomo] - eig_vals[ist->nhomo - ist->total_homo + 1];
+  if (deltaE < par->delta_E_hole){
+    printf("\n\tUnconstrained energy span of holes, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
+    printf("\tIncrease size of VB basis states to reach desired result\n");
+  } else {
+    printf("\n\tUnconstrained energy span of holes %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
+    printf("\tFewer VB basis states would reach the desired result\n");
+  }
+  // Then in the conduction band
+  deltaE = eig_vals[ist->total_lumo + ist->nlumo - 1] - eig_vals[ist->nlumo];
+  if (deltaE < par->delta_E_hole){
+    printf("\n\tUnconstrained energy span of elecs, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
+    printf("\tIncrease size of CB basis states to reach desired result\n");
+  } else {
+    printf("\n\tUnconstrained energy span of elecs, %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
+    printf("\tFewer CB basis states would reach the desired result\n");
+  }
 
-  pf = fopen("eval.par" , "r");
-  for (i = 0; i < nval; i++) fscanf(pf, "%ld %lg %lg", &a, &eval[i], &de[i]);
-  fclose(pf);
+  // If the max number of electron or hole states was set, then constrain the basis
+  if ((-1 != ist->max_hole_states) && (ist->total_homo > ist->max_hole_states) ){
+    
+    ist->total_homo = ist->max_hole_states;
+    printf("\tConstraining hole basis states to maxHoleStates\n\t  new ist->total_homo = %ld\n", ist->total_homo);
+    
+    // Determine the new energy span
+    deltaE = eig_vals[ist->nhomo] - eig_vals[ist->nhomo - ist->total_homo + 1];
+    if (deltaE < par->delta_E_hole){
+      printf("\n\tConstrained energy span of holes, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
+      printf("\tIncrease size of VB basis states to reach desired result\n");
+    } else {
+      printf("\n\tConstrained energy span of holes %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
+      printf("\tFewer VB basis states would reach the desired result\n");
+    }
+  } else if ((-1 != ist->max_elec_states) && (ist->total_lumo > ist->max_elec_states) ){
+    
+    ist->total_lumo = ist->max_elec_states;
+    printf("\tConstraining elec basis states to maxElecStates\n\t  new ist->total_lumo = %ld\n", ist->total_lumo);
+    
+    // Determine the new energy span
+    deltaE = eig_vals[ist->total_lumo + ist->nlumo - 1] - eig_vals[ist->nlumo];
+    if (deltaE < par->delta_E_elec){
+      printf("\n\tConstrained energy span of elecs, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
+      printf("\tIncrease size of CB basis states to reach desired result\n");
+    } else {
+      printf("\n\tConstrained energy span of elecs %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
+      printf("\tFewer CB basis states would reach the desired result\n");
+    }
+  } else {
+    printf("\tThe unconstrained basis will be used\n");
+  }
 
-  printf("The HOMO energy = % .8f % .8f\n", eval[ist->nhomo], eval[ist->nhomo]*AUTOEV);
-  printf("The LUMO energy = % .8f % .8f\n", eval[ist->nlumo], eval[ist->nlumo]*AUTOEV);
-  printf("Fundamental gap = %.10f %.10f\n", eval[ist->nlumo]-eval[ist->nhomo], 
-    (eval[ist->nlumo]-eval[ist->nhomo])*AUTOEV);
+  ist->n_qp = ist->total_homo + ist->total_lumo;
 
-  // 
-  for (ist->total_homo = 0, i = ist->nhomo; i >= 0; i--)
-    if ((eval[ist->nhomo] - eval[i] <= par->delta_E_hole) && de[i] < par->sigma_E_cut) ist->total_homo++;
-
-  for (ist->total_lumo = 0, i = ist->nlumo; i < nval; i++)
-    if ((eval[i] - eval[ist->nlumo] <= par->delta_E_elec) && de[i] < par->sigma_E_cut) ist->total_lumo++; 
-  ist->ms = ist->total_homo + ist->total_lumo;
-
-  // 
-  printf("The total number of atoms = %ld\n", ist->natom);
-  printf("Number of grid points used: nx = %ld  ny = %ld  nz = %ld\n", ist->nx, ist->ny, ist->nz);
-  printf("Length of pseudopotential files, npot = %ld\n", ist->npot);
-  printf("Kinetic energy maximum = %.4f\n", par->KE_max);
-  printf("Dielectric Constant: epsX = %.4f epsY = %.4f epsZ = %.4f\n", par->epsX, par->epsY, par->epsZ);
-  printf("Maximum sigma for an eigenstate, sigma_E_cut = %.4f\n", par->sigma_E_cut);
-  printf("Energy windows, electrons = %.4f holes = %.4f\n", par->delta_E_elec, par->delta_E_hole);
-  printf("The number of hole eigenstates within %.4f of the HOMO energy = %ld\n", par->delta_E_hole, ist->total_homo);
-  printf("The number of electron eigenstates within %.4f of the LUMO energy = %ld\n", par->delta_E_elec, ist->total_lumo);
-  printf("Total number of carrier states, ms = %ld\n", ist->ms);
+  printf("Total number of quasiparticle states, n_qp = %ld\n", ist->n_qp);
   
-  // Free the memory that was dynamically allocated within this function
-  free(eval);  free(de);
-
   return;
 }
 
 /*****************************************************************************/
 
-void init(double *potl, double *vx, double *vy, double *vz, double *ksqr, double *rx, double *ry, double *rz, par_st *par, index_st *ist)
-{
+void init(double *potl, double *vx, double *vy, double *vz, double *ksqr, double *rx, double *ry, double *rz, par_st *par, index_st *ist){
   FILE *pf; 
   long ntmp, jx, jy, jz, jyz, jxyz, ie, ntot, jp, *npot, nn, flags=0;
   double del, mx, my, mz, xd, yd, zd, dx, dy, dz, *ksqrx, *ksqry, *ksqrz;
   double *vr, *potatom, *dr;
 
-  // Allocate memory 
-  if ((ksqrx = (double *) calloc(ist->nx, sizeof(double)))==NULL)nerror("ksqrx");
-  if ((ksqry = (double *) calloc(ist->ny, sizeof(double)))==NULL)nerror("ksqry");
-  if ((ksqrz = (double *) calloc(ist->nz, sizeof(double)))==NULL)nerror("ksqrz");
-
-  // Read the passivated nanocrystal configuration from conf.par
-  pf = fopen("conf.par" , "r");
-  fscanf(pf,"%ld",&ntot);
-  assert(fabs((double)(ntot - ist->natom)) < 1.0e-15);
-  read_conf(R);
-  fclose (pf);
-
-  // Set the box size  
-  xd = rlong(0.5 * get_dot_ligand_size_z(rx,ntot) + 5.0);
-  yd = rlong(0.5 * get_dot_ligand_size_z(ry,ntot) + 5.0);
-  zd = rlong(0.5 * get_dot_ligand_size_z(rz,ntot) + 5.0);
-  printf("QD (minimum) dimensions: xd = %.2f yd = %.2f zd = %.2f\n", xd, yd, zd);
-  
-  /// Initial parameters for the pot reduce mass, etc. in the x direction 
-  par->xmin = -xd;
-  par->xmax = xd;
-  mx = 1.0;
-  
-  ntmp  = (long)((par->xmax - par->xmin) / par->dx);
-  if (ntmp > ist->nx) ist->nx = ntmp;
-  par->xmin = -((double)(ist->nx) * par->dx) / 2.0;
-  par->xmax = ((double)(ist->nx) * par->dx) / 2.0;
-  par->dkx = TWOPI / ((double)ist->nx * par->dx);
-  
-  // Initial parameters for the pot reduce mass, etc. in the y direction 
-  par->ymin = -yd;
-  par->ymax = yd;
-  my = 1.0;
-  
-  ntmp  = (long)((par->ymax - par->ymin) / par->dy);
-  if (ntmp > ist->ny) ist->ny = ntmp;
-  par->ymin = -((double)(ist->ny) * par->dy) / 2.0;
-  par->ymax = ((double)(ist->ny) * par->dy) / 2.0;
-  par->dky = TWOPI / ((double)ist->ny * par->dy);
-
-  // Initial parameters for the pot reduce mass, etc. in the z direction 
-  par->zmin = -zd;
-  par->zmax = zd;
-  mz = 1.0;
-  ntmp  = (long)((par->zmax - par->zmin) / par->dz);
-  if (ntmp > ist->nz) ist->nz = ntmp;
-  /*par->dz  = (par->zmax - par->zmin) / (double)(ist->nz);*/
-  par->zmin = -((double)(ist->nz) * par->dz) / 2.0;
-  par->zmax = ((double)(ist->nz) * par->dz) / 2.0;
-  par->dkz = TWOPI / ((double)ist->nz * par->dz);
-  
   printf("Final Box Dimensions: xd = %g yd = %g zd = %g\n",par->xmax,par->ymax,par->zmax);
 
   if ((xd < yd) && (xd < zd))  {
@@ -242,44 +125,6 @@ void init(double *potl, double *vx, double *vy, double *vz, double *ksqr, double
   par->gamma2 = sqr(par->gamma);
 
   printf("Gamma = %.6f\n", par->gamma);
-  
-  par->Vmin = 1.0e10;
-  par->Vmax = -1.0e10;
-
-  par->dv = par->dx * par->dy * par->dz;
-  par->dr = sqrt(sqr(par->dx) + sqr(par->dy) + sqr(par->dz));
-  printf("Grid point spacing: dx = %.4f dy = %.4f dz = %.4f dv = %.6f dr = %.6f\n",
-	  par->dx, par->dy, par->dz, par->dv, par->dr);
-
-  // TODO: check if ksqrx,y,z are needed at all in BSE
-  /***initializing the ksqr vectors ***/
-  for (ksqrx[0] = 0.0, jx = 1; jx <= ist->nx / 2; jx++)
-    ksqrx[jx] = (ksqrx[ist->nx-jx] = 0.5 * sqr((double)(jx) * par->dkx) *
-		ist->nx_1 * ist->ny_1 * ist->nz_1 / mx);
-
-  for (ksqry[0] = 0.0, jy = 1; jy <= ist->ny / 2; jy++)
-    ksqry[jy] = (ksqry[ist->ny-jy] = 0.5 * sqr((double)(jy) * par->dky) *
-		ist->ny_1 * ist->nx_1 * ist->nz_1 / my);
-
-  for (ksqrz[0] = 0.0, jz = 1; jz <= ist->nz / 2; jz++)
-    ksqrz[jz] = (ksqrz[ist->nz-jz] = 0.5 * sqr((double)(jz) * par->dkz) *
-		ist->nz_1 * ist->nx_1 * ist->ny_1 / mz);
-
-  par->KE_max *= (ist->ny_1 * ist->nx_1 * ist->nz_1);
-  for (jz = 0; jz < ist->nz; jz++) for (jy = 0; jy < ist->ny; jy++){
-    for (jyz = ist->nx * (ist->ny * jz + jy), jx = 0; jx < ist->nx; jx++){
-      jxyz = jyz + jx;
-      ksqr[jxyz] = ksqrx[jx] + ksqry[jy] + ksqrz[jz];
-      if (ksqr[jxyz] > par->KE_max) ksqr[jxyz] = par->KE_max;
-    }
-  }
-  free(ksqrx); free(ksqry);  free(ksqrz); free(atm);
-
-  /***initializing the potential vector  ***/
-  for (jx = 0, dx = par->xmin; jx < ist->nx; jx++, dx += par->dx) vx[jx] = dx;
-  for (jy = 0, dy = par->ymin; jy < ist->ny; jy++, dy += par->dy) vy[jy] = dy;
-  for (jz = 0, dz = par->zmin; jz < ist->nz; jz++, dz += par->dz) vz[jz] = dz;
-
   
   return;
 }

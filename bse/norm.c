@@ -40,12 +40,12 @@ double normalize_zomplex(zomplex *psi, double dr, long ngrid) {
 
 /*****************************************************************************/
 
-void normalize_all(double *psi,double dr,long ms,long ngrid)
+void normalize_all(double *psi,double dr,long n_qp,long ngrid)
 {
   long i, ie, ieg;
   double nrm;
 
-  for (ie = 0; ie < ms; ie++){
+  for (ie = 0; ie < n_qp; ie++){
     for (ieg = ie * ngrid, nrm = 0.0, i = 0; i < ngrid; i++)
       nrm += sqr(psi[ieg+i]);
     if (nrm != 0.0){

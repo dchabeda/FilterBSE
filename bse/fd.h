@@ -53,7 +53,7 @@ typedef struct st1 {
 typedef struct st4 {
   long max_elec_states, max_hole_states, mn_states_tot;
   long n1, n2, n12, natom, nthreads;
-  long ms, ms2, niter, nc, npot, npsi;
+  long n_qp, ms2, niter, nc, npot, npsi;
   long nx, ny, nz, ngrid, nspinngrid, n_atom_types;
   long *atom_types;
   long natoms, nhomo, nlumo, total_homo, total_lumo;
@@ -102,7 +102,7 @@ typedef struct parallel{
 
 // init.c
 void init(double *potl,double *vx,double *vy,double *vz,double *ksqr,double *rx,double *ry,double *rz,par_st *par,index_st *ist);
-void init_size(long, char *argv[],par_st *,index_st *);
+void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag);
 void init_pot(zomplex *potq, zomplex *potqx, grid_st *grid, par_st *par,index_st *ist, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 void init_psi(zomplex *psi,double *vx,double *vy,double *vz,index_st ist,par_st par,long *idum);
 double screenedcoulomb(double dr, double gamma);

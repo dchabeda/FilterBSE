@@ -21,8 +21,24 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     // ****** ****** ****** ****** ****** ****** 
     fprintf(pf, "\n\tParameters & counters for BSE algorithm:\n");
     fprintf(pf, "\t-------------------------------------------\n");
-    fprintf(pf, "\tmaxHoleStates (# h+ in basis) = %ld\n", ist->max_hole_states);
-    fprintf(pf, "\tmaxElecStates (# e- in basis) = %ld\n", ist->max_elec_states);
+    if (-1 == ist->max_hole_states){
+        fprintf(pf, "maxHoleStates (# h+ in basis) not set, will use all h+ states\n");
+    } else if (ist->max_hole_states > 0){
+        fprintf(pf, "\tmaxHoleStates (# h+ in basis) = %ld\n", ist->max_hole_states);
+    } else {
+        fprintf(pf, "ERROR: invalid maxHoleStates!\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (-1 == ist->max_elec_states){
+        fprintf(pf, "maxElecStates (# h+ in basis) not set, will use all h+ states\n");
+    } else if (ist->max_elec_states > 0){
+        fprintf(pf, "\tmaxElecStates (# h+ in basis) = %ld\n", ist->max_elec_states);
+    } else {
+        fprintf(pf, "ERROR: invalid maxElecStates!\n");
+        exit(EXIT_FAILURE);
+    }
+    
     fprintf(pf, "\tsigmaECut = %lg a.u.\n", par->sigma_E_cut);
     fprintf(pf, "\tDeltaE_hole = %lg a.u.", par->delta_E_hole);
     fprintf(pf, "  DeltaE_elec = %lg a.u.\n", par->delta_E_elec);

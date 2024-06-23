@@ -25,7 +25,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // Setting the default behavior 
   // ****** ****** ****** ****** ****** ****** 
 
-  // Filter algorithm parameters
+  // BSE algorithm parameters
+  ist->max_hole_states = -1;
+  ist->max_elec_states = -1;
   par->KE_max = 10.0; //NOTE: lowered this to 10 for tests
   par->checkpoint_id = 0;
   // Pseudopotential parameters
@@ -201,7 +203,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
     
   }
 
-  // Set grid defaults
+  // Set parameters that depend on these inputs
+  ist->ngrid_1 = 1.0 / (double)(ist->ngrid); // for rescaling FFT
   ist->nthreads = parallel->nthreads;
   ist->complex_idx = flag->isComplex + 1;
 

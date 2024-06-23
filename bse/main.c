@@ -19,7 +19,6 @@ int main(int argc, char *argv[]){
     // file pointers
     FILE *ppsi, *peval, *pf;  
     // zomplex types
-    zomplex *psihomo, *psilumo, *psidummy;
     zomplex *potq, *potqx, *poth, *psi;
     zomplex *mux, *muy, *muz, mx, my, mz, rsx, rsy, rsz; 
     zomplex *bsmat, *direct, *exchange;
@@ -31,7 +30,7 @@ int main(int argc, char *argv[]){
     fftw_plan_loc *planfw, *planbw; fftw_complex *fftwpsi;
     long fft_flags=0;
     // double arrays
-    double *psitot = NULL;
+    double *psitot = NULL, *psihomo = NULL, *psilumo = NULL;;
     double *eig_vals = NULL, *sigma_E = NULL;
     double *h0mat;
     double *gridx = NULL, *gridy = NULL, *gridz = NULL;
@@ -61,7 +60,7 @@ int main(int argc, char *argv[]){
     printf("\n1.\tINITIALIZING JOB\n");
     write_separation(stdout, bottom); fflush(stdout);
 
-    /*** read output from filter output.par ***/
+    /*** Read output from filter output.par ***/
     printf("\nReading filter output from output.dat:\n");
 
     read_filter_output("output.dat", &psitot, &eig_vals, &sigma_E, &R, &grid, &gridx, &gridy, &gridz, &ist, &par, &flag);
@@ -92,15 +91,13 @@ int main(int argc, char *argv[]){
         grid.z[i] = gridz[i];
     }
 
-    /*** read initial setup from input.par ***/
+    /*** Read initial setup from input.par ***/
     printf("\nReading BSE job specifications from input.par:\n");
     read_input(&flag, &grid, &ist, &par, &parallel);
-    fflush(0);
-    // /*** initial allocation of memory for reading conf ***/
-    // // the positions of the atoms in the x, y, and z directions 
-    // if ((R = (xyz_st *) calloc(ist.natoms, sizeof(xyz_st))) == NULL) {
-    //     fprintf(stderr, "\nOUT OF MEMORY: R array\n\n"); exit(EXIT_FAILURE);
-    // }
+    fflush(stdout);
+
+    /*** Determine the configuration of the quasiparticle basis ***/
+    get_qp_basis_indices(eig_vals, sigma_E, &ist, &par, &flag);
 
     // // init_size(argc, argv, &par, &ist);
   
@@ -157,8 +154,8 @@ int main(int argc, char *argv[]){
     // free(sigma_E);
 
     // psidummy = (zomplex *) calloc(ist.nspinngrid, sizeof(zomplex));
-    // eig_vals = (double *)calloc(ist.ms, sizeof(double)); 
-    // sigma_E = (double *)calloc(ist.ms, sizeof(double)); 
+    // eig_vals = (double *)calloc(ist.n_qp, sizeof(double)); 
+    // sigma_E = (double *)calloc(ist.n_qp, sizeof(double)); 
 
     // /**********************************************************************/
     // /*              CHANGES TO THE FOLLOWING CODE START HERE              */ 
@@ -340,7 +337,7 @@ int main(int argc, char *argv[]){
     // }
     // fclose(pf);
     // /*************************************************************************/
-    // ist.ms = nstates;
+    // ist.n_qp = nstates;
     // ist.nlumo = thomo;
     // ist.nhomo = thomo - 1;
     // ist.total_lumo = tlumo;

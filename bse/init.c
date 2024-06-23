@@ -7,18 +7,23 @@
 void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag){
   //this is where we set which is eleectron and what is hole
 
-  long i;
+  FILE *pf;
+  long i, cntr;
   double deltaE;
 
   // Set the quasiparticle basis indices to zero
   ist->nhomo = ist->nlumo = ist->total_homo = ist->total_lumo = 0;
   
+  cntr = 0; // We will reorder eig_vals and sigma_E to only contain the converged eigenstates
   // Get the indices of the HOMO, LUMO, and also the number of eigstates in VB/CB 
   for (i = 0; i < ist->mn_states_tot; i++){
     // Find HOMO and total number of VB states
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] < par->fermi_E){
       ist->total_homo++;
       ist->nhomo = i; // Get the largest value of i for which condition is met
+      
+      eig_vals[ctr] = eig_vals[i]; // reorder the eigvals
+      sigma_E[ctr] = sigma_E[i];
     }
     // Find LUMO and total number of CB states
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] > par->fermi_E){
@@ -26,8 +31,12 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
         ist->nlumo = i; // Get first value of i for which condition is met
       }
       ist->total_lumo++; 
+      
+      eig_vals[ctr] = eig_vals[i];
+      sigma_E[ctr] = sigma_E[i];
     }
   }
+  
 
   // Print QP basis info
   printf("\n\tTotal # of filtered hole eigenstates = %ld\n", ist->total_homo);
@@ -58,7 +67,10 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
   }
 
   // If the max number of electron or hole states was set, then constrain the basis
-  if ((-1 != ist->max_hole_states) && (ist->total_homo > ist->max_hole_states) ){
+  // We will also modify the eig_vals and sigma_E array again so they only contain the
+  // energies of the selected qp basis states
+  
+  if ((-1 != ist->max_hole_states) && (ist->total_homo > ist->max_hole_states)){
     
     ist->total_homo = ist->max_hole_states;
     printf("\tConstraining hole basis states to maxHoleStates\n\t  new ist->total_homo = %ld\n", ist->total_homo);
@@ -72,6 +84,20 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
       printf("\n\tConstrained energy span of holes %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
       printf("\tFewer VB basis states would reach the desired result\n");
     }
+
+    // Reorder eig_vals and sigma_E to only contain eigenstates
+    cntr = 0;
+    for (i = 0; i < ist->total_homo; i++){
+      eig_vals[cntr] = eig_vals[ist->nhomo - ist->total_homo + i + 1];
+      sigma_E[cntr] = sigma_E[ist->nhomo - ist->total_homo + i + 1];
+      cntr++;
+    }
+    // check that the counter has the same value as ist->total_homo
+    if ((cntr - ist->total_homo) != 0){
+      printf("ERROR: something went wrong reordering eig_vals in get_qp_basis_indices\n");
+      exit(EXIT_FAILURE);
+    }
+
   } else if ((-1 != ist->max_elec_states) && (ist->total_lumo > ist->max_elec_states) ){
     
     ist->total_lumo = ist->max_elec_states;
@@ -86,14 +112,29 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
       printf("\n\tConstrained energy span of elecs %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
       printf("\tFewer CB basis states would reach the desired result\n");
     }
+
+    // Reorder eig_vals and sigma_E to only contain eigenstates
+    cntr = ist->total_homo + 1;
+    for (i = ist->total_homo + 1; i < ist->total_homo + ist->total_lumo; i++){
+      eig_vals[cntr] = eig_vals[i];
+      sigma_E[cntr] = sigma_E[i];
+      cntr++;
+    }
+
   } else {
     printf("\tThe unconstrained basis will be used\n");
   }
 
   ist->n_qp = ist->total_homo + ist->total_lumo;
-
-  printf("Total number of quasiparticle states, n_qp = %ld\n", ist->n_qp);
+  printf("\tTotal number of quasiparticle states, n_qp = %ld\n", ist->n_qp);
   
+  // Print BSEeval.par
+  pf = fopen("BSEeval.par", "w");
+  for (i = 0; i < ist->n_qp; i++){
+    fprintf(pf, "% .12f %lg\n", eig_vals[i], sigma_E[i]);
+  }
+  fclose(pf);
+
   return;
 }
 

@@ -64,8 +64,8 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\n\tFlags for optional output:\n");
     fprintf(pf, "\t--------------------------\n");
 
-    if (flag->calcDarkStates == 1) fprintf(pf, "\tExchange operator not computed. Dark states will be obtained\n");
-    else fprintf(pf, "\tSpin-allowed sector of BSE matrix will be computed. Bright states will be obtained\n");
+    if (flag->calcDarkStates == 1) fprintf(pf, "\tExchange operator not computed -> dark states\n");
+    else fprintf(pf, "\tComputing spin-allowed sector of BSE matrix -> bright states\n");
 
     if (flag->timingSpecs == 1) fprintf(pf, "\tTiming specs will be printed\n");
     else fprintf(pf, "\tTiming specs will NOT be printed\n");

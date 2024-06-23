@@ -100,9 +100,13 @@ int main(int argc, char *argv[]){
     printf("\nSetting quasiparticle basis indices:\n");
     get_qp_basis_indices(eig_vals, sigma_E, &ist, &par, &flag);
     // Reallocate the eig_vals and sigma_E arrays to only contain the n_qp states
-    eig_vals = realloc(ist.n_qp, sizeof(eig_vals[0]));
-    sigma_E = realloc(ist.n_qp, sizeof(sigma_E[0]));
-    
+    eig_vals = realloc(eig_vals, ist.n_qp * sizeof(eig_vals[0]));
+    sigma_E = realloc(sigma_E, ist.n_qp * sizeof(sigma_E[0]));
+
+    for (i = 0; i < ist->n_qp; i++){
+    fprintf(pf, "% .12f %lg\n", eig_vals[i], sigma_E[i]);
+    }
+
     // // init_size(argc, argv, &par, &ist);
   
     // /*************************************************************************/

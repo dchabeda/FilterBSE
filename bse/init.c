@@ -22,8 +22,8 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
       ist->total_homo++;
       ist->nhomo = i; // Get the largest value of i for which condition is met
       
-      eig_vals[ctr] = eig_vals[i]; // reorder the eigvals
-      sigma_E[ctr] = sigma_E[i];
+      eig_vals[cntr] = eig_vals[i]; // reorder the eigvals
+      sigma_E[cntr] = sigma_E[i];
     }
     // Find LUMO and total number of CB states
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] > par->fermi_E){
@@ -32,8 +32,8 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
       }
       ist->total_lumo++; 
       
-      eig_vals[ctr] = eig_vals[i];
-      sigma_E[ctr] = sigma_E[i];
+      eig_vals[cntr] = eig_vals[i];
+      sigma_E[cntr] = sigma_E[i];
     }
   }
   

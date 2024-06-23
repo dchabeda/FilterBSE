@@ -21,7 +21,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] < par->fermi_E){
       ist->total_homo++;
       ist->nhomo = i; // Get the largest value of i for which condition is met
-      
+      printf("This is sigma_E = %lg\n", sigma_E[i]);
       eig_vals[cntr] = eig_vals[i]; // reorder the eigvals
       sigma_E[cntr] = sigma_E[i];
     }

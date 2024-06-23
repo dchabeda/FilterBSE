@@ -48,7 +48,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
       
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
-      (*eval_elec_idxs)[long(cntr - ist->n_holes)] = i;
+      (*eval_elec_idxs)[(long) (cntr - ist->n_holes)] = i;
       cntr++;
     }
   }
@@ -93,7 +93,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     for (i = 0; i < ist->n_holes; i++){
       eig_vals[cntr] = eig_vals[ist->homo_idx - ist->n_holes + i + 1];
       sigma_E[cntr] = sigma_E[ist->homo_idx - ist->n_holes + i + 1];
-      (*eval_hole_idxs)[cntr] = (*eval_hole_idxs)[long(ist->homo_idx - ist->n_holes + i + 1)];
+      (*eval_hole_idxs)[cntr] = (*eval_hole_idxs)[(long) (ist->homo_idx - ist->n_holes + i + 1)];
       cntr++;
     }
     // check that the counter has the same value as ist->n_holes
@@ -123,7 +123,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     for (i = ist->n_holes + 1; i < ist->n_holes + ist->n_elecs; i++){
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
-      (*eval_elec_idxs)[long(cntr - ist->n_holes)] = (*eval_elec_idxs)[i];
+      (*eval_elec_idxs)[(long) cntr - ist->n_holes] = (*eval_elec_idxs)[i];
       cntr++;
     }
  

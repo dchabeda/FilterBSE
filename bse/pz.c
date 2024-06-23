@@ -5,7 +5,7 @@
 
 /****************************************************************************/
 
-int z_project(double *vector, double *vz, par_st par, long_st ist, char *fname)
+int z_project(double *vector, double *vz, par_st par, index_st ist, char *fname)
 /* This function prints the z-projection file and returns whether or not 
  * the state was surface trapped or not
  *
@@ -105,7 +105,7 @@ static int istrapped(struct pzdata *data, long len)
 
 /****************************************************************************/
 
-void print_cube(double *pgrid, long_st ist, par_st par, char *fName) {
+void print_cube(double *pgrid, index_st ist, par_st par, char *fName) {
   FILE *pf, *fr; 
   int i, j, k, l, jgamma,jgrid,jx, jy, jz, jyz,jxyz,ityp;
   int ncub = 10;
@@ -168,7 +168,7 @@ void print_cube(double *pgrid, long_st ist, par_st par, char *fName) {
 
 /****************************************************************************/
 
-void print_pz_one(double *psi2, double *vz, par_st par, long_st ist, char *str) {
+void print_pz_one(double *psi2, double *vz, par_st par, index_st ist, char *str) {
   FILE *pf; 
   long jx, jy, jz, jyz, jxyz;
   double pz;
@@ -192,7 +192,7 @@ void print_pz_one(double *psi2, double *vz, par_st par, long_st ist, char *str) 
 // Prints cube and z-projection files for the num_excitons=1 lowest energy excitons 
 // for which the other quasiparticle is fixed to a small volume around the origin
 
-void print_fixed_qp_density(double *psi, double *Cbs, double *vz, long_st ist, par_st par) {
+void print_fixed_qp_density(double *psi, double *Cbs, double *vz, index_st ist, par_st par) {
   int jx, jy, jz, jyz, jgrid, fixedGrid;
   int a, i, b, j, ibs, jbs, exc_index;
   int ilist, *list;
@@ -201,8 +201,8 @@ void print_fixed_qp_density(double *psi, double *Cbs, double *vz, long_st ist, p
   char fileName[100];
 
   // Print function initiation
-  writeSeparation(stdout);
-  writeCurrentTime(stdout);
+  write_separation(stdout);
+  write_current_time(stdout);
   printf("\nPrinting quasiparticle densities with other particle at a fixed location:\n");
 
   // Parameters
@@ -267,10 +267,10 @@ void print_fixed_qp_density(double *psi, double *Cbs, double *vz, long_st ist, p
       phgrid[jgrid] = 0.0;
     }  
     // Now loop over states involved in the BSE calculation 
-    for (ibs = 0, a = ist.nlumo; a < ist.nlumo+ist.totallumo; a++) {
-      for (i = 0; i < ist.totalhomo; i++, ibs++) {
-        for (jbs = 0, b = ist.nlumo; b < ist.nlumo+ist.totallumo; b++) {
-          for (j = 0; j < ist.totalhomo; j++, jbs++) {
+    for (ibs = 0, a = ist.nlumo; a < ist.nlumo+ist.total_lumo; a++) {
+      for (i = 0; i < ist.total_homo; i++, ibs++) {
+        for (jbs = 0, b = ist.nlumo; b < ist.nlumo+ist.total_lumo; b++) {
+          for (j = 0; j < ist.total_homo; j++, jbs++) {
             coeff = Cbs[exc_index*ist.ms2 + ibs] * Cbs[exc_index*ist.ms2 + jbs];
             // Store cia*cjb*psii*psij and cia*cjb*psia*psib loop over all grid points
             // Can do these with just loops over just i and j (a and b) separately

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <float.h>
 #include <math.h>
 #include <malloc.h>
 #include <time.h>
@@ -13,6 +14,23 @@
 #include "mkl.h"
 
 /*****************************************************************************/
+typedef struct flag {
+  int SO, NL, LR, useSpinors, isComplex;
+  int setSeed;
+  int printFPDensity;
+  int calcDarkStates, calcSpinAngStat;
+  int timingSpecs, saveCheckpoints, restartFromCheckpoint, saveOutput;
+} flag_st;
+
+typedef struct grid {
+  double *x, *y, *z; // stores the value of the grid points
+  double dx, dy, dz, dr, dv, dkx, dky, dkz;
+  double xmin, xmax, ymin, ymax, zmin, zmax;
+  long nx, ny, nz;
+  double nx_1, ny_1, nz_1;
+  // Redundancies
+  long ngrid;
+} grid_st;
 
 struct pzdata {
     double z;
@@ -24,29 +42,37 @@ typedef struct st0 {
 } zomplex;
 
 typedef struct st1 {
-  double dx, dy, dz, dr, dkx, dky, dkz, dv, epsx, epsy, epsz, boxl, minr;
+  double dx, dy, dz, dr, dkx, dky, dkz, dv, epsX, epsY, epsZ, boxl, minr;
   double xmin, xmax, ymin, ymax, zmin, zmax, kxmin, kymin, kzmin;
-  double Ekinmax, gamma, gamma2, Elmin, Elmax, Elumo, Ehomo, Vmin, Vmax;
-  double deltae, deltah, deps, fermiEnergy;
+  double KE_max, gamma, gamma2, Elmin, Elmax, Elumo, Ehomo, Vmin, Vmax;
+  double delta_E_elec, delta_E_hole, sigma_E_cut, fermi_E;
+  int checkpoint_id;
 } par_st;
 
 typedef struct st4 {
   long n1, n2, n12, natom, nthreads;
   long ms, ms2, niter, nc, npot, npsi;
-  long nx, ny, nz, ngrid, nspinngrid, natomtype;
-  long nhomo, nlumo, totalhomo, totallumo;
+  long nx, ny, nz, ngrid, nspinngrid, n_atom_types;
+  long *atom_types;
+  long natoms, nhomo, nlumo, total_homo, total_lumo;
   double nx_1, ny_1, nz_1, ngrid_1;
-  long maxElecStates, maxHoleStates;
+  long n_FP_density;
+  long max_elec_states, max_hole_states, mn_states_tot;
   long printFPDensity; // 0 = False (default) or 1 = True
   long calcDarkStates; // 0 = False (default) or 1 = True
-} long_st;
+  int nspin, complex_idx;
+} index_st;
 
-typedef struct st9 {
-  long natyp;
-  char atyp[3];
-} atm_st;
+
+typedef struct st5 {
+  double x, y, z;
+} xyz_st;
 
 typedef fftw_plan fftw_plan_loc;
+
+typedef struct parallel{
+  long nthreads;
+} parallel_st;
 
 /*****************************************************************************/
 
@@ -67,24 +93,27 @@ typedef fftw_plan fftw_plan_loc;
 #define EPSR      1.0e-10
 #define EPSCHI    1.0e-8
 #define DENE      1.0e-10
-
+#define N_MAX_ATOM_TYPES 20
 /*****************************************************************************/
 
 /*#define DEPS  0.02
-  #define DENERGY 0.01*/
+#define DENERGY 0.01*/
+
+// init.c
+void init(double *potl,double *vx,double *vy,double *vz,double *ksqr,double *rx,double *ry,double *rz,par_st *par,index_st *ist);
+void init_size(long, char *argv[],par_st *,index_st *);
+void init_pot(double *vx,double *vy,double *vz,zomplex *potq,zomplex *potqx,par_st par,index_st ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
+void init_psi(zomplex *psi,double *vx,double *vy,double *vz,index_st ist,par_st par,long *idum);
+double screenedcoulomb(double dr, double gamma);
+double longerpolate(double r,double dr,double *vr,double *pot,long npot,long n,long j);
 long assign_atom_number(char atyp[2]);
 void assign_atom_type(char *atype,long j);
 
-void init(double *potl,double *vx,double *vy,double *vz,double *ksqr,double *rx,double *ry,double *rz,par_st *par,long_st *ist);
-void init_size(long, char *argv[],par_st *,long_st *);
-void init_pot(double *vx,double *vy,double *vz,zomplex *potq,zomplex *potqx,par_st par,long_st ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
-void init_psi(zomplex *psi,double *vx,double *vy,double *vz,long_st ist,par_st par,long *idum);
-double screenedcoulomb(double dr, double gamma);
-double longerpolate(double r,double dr,double *vr,double *pot,long npot,long n,long j);
+// read.c
+void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);
+void read_conf(FILE *pf, xyz_st *R, long n);
 
-void read_conf(double *rx,double *ry,double *rz,atm_st *atm,long n,FILE *);
-void read_pot(double *vr,double *pot,long *npot,double *dr,atm_st *atm,long n,long ntype);
-
+// norm.c
 double norm(zomplex *, double,long);
 double normalize_zomplex(zomplex *psi, double dr, long ngrid);
 void normalize(double *vector, double dV, long ngrid);
@@ -92,9 +121,9 @@ void normalize_all(double *,double,long,long);
 void norm_vector(double *vector, double dV, long length);
 double norm_rho(zomplex *rho,double dr,long ngrid);
 
-
-void write_psi(double *,double *,double *,double *,double *,long_st,par_st);
-void write_pot(double *,double *,double *,double *,long_st);
+// write.c
+void write_psi(double *,double *,double *,double *,double *,index_st,par_st);
+void write_pot(double *,double *,double *,double *,index_st);
 
 void scalar_product(zomplex *,zomplex *,zomplex *,double,long,long);
 
@@ -112,14 +141,14 @@ double ran();
 double get_dot_ligand_size(double *,double *,double *,long);
 double get_dot_ligand_size_z(double *rz,long n);
 
-void hartree(zomplex *rho,zomplex *potq,zomplex *poth,long_st ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
+void hartree(zomplex *rho,zomplex *potq,zomplex *poth,index_st ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 
 void single_coulomb_openmp(zomplex       *psi, 
                            zomplex       *potq,
                            zomplex       *potqx,
                            zomplex       *poth,
                            double        *eval,
-                           long_st        ist,
+                           index_st        ist,
                            par_st        par,
                            fftw_plan_loc *planfw,
                            fftw_plan_loc *planbw,
@@ -130,51 +159,45 @@ void single_coulomb_openmp(zomplex       *psi,
                            double       *h0mat);
 
 
-double energy(zomplex *psi,zomplex *phi,double *potl,double *ksqr,long_st ist,par_st par,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
-double energy_norm(zomplex *psi,zomplex *phi,double *potl,double *ksqr,long_st ist,par_st par,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
-void energy_all(double *psi0,double *potl,double *ksqr,double *ene,long_st ist,par_st par,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi,long ms);
-void get_energy_range(double *vx,double *vy,double *vz,double *ksqr,double *potl,par_st *par,long_st ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
-void calc_sigma_E(zomplex *psi,zomplex *phi,double *psitot,double *potl,double *ksqr,double *eval2,long_st ist,par_st par,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 
-
-void prlong_pz(double *psi,double *sige,double *vz,par_st par,long_st ist);
+void prlong_pz(double *psi,double *sige,double *vz,par_st par,index_st ist);
 
 void diag(const int n, int nthreads, zomplex *mat, double *eval);
 void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchage, double *h0mat, zomplex *psi, double *vz, zomplex *mux, zomplex *muy, zomplex * muz,
-          double *mx, double *my, double *mz,zomplex *sx, zomplex *sy, zomplex *sz,zomplex *lx, zomplex *ly, zomplex *lz, zomplex* lsqr, zomplex* ls, long_st ist, par_st par);
+          double *mx, double *my, double *mz,zomplex *sx, zomplex *sy, zomplex *sz,zomplex *lx, zomplex *ly, zomplex *lz, zomplex* lsqr, zomplex* ls, index_st ist, par_st par);
 void psi_rnd(zomplex *psi,long ngrid,double dv,long *idum);
 
 double findmaxabsre(zomplex *dwmat,long n);
 double findmaxabsim(zomplex *dwmat,long n);
 
-void dipole(double *vx,double *vy,double *vz,zomplex *psi,zomplex *mux,zomplex *muy,zomplex *muz,double *eval,long_st ist,par_st par);
+void dipole(double *vx,double *vy,double *vz,zomplex *psi,zomplex *mux,zomplex *muy,zomplex *muz,double *eval,index_st ist,par_st par);
 void mag_dipole(double *vx, double *vy, double *vz, double *psi, double *mx, double *my, double *mz, 
-  double *eval, fftw_plan_loc *planfw,fftw_plan_loc *planbw,fftw_complex *fftwpsi, long_st ist, par_st par);
+  double *eval, fftw_plan_loc *planfw,fftw_plan_loc *planbw,fftw_complex *fftwpsi, index_st ist, par_st par);
 void rotational_strength(double *rs, double *mux, double *muy, double *muz, double *mx, 
-  double *my, double *mz, double *eval, long_st ist);
+  double *my, double *mz, double *eval, index_st ist);
 
-void hamiltonian(zomplex *phi,zomplex *psi,double *potl,double *ksqr,long_st ist,par_st par,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
-void kinetic(zomplex *psi,double *ksqr,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi,long_st ist);
-
-void prlong_cube(double *pgrid,long_st ist,par_st par);
+void prlong_cube(double *pgrid,index_st ist,par_st par);
 
 
-void print_pz_one(double *psi,double *vz,par_st par,long_st ist,char *str);
-void print_pz(double *psi,double *sige,double *vz,par_st par,long_st ist);
-int z_project(double *vector, double *vz, par_st par, long_st ist, char *fname);
-void print_cube(double *pgrid,long_st ist,par_st par,char *fName);
-void print_fixed_qp_density(double *psi, double *Cbs, double *vz, long_st ist, par_st par);
+void print_pz_one(double *psi,double *vz,par_st par,index_st ist,char *str);
+void print_pz(double *psi,double *sige,double *vz,par_st par,index_st ist);
+int z_project(double *vector, double *vz, par_st par, index_st ist, char *fname);
+void print_cube(double *pgrid,index_st ist,par_st par,char *fName);
+void print_fixed_qp_density(double *psi, double *Cbs, double *vz, index_st ist, par_st par);
 
 // Functions that write input or output - write.c
-void writeCurrentTime(FILE *pf);
-void writeSeparation(FILE *pf);
+void write_current_time(FILE *pf);
+void write_separation(FILE *pf, char *top_bttm);
 
 //angular.c
-void spins(zomplex *sx, zomplex *sy, zomplex *sz,zomplex *psi,long_st ist,par_st par);
+void spins(zomplex *sx, zomplex *sy, zomplex *sz,zomplex *psi,index_st ist,par_st par);
 void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls,double *vx, double *vy, double *vz, zomplex *psi,
-  fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, long_st ist, par_st par);
+  fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st ist, par_st par);
 void lOpp(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi, 
   double* vx, double* vy, double* vz,
-  fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi,long_st ist, par_st par);
+  fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi,index_st ist, par_st par);
 
+// save.c
+void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel);
+void read_filter_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
 /*****************************************************************************/

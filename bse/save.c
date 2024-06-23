@@ -120,7 +120,7 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     // Read the output tag to confirm that the output.dat file is from the intended filter run
     // This is not enforced, but you can check that this was the intended run by looking at the 
     // number printed at the bottom of the filter "run.dat"
-    fprintf(pf, "%ld\n", output_tag);
+    fscanf(pf, "%ld\n", output_tag);
     printf("\nOutput tag = %ld\n", output_tag);
     printf("Check that this output tag matches your filter run.dat!\n");
 

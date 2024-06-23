@@ -20,7 +20,7 @@ export OMP_PROC_BIND=spread
 sBSEDir="$scratchDir/bse"
 hBSEDir="$cwd/bse"
 if [ -d "$sBSEDir" ]; then rm -Rf $sBSEDir; fi
-if [ -d "$hBSEDir" ]; then rm -Rf $hBSEDir; fi
+#if [ -d "$hBSEDir" ]; then rm -Rf $hBSEDir; fi
 mkdir -p $sBSEDir
 mkdir -p $hBSEDir
 
@@ -46,5 +46,5 @@ cd $sBSEDir
 wait
 
 # Move filter results to home directory and scratch BSE directory 
-cp *cube err* run.dat input.par $hBSEDir/
+cp BSEeval.par conf.dat *cube err* run.dat input.par $hBSEDir/
 

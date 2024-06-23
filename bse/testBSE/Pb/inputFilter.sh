@@ -24,10 +24,10 @@ ncubes="2"
 # Input parameters specific to the filter-diagonalization technique
 # Filter settings
 mStatesPerFilter='4'
-nFilterCycles='1'
+nFilterCycles='4'
 newtonLength='512'
-vbMin='-0.47'; vbMax='-0.37'
-cbMin='-0.35'; cbMax='-0.27'
+vbMin='-0.57'; vbMax='-0.37'
+cbMin='-0.35'; cbMax='-0.17'
 msVB="2"; msCB="2"
 SOFlag="1"
 NLFlag="1"

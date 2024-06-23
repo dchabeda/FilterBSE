@@ -1,7 +1,7 @@
 ******************************************************************************
 
 RUNNING PROGRAM: BETHE-SALPETHER
-This calculation began at: Sun Jun 23 09:24:49 2024
+This calculation began at: Sun Jun 23 13:11:12 2024
 
 ******************************************************************************
 
@@ -14,7 +14,7 @@ This calculation began at: Sun Jun 23 09:24:49 2024
 
 Reading filter output from output.dat:
 
-	Output tag = 629580952
+	Output tag = 777720504
 	Check that this output tag matches your filter run.dat!
 
 	index_st from filter...
@@ -37,7 +37,7 @@ Reading BSE job specifications from input.par:
 	Parameters & counters for BSE algorithm:
 	-------------------------------------------
 	maxHoleStates (# h+ in basis) = 4
-	maxElecStates (# e- in basis) = 4
+	maxElecStates (# h+ in basis) = 4
 	sigmaECut = 0.0001 a.u.
 	DeltaE_hole = 0.02 a.u.  DeltaE_elec = 0.02 a.u.
 	KEmax = 10 a.u.
@@ -73,11 +73,34 @@ Reading BSE job specifications from input.par:
 	No checkpoint saves requested
 	No checkpoint specified for restart. Job will run in normal sequence.
 
+Setting quasiparticle basis indices:
+
+	Total # of filtered hole eigenstates = 4
+	Total # of filtered electron eigenstates = 6
+	The filter eval.dat index of the HOMO state = 3  LUMO state = 4
+
+	Unconstrained energy span of holes 0.251906 a.u. > desired span = 0.02 a.u.
+	Fewer VB basis states would reach the desired result
+	Unconstrained energy span of elecs, 0.0258244 a.u. > desired span = 0.02 a.u.
+	Fewer CB basis states would reach the desired result
+	Constraining elec basis states to maxElecStates
+	  new ist->total_lumo = 4
+	Constrained energy span of elecs, 2.53916e-12 a.u. < desired span = 0.02 a.u.
+	Increase size of CB basis states to reach desired result
+
+	Selected # of filtered h+ qp basis states = 4
+	Selected # of filtered e- qp basis states = 4
+	Total number of quasiparticle states, n_qp = 8
+	The BSEeval.par index of the HOMO state = 3  LUMO state = 4
+	The HOMO energy = -0.229251 a.u. -6.23823 eV
+	The LUMO energy = -0.112018 a.u. -3.04817 eV
+	Fundamental gap = 0.117232 a.u. 3.19006 eV
+
 
 ******************************************************************************
 
 DONE WITH PROGRAM: BETHE-SALPETHER
-This calculation ended at: Sun Jun 23 09:24:49 2024
+This calculation ended at: Sun Jun 23 13:11:12 2024
 
 Total job CPU time (sec) 0, wall run time (sec) 0
 ******************************************************************************

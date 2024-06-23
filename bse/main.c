@@ -26,7 +26,7 @@ int main(int argc, char *argv[]){
     zomplex *sx, *sy, *sz;
     zomplex *lx, *ly, *lz, *lsqr, *ls;
     // custom structs
-    par_st par; index_st ist; grid_st grid; flag_st flag; xyz_st *R; parallel_st parallel; 
+    par_st par; index_st ist; grid_st grid; flag_st flag; xyz_st *R = NULL; parallel_st parallel; 
     grid.x = NULL;
     grid.y = NULL;
     grid.z = NULL;
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]){
     /*** read output from filter output.par ***/
     printf("\nReading filter output from output.dat:\n");
 
-    read_filter_output("output.dat", &psitot, &eig_vals, &sigma_E, &grid, &ist, &par, &flag);
+    read_filter_output("output.dat", &psitot, &eig_vals, &R, &sigma_E, &&grid, &ist, &par, &flag);
 
     /*** read initial setup from input.par ***/
     printf("\nReading BSE job specifications from input.par:\n");

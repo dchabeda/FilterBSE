@@ -29,7 +29,6 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   par->KE_max = 10.0; //NOTE: lowered this to 10 for tests
   par->checkpoint_id = 0;
   // Pseudopotential parameters
-  flag->useStrain = 0; // By default, do not compute strain dependent terms in pseudopotential
   flag->LR = 0; // Long range flag. By default, pseudopotentials are short ranged.
   // Spin-orbit and non-local terms
   flag->useSpinors = 0; // default is to use non-spinor wavefunctions
@@ -38,7 +37,6 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->SO = 0; // computes the spin-orbit terms in the Hamiltonian
   flag->NL = 0; // computes the non-local terms in the Hamiltonian; automatically on if SO flag on
   // Optional output flags
-  flag->getAllStates = 1; // which states are written to disk
   flag->calcSpinAngStat = 0; // Are angular momentum statistics computed. Only available with SO coupling
   flag->timingSpecs = 0; // print timing info for computing the Hamiltonian
   par->fermi_E = -0.18; // This default value is not good for LR potentials.
@@ -54,7 +52,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       // ****** ****** ****** ****** ****** ****** 
       // Set parameters&counters for BSE algorithm
       // ****** ****** ****** ****** ****** ****** 
-      else if (!strcmp(field, "maxHoleStates")) {
+      if (!strcmp(field, "maxHoleStates")) {
           ist->max_hole_states = strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "maxElecStates")) {
@@ -193,13 +191,13 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   if (flag->SO == 1) {
     flag->useSpinors = 1;
     flag->NL = 1; // SO automatically switches on NL
-    par->R_NLcut2 = 1.5 +  6.0 * log(10.0) + 3.0 * grid->dx;
-    //par->R_NLcut2 = 0.49 * 6.0 * log(10.0); // radius of grid points around atom for which to compute NL terms
+    // par->R_NLcut2 = 1.5 +  6.0 * log(10.0) + 3.0 * grid->dx;
+    
   }
   if (flag->useSpinors == 1) {
     flag->isComplex = 1;
     ist->nspin = 2; // generate spinor wavefunctions
-    par->t_rev_factor = 2; // give double the memory allocation to psitot
+    
   }
 
   // Set grid defaults
@@ -219,40 +217,6 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // Using input parameters, print the current job state
   print_input_state(stdout, flag, grid, par, ist, parallel);
 
-  return;
-}
-
-/****************************************************************************/
-
-void read_conf(double *rx, double *ry, double *rz, atom_info *atm, long ntot, FILE *pf)
-{
-  FILE *pw;
-  long i; 
-  double xd, yd, zd;
-  
-  for (xd = yd = zd = 0.0, i = 0; i < ntot; i++) {
-    fscanf(pf,"%s %lf %lf %lf",atm[i].atyp, &rx[i], &ry[i], &rz[i]);
-    atm[i].natyp = assign_atom_number(atm[i].atyp);
-    
-    xd += rx[i];
-    yd += ry[i];
-    zd += rz[i];
-  }
-
-  xd /= (double)(ntot);
-  yd /= (double)(ntot);
-  zd /= (double)(ntot);
-
-  for (i = 0; i < ntot; i++) {
-    rx[i] -= xd;
-    ry[i] -= yd;
-    rz[i] -= zd;
-  }
-
-  pw = fopen("conf.dat" , "w");
-  for (i = 0; i < ntot; i++) fprintf(pw,"%s % .10f % .10f % .10f %ld\n", atm[i].atyp, rx[i], ry[i], rz[i], atm[i].natyp);
-  fclose(pw);
-  
   return;
 }
 

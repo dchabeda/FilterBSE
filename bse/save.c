@@ -6,8 +6,8 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     // ****** ****** ****** ****** ****** ****** 
     // Print grid parameters
     // ****** ****** ****** ****** ****** ****** 
-    fprintf(pf, "\n\tGrid parameters:\n");
-    fprintf(pf, "\t---------------------\n");
+    fprintf(pf, "\n\tGrid parameters from filter job:\n");
+    fprintf(pf, "\t----------------------------------\n");
     fprintf(pf, "\tnx = %ld, ", grid->nx);
     fprintf(pf, "ny = %ld, ", grid->ny);
     fprintf(pf, "nz = %ld\n", grid->nz);
@@ -23,9 +23,9 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\t-------------------------------------------\n");
     fprintf(pf, "\tmaxHoleStates (# h+ in basis) = %ld\n", ist->max_hole_states);
     fprintf(pf, "\tmaxElecStates (# e- in basis) = %ld\n", ist->max_elec_states);
-    fprintf(pf, "\tsigmaECut = %lg\n", par->sigma_E_cut);
-    fprintf(pf, "\tDeltaE_hole = %lg, ", par->delta_E_hole);
-    fprintf(pf, "  DeltaE_elec = %lg\n", par->delta_E_elec);
+    fprintf(pf, "\tsigmaECut = %lg a.u.\n", par->sigma_E_cut);
+    fprintf(pf, "\tDeltaE_hole = %lg a.u.", par->delta_E_hole);
+    fprintf(pf, "  DeltaE_elec = %lg a.u.\n", par->delta_E_elec);
     fprintf(pf, "\tKEmax = %lg a.u.\n", par->KE_max);
     fprintf(pf, "\tfermiEnergy = %lg a.u.\n", par->fermi_E); 
 
@@ -43,8 +43,8 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     // ****** ****** ****** ****** ****** ****** 
     // Set options for spinor representation
     // ****** ****** ****** ****** ****** ****** 
-    fprintf(pf, "\n\tParameters for spin-orbit and non-local:\n");
-    fprintf(pf, "\t----------------------------------------\n");
+    fprintf(pf, "\n\tParameters for two-component representation:\n");
+    fprintf(pf, "\t----------------------------------------------\n");
 
     if (flag->useSpinors == 1) fprintf(pf, "\tSpinor wavefunctions turned ON!\n");
     else fprintf(pf, "\tSpinor wavefunctions turned OFF!\n");
@@ -62,7 +62,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     // Print optional output flags
     // ****** ****** ****** ****** ****** ******
     fprintf(pf, "\n\tFlags for optional output:\n");
-    fprintf(pf, "\t--------------------------\n");
+    fprintf(pf, "\t----------------------------\n");
 
     if (flag->calcDarkStates == 1) fprintf(pf, "\tExchange operator not computed -> dark states\n");
     else fprintf(pf, "\tComputing spin-allowed sector of BSE matrix -> bright states\n");
@@ -88,7 +88,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     // Restart flags
     // ****** ****** ****** ****** ****** ******
     fprintf(pf, "\n\tFlags for restarting computation:\n");
-    fprintf(pf, "\t---------------------------------\n");
+    fprintf(pf, "\t-----------------------------------\n");
     if (flag->saveCheckpoints == 1) fprintf(pf, "\tFilter will save checkpoints along the job run\n");
     else fprintf(pf, "\tNo checkpoint saves requested\n");
     
@@ -121,9 +121,11 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     // This is not enforced, but you can check that this was the intended run by looking at the 
     // number printed at the bottom of the filter "run.dat"
     fscanf(pf, "%ld\n", &output_tag);
-    printf("\nOutput tag = %ld\n", output_tag);
-    printf("Check that this output tag matches your filter run.dat!\n");
+    printf("\n\tOutput tag = %ld\n", output_tag);
+    printf("\tCheck that this output tag matches your filter run.dat!\n");
 
+    // Read ist
+    printf("\n\tindex_st from filter...\n"); fflush(stdout);
     fscanf(pf, "%ld %ld", &ist->ngrid, &ist->nspinngrid);
     fscanf(pf, "%ld", &ist->mn_states_tot);
     fscanf(pf, "%ld %ld", &ist->natoms, &ist->n_atom_types);
@@ -131,10 +133,16 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     fscanf(pf, "%d", &ist->nspin);
     fscanf(pf, "%d", &ist->complex_idx);
     
+    // Read par
+    printf("\tpar_st from filter...\n"); fflush(stdout);
     fscanf(pf, "%lg %lg", &par->KE_max, &par->fermi_E);
     
+    // Read flags
+    printf("\tflag_st from filter...\n"); fflush(stdout);
     fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);
     
+    // Read conf
+    printf("\tconf from filter...\n"); fflush(stdout);
     if(( *R = malloc(ist->natoms * sizeof(xyz_st))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for R in read_filter_output\n");
         exit(EXIT_FAILURE);
@@ -144,6 +152,8 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
         fscanf(pf, "%lg %lg %lg", &R[j]->x, &R[j]->y, &R[j]->z);
     }
 
+    // Read grid
+    printf("\tgrid from filter...\n"); fflush(stdout);
     fscanf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg", &grid->dx, &grid->dy, &grid->dz, &grid->dr, &grid->dv, &grid->dkx, &grid->dky, &grid->dkz);
     fscanf(pf, "%lg %lg %lg %lg %lg %lg", &grid->xmin, &grid->xmax, &grid->ymin, &grid->ymax, &grid->zmin, &grid->zmax);
     fscanf(pf, "%ld %ld %ld", &grid->nx, &grid->ny, &grid->nz);
@@ -167,6 +177,7 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     fread(*gridy, sizeof(double), grid->ny, pf);
     fread(*gridz, sizeof(double), grid->nz, pf);
 
+    // Read eig_vals and sigma_E
     if ((*eig_vals = malloc(ist->mn_states_tot * sizeof(*eig_vals[0]))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
         exit(EXIT_FAILURE);
@@ -175,14 +186,18 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
         fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
         exit(EXIT_FAILURE);
     }
+    printf("\teig_vals from filter...\n"); fflush(stdout);
     fread(*eig_vals, sizeof(*eig_vals[0]), ist->mn_states_tot, pf);
+    printf("\tsigma_E from filter...\n"); fflush(stdout);
     fread(*sigma_E, sizeof(*sigma_E[0]), ist->mn_states_tot, pf);
 
+    // Read psitot
     if ((*psitot = malloc(ist->complex_idx * ist->mn_states_tot * ist->nspinngrid * sizeof(psitot[0]))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for psitot in read_filter_output\n");
         exit(EXIT_FAILURE);
     }
-    
+
+    printf("\tpsitot from filter...\n"); fflush(stdout);
     fread(*psitot, sizeof(psitot[0]), ist->mn_states_tot * ist->nspinngrid * ist->complex_idx, pf);
     // The psitot will not be read in yet because there is no allocated memory for it.
     fseek(pf, 1 , SEEK_CUR);

@@ -66,36 +66,31 @@ int main(int argc, char *argv[]){
 
     read_filter_output("output.dat", &psitot, &eig_vals, &sigma_E, &R, &grid, &gridx, &gridy, &gridz, &ist, &par, &flag);
 
-    // Check that we obtained the correct grid etc.
-    printf("\nTHE CONF:\n");
-    for (i=0; i < ist.natoms; i++){
-        printf("%lg %lg %lg\n", R[i].x, R[i].y, R[i].z);
-    }
-    fflush(0);
-
-    printf("\nTHE GRID:\n");
-    for (i=0; i < grid.nx; i++){
-        printf("%lg %lg %lg\n", gridx[i], gridy[i], gridz[i]);
-    }
-    fflush(0);
-
-    printf("\nTHE EIGVALS:\n");
-    for (i=0; i < ist.mn_states_tot; i++){
-        printf("%lg %lg\n", eig_vals[i], sigma_E[i]);
-    }
-    fflush(0);
-
-    rho = malloc(ist.ngrid * sizeof(rho[0]));
-    for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-        jgrid_real = ist.complex_idx * jgrid;
-        jgrid_imag = ist.complex_idx * jgrid + 1;
-        
-        rho[jgrid] = sqr(psitot[ist.complex_idx*(1)*ist.nspinngrid + jgrid_real]);
-        if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*(1)*ist.nspinngrid + jgrid_imag]);
-    }
+    // Move the grid values into the grid struct arrays.
+    // The memory allocation got too thorny, so we do this simple transfer
     
-    write_cube_file(rho, &grid, "output_psitot.cube");
-    fflush(0);
+    if ((grid.x = malloc( grid.nx * sizeof(grid.x[0]))) == NULL ){
+        fprintf(stderr, "ERROR: allocating memory for grid.x in main\n");
+        exit(EXIT_FAILURE);
+    }
+    if ((grid.y = malloc(grid.ny * sizeof(grid.y[0]))) == NULL ){
+            fprintf(stderr, "ERROR: allocating memory for grid.y in main\n");
+            exit(EXIT_FAILURE);
+        }
+    if ((grid.z = malloc( grid.nz * sizeof(grid.z[0]))) == NULL ){
+        fprintf(stderr, "ERROR: allocating memory for grid.z in main\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (i = 0; i < grid.nx; i++){
+        grid.x[i] = gridx[i];
+    }
+    for (i = 0; i < grid.ny; i++){
+        grid.y[i] = gridy[i];
+    }
+    for (i = 0; i < grid.nz; i++){
+        grid.z[i] = gridz[i];
+    }
 
     /*** read initial setup from input.par ***/
     printf("\nReading BSE job specifications from input.par:\n");

@@ -35,7 +35,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
       
       eig_vals[cntr] = eig_vals[i]; // reorder the eig_vals
       sigma_E[cntr] = sigma_E[i]; // reorder the sigma_E
-      *eval_hole_idxs[cntr] = i; // add this index to the array holding all indices from eval.dat
+      (*eval_hole_idxs)[cntr] = i; // add this index to the array holding all indices from eval.dat
       cntr++;
     }
     // Find LUMO and total number of CB states
@@ -48,7 +48,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
       
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
-      *eval_hole_idxs[cntr] = i;
+      (*eval_hole_idxs)[cntr] = i;
       cntr++;
     }
   }
@@ -93,7 +93,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     for (i = 0; i < ist->n_holes; i++){
       eig_vals[cntr] = eig_vals[ist->homo_idx - ist->n_holes + i + 1];
       sigma_E[cntr] = sigma_E[ist->homo_idx - ist->n_holes + i + 1];
-      *eval_hole_idxs[cntr] = *eval_hole_idxs[ist->homo_idx - ist->n_holes + i + 1];
+      (*eval_hole_idxs)[cntr] = (*eval_hole_idxs)[ist->homo_idx - ist->n_holes + i + 1];
       cntr++;
     }
     // check that the counter has the same value as ist->n_holes
@@ -123,7 +123,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     for (i = ist->n_holes + 1; i < ist->n_holes + ist->n_elecs; i++){
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
-      *eval_elec_idxs[cntr] = *eval_elec_idxs[i];
+      (*eval_elec_idxs)[cntr] = (*eval_elec_idxs)[i];
       cntr++;
     }
  

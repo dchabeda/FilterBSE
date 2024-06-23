@@ -100,18 +100,16 @@ int main(int argc, char *argv[]){
     printf("\nSetting quasiparticle basis indices:\n");
     
     // Allocate memory for the lists of the indices of eigenstates
-    // The value of max_hole_states is -1 when not set. This will make the
-    // malloc argument a negative number, which when unsigned becomes huge.
-    // The behavior is to return a NULL pointer because the memory cannot be allocated
-    // That is fine in our case, because we will reallocate within the 
-    // get_qp_basis_indices function. A warning will be printed
-    if((ist.eval_hole_idxs = (long*) malloc(ist.max_hole_states * sizeof(ist.eval_hole_idxs[0]))) == NULL){
-        fprintf(stderr, "WARNING: allocating memory for ist.eval_hole_idxs in main.c returns NULL\n");
-        printf("WARNING: allocating memory for ist.eval_hole_idxs in main.c returns NULL\n");
+    // The maximum possible number of hole states is mn_states_tot from filter.
+    // We allocate an entire block of that size for both elecs and holes 
+    // because we will reallocate after the get_qp_basis_indices function.
+    if((ist.eval_hole_idxs = (long*) malloc(ist.mn_states_tot * sizeof(ist.eval_hole_idxs[0]))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for ist.eval_hole_idxs in main.c returns NULL\n");
+        exit(EXIT_FAILURE);
     }
-    if((ist.eval_elec_idxs = (long*) malloc(ist.max_elec_states * sizeof(ist.eval_elec_idxs[0]))) == NULL){
-        fprintf(stderr, "WARNING: allocating memory for ist.eval_elec_idxs in main.c returns NULL\n");
-        printf("WARNING: allocating memory for ist.eval_elec_idxs in main.c returns NULL\n");
+    if((ist.eval_elec_idxs = (long*) malloc(ist.mn_states_tot * sizeof(ist.eval_elec_idxs[0]))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for ist.eval_elec_idxs in main.c returns NULL\n");
+        exit(EXIT_FAILURE);
     }
     get_qp_basis_indices(eig_vals, sigma_E, &ist.eval_hole_idxs, &ist.eval_elec_idxs, &ist, &par, &flag);
     // Reallocate the eig_vals and sigma_E arrays to only contain the n_qp states

@@ -326,7 +326,7 @@ void restart_from_save(char *file_name, int checkpoint_id, double *psitot, doubl
 
 /*****************************************************************************/
 
-void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, grid_st *grid, index_st *ist, par_st *par, flag_st *flag){
+void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, xyz_st *R, grid_st *grid, index_st *ist, par_st *par, flag_st *flag){
     
     FILE *pf;
     long j;
@@ -348,6 +348,10 @@ void save_output(char *file_name, double *psitot, double *eig_vals, double *sigm
     
     fprintf(pf, "%d %d %d %d %d\n", flag->SO, flag->NL, flag->LR, flag->useSpinors, flag->isComplex);
     
+    for (i = 0; i < ist->natoms; i++){
+        fprintf(pf, "%lg %lg %lg\n", R[i]->x, R[i]->y, R[i]->z);
+    }
+
     fprintf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg\n", grid->dx, grid->dy, grid->dz, grid->dr, grid->dv, grid->dkx, grid->dky, grid->dkz);
     fprintf(pf, "%lg %lg %lg %lg %lg %lg\n", grid->xmin, grid->xmax, grid->ymin, grid->ymax, grid->zmin, grid->zmax);
     fprintf(pf, "%ld %ld %ld\n", grid->nx, grid->ny, grid->nz);

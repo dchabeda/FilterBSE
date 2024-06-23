@@ -4,27 +4,38 @@
 
 /*****************************************************************************/
 
-void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag){
+void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_homo_idx, long **eval_lumo_idx, index_st *ist, par_st *par, flag_st *flag){
   //this is where we set which is eleectron and what is hole
 
   FILE *pf;
   long i, cntr, eval_homo, eval_lumo, old_total_homo;
   double deltaE;
+  
+  // Allocate memory for eval_homo_idx etc if it is NULL
+  if (NULL = *eval_homo_idx){
+    printf("\tAllocating new memory for eval_homo_idx\n");
+    *eval_homo_idx = malloc(500 * sizeof(long));
+  }
+  if (NULL = *eval_lumo_idx){
+    printf("\tAllocating new memory for eval_homo_idx\n");
+    *eval_lumo_idx = malloc(500 * sizeof(long));
+  }
 
   // Set the quasiparticle basis indices to zero
   ist->homo_idx = ist->lumo_idx = ist->total_homo = ist->total_lumo = 0;
-  
+
   cntr = 0; // We will reorder eig_vals and sigma_E to only contain the converged eigenstates
   // Get the indices of the HOMO, LUMO, and also the number of eigstates in VB/CB 
   for (i = 0; i < ist->mn_states_tot; i++){
     // Find HOMO and total number of VB states
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] < par->fermi_E){
-      ist->total_homo++;
-      ist->homo_idx = cntr; // Get the largest value of i for which condition is met
-      eval_homo = i;
-
-      eig_vals[cntr] = eig_vals[i]; // reorder the eigvals
-      sigma_E[cntr] = sigma_E[i];
+      ist->total_homo++; // increment the counter for number of hole states
+      ist->homo_idx = cntr; // homo_idx in RAM is the value of cntr for which condition is met
+      eval_homo = i; // the value of homo_idx from the eval.dat file
+      
+      eig_vals[cntr] = eig_vals[i]; // reorder the eig_vals
+      sigma_E[cntr] = sigma_E[i]; // reorder the sigma_E
+      *eval_homo_idx[cntr] = i; // add this index to the array holding all indices from eval.dat
       cntr++;
     }
     // Find LUMO and total number of CB states
@@ -37,6 +48,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
       
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
+      *eval_homo_idx[cntr] = i;
       cntr++;
     }
   }
@@ -81,6 +93,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
     for (i = 0; i < ist->total_homo; i++){
       eig_vals[cntr] = eig_vals[ist->homo_idx - ist->total_homo + i + 1];
       sigma_E[cntr] = sigma_E[ist->homo_idx - ist->total_homo + i + 1];
+      *eval_homo_idx[cntr] = *eval_homo_idx[ist->homo_idx - ist->total_homo + i + 1]
       cntr++;
     }
     // check that the counter has the same value as ist->total_homo
@@ -110,6 +123,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
     for (i = ist->total_homo + 1; i < ist->total_homo + ist->total_lumo; i++){
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
+      *eval_lumo_idx[cntr] = *eval_lumo_idx[i];
       cntr++;
     }
  

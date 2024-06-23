@@ -98,11 +98,36 @@ int main(int argc, char *argv[]){
 
     /*** Determine the configuration of the quasiparticle basis ***/
     printf("\nSetting quasiparticle basis indices:\n");
-    get_qp_basis_indices(eig_vals, sigma_E, &ist, &par, &flag);
+    
+    // Allocate memory for the lists of the indices of eigenstates
+    // The value of max_hole_states is -1 when not set. This will make the
+    // malloc argument a negative number, which when unsigned becomes huge.
+    // The behavior is to return a NULL pointer because the memory cannot be allocated
+    // That is fine in our case, because we will reallocate within the 
+    // get_qp_basis_indices function. A warning will be printed
+    if((ist.eval_homo_idx = (long*) malloc(ist.max_hole_states * sizeof(ist.eval_homo_idx[0]))) == NULL){
+        fprintf(stderr, "WARNING: allocating memory for ist.eval_homo_idx in main.c returns NULL\n");
+        printf(stderr, "WARNING: allocating memory for ist.eval_homo_idx in main.c returns NULL\n");
+    }
+    if((ist.eval_lumo_idx = (long*) malloc(ist.max_elec_states * sizeof(ist.eval_elec_idx[0]))) == NULL){
+        fprintf(stderr, "WARNING: allocating memory for ist.eval_lumo_idx in main.c returns NULL\n");
+        printf(stderr, "WARNING: allocating memory for ist.eval_lumo_idx in main.c returns NULL\n");
+    }
+    get_qp_basis_indices(eig_vals, &ist.eval_homo_idx, &ist.eval_lumo_idx, sigma_E, &ist, &par, &flag);
     // Reallocate the eig_vals and sigma_E arrays to only contain the n_qp states
     eig_vals = realloc(eig_vals, ist.n_qp * sizeof(eig_vals[0]));
     sigma_E = realloc(sigma_E, ist.n_qp * sizeof(sigma_E[0]));
+    ist.eval_homo_idx = realloc(ist.eval_homo_idx, ist.total_homo * sizeof(long));
+    ist.eval_lumo_idx = realloc(ist.eval_homo_idx, ist.total_lumo * sizeof(long));
 
+    for (i = 0; i < ist.total_homo; i++){
+        printf("%ld\n", ist.eval_homo_idx[i]);
+    }
+    for (i = 0; i < ist.total_lumo; i++){
+        printf("%ld\n", ist.eval_lumo_idx[i]);
+    }
+    // Allocate memory for the electron and hole wavefunctions
+    // set_qp_basis()
 
     // /*************************************************************************/
     // fftwpsi = fftw_malloc(sizeof (fftw_complex )*ist.ngrid*ist.nthreads);

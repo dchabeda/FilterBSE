@@ -2,7 +2,7 @@
 
 /*****************************************************************************/
 
-void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel){
+void print_input_state(FILE *pf, long **eval_homo_idx, long **eval_lumo_idx, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel){
     // ****** ****** ****** ****** ****** ****** 
     // Print grid parameters
     // ****** ****** ****** ****** ****** ****** 

@@ -97,6 +97,7 @@ int main(int argc, char *argv[]){
     fflush(stdout);
 
     /*** Determine the configuration of the quasiparticle basis ***/
+    printf("\nSetting quasiparticle basis indices:\n");
     get_qp_basis_indices(eig_vals, sigma_E, &ist, &par, &flag);
 
     // // init_size(argc, argv, &par, &ist);

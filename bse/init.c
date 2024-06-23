@@ -30,7 +30,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, index_st *ist, par_
   }
 
   // Print QP basis info
-  printf("\tTotal # of filtered hole eigenstates = %ld\n", ist->total_homo);
+  printf("\n\tTotal # of filtered hole eigenstates = %ld\n", ist->total_homo);
   printf("\tTotal # of filtered electron eigenstates = %ld\n", ist->total_lumo);
   printf("\tThe eval.par index of the HOMO state = %ld  LUMO state = %ld\n", ist->nhomo, ist->nlumo);
   printf("\tThe HOMO energy = % .6g a.u. % .5f eV\n", eig_vals[ist->nhomo], eig_vals[ist->nhomo]*AUTOEV);

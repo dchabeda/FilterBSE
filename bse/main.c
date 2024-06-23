@@ -130,10 +130,10 @@ int main(int argc, char *argv[]){
     // Resize the index arrays to tightly contain the indices of eigenstates in VB/CB
     // The conditional checks whether n_holes saturated the memory block (if so, no need to resize)
     // or if they are not equal, then n_holes is smaller and we should shrink the array
-    if (ist.n_holes != ist->max_hole_states){
+    if (ist.n_holes != ist.max_hole_states){
         ist.eval_hole_idxs = realloc(ist.eval_hole_idxs, ist.n_holes * sizeof(long));
     }
-    if (ist.n_elecs != ist->max_elec_states){
+    if (ist.n_elecs != ist.max_elec_states){
         ist.eval_elec_idxs = realloc(ist.eval_elec_idxs, ist.n_elecs * sizeof(long));
     }
     printf("\neval_hole_idxs:\n");

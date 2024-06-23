@@ -233,13 +233,9 @@ void restart_from_save(char *file_name, int checkpoint_id, double *psitot, doubl
     long j;
     long checkpoint_tag;
     char *end_buffer, *eof; 
-    eof = malloc(4*sizeof(eof[0])); end_buffer = malloc(4*sizeof(eof[0]));
+    eof = malloc(4*sizeof(eof[0])); end_buffer = malloc(4*sizeof(end_buffer[0]));
 
     strcpy(eof, "EOF");
-
-    // Create the checkpoint file name header from the checkpoint_id
-    //sprintf(str, "checkpoint_%d", checkpoint_id);
-    //sprintf(chkfile_name, "%s_ist.dat", str);
 
     if( access(file_name, F_OK) == -1 ){
         printf("ERROR: no checkpoint file %s exists in directory\n", file_name);
@@ -330,8 +326,7 @@ void restart_from_save(char *file_name, int checkpoint_id, double *psitot, doubl
 
 /*****************************************************************************/
 
-void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, double *pot_local, double *ksqr, long *nl,\
-    nlc_st *nlc, grid_st *grid, index_st *ist, par_st *par, flag_st *flag){
+void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, grid_st *grid, index_st *ist, par_st *par, flag_st *flag){
     
     FILE *pf;
     long j;
@@ -342,30 +337,16 @@ void save_output(char *file_name, double *psitot, double *eig_vals, double *sigm
     pf = fopen(file_name, "w");
     fprintf(pf, "%ld\n", output_tag);
 
-    fprintf(pf, "%ld %ld %ld %ld\n", ist->homo_idx, ist->lumo_idx, ist->total_homo, ist->total_lumo);
     fprintf(pf, "%ld %ld\n", ist->ngrid, ist->nspinngrid);
-    fprintf(pf, "%ld %ld %ld\n", ist->natoms, ist->n_atom_types, ist->n_max_atom_types);
+    fprintf(pf, "%ld\n", ist->mn_states_tot);
+    fprintf(pf, "%ld %ld\n", ist->natoms, ist->n_atom_types);
     for (j = 0; j < ist->n_atom_types; j++){ fprintf(pf, "%ld ", ist->atom_types[j]);}
-    fprintf(pf, "%d %d\n", ist->nspin, ist->ncubes);
+    fprintf(pf, "%d\n", ist->nspin);
     fprintf(pf, "%d\n", ist->complex_idx);
-    fprintf(pf, "%ld %ld %ld\n", ist->nx, ist->ny, ist->nz);
-    fprintf(pf, "%ld\n", ist->nthreads);
     
     fprintf(pf, "%lg %lg\n", par->KE_max, par->fermi_E);
-    fprintf(pf, "%lg %lg\n", par->R_NLcut2, par->sigma_E_cut);
-    fprintf(pf, "%d\n", par->t_rev_factor);
-    fprintf(pf, "%lg\n", par->dv);
     
     fprintf(pf, "%d %d %d %d %d\n", flag->SO, flag->NL, flag->LR, flag->useSpinors, flag->isComplex);
-    
-    for (j = 0; j < ist->n_NL_atoms * ist-> n_NL_gridpts; j++){
-        fprintf(pf, "%ld\n", nlc[j].jxyz);
-        fprintf(pf, "%lg %lg %lg %lg %lg %lg\n", nlc[j].y1[0].re, nlc[j].y1[0].im, nlc[j].y1[1].re, nlc[j].y1[1].im, nlc[j].y1[2].re, nlc[j].y1[2].im);
-        fprintf(pf, "%lg %lg %lg %lg %lg\n", nlc[j].proj[0], nlc[j].proj[1], nlc[j].proj[2], nlc[j].proj[3], nlc[j].proj[4]);
-        fprintf(pf, "%lg %lg %lg %lg %lg\n", nlc[j].NL_proj[0], nlc[j].NL_proj[1], nlc[j].NL_proj[2], nlc[j].NL_proj[3], nlc[j].NL_proj[4]);
-        fprintf(pf, "%d %d %d %d %d\n", nlc[j].NL_proj_sign[0], nlc[j].NL_proj_sign[1], nlc[j].NL_proj_sign[2], nlc[j].NL_proj_sign[3], nlc[j].NL_proj_sign[4]);
-        fprintf(pf, "%lg %lg %lg %lg", nlc[j].r, nlc[j].r2_1, nlc[j].r2, nlc[j].Vr);
-    }
     
     fprintf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg\n", grid->dx, grid->dy, grid->dz, grid->dr, grid->dv, grid->dkx, grid->dky, grid->dkz);
     fprintf(pf, "%lg %lg %lg %lg %lg %lg\n", grid->xmin, grid->xmax, grid->ymin, grid->ymax, grid->zmin, grid->zmax);
@@ -376,9 +357,6 @@ void save_output(char *file_name, double *psitot, double *eig_vals, double *sigm
     fwrite(grid->y, sizeof(grid->x[0]), grid->ny, pf);
     fwrite(grid->z, sizeof(grid->x[0]), grid->nz, pf);
 
-    fwrite(nl, sizeof(nl[0]), ist->natoms, pf);
-    fwrite(ksqr, sizeof(double), ist->ngrid, pf); 
-    fwrite(pot_local, sizeof(double), ist->ngrid, pf);
     fwrite(eig_vals, sizeof(eig_vals[0]), ist->mn_states_tot, pf);
     fwrite(sigma_E, sizeof(sigma_E[0]), ist->mn_states_tot, pf);
     

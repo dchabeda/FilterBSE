@@ -102,7 +102,7 @@ typedef struct parallel{
 // init.c
 void init(double *potl,double *vx,double *vy,double *vz,double *ksqr,double *rx,double *ry,double *rz,par_st *par,index_st *ist);
 void init_size(long, char *argv[],par_st *,index_st *);
-void init_pot(double *vx,double *vy,double *vz,zomplex *potq,zomplex *potqx,par_st par,index_st ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
+void init_pot(zomplex *potq, zomplex *potqx, grid_st *grid, par_st *par,index_st *ist, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 void init_psi(zomplex *psi,double *vx,double *vy,double *vz,index_st ist,par_st par,long *idum);
 double screenedcoulomb(double dr, double gamma);
 double longerpolate(double r,double dr,double *vr,double *pot,long npot,long n,long j);
@@ -170,7 +170,8 @@ void psi_rnd(zomplex *psi,long ngrid,double dv,long *idum);
 double findmaxabsre(zomplex *dwmat,long n);
 double findmaxabsim(zomplex *dwmat,long n);
 
-void dipole(double *vx,double *vy,double *vz,zomplex *psi,zomplex *mux,zomplex *muy,zomplex *muz,double *eval,index_st ist,par_st par);
+// dipole.c
+void dipole(zomplex *psi,zomplex *mux,zomplex *muy,zomplex *muz,double *eval,grid_st *grid, index_st *ist,par_st *par);
 void mag_dipole(double *vx, double *vy, double *vz, double *psi, double *mx, double *my, double *mz, 
   double *eval, fftw_plan_loc *planfw,fftw_plan_loc *planbw,fftw_complex *fftwpsi, index_st ist, par_st par);
 void rotational_strength(double *rs, double *mux, double *muy, double *muz, double *mx, 
@@ -191,8 +192,8 @@ void write_separation(FILE *pf, char *top_bttm);
 
 //angular.c
 void spins(zomplex *sx, zomplex *sy, zomplex *sz,zomplex *psi,index_st ist,par_st par);
-void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls,double *vx, double *vy, double *vz, zomplex *psi,
-  fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st ist, par_st par);
+void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, zomplex *psi, grid_st *grid, index_st *ist, par_st *par,
+  fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
 void lOpp(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi, 
   double* vx, double* vy, double* vz,
   fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi,index_st ist, par_st par);

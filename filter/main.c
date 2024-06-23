@@ -500,7 +500,7 @@ int main(int argc, char *argv[]){
       // The standard portion of the filter diagonalization procedure has concluded
       // Print the output.dat file for use in future workflows unless explicitly requested to NOT save output
       if (0 != flag.saveOutput){
-        save_output("output.dat",psitot,eig_vals,sigma_E,pot_local,ksqr,nl,nlc,&grid,&ist,&par,&flag);
+        save_output("output.dat",psitot,eig_vals,sigma_E,R,&grid,&ist,&par,&flag);
       }
 
       /**************************************************************************************************************/

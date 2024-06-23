@@ -44,7 +44,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   par->sigma_E_cut = 0.0001;
   flag->saveCheckpoints = 0; // by default do not save job checkpoints
   flag->restartFromCheckpoint = -1; // by default do not restart from checkpoint
-  
+  flag->printFPDensity=0;
+  ist->n_FP_density=0;
+
   // Parse the input file
   if( access( "input.par", F_OK) != -1 ) {
     pf = fopen("input.par", "r");

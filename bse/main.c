@@ -103,6 +103,7 @@ int main(int argc, char *argv[]){
     eig_vals = realloc(eig_vals, ist.n_qp * sizeof(eig_vals[0]));
     sigma_E = realloc(sigma_E, ist.n_qp * sizeof(sigma_E[0]));
 
+
     // /*************************************************************************/
     // fftwpsi = fftw_malloc(sizeof (fftw_complex )*ist.ngrid*ist.nthreads);
     // potq  = (zomplex *) calloc(ist.ngrid, sizeof(zomplex));

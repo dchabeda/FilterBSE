@@ -28,9 +28,9 @@ void single_coulomb_openmp(zomplex       *psi,
     rho = (zomplex *) calloc(ist.ngrid * ist.nthreads, sizeof(zomplex));
     listibs = (long *) calloc(ist.ms2, sizeof(long));
 
-    for (ibs = 0, a = ist.lumo_idx; a < ist.lumo_idx+ist.total_lumo; a++) {
-        for (i = 0; i < ist.total_homo; i++, ibs++) {
-            listibs[(a - ist.lumo_idx) * ist.total_homo + i] = ibs;
+    for (ibs = 0, a = ist.lumo_idx; a < ist.lumo_idx+ist.n_elecs; a++) {
+        for (i = 0; i < ist.n_holes; i++, ibs++) {
+            listibs[(a - ist.lumo_idx) * ist.n_holes + i] = ibs;
             printf("a:%ld i:%ld ibs:%ld\n",a,i,ibs);
         }
     }
@@ -42,11 +42,11 @@ void single_coulomb_openmp(zomplex       *psi,
     /*** vabji direct ***/
     //TODO: check which are initial and final states for conjugation issues!!!!
     //loop over electron states a
-    for (a = ist.lumo_idx; a < ist.lumo_idx+ist.total_lumo; a++) {
+    for (a = ist.lumo_idx; a < ist.lumo_idx+ist.n_elecs; a++) {
         
         //loop over electron states b
 #pragma omp parallel for private(sum1,ibs,jbs,ene1,ene2,ene,tid,igrid,ispin,ispingrid,b,i,j)
-        for (b = ist.lumo_idx; b < ist.lumo_idx+ist.total_lumo; b++) {
+        for (b = ist.lumo_idx; b < ist.lumo_idx+ist.n_elecs; b++) {
             tid = omp_get_thread_num();
             
             //get joint density \rho_{ab}(r) = \sum_{\sigma} psi_{a}^{*}(r,\sigma) psi_{b}(r,\sigma)
@@ -65,10 +65,10 @@ void single_coulomb_openmp(zomplex       *psi,
             hartree(&rho[tid*ist.ngrid], potqx, &poth[tid*ist.ngrid], ist, planfw[tid], planbw[tid], &fftwpsi[tid*ist.ngrid]);            
             
             //loop over hole states i
-            for (i = 0; i < ist.total_homo; i++) {
+            for (i = 0; i < ist.n_holes; i++) {
 	            
                 //loop over hole states j
-                for (j = 0; j < ist.total_homo; j++) {
+                for (j = 0; j < ist.n_holes; j++) {
 	                //get pair state excitation energy
                     ene1 = eval[a] - eval[i];
 	                ene2 = eval[b] - eval[j];
@@ -94,8 +94,8 @@ void single_coulomb_openmp(zomplex       *psi,
                     sum1.im *= par.dv;
 
                     //get the matrix indicies for {ai,bj} and set bsmat
-	                ibs = listibs[(a - ist.lumo_idx)*ist.total_homo + i];
-	                jbs = listibs[(b - ist.lumo_idx)*ist.total_homo + j];
+	                ibs = listibs[(a - ist.lumo_idx)*ist.n_holes + i];
+	                jbs = listibs[(b - ist.lumo_idx)*ist.n_holes + j];
                     //printf("Index bsmas: ibs:%ld jbs:%ld index:%ld\n",ibs, jbs,ibs * ist.ms2 + jbs);
 	                bsmat[ibs * ist.ms2 + jbs].re = sum1.re;
                     bsmat[ibs * ist.ms2 + jbs].im = sum1.im;
@@ -109,8 +109,8 @@ void single_coulomb_openmp(zomplex       *psi,
 	                else 
                         h0mat[ibs*ist.ms2+jbs] = 0.0;
 	                fprintf(pf,"%ld %ld %ld %ld %ld %ld %.*g %.*g %.*g %.*g\n",a,i,b,j,
-		                     listibs[(a-ist.lumo_idx)*ist.total_homo+i],
-		                     listibs[(b-ist.lumo_idx)*ist.total_homo+j],
+		                     listibs[(a-ist.lumo_idx)*ist.n_holes+i],
+		                     listibs[(b-ist.lumo_idx)*ist.n_holes+j],
 		                     DBL_DIG, ene1, DBL_DIG, ene2, DBL_DIG, sum1.re, DBL_DIG, sum1.im);
 	                //fflush(0);
 	            }
@@ -124,11 +124,11 @@ void single_coulomb_openmp(zomplex       *psi,
     
     pf = fopen("exchange.dat" , "w");
     //loop over electron states a
-    for (a = ist.lumo_idx; a < ist.lumo_idx+ist.total_lumo; a++) {
+    for (a = ist.lumo_idx; a < ist.lumo_idx+ist.n_elecs; a++) {
 #pragma omp parallel for private(sum2,ibs,jbs,ene1,ene2,ene,tid,igrid,b,i,j)
         
         //loop over hole states i
-        for (i = 0; i < ist.total_homo; i++) {
+        for (i = 0; i < ist.n_holes; i++) {
             tid = omp_get_thread_num();	
             ene1 = eval[a] - eval[i];
             
@@ -147,10 +147,10 @@ void single_coulomb_openmp(zomplex       *psi,
             hartree(&rho[tid*ist.ngrid], potq, &poth[tid*ist.ngrid], ist, planfw[tid], planbw[tid], &fftwpsi[tid*ist.ngrid]);
             
             //loop over electron states b
-            for (b = ist.lumo_idx; b < ist.lumo_idx+ist.total_lumo; b++) {
+            for (b = ist.lumo_idx; b < ist.lumo_idx+ist.n_elecs; b++) {
 
                 //loop over hole states j
-	            for (j = 0; j < ist.total_homo; j++) {
+	            for (j = 0; j < ist.n_holes; j++) {
 	                ene2 = eval[b] - eval[j];
 	                ene = ene1 - ene2;
 	                //TODO seems to be some bug with spin symmetry!
@@ -174,8 +174,8 @@ void single_coulomb_openmp(zomplex       *psi,
                     sum2.re *= par.dv;
                     sum2.im *= par.dv;
 
-                    ibs = listibs[(a-ist.lumo_idx)*ist.total_homo+i];
-	                jbs = listibs[(b-ist.lumo_idx)*ist.total_homo+j];
+                    ibs = listibs[(a-ist.lumo_idx)*ist.n_holes+i];
+	                jbs = listibs[(b-ist.lumo_idx)*ist.n_holes+j];
                     //NOTE: scalar version has a 2 as to calc for bright only. Don't want for full matrix. Took out 11/10 --DW
 					bsmat[ibs*ist.ms2+jbs].re -=  sum2.re;
                     bsmat[ibs*ist.ms2+jbs].im -=  sum2.im;

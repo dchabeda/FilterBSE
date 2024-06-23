@@ -105,26 +105,26 @@ int main(int argc, char *argv[]){
     // The behavior is to return a NULL pointer because the memory cannot be allocated
     // That is fine in our case, because we will reallocate within the 
     // get_qp_basis_indices function. A warning will be printed
-    if((ist.eval_homo_idx = (long*) malloc(ist.max_hole_states * sizeof(ist.eval_homo_idx[0]))) == NULL){
-        fprintf(stderr, "WARNING: allocating memory for ist.eval_homo_idx in main.c returns NULL\n");
-        printf(stderr, "WARNING: allocating memory for ist.eval_homo_idx in main.c returns NULL\n");
+    if((ist.eval_hole_idxs = (long*) malloc(ist.max_hole_states * sizeof(ist.eval_hole_idxs[0]))) == NULL){
+        fprintf(stderr, "WARNING: allocating memory for ist.eval_hole_idxs in main.c returns NULL\n");
+        printf("WARNING: allocating memory for ist.eval_hole_idxs in main.c returns NULL\n");
     }
-    if((ist.eval_lumo_idx = (long*) malloc(ist.max_elec_states * sizeof(ist.eval_elec_idx[0]))) == NULL){
-        fprintf(stderr, "WARNING: allocating memory for ist.eval_lumo_idx in main.c returns NULL\n");
-        printf(stderr, "WARNING: allocating memory for ist.eval_lumo_idx in main.c returns NULL\n");
+    if((ist.eval_elec_idxs = (long*) malloc(ist.max_elec_states * sizeof(ist.eval_elec_idxs[0]))) == NULL){
+        fprintf(stderr, "WARNING: allocating memory for ist.eval_elec_idxs in main.c returns NULL\n");
+        printf("WARNING: allocating memory for ist.eval_elec_idxs in main.c returns NULL\n");
     }
-    get_qp_basis_indices(eig_vals, &ist.eval_homo_idx, &ist.eval_lumo_idx, sigma_E, &ist, &par, &flag);
+    get_qp_basis_indices(eig_vals, &ist.eval_hole_idxs, &ist.eval_elec_idxs, sigma_E, &ist, &par, &flag);
     // Reallocate the eig_vals and sigma_E arrays to only contain the n_qp states
     eig_vals = realloc(eig_vals, ist.n_qp * sizeof(eig_vals[0]));
     sigma_E = realloc(sigma_E, ist.n_qp * sizeof(sigma_E[0]));
-    ist.eval_homo_idx = realloc(ist.eval_homo_idx, ist.total_homo * sizeof(long));
-    ist.eval_lumo_idx = realloc(ist.eval_homo_idx, ist.total_lumo * sizeof(long));
+    ist.eval_hole_idxs = realloc(ist.eval_hole_idxs, ist.n_holes * sizeof(long));
+    ist.eval_elec_idxs = realloc(ist.eval_hole_idxs, ist.n_elecs * sizeof(long));
 
-    for (i = 0; i < ist.total_homo; i++){
-        printf("%ld\n", ist.eval_homo_idx[i]);
+    for (i = 0; i < ist.n_holes; i++){
+        printf("%ld\n", ist.eval_hole_idxs[i]);
     }
-    for (i = 0; i < ist.total_lumo; i++){
-        printf("%ld\n", ist.eval_lumo_idx[i]);
+    for (i = 0; i < ist.n_elecs; i++){
+        printf("%ld\n", ist.eval_elec_idxs[i]);
     }
     // Allocate memory for the electron and hole wavefunctions
     // set_qp_basis()
@@ -170,7 +170,7 @@ int main(int argc, char *argv[]){
   
     // for (thomo = 0, i = ist.homo_idx; i >= 0; i--){
     //     if (sigma_E[i] < par.sigma_E_cut) thomo++;
-    //     if (thomo == ist.total_homo) {
+    //     if (thomo == ist.n_holes) {
     //         indexfirsthomo = i;
     //         break;
     //     }
@@ -235,9 +235,9 @@ int main(int argc, char *argv[]){
     //     printf("no psi.par in cwd\n");
     //     exit(EXIT_FAILURE);
     // }
-    // printf("allocating memory for %ld hole and %ld electron states\n",(ist.total_homo),(ist.total_lumo));
-    // psihomo = calloc((ist.total_homo) * ist.nspinngrid, sizeof(zomplex));
-    // psilumo = calloc((ist.total_lumo) * ist.nspinngrid, sizeof(zomplex));
+    // printf("allocating memory for %ld hole and %ld electron states\n",(ist.n_holes),(ist.n_elecs));
+    // psihomo = calloc((ist.n_holes) * ist.nspinngrid, sizeof(zomplex));
+    // psilumo = calloc((ist.n_elecs) * ist.nspinngrid, sizeof(zomplex));
     // if (!psihomo || !psilumo) {printf("Failed to allocate memory for psihomo/psilumo\n");exit(EXIT_FAILURE);}
 
     // long foffset = ist.nspinngrid * sizeof(zomplex);  // for random access 
@@ -277,7 +277,7 @@ int main(int argc, char *argv[]){
     // counter = ist.homo_idx + 1;
     // tlumo = 0;
 
-    // while (tlumo < ist.max_elec_states && tlumo < ist.total_lumo) {
+    // while (tlumo < ist.max_elec_states && tlumo < ist.n_elecs) {
     //     fread(psidummy, sizeof(zomplex), ist.nspinngrid, ppsi);
     //     if (evalindex[counter].sigma_E_cut < par.sigma_E_cut) {
     //         normalize_zomplex(psidummy, par.dv, ist.nspinngrid);
@@ -368,8 +368,8 @@ int main(int argc, char *argv[]){
     // ist.n_qp = nstates;
     // ist.lumo_idx = thomo;
     // ist.homo_idx = thomo - 1;
-    // ist.total_lumo = tlumo;
-    // ist.total_homo = thomo;
+    // ist.n_elecs = tlumo;
+    // ist.n_holes = thomo;
   
     // /*                              END CHANGES                           */
     // /*************************************************************************/
@@ -392,7 +392,7 @@ int main(int argc, char *argv[]){
     //      generate the spin-depedent matrix elements as described by
     //      the last equation in our codument.  ***/
 
-    // ist.ms2 = ist.total_lumo * ist.total_homo;
+    // ist.ms2 = ist.n_elecs * ist.n_holes;
     // bsmat = (zomplex *) calloc(ist.ms2*ist.ms2, sizeof(zomplex));
     // direct = (zomplex *) calloc(ist.ms2*ist.ms2, sizeof(zomplex)); 
     // exchange = (zomplex *) calloc(ist.ms2*ist.ms2, sizeof(zomplex)); 
@@ -419,21 +419,21 @@ int main(int argc, char *argv[]){
     // fclose(ppsi);
 
 
-    // sx = (zomplex *) calloc(ist.total_homo*ist.total_homo+ist.total_lumo*ist.total_lumo, sizeof(zomplex)); //<psi_r|Sx|psi_s>
-    // sy = (zomplex *) calloc(ist.total_homo*ist.total_homo+ist.total_lumo*ist.total_lumo, sizeof(zomplex)); //<psi_r|Sy|psi_s>
-    // sz = (zomplex *) calloc(ist.total_homo*ist.total_homo+ist.total_lumo*ist.total_lumo, sizeof(zomplex)); //<psi_r|Sz|psi_s>
-    // lx = (zomplex *) calloc(ist.total_homo*ist.total_homo+ist.total_lumo*ist.total_lumo, sizeof(zomplex)); //<psi_r|Lx|psi_s>
-    // ly = (zomplex *) calloc(ist.total_homo*ist.total_homo+ist.total_lumo*ist.total_lumo, sizeof(zomplex)); //<psi_r|Ly|psi_s>
-    // lz = (zomplex *) calloc(ist.total_homo*ist.total_homo+ist.total_lumo*ist.total_lumo, sizeof(zomplex)); //<psi_r|Lz|psi_s>
-    // lsqr = (zomplex *) calloc(ist.total_homo*ist.total_homo+ist.total_lumo*ist.total_lumo, sizeof(zomplex)); //<psi_r|L^2|psi_s>
-    // ls  = (zomplex *) calloc(ist.total_homo*ist.total_homo+ist.total_lumo*ist.total_lumo, sizeof(zomplex)); //<psi_r|L*S|psi_s>
-    // mux = (zomplex *) calloc(ist.total_lumo*ist.total_homo, sizeof(zomplex)); // <psi_i|ux|psi_a>
-    // muy = (zomplex *) calloc(ist.total_lumo*ist.total_homo, sizeof(zomplex)); // <psi_i|uy|psi_a>
-    // muz = (zomplex *) calloc(ist.total_lumo*ist.total_homo, sizeof(zomplex)); // <psi_i|uz|psi_a>
-    // //mx  = (double *) calloc(ist.total_lumo*ist.total_homo, sizeof(double)); // <psi_i|mx|psi_a>
-    // //my  = (double *) calloc(ist.total_lumo*ist.total_homo, sizeof(double)); // <psi_i|my|psi_a>
-    // //mz  = (double *) calloc(ist.total_lumo*ist.total_homo, sizeof(double)); // <psi_i|mz|psi_a>
-    // //rs  = (double *) calloc(ist.total_lumo*ist.total_homo, sizeof(double)); // <psi_a|u|psi_i>.<psi_a|m|psi_i>
+    // sx = (zomplex *) calloc(ist.n_holes*ist.n_holes+ist.n_elecs*ist.n_elecs, sizeof(zomplex)); //<psi_r|Sx|psi_s>
+    // sy = (zomplex *) calloc(ist.n_holes*ist.n_holes+ist.n_elecs*ist.n_elecs, sizeof(zomplex)); //<psi_r|Sy|psi_s>
+    // sz = (zomplex *) calloc(ist.n_holes*ist.n_holes+ist.n_elecs*ist.n_elecs, sizeof(zomplex)); //<psi_r|Sz|psi_s>
+    // lx = (zomplex *) calloc(ist.n_holes*ist.n_holes+ist.n_elecs*ist.n_elecs, sizeof(zomplex)); //<psi_r|Lx|psi_s>
+    // ly = (zomplex *) calloc(ist.n_holes*ist.n_holes+ist.n_elecs*ist.n_elecs, sizeof(zomplex)); //<psi_r|Ly|psi_s>
+    // lz = (zomplex *) calloc(ist.n_holes*ist.n_holes+ist.n_elecs*ist.n_elecs, sizeof(zomplex)); //<psi_r|Lz|psi_s>
+    // lsqr = (zomplex *) calloc(ist.n_holes*ist.n_holes+ist.n_elecs*ist.n_elecs, sizeof(zomplex)); //<psi_r|L^2|psi_s>
+    // ls  = (zomplex *) calloc(ist.n_holes*ist.n_holes+ist.n_elecs*ist.n_elecs, sizeof(zomplex)); //<psi_r|L*S|psi_s>
+    // mux = (zomplex *) calloc(ist.n_elecs*ist.n_holes, sizeof(zomplex)); // <psi_i|ux|psi_a>
+    // muy = (zomplex *) calloc(ist.n_elecs*ist.n_holes, sizeof(zomplex)); // <psi_i|uy|psi_a>
+    // muz = (zomplex *) calloc(ist.n_elecs*ist.n_holes, sizeof(zomplex)); // <psi_i|uz|psi_a>
+    // //mx  = (double *) calloc(ist.n_elecs*ist.n_holes, sizeof(double)); // <psi_i|mx|psi_a>
+    // //my  = (double *) calloc(ist.n_elecs*ist.n_holes, sizeof(double)); // <psi_i|my|psi_a>
+    // //mz  = (double *) calloc(ist.n_elecs*ist.n_holes, sizeof(double)); // <psi_i|mz|psi_a>
+    // //rs  = (double *) calloc(ist.n_elecs*ist.n_holes, sizeof(double)); // <psi_a|u|psi_i>.<psi_a|m|psi_i>
 
     // spins(sx,sy,sz,psi,ist,par);
     // angular(lx,ly,lz,lsqr,ls,psi,&grid,&ist,&par,planfw[0], planbw[0], &fftwpsi[0]);

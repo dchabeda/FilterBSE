@@ -4,38 +4,38 @@
 
 /*****************************************************************************/
 
-void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_homo_idx, long **eval_lumo_idx, index_st *ist, par_st *par, flag_st *flag){
+void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag){
   //this is where we set which is eleectron and what is hole
 
   FILE *pf;
   long i, cntr, eval_homo, eval_lumo, old_total_homo;
   double deltaE;
   
-  // Allocate memory for eval_homo_idx etc if it is NULL
-  if (NULL = *eval_homo_idx){
-    printf("\tAllocating new memory for eval_homo_idx\n");
-    *eval_homo_idx = malloc(500 * sizeof(long));
+  // Allocate memory for eval_hole_idxs etc if it is NULL
+  if (NULL = *eval_hole_idxs){
+    printf("\tAllocating new memory for eval_hole_idxs\n");
+    *eval_hole_idxs = malloc(500 * sizeof(long));
   }
-  if (NULL = *eval_lumo_idx){
-    printf("\tAllocating new memory for eval_homo_idx\n");
-    *eval_lumo_idx = malloc(500 * sizeof(long));
+  if (NULL = *eval_elec_idxs){
+    printf("\tAllocating new memory for eval_hole_idxs\n");
+    *eval_elec_idxs = malloc(500 * sizeof(long));
   }
 
   // Set the quasiparticle basis indices to zero
-  ist->homo_idx = ist->lumo_idx = ist->total_homo = ist->total_lumo = 0;
+  ist->homo_idx = ist->lumo_idx = ist->n_holes = ist->n_elecs = 0;
 
   cntr = 0; // We will reorder eig_vals and sigma_E to only contain the converged eigenstates
   // Get the indices of the HOMO, LUMO, and also the number of eigstates in VB/CB 
   for (i = 0; i < ist->mn_states_tot; i++){
     // Find HOMO and total number of VB states
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] < par->fermi_E){
-      ist->total_homo++; // increment the counter for number of hole states
+      ist->n_holes++; // increment the counter for number of hole states
       ist->homo_idx = cntr; // homo_idx in RAM is the value of cntr for which condition is met
       eval_homo = i; // the value of homo_idx from the eval.dat file
       
       eig_vals[cntr] = eig_vals[i]; // reorder the eig_vals
       sigma_E[cntr] = sigma_E[i]; // reorder the sigma_E
-      *eval_homo_idx[cntr] = i; // add this index to the array holding all indices from eval.dat
+      *eval_hole_idxs[cntr] = i; // add this index to the array holding all indices from eval.dat
       cntr++;
     }
     // Find LUMO and total number of CB states
@@ -44,23 +44,23 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_homo_id
         eval_lumo = i;
         ist->lumo_idx = ist->homo_idx + 1; // Get first value of i for which condition is met
       }
-      ist->total_lumo++; 
+      ist->n_elecs++; 
       
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
-      *eval_homo_idx[cntr] = i;
+      *eval_hole_idxs[cntr] = i;
       cntr++;
     }
   }
-  old_total_homo = ist->total_homo;
+  old_total_homo = ist->n_holes;
 
-  printf("\n\tTotal # of filtered hole eigenstates = %ld\n", ist->total_homo);
-  printf("\tTotal # of filtered electron eigenstates = %ld\n", ist->total_lumo);
+  printf("\n\tTotal # of filtered hole eigenstates = %ld\n", ist->n_holes);
+  printf("\tTotal # of filtered electron eigenstates = %ld\n", ist->n_elecs);
   printf("\tThe filter eval.dat index of the HOMO state = %ld  LUMO state = %ld\n", eval_homo, eval_lumo);
   
   // Check how the quasiparticle basis compares to the desired energy range
   // First, in the VB
-  deltaE = eig_vals[ist->homo_idx] - eig_vals[ist->homo_idx - ist->total_homo + 1];
+  deltaE = eig_vals[ist->homo_idx] - eig_vals[ist->homo_idx - ist->n_holes + 1];
   if (deltaE < par->delta_E_hole){
     printf("\n\tUnconstrained energy span of holes, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
     printf("\tIncrease size of VB basis states to reach desired result\n");
@@ -69,7 +69,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_homo_id
     printf("\tFewer VB basis states would reach the desired result\n");
   }
   // Then in the conduction band
-  deltaE = eig_vals[ist->total_lumo + ist->lumo_idx - 1] - eig_vals[ist->lumo_idx];
+  deltaE = eig_vals[ist->n_elecs + ist->lumo_idx - 1] - eig_vals[ist->lumo_idx];
   if (deltaE < par->delta_E_hole){
     printf("\tUnconstrained energy span of elecs, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
     printf("\tIncrease size of CB basis states to reach desired result\n");
@@ -82,28 +82,28 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_homo_id
   // We will also modify the eig_vals and sigma_E array again so they only contain the
   // energies of the selected qp basis states
   
-  if ((-1 != ist->max_hole_states) && (ist->total_homo > ist->max_hole_states)){
+  if ((-1 != ist->max_hole_states) && (ist->n_holes > ist->max_hole_states)){
     
-    ist->total_homo = ist->max_hole_states;
-    ist->homo_idx = ist->homo_idx - (old_total_homo - ist->total_homo);
-    printf("\n\tConstraining hole basis states to maxHoleStates\n\t  new ist->total_homo = %ld\n", ist->total_homo);
+    ist->n_holes = ist->max_hole_states;
+    ist->homo_idx = ist->homo_idx - (old_total_homo - ist->n_holes);
+    printf("\n\tConstraining hole basis states to maxHoleStates\n\t  new ist->n_holes = %ld\n", ist->n_holes);
     
     // Reorder eig_vals and sigma_E to only contain eigenstates
     cntr = 0;
-    for (i = 0; i < ist->total_homo; i++){
-      eig_vals[cntr] = eig_vals[ist->homo_idx - ist->total_homo + i + 1];
-      sigma_E[cntr] = sigma_E[ist->homo_idx - ist->total_homo + i + 1];
-      *eval_homo_idx[cntr] = *eval_homo_idx[ist->homo_idx - ist->total_homo + i + 1]
+    for (i = 0; i < ist->n_holes; i++){
+      eig_vals[cntr] = eig_vals[ist->homo_idx - ist->n_holes + i + 1];
+      sigma_E[cntr] = sigma_E[ist->homo_idx - ist->n_holes + i + 1];
+      *eval_hole_idxs[cntr] = *eval_hole_idxs[ist->homo_idx - ist->n_holes + i + 1]
       cntr++;
     }
-    // check that the counter has the same value as ist->total_homo
-    if ((cntr - ist->total_homo) != 0){
+    // check that the counter has the same value as ist->n_holes
+    if ((cntr - ist->n_holes) != 0){
       printf("ERROR: something went wrong reordering eig_vals in get_qp_basis_indices\n");
       exit(EXIT_FAILURE);
     }
 
     // Determine the new energy span
-    deltaE = eig_vals[ist->homo_idx] - eig_vals[ist->homo_idx - ist->total_homo + 1];
+    deltaE = eig_vals[ist->homo_idx] - eig_vals[ist->homo_idx - ist->n_holes + 1];
     if (deltaE < par->delta_E_hole){
       printf("\tConstrained energy span of holes, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
       printf("\tIncrease size of VB basis states to reach desired result\n");
@@ -112,23 +112,23 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_homo_id
       printf("\tFewer VB basis states would reach the desired result\n");
     }
 
-  } else if ((-1 != ist->max_elec_states) && (ist->total_lumo > ist->max_elec_states) ){
+  } else if ((-1 != ist->max_elec_states) && (ist->n_elecs > ist->max_elec_states) ){
     
-    ist->total_lumo = ist->max_elec_states;
+    ist->n_elecs = ist->max_elec_states;
     ist->lumo_idx = ist->homo_idx + 1;
-    printf("\tConstraining elec basis states to maxElecStates\n\t  new ist->total_lumo = %ld\n", ist->total_lumo);
+    printf("\tConstraining elec basis states to maxElecStates\n\t  new ist->n_elecs = %ld\n", ist->n_elecs);
     
     // Reorder eig_vals and sigma_E to only contain eigenstates
     cntr = ist->homo_idx + 1;
-    for (i = ist->total_homo + 1; i < ist->total_homo + ist->total_lumo; i++){
+    for (i = ist->n_holes + 1; i < ist->n_holes + ist->n_elecs; i++){
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
-      *eval_lumo_idx[cntr] = *eval_lumo_idx[i];
+      *eval_elec_idxs[cntr] = *eval_elec_idxs[i];
       cntr++;
     }
  
     // Determine the new energy span
-    deltaE = eig_vals[ist->total_lumo + ist->lumo_idx - 1] - eig_vals[ist->lumo_idx];
+    deltaE = eig_vals[ist->n_elecs + ist->lumo_idx - 1] - eig_vals[ist->lumo_idx];
     if (deltaE < par->delta_E_elec){
       printf("\tConstrained energy span of elecs, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
       printf("\tIncrease size of CB basis states to reach desired result\n");
@@ -141,11 +141,11 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_homo_id
     printf("\n\tAll filtered quasiparticle states will be used in exciton basis\n");
   }
 
-  ist->n_qp = ist->total_homo + ist->total_lumo;
+  ist->n_qp = ist->n_holes + ist->n_elecs;
 
   // Print QP basis info
-  printf("\n\tSelected # of filtered h+ qp basis states = %ld\n", ist->total_homo);
-  printf("\tSelected # of filtered e- qp basis states = %ld\n", ist->total_lumo);
+  printf("\n\tSelected # of filtered h+ qp basis states = %ld\n", ist->n_holes);
+  printf("\tSelected # of filtered e- qp basis states = %ld\n", ist->n_elecs);
   printf("\tTotal number of quasiparticle states, n_qp = %ld\n", ist->n_qp);
   printf("\tThe BSEeval.par index of the HOMO state = %ld  LUMO state = %ld\n", ist->homo_idx, ist->lumo_idx);
   printf("\tThe HOMO energy = % .6g a.u. % .5f eV\n", eig_vals[ist->homo_idx], eig_vals[ist->homo_idx]*AUTOEV);

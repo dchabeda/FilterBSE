@@ -267,10 +267,10 @@ void print_fixed_qp_density(double *psi, double *Cbs, double *vz, index_st ist, 
       phgrid[jgrid] = 0.0;
     }  
     // Now loop over states involved in the BSE calculation 
-    for (ibs = 0, a = ist.lumo_idx; a < ist.lumo_idx+ist.total_lumo; a++) {
-      for (i = 0; i < ist.total_homo; i++, ibs++) {
-        for (jbs = 0, b = ist.lumo_idx; b < ist.lumo_idx+ist.total_lumo; b++) {
-          for (j = 0; j < ist.total_homo; j++, jbs++) {
+    for (ibs = 0, a = ist.lumo_idx; a < ist.lumo_idx+ist.n_elecs; a++) {
+      for (i = 0; i < ist.n_holes; i++, ibs++) {
+        for (jbs = 0, b = ist.lumo_idx; b < ist.lumo_idx+ist.n_elecs; b++) {
+          for (j = 0; j < ist.n_holes; j++, jbs++) {
             coeff = Cbs[exc_index*ist.ms2 + ibs] * Cbs[exc_index*ist.ms2 + jbs];
             // Store cia*cjb*psii*psij and cia*cjb*psia*psib loop over all grid points
             // Can do these with just loops over just i and j (a and b) separately

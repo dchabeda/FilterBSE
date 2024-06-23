@@ -71,9 +71,9 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, double *
   //printf("eval[0]=%g\n",eval[0] );
   long *listibs = (long *) calloc(ist.ms2, sizeof(long));
 
-  for (ibs = 0, a = ist.lumo_idx; a < ist.lumo_idx+ist.total_lumo; a++) {
-      for (i = 0; i < ist.total_homo; i++, ibs++) {
-          listibs[(a - ist.lumo_idx) * ist.total_homo + i] = ibs;
+  for (ibs = 0, a = ist.lumo_idx; a < ist.lumo_idx+ist.n_elecs; a++) {
+      for (i = 0; i < ist.n_holes; i++, ibs++) {
+          listibs[(a - ist.lumo_idx) * ist.n_holes + i] = ibs;
           //printf("a:%ld i:%ld ibs:%ld\n",a,i,ibs);
       }
   }
@@ -89,18 +89,18 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, double *
     spiny.re = spiny.im = 0;
     spinz.re = spinz.im = 0;
     spintot.re = spintot.im = 0;
-    for (a = ist.lumo_idx;a<ist.lumo_idx+ist.total_lumo;a++){
-      for (i = 0; i < ist.total_homo; i++) {
-        ibs = listibs[(a - ist.lumo_idx) * ist.total_homo + i];
+    for (a = ist.lumo_idx;a<ist.lumo_idx+ist.n_elecs;a++){
+      for (i = 0; i < ist.n_holes; i++) {
+        ibs = listibs[(a - ist.lumo_idx) * ist.n_holes + i];
         
 
         tmpx.re = tmpx.im = 0;
         tmpy.re = tmpy.im = 0;
         tmpz.re = tmpz.im = 0;
         //sum over b
-        for (b = ist.lumo_idx;b<ist.lumo_idx+ist.total_lumo;b++){
-          jbs = listibs[(b - ist.lumo_idx) * ist.total_homo + i];
-          index = sqr(ist.total_homo)+(a-ist.lumo_idx)*ist.total_lumo+(b-ist.lumo_idx);
+        for (b = ist.lumo_idx;b<ist.lumo_idx+ist.n_elecs;b++){
+          jbs = listibs[(b - ist.lumo_idx) * ist.n_holes + i];
+          index = sqr(ist.n_holes)+(a-ist.lumo_idx)*ist.n_elecs+(b-ist.lumo_idx);
           
           //c_bi^* * <b| Sx |a>
           tmpx.re += u[jbs*ist.ms2+n].re*sx[index].re + u[jbs*ist.ms2+n].im*sx[index].im;
@@ -116,9 +116,9 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, double *
         }
         
         //sum over j
-        for (j = 0; j < ist.total_homo; j++) {
-          jbs = listibs[(a - ist.lumo_idx) * ist.total_homo + j];
-          index = i*ist.total_homo+j;
+        for (j = 0; j < ist.n_holes; j++) {
+          jbs = listibs[(a - ist.lumo_idx) * ist.n_holes + j];
+          index = i*ist.n_holes+j;
 
           //c_aj^* * <j| Sx |i> 
           tmpx.re += u[jbs*ist.ms2+n].re*sx[index].re + u[jbs*ist.ms2+n].im*sx[index].im;
@@ -145,13 +145,13 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, double *
         spinz.im += tmpz.im * u[ibs*ist.ms2+n].re + tmpz.re * u[ibs*ist.ms2+n].im;
         
 
-        for (b = ist.lumo_idx;b<ist.lumo_idx+ist.total_lumo;b++){
-          for (j = 0; j < ist.total_homo; j++) {
+        for (b = ist.lumo_idx;b<ist.lumo_idx+ist.n_elecs;b++){
+          for (j = 0; j < ist.n_holes; j++) {
             
-            indexba = sqr(ist.total_homo)+(a-ist.lumo_idx)*ist.total_lumo+(b-ist.lumo_idx);
-            indexji = i*ist.total_homo+j;
+            indexba = sqr(ist.n_holes)+(a-ist.lumo_idx)*ist.n_elecs+(b-ist.lumo_idx);
+            indexji = i*ist.n_holes+j;
 
-            jbs = listibs[(b - ist.lumo_idx) * ist.total_homo + j];
+            jbs = listibs[(b - ist.lumo_idx) * ist.n_holes + j];
             tmp.re=u[ibs*ist.ms2+n].re*u[jbs*ist.ms2+n].re
                   + u[ibs*ist.ms2+n].im*u[jbs*ist.ms2+n].im;
 
@@ -197,18 +197,18 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, double *
     orbity.re = orbity.im = 0;
     orbitz.re = orbitz.im = 0;
     orbittot.re = orbittot.im = 0;
-    for (a = ist.lumo_idx;a<ist.lumo_idx+ist.total_lumo;a++){
-      for (i = 0; i < ist.total_homo; i++) {
-        ibs = listibs[(a - ist.lumo_idx) * ist.total_homo + i];
+    for (a = ist.lumo_idx;a<ist.lumo_idx+ist.n_elecs;a++){
+      for (i = 0; i < ist.n_holes; i++) {
+        ibs = listibs[(a - ist.lumo_idx) * ist.n_holes + i];
         
 
         tmpx.re = tmpx.im = 0;
         tmpy.re = tmpy.im = 0;
         tmpz.re = tmpz.im = 0;
         //sum over b
-        for (b = ist.lumo_idx;b<ist.lumo_idx+ist.total_lumo;b++){
-          jbs = listibs[(b - ist.lumo_idx) * ist.total_homo + i];
-          index = sqr(ist.total_homo)+(a-ist.lumo_idx)*ist.total_lumo+(b-ist.lumo_idx);
+        for (b = ist.lumo_idx;b<ist.lumo_idx+ist.n_elecs;b++){
+          jbs = listibs[(b - ist.lumo_idx) * ist.n_holes + i];
+          index = sqr(ist.n_holes)+(a-ist.lumo_idx)*ist.n_elecs+(b-ist.lumo_idx);
           
           //c_bi^* * <b| Lx |a>
           tmpx.re += u[jbs*ist.ms2+n].re*lx[index].re + u[jbs*ist.ms2+n].im*lx[index].im;
@@ -224,9 +224,9 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, double *
         }
         
         //sum over j
-        for (j = 0; j < ist.total_homo; j++) {
-          jbs = listibs[(a - ist.lumo_idx) * ist.total_homo + j];
-          index = i*ist.total_homo+j;
+        for (j = 0; j < ist.n_holes; j++) {
+          jbs = listibs[(a - ist.lumo_idx) * ist.n_holes + j];
+          index = i*ist.n_holes+j;
 
           //c_aj^* * <j| Lx |i> 
           tmpx.re += u[jbs*ist.ms2+n].re*lx[index].re + u[jbs*ist.ms2+n].im*lx[index].im;
@@ -253,13 +253,13 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, double *
         orbitz.im += tmpz.im * u[ibs*ist.ms2+n].re + tmpz.re * u[ibs*ist.ms2+n].im;
         
         //Lsqr part
-        for (b = ist.lumo_idx;b<ist.lumo_idx+ist.total_lumo;b++){
-          for (j = 0; j < ist.total_homo; j++) {
+        for (b = ist.lumo_idx;b<ist.lumo_idx+ist.n_elecs;b++){
+          for (j = 0; j < ist.n_holes; j++) {
             
-            indexba = sqr(ist.total_homo)+(a-ist.lumo_idx)*ist.total_lumo+(b-ist.lumo_idx);
-            indexji = i*ist.total_homo+j;
+            indexba = sqr(ist.n_holes)+(a-ist.lumo_idx)*ist.n_elecs+(b-ist.lumo_idx);
+            indexji = i*ist.n_holes+j;
 
-            jbs = listibs[(b - ist.lumo_idx) * ist.total_homo + j];
+            jbs = listibs[(b - ist.lumo_idx) * ist.n_holes + j];
             
             //c_{ai}^n * (c_{bj}^n)^*
             tmp.re=u[ibs*ist.ms2+n].re*u[jbs*ist.ms2+n].re
@@ -319,18 +319,18 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, double *
 //  long index, indexba, indexji,n;
   for (n=0;n<ist.ms2;n++){
     lstot.re = lstot.im = 0;
-    for (a = ist.lumo_idx;a<ist.lumo_idx+ist.total_lumo;a++){
-      for (i = 0; i < ist.total_homo; i++) {
-        ibs = listibs[(a - ist.lumo_idx) * ist.total_homo + i];
-        for (b = ist.lumo_idx;b<ist.lumo_idx+ist.total_lumo;b++){
-          for (j = 0; j < ist.total_homo; j++) {
+    for (a = ist.lumo_idx;a<ist.lumo_idx+ist.n_elecs;a++){
+      for (i = 0; i < ist.n_holes; i++) {
+        ibs = listibs[(a - ist.lumo_idx) * ist.n_holes + i];
+        for (b = ist.lumo_idx;b<ist.lumo_idx+ist.n_elecs;b++){
+          for (j = 0; j < ist.n_holes; j++) {
             
             tmpx.re = 0.0;tmpx.im = 0.0;
 
-            indexba = sqr(ist.total_homo)+(a-ist.lumo_idx)*ist.total_lumo+(b-ist.lumo_idx);
-            indexji = i*ist.total_homo+j;
+            indexba = sqr(ist.n_holes)+(a-ist.lumo_idx)*ist.n_elecs+(b-ist.lumo_idx);
+            indexji = i*ist.n_holes+j;
 
-            jbs = listibs[(b - ist.lumo_idx) * ist.total_homo + j];
+            jbs = listibs[(b - ist.lumo_idx) * ist.n_holes + j];
             
             //c_{ai}^n * (c_{bj}^n)^*
             tmp.re=u[ibs*ist.ms2+n].re*u[jbs*ist.ms2+n].re
@@ -396,11 +396,11 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, double *
   for (n=0;n<ist.ms2;n++){
     directE = exchangeE = E0= 0.0;
 
-    for (a = ist.lumo_idx;a<ist.lumo_idx+ist.total_lumo;a++){
-      for (i = 0; i < ist.total_homo; i++) {
-        ibs = listibs[(a - ist.lumo_idx) * ist.total_homo + i];
-        for (b = ist.lumo_idx;b<ist.lumo_idx+ist.total_lumo;b++){
-          for (j = 0; j < ist.total_homo; j++) {
+    for (a = ist.lumo_idx;a<ist.lumo_idx+ist.n_elecs;a++){
+      for (i = 0; i < ist.n_holes; i++) {
+        ibs = listibs[(a - ist.lumo_idx) * ist.n_holes + i];
+        for (b = ist.lumo_idx;b<ist.lumo_idx+ist.n_elecs;b++){
+          for (j = 0; j < ist.n_holes; j++) {
 
             
             
@@ -563,25 +563,25 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, double *
   for (jgamma = 0; jgamma < ist.ms2; jgamma++) {
     sumx.re = sumx.im= 0.0; sumy.re = sumy.im = 0.0; sumz.re =sumz.im = 0.0;
     //msumx = 0.0; msumy = 0.0; msumz = 0.0;
-    for (ibs = 0, a = ist.lumo_idx; a < ist.lumo_idx+ist.total_lumo; a++) {
-      for (i = 0; i < ist.total_homo; i++, ibs++) {
-        sumx.re += u[ibs*ist.ms2 + jgamma].re * mux[i*ist.total_lumo + (a - ist.lumo_idx)].re
-                 - u[ibs*ist.ms2 + jgamma].im * mux[i*ist.total_lumo + (a - ist.lumo_idx)].im;
-        sumx.im += u[ibs*ist.ms2 + jgamma].re * mux[i*ist.total_lumo + (a - ist.lumo_idx)].im
-                 + u[ibs*ist.ms2 + jgamma].im * mux[i*ist.total_lumo + (a - ist.lumo_idx)].re;
+    for (ibs = 0, a = ist.lumo_idx; a < ist.lumo_idx+ist.n_elecs; a++) {
+      for (i = 0; i < ist.n_holes; i++, ibs++) {
+        sumx.re += u[ibs*ist.ms2 + jgamma].re * mux[i*ist.n_elecs + (a - ist.lumo_idx)].re
+                 - u[ibs*ist.ms2 + jgamma].im * mux[i*ist.n_elecs + (a - ist.lumo_idx)].im;
+        sumx.im += u[ibs*ist.ms2 + jgamma].re * mux[i*ist.n_elecs + (a - ist.lumo_idx)].im
+                 + u[ibs*ist.ms2 + jgamma].im * mux[i*ist.n_elecs + (a - ist.lumo_idx)].re;
         
-        sumy.re += u[ibs*ist.ms2 + jgamma].re * muy[i*ist.total_lumo + (a - ist.lumo_idx)].re
-                 - u[ibs*ist.ms2 + jgamma].im * muy[i*ist.total_lumo + (a - ist.lumo_idx)].im;
-        sumy.im += u[ibs*ist.ms2 + jgamma].re * muy[i*ist.total_lumo + (a - ist.lumo_idx)].im
-                 + u[ibs*ist.ms2 + jgamma].im * muy[i*ist.total_lumo + (a - ist.lumo_idx)].re;
+        sumy.re += u[ibs*ist.ms2 + jgamma].re * muy[i*ist.n_elecs + (a - ist.lumo_idx)].re
+                 - u[ibs*ist.ms2 + jgamma].im * muy[i*ist.n_elecs + (a - ist.lumo_idx)].im;
+        sumy.im += u[ibs*ist.ms2 + jgamma].re * muy[i*ist.n_elecs + (a - ist.lumo_idx)].im
+                 + u[ibs*ist.ms2 + jgamma].im * muy[i*ist.n_elecs + (a - ist.lumo_idx)].re;
         
-        sumz.re += u[ibs*ist.ms2 + jgamma].re * muz[i*ist.total_lumo + (a - ist.lumo_idx)].re
-                 - u[ibs*ist.ms2 + jgamma].im * muz[i*ist.total_lumo + (a - ist.lumo_idx)].im;
-        sumz.im += u[ibs*ist.ms2 + jgamma].re * muz[i*ist.total_lumo + (a - ist.lumo_idx)].im
-                 + u[ibs*ist.ms2 + jgamma].im * muz[i*ist.total_lumo + (a - ist.lumo_idx)].re;
-        //msumx += u[jgamma*ist.ms2 + ibs] * mx[i*ist.total_lumo + (a - ist.lumo_idx)];
-		    //msumy += u[jgamma*ist.ms2 + ibs] * my[i*ist.total_lumo + (a - ist.lumo_idx)];
-		    //msumz += u[jgamma*ist.ms2 + ibs] * mz[i*ist.total_lumo + (a - ist.lumo_idx)];
+        sumz.re += u[ibs*ist.ms2 + jgamma].re * muz[i*ist.n_elecs + (a - ist.lumo_idx)].re
+                 - u[ibs*ist.ms2 + jgamma].im * muz[i*ist.n_elecs + (a - ist.lumo_idx)].im;
+        sumz.im += u[ibs*ist.ms2 + jgamma].re * muz[i*ist.n_elecs + (a - ist.lumo_idx)].im
+                 + u[ibs*ist.ms2 + jgamma].im * muz[i*ist.n_elecs + (a - ist.lumo_idx)].re;
+        //msumx += u[jgamma*ist.ms2 + ibs] * mx[i*ist.n_elecs + (a - ist.lumo_idx)];
+		    //msumy += u[jgamma*ist.ms2 + ibs] * my[i*ist.n_elecs + (a - ist.lumo_idx)];
+		    //msumz += u[jgamma*ist.ms2 + ibs] * mz[i*ist.n_elecs + (a - ist.lumo_idx)];
       }
     } 
     os  = (sqr(sumx.re) +sqr(sumx.im) + sqr(sumy.re) + sqr(sumy.im) + sqr(sumz.re) +sqr(sumz.im));
@@ -601,10 +601,10 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, double *
     for (jgrid = 0; jgrid < ist.ngrid; jgrid++) { 
 	  pgrid[jgrid] = 0.0;
 	}
-    for (ibs = 0, a = ist.lumo_idx; a < ist.lumo_idx+ist.total_lumo; a++) {
-      for (i = 0; i < ist.total_homo; i++, ibs++) {
-      	for (jbs = 0, b = ist.lumo_idx; b < ist.lumo_idx+ist.total_lumo; b++) {
-      	  for (j = 0; j < ist.total_homo; j++, jbs++) {
+    for (ibs = 0, a = ist.lumo_idx; a < ist.lumo_idx+ist.n_elecs; a++) {
+      for (i = 0; i < ist.n_holes; i++, ibs++) {
+      	for (jbs = 0, b = ist.lumo_idx; b < ist.lumo_idx+ist.n_elecs; b++) {
+      	  for (j = 0; j < ist.n_holes; j++, jbs++) {
       	    if (i == j) { 
       	      sum = u[jgamma*ist.ms2+ibs] * u[jgamma*ist.ms2+jbs];
             #pragma omp parallel for private(jgrid)
@@ -624,10 +624,10 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, double *
     for (jgrid = 0; jgrid < ist.ngrid; jgrid++) {
 	  pgrid[jgrid] = 0.0;
     }
-	for (ibs = 0, a = ist.lumo_idx; a < ist.lumo_idx+ist.total_lumo; a++) {
-      for (i = 0; i < ist.total_homo; i++, ibs++) {
-      	for (jbs = 0, b = ist.lumo_idx; b < ist.lumo_idx+ist.total_lumo; b++) {
-      	  for (j = 0; j < ist.total_homo; j++, jbs++) {
+	for (ibs = 0, a = ist.lumo_idx; a < ist.lumo_idx+ist.n_elecs; a++) {
+      for (i = 0; i < ist.n_holes; i++, ibs++) {
+      	for (jbs = 0, b = ist.lumo_idx; b < ist.lumo_idx+ist.n_elecs; b++) {
+      	  for (j = 0; j < ist.n_holes; j++, jbs++) {
       	    if (a == b) { 
       	      sum = u[jgamma*ist.ms2+ibs] * u[jgamma*ist.ms2+jbs];
             #pragma omp parallel for private(jgrid)
@@ -647,8 +647,8 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, double *
   // Calculate pegrid and phgrid for the lowest 15 electron and hole state, respectively 
   // this is a noninteracting result -> test locations does not influence the result
   long nNonIntStates = 20;
-  if (ist.total_homo < nNonIntStates) nNonIntStates = ist.total_homo;
-  if (ist.total_lumo < nNonIntStates) nNonIntStates = ist.total_lumo;
+  if (ist.n_holes < nNonIntStates) nNonIntStates = ist.n_holes;
+  if (ist.n_elecs < nNonIntStates) nNonIntStates = ist.n_elecs;
   for (i = 0; i < nNonIntStates; i++) {
   #pragma omp parallel for private(jgrid)
     for (jgrid = 0; jgrid < ist.ngrid; jgrid++) { // electron first

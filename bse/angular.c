@@ -10,8 +10,8 @@ FILE *pfx, *pfy, *pfz;
 
 pfx = fopen("sx.dat", "w"); pfy = fopen("sy.dat", "w"); pfz = fopen("sz.dat", "w");
 //calculate spin matrix elements between all occupied (hole) orbitals
-	for(i =0; i< ist.total_homo;i++){
-		for (j = 0; j< ist.total_homo;j++){
+	for(i =0; i< ist.n_holes;i++){
+		for (j = 0; j< ist.n_holes;j++){
 			
 			for (jz = 0; jz < ist.nz; jz++) {
         		for (jy = 0; jy < ist.ny; jy++) {
@@ -22,36 +22,36 @@ pfx = fopen("sx.dat", "w"); pfy = fopen("sy.dat", "w"); pfz = fopen("sz.dat", "w
 						
 					//Spin x part
 						//<j|r,dn> * <r,up|i>
-						sx[i*ist.total_homo+j].re += psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgridup].re
+						sx[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgridup].re
 												  + psi[j*ist.nspinngrid+jgriddn].im * psi[i*ist.nspinngrid+jgridup].im;
-						sx[i*ist.total_homo+j].im += psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgridup].im
+						sx[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgridup].im
 												  - psi[j*ist.nspinngrid+jgriddn].im * psi[i*ist.nspinngrid+jgridup].re;
 						//<j|r,up> * <r,dn|i>
-						sx[i*ist.total_homo+j].re += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgriddn].re
+						sx[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgriddn].re
 												  + psi[j*ist.nspinngrid+jgridup].im * psi[i*ist.nspinngrid+jgriddn].im;
-						sx[i*ist.total_homo+j].im += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgriddn].im
+						sx[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgriddn].im
 												  - psi[j*ist.nspinngrid+jgridup].im * psi[i*ist.nspinngrid+jgriddn].re;
 					//Spin y part
 						//i*<j|r,dn> * <r,up|i>
-						sy[i*ist.total_homo+j].im += psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgridup].re
+						sy[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgridup].re
 												  + psi[j*ist.nspinngrid+jgriddn].im * psi[i*ist.nspinngrid+jgridup].im;
-						sy[i*ist.total_homo+j].re -= psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgridup].im
+						sy[i*ist.n_holes+j].re -= psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgridup].im
 												  - psi[j*ist.nspinngrid+jgriddn].im * psi[i*ist.nspinngrid+jgridup].re;
 						//-i*<j|r,up> * <r,dn|i>
-						sy[i*ist.total_homo+j].im -= psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgriddn].re
+						sy[i*ist.n_holes+j].im -= psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgriddn].re
 												  + psi[j*ist.nspinngrid+jgridup].im * psi[i*ist.nspinngrid+jgriddn].im;
-						sy[i*ist.total_homo+j].re += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgriddn].im
+						sy[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgriddn].im
 												  - psi[j*ist.nspinngrid+jgridup].im * psi[i*ist.nspinngrid+jgriddn].re;
 					//Spin z part
 						//<j|r,up> * <r,up|i>
-						sz[i*ist.total_homo+j].re += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgridup].re
+						sz[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgridup].re
 												  + psi[j*ist.nspinngrid+jgridup].im * psi[i*ist.nspinngrid+jgridup].im;
-						sz[i*ist.total_homo+j].im += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgridup].im
+						sz[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgridup].im
 												  - psi[j*ist.nspinngrid+jgridup].im * psi[i*ist.nspinngrid+jgridup].re;
 						//<j|r,dn> * <r,dn|i>
-						sz[i*ist.total_homo+j].re -= psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgriddn].re
+						sz[i*ist.n_holes+j].re -= psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgriddn].re
 												  + psi[j*ist.nspinngrid+jgriddn].im * psi[i*ist.nspinngrid+jgriddn].im;
-						sz[i*ist.total_homo+j].im -= psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgriddn].im
+						sz[i*ist.n_holes+j].im -= psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgriddn].im
 												  - psi[j*ist.nspinngrid+jgriddn].im * psi[i*ist.nspinngrid+jgriddn].re;
 				
 
@@ -59,25 +59,25 @@ pfx = fopen("sx.dat", "w"); pfy = fopen("sy.dat", "w"); pfz = fopen("sz.dat", "w
 				}
 			}
 			//multiply all by (1/2)*dV and complex conjugate
-			sx[i*ist.total_homo+j].re*=-0.5*par.dv;
-			sx[i*ist.total_homo+j].im*=0.5*par.dv;
-			sy[i*ist.total_homo+j].re*=-0.5*par.dv;
-			sy[i*ist.total_homo+j].im*=0.5*par.dv;
-			sz[i*ist.total_homo+j].re*=-0.5*par.dv;
-			sz[i*ist.total_homo+j].im*=0.5*par.dv;
+			sx[i*ist.n_holes+j].re*=-0.5*par.dv;
+			sx[i*ist.n_holes+j].im*=0.5*par.dv;
+			sy[i*ist.n_holes+j].re*=-0.5*par.dv;
+			sy[i*ist.n_holes+j].im*=0.5*par.dv;
+			sz[i*ist.n_holes+j].re*=-0.5*par.dv;
+			sz[i*ist.n_holes+j].im*=0.5*par.dv;
 
-			fprintf (pfx,"%ld %ld %g %g\n",i,j,sx[i*ist.total_homo+j].re, sx[i*ist.total_homo+j].im);
-      		fprintf (pfy,"%ld %ld %g %g\n",i,j,sy[i*ist.total_homo+j].re, sy[i*ist.total_homo+j].im);
-      		fprintf (pfz,"%ld %ld %g %g\n",i,j,sz[i*ist.total_homo+j].re, sz[i*ist.total_homo+j].im);
+			fprintf (pfx,"%ld %ld %g %g\n",i,j,sx[i*ist.n_holes+j].re, sx[i*ist.n_holes+j].im);
+      		fprintf (pfy,"%ld %ld %g %g\n",i,j,sy[i*ist.n_holes+j].re, sy[i*ist.n_holes+j].im);
+      		fprintf (pfz,"%ld %ld %g %g\n",i,j,sz[i*ist.n_holes+j].re, sz[i*ist.n_holes+j].im);
 
 		}
 	}
 //calculate spin matrix elements between all unoccupied (electron) orbitals
-	for (a = ist.lumo_idx; a < ist.lumo_idx+ist.total_lumo; a++) 
+	for (a = ist.lumo_idx; a < ist.lumo_idx+ist.n_elecs; a++) 
 	{
-		for (b = ist.lumo_idx; b < ist.lumo_idx+ist.total_lumo; b++) 
+		for (b = ist.lumo_idx; b < ist.lumo_idx+ist.n_elecs; b++) 
 		{
-			index= sqr(ist.total_homo)+(a-ist.lumo_idx)*ist.total_lumo+(b-ist.lumo_idx);
+			index= sqr(ist.n_holes)+(a-ist.lumo_idx)*ist.n_elecs+(b-ist.lumo_idx);
 			for (jz = 0; jz < ist.nz; jz++) {
         		for (jy = 0; jy < ist.ny; jy++) {
           			jyz = ist.nx * (ist.ny * jz + jy);
@@ -161,7 +161,7 @@ void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, 
 	FILE* pfx = fopen("lx.dat", "w"); FILE* pfy = fopen("ly.dat", "w"); FILE* pfz = fopen("lz.dat", "w"); FILE* pfsqr = fopen("lsqr.dat", "w");
 	FILE* pfls = fopen("ls.dat", "w");
 	printf("Hole States:\n");
-	for (i = 0;i<ist.total_homo;i++){
+	for (i = 0;i<ist.n_holes;i++){
 		
 		//spin up part
 		lOpp(&Lxpsi[0],&Lypsi[0],&Lzpsi[0], &psi[i*ist.nspinngrid], 
@@ -199,33 +199,33 @@ void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, 
 
 		
 
-		for (j = 0;j<ist.total_homo;j++){
-			lx[i*ist.total_homo+j].re=lx[i*ist.total_homo+j].im=0.0;
-			ly[i*ist.total_homo+j].re=ly[i*ist.total_homo+j].im=0.0;
-			lz[i*ist.total_homo+j].re=lz[i*ist.total_homo+j].im=0.0;
-			lsqr[i*ist.total_homo+j].re = lsqr[i*ist.total_homo+j].im=0.0;
+		for (j = 0;j<ist.n_holes;j++){
+			lx[i*ist.n_holes+j].re=lx[i*ist.n_holes+j].im=0.0;
+			ly[i*ist.n_holes+j].re=ly[i*ist.n_holes+j].im=0.0;
+			lz[i*ist.n_holes+j].re=lz[i*ist.n_holes+j].im=0.0;
+			lsqr[i*ist.n_holes+j].re = lsqr[i*ist.n_holes+j].im=0.0;
 
 
 			for(jgrid=0;jgrid<ist.nspinngrid;jgrid++){
-				lx[i*ist.total_homo+j].re -= Lxpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lxpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // -<j|L_x|i>^*
-				lx[i*ist.total_homo+j].im += Lxpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lxpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
+				lx[i*ist.n_holes+j].re -= Lxpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lxpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // -<j|L_x|i>^*
+				lx[i*ist.n_holes+j].im += Lxpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lxpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
 
 
-				ly[i*ist.total_homo+j].re -= Lypsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lypsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // -<j|L_y|i>^*
-				ly[i*ist.total_homo+j].im += Lypsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lypsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
+				ly[i*ist.n_holes+j].re -= Lypsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lypsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // -<j|L_y|i>^*
+				ly[i*ist.n_holes+j].im += Lypsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lypsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
 
-				lz[i*ist.total_homo+j].re -= Lzpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lzpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // -<j|L_z|i>^*
-				lz[i*ist.total_homo+j].im += Lzpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lzpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
+				lz[i*ist.n_holes+j].re -= Lzpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lzpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // -<j|L_z|i>^*
+				lz[i*ist.n_holes+j].im += Lzpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lzpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
 
 
-				lsqr[i*ist.total_homo+j].re += Lxsqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lxsqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // <j|L_x^2|i>^*
-				lsqr[i*ist.total_homo+j].im -= Lxsqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lxsqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
+				lsqr[i*ist.n_holes+j].re += Lxsqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lxsqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // <j|L_x^2|i>^*
+				lsqr[i*ist.n_holes+j].im -= Lxsqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lxsqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
 
-				lsqr[i*ist.total_homo+j].re += Lysqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lysqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // <j|L_y^2|i>^*
-				lsqr[i*ist.total_homo+j].im -= Lysqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lysqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
+				lsqr[i*ist.n_holes+j].re += Lysqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lysqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // <j|L_y^2|i>^*
+				lsqr[i*ist.n_holes+j].im -= Lysqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lysqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
 
-				lsqr[i*ist.total_homo+j].re += Lzsqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lzsqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // <j|L_z^2|i>^*
-				lsqr[i*ist.total_homo+j].im -= Lzsqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lzsqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
+				lsqr[i*ist.n_holes+j].re += Lzsqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lzsqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // <j|L_z^2|i>^*
+				lsqr[i*ist.n_holes+j].im -= Lzsqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lzsqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
 
 
 
@@ -278,68 +278,68 @@ void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, 
 
 				*/
 
-				ls[i*ist.total_homo+j].re += psi[j*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].re
+				ls[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].re
 										  + psi[j*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].im;
-				ls[i*ist.total_homo+j].im += psi[j*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].im
+				ls[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].im
 										  - psi[j*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].re;
 				//<j|r,up> * <r,dn|Lxi>
-				ls[i*ist.total_homo+j].re += psi[j*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].re
+				ls[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].re
 										  + psi[j*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].im;
-				ls[i*ist.total_homo+j].im += psi[j*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].im
+				ls[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].im
 										  - psi[j*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].re;
 
 				//syly
 				//i*<j|r,dn> * <r,up|Lyi>
-				ls[i*ist.total_homo+j].im += psi[j*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].re
+				ls[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].re
 							  			  + psi[j*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].im;
-				ls[i*ist.total_homo+j].re -= psi[j*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].im
+				ls[i*ist.n_holes+j].re -= psi[j*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].im
 							  			  - psi[j*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].re;
 				//-i*<j|r,up> * <r,dn|Lyi>
-				ls[i*ist.total_homo+j].im -= psi[j*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].re
+				ls[i*ist.n_holes+j].im -= psi[j*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].re
 							  			  + psi[j*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].im;
-				ls[i*ist.total_homo+j].re += psi[j*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].im
+				ls[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].im
 							  			  - psi[j*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].re;
 
   			  	//szlz
   			  	//<j|r,up> * <r,up|Lzi>
-				ls[i*ist.total_homo+j].re += psi[j*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].re
+				ls[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].re
 										  + psi[j*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].im;
-				ls[i*ist.total_homo+j].im += psi[j*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].im
+				ls[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].im
 										  - psi[j*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].re;
 				//<j|r,dn> * <r,dn|Lzi>
-				ls[i*ist.total_homo+j].re -= psi[j*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].re
+				ls[i*ist.n_holes+j].re -= psi[j*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].re
 										  + psi[j*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].im;
-				ls[i*ist.total_homo+j].im -= psi[j*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].im
+				ls[i*ist.n_holes+j].im -= psi[j*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].im
 										  - psi[j*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].re;
 			  
 
 			}
 
 			//normalize
-			lx[i*ist.total_homo+j].re*=par.dv; ly[i*ist.total_homo+j].re*=par.dv; lz[i*ist.total_homo+j].re*=par.dv; lsqr[i*ist.total_homo+j].re*=par.dv; 
-			lx[i*ist.total_homo+j].im*=par.dv; ly[i*ist.total_homo+j].im*=par.dv; lz[i*ist.total_homo+j].im*=par.dv; lsqr[i*ist.total_homo+j].im*=par.dv;
+			lx[i*ist.n_holes+j].re*=par.dv; ly[i*ist.n_holes+j].re*=par.dv; lz[i*ist.n_holes+j].re*=par.dv; lsqr[i*ist.n_holes+j].re*=par.dv; 
+			lx[i*ist.n_holes+j].im*=par.dv; ly[i*ist.n_holes+j].im*=par.dv; lz[i*ist.n_holes+j].im*=par.dv; lsqr[i*ist.n_holes+j].im*=par.dv;
 			
 			//normalize and complex conjugate
-			ls[i*ist.total_homo+j].re*=0.5*par.dv; ls[i*ist.total_homo+j].im*= -0.5*par.dv;
+			ls[i*ist.n_holes+j].re*=0.5*par.dv; ls[i*ist.n_holes+j].im*= -0.5*par.dv;
 
 			fprintf(pfx,"%ld\t%ld\t%lf\t%lf\n",i,j,
-				lx[i*ist.total_homo+j].re,lx[i*ist.total_homo+j].im);
+				lx[i*ist.n_holes+j].re,lx[i*ist.n_holes+j].im);
 			fprintf(pfy,"%ld\t%ld\t%lf\t%lf\n",i,j,	
-				ly[i*ist.total_homo+j].re,ly[i*ist.total_homo+j].im);
+				ly[i*ist.n_holes+j].re,ly[i*ist.n_holes+j].im);
 			fprintf(pfz,"%ld\t%ld\t%lf\t%lf\n",i,j,
-				lz[i*ist.total_homo+j].re,lz[i*ist.total_homo+j].im);
+				lz[i*ist.n_holes+j].re,lz[i*ist.n_holes+j].im);
 			fprintf(pfsqr,"%ld\t%ld\t%lf\t%lf\n",i,j,
-				lsqr[i*ist.total_homo+j].re,lsqr[i*ist.total_homo+j].im);
+				lsqr[i*ist.n_holes+j].re,lsqr[i*ist.n_holes+j].im);
 			fprintf(pfls,"%ld\t%ld\t%lf\t%lf\n",i,j,
-				ls[i*ist.total_homo+j].re,ls[i*ist.total_homo+j].im);
+				ls[i*ist.n_holes+j].re,ls[i*ist.n_holes+j].im);
 			if(i==j){
-				printf("%ld\t%ld\t%lf\t%lf\t%lf\t%lf\t%lf\n",i,j,lx[i*ist.total_homo+j].re,ly[i*ist.total_homo+j].re,lz[i*ist.total_homo+j].re, lsqr[i*ist.total_homo+j].re, ls[i*ist.total_homo+j].re);
+				printf("%ld\t%ld\t%lf\t%lf\t%lf\t%lf\t%lf\n",i,j,lx[i*ist.n_holes+j].re,ly[i*ist.n_holes+j].re,lz[i*ist.n_holes+j].re, lsqr[i*ist.n_holes+j].re, ls[i*ist.n_holes+j].re);
 			}
 		}
 	}
 
 	printf("Electron States:\n");
-	for (a = ist.lumo_idx;a<ist.total_lumo+ist.lumo_idx;a++){
+	for (a = ist.lumo_idx;a<ist.n_elecs+ist.lumo_idx;a++){
 		//spin up part
 		lOpp(&Lxpsi[0],&Lypsi[0],&Lzpsi[0], &psi[a*ist.nspinngrid], 
 			vx,vy,vz,planfw,planbw, fftwpsi,ist, par);
@@ -375,8 +375,8 @@ void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, 
 			vx,vy,vz,planfw,planbw, fftwpsi,ist, par);
 		
 
-		for (b = ist.lumo_idx;b<ist.total_lumo+ist.lumo_idx;b++){
-			index= sqr(ist.total_homo)+(a-ist.lumo_idx)*ist.total_lumo+(b-ist.lumo_idx);
+		for (b = ist.lumo_idx;b<ist.n_elecs+ist.lumo_idx;b++){
+			index= sqr(ist.n_holes)+(a-ist.lumo_idx)*ist.n_elecs+(b-ist.lumo_idx);
 
 			lx[index].re=lx[index].im=0.0;
 			ly[index].re=ly[index].im=0.0;

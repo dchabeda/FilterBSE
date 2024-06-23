@@ -48,7 +48,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
       
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
-      (*eval_hole_idxs)[cntr] = i;
+      (*eval_elec_idxs)[cntr] = i;
       cntr++;
     }
   }

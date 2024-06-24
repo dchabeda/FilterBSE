@@ -165,7 +165,7 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     }
     
     for (j = 0; j < ist->natoms; j++){
-        fscanf(pf, "%lg %lg %lg", (*R)[j]->x, (*R)[j]->y, (*R)[j]->z);
+        fscanf(pf, "%lg %lg %lg", &((*R)[j].x), &((*R)[j].y), &((*R)[j].z));
     }
 
     // Read grid

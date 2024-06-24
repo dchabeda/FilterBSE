@@ -112,7 +112,9 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     }
     ist->homo_idx = ist->homo_idx - (old_n_holes - ist->n_holes);
 
-  } else if ((-1 != ist->max_elec_states) && (ist->n_elecs > ist->max_elec_states) ){
+  }
+  
+  if ((-1 != ist->max_elec_states) && (ist->n_elecs > ist->max_elec_states) ){
     
     ist->n_elecs = ist->max_elec_states;
     ist->lumo_idx = ist->homo_idx + 1;

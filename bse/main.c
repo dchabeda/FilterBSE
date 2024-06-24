@@ -30,7 +30,7 @@ int main(int argc, char *argv[]){
     fftw_plan_loc *planfw, *planbw; fftw_complex *fftwpsi;
     long fft_flags=0;
     // double arrays
-    double *psitot = NULL, *psihomo = NULL, *psilumo = NULL;;
+    double *psitot = NULL, *psi_hole = NULL, *psi_elec = NULL;;
     double *eig_vals = NULL, *sigma_E = NULL;
     double *h0mat;
     double *gridx = NULL, *gridy = NULL, *gridz = NULL;
@@ -104,26 +104,23 @@ int main(int argc, char *argv[]){
     // We allocate an entire block of that size for both elecs and holes 
     // because we will reallocate after the get_qp_basis_indices function.
     if((ist.eval_hole_idxs = (long*) malloc(ist.mn_states_tot * sizeof(ist.eval_hole_idxs[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for ist.eval_hole_idxs in main.c returns NULL\n");
+        fprintf(stderr, "ERROR: allocating memory for ist.eval_hole_idxs in main.c\n");
         exit(EXIT_FAILURE);
     }
     if((ist.eval_elec_idxs = (long*) malloc(ist.mn_states_tot * sizeof(ist.eval_elec_idxs[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for ist.eval_elec_idxs in main.c returns NULL\n");
+        fprintf(stderr, "ERROR: allocating memory for ist.eval_elec_idxs in main.c\n");
         exit(EXIT_FAILURE);
     }
+    
+    // ******
+    // ******
     get_qp_basis_indices(eig_vals, sigma_E, &ist.eval_hole_idxs, &ist.eval_elec_idxs, &ist, &par, &flag);
+    // ******
+    // ******
+    
     // Reallocate the eig_vals and sigma_E arrays to only contain the n_qp states
     eig_vals = realloc(eig_vals, ist.n_qp * sizeof(eig_vals[0]));
     sigma_E = realloc(sigma_E, ist.n_qp * sizeof(sigma_E[0]));
-    
-    printf("\neval_hole_idxs:\n");
-    for (i = 0; i < ist.n_holes; i++){
-        printf("%ld\n", ist.eval_hole_idxs[i]);
-    }
-    printf("\neval_elec_idxs:\n");
-    for (i = 0; i < ist.n_elecs; i++){
-        printf("%ld\n", ist.eval_elec_idxs[i]);
-    }
     
     // Resize the index arrays to tightly contain the indices of eigenstates in VB/CB
     // The conditional checks whether n_holes saturated the memory block (if so, no need to resize)
@@ -134,17 +131,23 @@ int main(int argc, char *argv[]){
     if (ist.n_elecs != ist.max_elec_states){
         ist.eval_elec_idxs = realloc(ist.eval_elec_idxs, ist.n_elecs * sizeof(long));
     }
-    printf("\neval_hole_idxs:\n");
-    for (i = 0; i < ist.n_holes; i++){
-        printf("%ld\n", ist.eval_hole_idxs[i]);
-    }
-    printf("\neval_elec_idxs:\n");
-    for (i = 0; i < ist.n_elecs; i++){
-        printf("%ld\n", ist.eval_elec_idxs[i]);
-    }
+    
 
     // Allocate memory for the electron and hole wavefunctions
-    // set_qp_basis()
+    if ((psi_hole = (double *) malloc( ist.complex_idx * ist.nspinngrid * ist.n_holes * sizeof(psi_hole[0]))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for psi_hole in main.c\n");
+        exit(EXIT_FAILURE);
+    }
+    if ((psi_elec = (double *) malloc( ist.complex_idx * ist.nspinngrid * ist.n_elecs * sizeof(psi_elec[0]))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for psi_elec in main.c\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // ******
+    // ******
+    get_qp_basis(psitot, psi_hole, psi_elec, &ist, &par, &flag);
+    // ******
+    // ******
 
     // /*************************************************************************/
     // fftwpsi = fftw_malloc(sizeof (fftw_complex )*ist.ngrid*ist.nthreads);
@@ -253,9 +256,9 @@ int main(int argc, char *argv[]){
     //     exit(EXIT_FAILURE);
     // }
     // printf("allocating memory for %ld hole and %ld electron states\n",(ist.n_holes),(ist.n_elecs));
-    // psihomo = calloc((ist.n_holes) * ist.nspinngrid, sizeof(zomplex));
-    // psilumo = calloc((ist.n_elecs) * ist.nspinngrid, sizeof(zomplex));
-    // if (!psihomo || !psilumo) {printf("Failed to allocate memory for psihomo/psilumo\n");exit(EXIT_FAILURE);}
+    // psi_hole = calloc((ist.n_holes) * ist.nspinngrid, sizeof(zomplex));
+    // psi_elec = calloc((ist.n_elecs) * ist.nspinngrid, sizeof(zomplex));
+    // if (!psi_hole || !psi_elec) {printf("Failed to allocate memory for psi_hole/psi_elec\n");exit(EXIT_FAILURE);}
 
     // long foffset = ist.nspinngrid * sizeof(zomplex);  // for random access 
     // char fname[80] = {0};
@@ -272,7 +275,7 @@ int main(int argc, char *argv[]){
     //         eig_vals[nstates] = evalindex[counter].evalue;
     //         sigma_E[nstates] = evalindex[counter].sigma_E_cut;
     //         for (j = 0; j < ist.nspinngrid; j++) {
-    //             psihomo[thomo * ist.nspinngrid + j] = psidummy[j];
+    //             psi_hole[thomo * ist.nspinngrid + j] = psidummy[j];
     //         }
     //         nstates++;
     //         thomo++;
@@ -303,7 +306,7 @@ int main(int argc, char *argv[]){
 	// 	    eig_vals[nstates] = evalindex[counter].evalue;
     //         sigma_E[nstates] = evalindex[counter].sigma_E_cut;
     //         for (j = 0; j < ist.nspinngrid; j++) {      
-    //             psilumo[tlumo * ist.nspinngrid + j] = psidummy[j];
+    //             psi_elec[tlumo * ist.nspinngrid + j] = psidummy[j];
     //         }
     //     	nstates++;
     //     	tlumo++;
@@ -322,15 +325,15 @@ int main(int argc, char *argv[]){
 
     // for (i = thomo - 1, a = 0; i >= 0 && a < thomo; i--, a++) {
     //     for (j = 0; j < ist.nspinngrid; j++) {
-    //         psi[a * ist.nspinngrid + j].re = psihomo[i * ist.nspinngrid + j].re;
-    //         psi[a * ist.nspinngrid + j].im = psihomo[i * ist.nspinngrid + j].im;
+    //         psi[a * ist.nspinngrid + j].re = psi_hole[i * ist.nspinngrid + j].re;
+    //         psi[a * ist.nspinngrid + j].im = psi_hole[i * ist.nspinngrid + j].im;
     //     }
     // }
 
     // for (i = thomo, a = 0; i < tlumo + thomo && a < tlumo; i++, a++) {
     //     for (j = 0; j < ist.nspinngrid; j++) {
-    //         psi[i * ist.nspinngrid + j].re = psilumo[a * ist.nspinngrid + j].re;
-    //         psi[i * ist.nspinngrid + j].im = psilumo[a * ist.nspinngrid + j].im;
+    //         psi[i * ist.nspinngrid + j].re = psi_elec[a * ist.nspinngrid + j].re;
+    //         psi[i * ist.nspinngrid + j].im = psi_elec[a * ist.nspinngrid + j].im;
     //     }
     // }
 
@@ -358,8 +361,8 @@ int main(int argc, char *argv[]){
     
     
     // free(evalindex); printf("freeing evalindex\n");fflush(0);
-    // free(psihomo); printf("freeing psihomo\n");fflush(0);
-    // free(psilumo); printf("freeing psidlumo\n");fflush(0);
+    // free(psi_hole); printf("freeing psi_hole\n");fflush(0);
+    // free(psi_elec); printf("freeing psidlumo\n");fflush(0);
     
     // printf("freeing Things");fflush(0);
 

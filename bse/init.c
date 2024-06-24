@@ -111,7 +111,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
       printf("\tFewer VB basis states would reach the desired result\n");
     }
     ist->homo_idx = ist->homo_idx - (old_n_holes - ist->n_holes);
-    
+
   } else if ((-1 != ist->max_elec_states) && (ist->n_elecs > ist->max_elec_states) ){
     
     ist->n_elecs = ist->max_elec_states;
@@ -123,7 +123,8 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     for (i = ist->n_holes + 1; i < ist->n_holes + ist->n_elecs; i++){
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
-      (*eval_elec_idxs)[(long) cntr - ist->n_holes] = (*eval_elec_idxs)[i];
+      (*eval_elec_idxs)[(long) cntr - ist->n_holes] = (*eval_elec_idxs)[i - ist->n_holes];
+      // we have to subtract by n_holes because we start the iterator from n_holes + 1
       cntr++;
     }
  

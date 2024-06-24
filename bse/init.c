@@ -85,7 +85,6 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
   if ((-1 != ist->max_hole_states) && (ist->n_holes > ist->max_hole_states)){
     
     ist->n_holes = ist->max_hole_states;
-    ist->homo_idx = ist->homo_idx - (old_n_holes - ist->n_holes);
     printf("\n\tConstraining hole basis states to maxHoleStates\n\t  new ist->n_holes = %ld\n", ist->n_holes);
     
     // Reorder eig_vals and sigma_E to only contain eigenstates
@@ -111,7 +110,8 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
       printf("\n\tConstrained energy span of holes %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
       printf("\tFewer VB basis states would reach the desired result\n");
     }
-
+    ist->homo_idx = ist->homo_idx - (old_n_holes - ist->n_holes);
+    
   } else if ((-1 != ist->max_elec_states) && (ist->n_elecs > ist->max_elec_states) ){
     
     ist->n_elecs = ist->max_elec_states;

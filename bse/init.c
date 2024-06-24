@@ -113,7 +113,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     ist->homo_idx = ist->homo_idx - (old_n_holes - ist->n_holes);
 
   }
-  
+  // If the user does not specify max_elec or max_hole_states, then use all the quasiparticle states for BSE
   if ((-1 != ist->max_elec_states) && (ist->n_elecs > ist->max_elec_states) ){
     
     ist->n_elecs = ist->max_elec_states;
@@ -138,13 +138,16 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     if (deltaE < par->delta_E_elec){
       printf("\tConstrained energy span of elecs, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
       printf("\tIncrease size of CB basis states to reach desired result\n");
-    } else {
+    } 
+    else {
       printf("\tConstrained energy span of elecs %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
       printf("\tFewer CB basis states would reach the desired result\n");
     }
 
-  } else {
-    printf("\n\tAll filtered quasiparticle states will be used in exciton basis\n");
+  } 
+  // If the user does not specify max_elec or max_hole_states, then use all the quasiparticle states for BSE
+  if ((-1 == ist->max_elec_states) && (-1 == ist->max_elec_states)) {
+    printf("\n\tAll filtered quasiparticle states will be used for exciton basis\n");
   }
 
   ist->n_qp = ist->n_holes + ist->n_elecs;

@@ -120,13 +120,16 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     
     // Reorder eig_vals and sigma_E to only contain eigenstates
     cntr = ist->homo_idx + 1;
-    for (i = ist->n_holes + 1; i < ist->n_holes + ist->n_elecs; i++){
+    for (i = ist->n_holes; i < ist->n_holes + ist->n_elecs; i++){
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
-      (*eval_elec_idxs)[(long) cntr - ist->n_holes] = (*eval_elec_idxs)[i - ist->n_holes];
+      // (*eval_elec_idxs)[(long) cntr - ist->n_holes] = (*eval_elec_idxs)[i - ist->n_holes];
       // we have to subtract by n_holes because we start the iterator from n_holes + 1
       cntr++;
     }
+    // for (i = 0; i < ist->max_elec_states; i++){
+    //   (*eval_elec_idxs)[(long) cntr - ist->n_holes] = (*eval_elec_idxs)[i];
+    // }
  
     // Determine the new energy span
     deltaE = eig_vals[ist->n_elecs + ist->lumo_idx - 1] - eig_vals[ist->lumo_idx];

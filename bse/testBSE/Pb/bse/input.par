@@ -1,5 +1,5 @@
-maxHoleStates = 8
-maxElecStates =	8
+maxHoleStates = 2
+maxElecStates =	3
 sigmaECut = 0.0001
 epsX = 6.1
 epsY = 6.1

@@ -1,0 +1,23 @@
+******************************************************************************
+
+RUNNING PROGRAM: BETHE-SALPETHER
+This calculation began at: Sun Jun 23 19:19:19 2024
+
+******************************************************************************
+
+
+******************************************************************************
+
+1.	INITIALIZING JOB
+
+******************************************************************************
+
+Reading filter output from output.dat:
+
+	Output tag = 1186631626
+	Check that this output tag matches your filter run.dat!
+
+	index_st from filter...
+	par_st from filter...
+	flag_st from filter...
+	conf from filter...

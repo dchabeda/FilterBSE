@@ -1,0 +1,15 @@
+#PBS -N test_BSE_1x1x1_CsPbI3
+#PBS -r n -l nodes=1:ppn=16:turtle -q batch
+#PBS -m abe
+#PBS -M daniel_chabeda@berkeley.edu
+
+hostname
+
+source /opt/intel/oneapi/setvars.sh
+export I_MPI_FABRICS=shm
+
+cwd=$PBS_O_WORKDIR
+
+bash $cwd/run_filter.sh
+bash $cwd/run_bse.sh
+

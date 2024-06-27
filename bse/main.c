@@ -143,9 +143,18 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
+    printf("\nTHE HOLES:\n");
+    for (i = 0; i < ist.n_holes; i++){
+        printf("%ld\n", ist.eval_hole_idxs[i]);
+    }
+    printf("\nTHE ELECS:\n");
+    for (i = 0; i < ist.n_elecs; i++){
+        printf("%ld\n", ist.eval_elec_idxs[i]);
+    }
+    
     // ******
     // ******
-    get_qp_basis(psitot, psi_hole, psi_elec, &ist, &par, &flag);
+    // get_qp_basis(psitot, psi_hole, psi_elec, &ist, &par, &flag);
     // ******
     // ******
 

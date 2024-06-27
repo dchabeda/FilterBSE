@@ -111,13 +111,20 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
       printf("\tFewer VB basis states would reach the desired result\n");
     }
     ist->homo_idx = ist->homo_idx - (old_n_holes - ist->n_holes);
-
+    ist->lumo_idx = ist->homo_idx + 1; 
+    // set the lumo_idx here to handle the case where the next if statement does not evaluate as true
+    // in that case, the lumo_idx will be left as the one from the old_n_holes
   }
   // If the user does not specify max_elec or max_hole_states, then use all the quasiparticle states for BSE
   if ((-1 != ist->max_elec_states) && (ist->n_elecs > ist->max_elec_states) ){
     
     ist->n_elecs = ist->max_elec_states;
-    ist->lumo_idx = ist->homo_idx + 1;
+    // if (1 != ((-1 != ist->max_hole_states) && (ist->n_holes > ist->max_hole_states))){
+    //   // Put this statement inside the conditional because if this conditional evaluates to true,
+    //   // then lumo_idx was already set in the previous if statement. The paradigm
+    //   // is to never reset variables more than once. It is a recipe for disastrous debugging.
+    //   ist->lumo_idx = ist->homo_idx + 1;
+    // } I don't think this block is necessary at all.
     printf("\tConstraining elec basis states to maxElecStates\n\t  new ist->n_elecs = %ld\n", ist->n_elecs);
     
     // Reorder eig_vals and sigma_E to only contain eigenstates

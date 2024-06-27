@@ -536,7 +536,7 @@ int main(int argc, char *argv[]){
       }
       fclose(pf);
 
-      printf("index of homo, homo_idx = %ld; index of lumo, nlumo = %ld\n", ist.homo_idx, ist.lumo_idx); fflush(0);
+      printf("index of homo, homo_idx = %ld; index of lumo, lumo_idx = %ld\n", ist.homo_idx, ist.lumo_idx); fflush(0);
       // Set the total number of electron and hole states in order to calculate the potential overlap integrals
       ist.total_homo = ist.homo_idx + 1; ist.total_lumo = ist.mn_states_tot - ist.total_homo;
       printf("total_homo = %ld total_lumo = %ld\n", ist.total_homo, ist.total_lumo); fflush(0);

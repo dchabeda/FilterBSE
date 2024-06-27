@@ -67,7 +67,7 @@ int main(int argc, char *argv[]){
 
     /*************************************************************************/
     /*** Read output from filter output.par ***/
-    printf("\nReading filter output from output.dat:\n");
+    printf("\nReading filter output from output.dat:\n"); fflush(stdout);
     // ******
     // ******
     read_filter_output("output.dat", &psitot, &eig_vals, &sigma_E, &R, &grid, &gridx, &gridy, &gridz, &ist, &par, &flag);
@@ -105,7 +105,7 @@ int main(int argc, char *argv[]){
 
     /*************************************************************************/
     /*** Read initial setup from input.par ***/
-    printf("\nReading BSE job specifications from input.par:\n");
+    printf("\nReading BSE job specifications from input.par:\n"); fflush(stdout);
     // ******
     // ******
     read_input(&flag, &grid, &ist, &par, &parallel);
@@ -115,7 +115,7 @@ int main(int argc, char *argv[]){
 
     /*************************************************************************/
     /*** Determine the configuration of the quasiparticle basis ***/
-    printf("\nSetting quasiparticle basis indices:\n");
+    printf("\nSetting quasiparticle basis indices:\n"); fflush(stdout);
     
     // Allocate memory for the lists of the indices of eigenstates
     // The maximum possible number of hole states is mn_states_tot from filter.
@@ -199,58 +199,58 @@ int main(int argc, char *argv[]){
 
     // print cube files for debug
 
-    rho = malloc(ist.ngrid * sizeof(rho[0]));
-    char str[100];
+    // rho = malloc(ist.ngrid * sizeof(rho[0]));
+    // char str[100];
 
-    for (i = 0; i < 2; i++){
-        //Spin Up Wavefunction
-        sprintf(str,"hole-%ld-Up.cube",ist.eval_hole_idxs[i]);
-        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-        jgrid_real = ist.complex_idx * jgrid;
-        jgrid_imag = ist.complex_idx * jgrid + 1;
+    // for (i = 0; i < 2; i++){
+    //     //Spin Up Wavefunction
+    //     sprintf(str,"hole-%ld-Up.cube",ist.eval_hole_idxs[i]);
+    //     for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+    //     jgrid_real = ist.complex_idx * jgrid;
+    //     jgrid_imag = ist.complex_idx * jgrid + 1;
         
-        rho[jgrid] = sqr(psi_hole[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
-        if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
-        }
-        write_cube_file(rho, &grid, str);
-        //Spin Down Wavefunction
-        if (1 == flag.useSpinors){    
-        sprintf(str,"hole-%ld-Dn.cube", ist.eval_hole_idxs[i]);
-        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-            jgrid_real = ist.complex_idx * jgrid;
-            jgrid_imag = ist.complex_idx * jgrid + 1;
+    //     rho[jgrid] = sqr(psi_hole[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
+    //     if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
+    //     }
+    //     write_cube_file(rho, &grid, str);
+    //     //Spin Down Wavefunction
+    //     if (1 == flag.useSpinors){    
+    //     sprintf(str,"hole-%ld-Dn.cube", ist.eval_hole_idxs[i]);
+    //     for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+    //         jgrid_real = ist.complex_idx * jgrid;
+    //         jgrid_imag = ist.complex_idx * jgrid + 1;
             
-            rho[jgrid] = sqr(psitot[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
-                + sqr(psitot[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);    
-        }
-        write_cube_file(rho, &grid, str);
-        } 
-    }
+    //         rho[jgrid] = sqr(psitot[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
+    //             + sqr(psitot[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);    
+    //     }
+    //     write_cube_file(rho, &grid, str);
+    //     } 
+    // }
 
-    for (i = 0;  i < 2; i++){
-        sprintf(str,"elec-%ld-Up.cube", ist.eval_elec_idxs[i]);
-        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-        jgrid_real = ist.complex_idx * jgrid;
-        jgrid_imag = ist.complex_idx * jgrid + 1;
+    // for (i = 0;  i < 2; i++){
+    //     sprintf(str,"elec-%ld-Up.cube", ist.eval_elec_idxs[i]);
+    //     for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+    //     jgrid_real = ist.complex_idx * jgrid;
+    //     jgrid_imag = ist.complex_idx * jgrid + 1;
         
-        rho[jgrid] = sqr(psitot[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
-        if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
-        }
-        write_cube_file(rho, &grid, str);
+    //     rho[jgrid] = sqr(psitot[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
+    //     if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
+    //     }
+    //     write_cube_file(rho, &grid, str);
 
-        if (1 == flag.useSpinors){
-        sprintf(str,"elec-%ld-Dn.cube", ist.eval_elec_idxs[i]);
-        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-            jgrid_real = ist.complex_idx * jgrid;
-            jgrid_imag = ist.complex_idx * jgrid + 1;
+    //     if (1 == flag.useSpinors){
+    //     sprintf(str,"elec-%ld-Dn.cube", ist.eval_elec_idxs[i]);
+    //     for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+    //         jgrid_real = ist.complex_idx * jgrid;
+    //         jgrid_imag = ist.complex_idx * jgrid + 1;
         
-            rho[jgrid] = sqr(psitot[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
-                + sqr(psitot[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);
-        }
-        write_cube_file(rho, &grid, str);
-        }
-    }
-    free(rho);
+    //         rho[jgrid] = sqr(psitot[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
+    //             + sqr(psitot[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);
+    //     }
+    //     write_cube_file(rho, &grid, str);
+    //     }
+    // }
+    // free(rho);
 
     /*************************************************************************/
     // 2. Compute electron-hole interaction potentials

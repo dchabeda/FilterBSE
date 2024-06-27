@@ -224,15 +224,21 @@ void get_qp_basis(double *psi, double *psitot, double *psi_hole, double *psi_ele
   // Not sure if this makes any difference in the later functions
   for (i = ist->n_holes - 1, a = 0; i >= 0 && a < ist->n_holes; i--, a++) {
       for (jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
-          psi[a * ist.nspinngrid + jgrid].re = psi_hole[i * ist.nspinngrid + jgrid].re;
-          psi[a * ist.nspinngrid + jgrid].im = psi_hole[i * ist.nspinngrid + jgrid].im;
+        jgrid_real = ist.complex_idx * jgrid;
+        jgrid_imag = ist.complex_idx * jgrid + 1;
+
+        psi[a * ist.nspinngrid + jgrid_real] = psi_hole[i * ist.nspinngrid + jgrid_real];
+        psi[a * ist.nspinngrid + jgrid_imag] = psi_hole[i * ist.nspinngrid + jgrid_imag];
       }
   }
 
   for (i = ist->n_holes, a = 0; i < ist->n_holes + ist->n_elecs && a < ist->n_elecs; i++, a++) {
       for (jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
-          psi[i * ist.nspinngrid + jgrid].re = psi_elec[a * ist.nspinngrid + jgrid].re;
-          psi[i * ist.nspinngrid + jgrid].im = psi_elec[a * ist.nspinngrid + jgrid].im;
+        jgrid_real = ist.complex_idx * jgrid;
+        jgrid_imag = ist.complex_idx * jgrid + 1;
+
+        psi[i * ist.nspinngrid + jgrid_real] = psi_elec[a * ist.nspinngrid + jgrid_real];
+        psi[i * ist.nspinngrid + jgrid_imag] = psi_elec[a * ist.nspinngrid + jgrid_imag];
       }
   }
 

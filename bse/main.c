@@ -297,11 +297,11 @@ int main(int argc, char *argv[]){
             jgrid_real = ist.complex_idx * jgrid;
             jgrid_imag = ist.complex_idx * jgrid + 1;
         
-            perUp+=sqr(psi[state*ist.nspinngrid+jgrid_real])+sqr(psi[state*ist.nspinngrid+jgrid_imag]);
-            perDn+=sqr(psi[state*ist.nspinngrid+ist.ngrid+jgrid_real])+sqr(psi[state*ist.nspinngrid+ist.ngrid+jgrid_imag]);
+            perUp += sqr(psi[state*ist.nspinngrid+jgrid_real])+sqr(psi[state*ist.nspinngrid+jgrid_imag]);
+            perDn += sqr(psi[state*ist.nspinngrid+ist.ngrid+jgrid_real])+sqr(psi[state*ist.nspinngrid+ist.ngrid+jgrid_imag]);
         }
-        fprintf(pf, " Spin up fraction: %f\n", perUp * par.dv);
-        fprintf(pf, " Spin dn fraction: %f\n", perDn * par.dv);
+        fprintf(pf, " Spin up fraction: %f\n", perUp * grid.dv);
+        fprintf(pf, " Spin dn fraction: %f\n", perDn * grid.dv);
     }
     fclose(pf);
     /*************************************************************************/

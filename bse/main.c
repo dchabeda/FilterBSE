@@ -375,8 +375,8 @@ int main(int argc, char *argv[]){
     
     
     /***********************************************************************/
-    // free(psi); 
-    free(eig_vals); free(sigma_E); 
+    free(psi); 
+    free(eig_vals); 
     free(pot_hartree); free(pot_direct); free(pot_exchange);
     // free(bsmat); free(h0mat); free(mux); free(muy); free(muz);
     // //free(mx); free(my); free(mz); free(rs);

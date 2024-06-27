@@ -206,7 +206,8 @@ void get_qp_basis(double *psi, double *psitot, double *psi_hole, double *psi_ele
   * outputs: void                                                    *
   ********************************************************************/
  
-  long i, j, a, jgrid, state_idx;
+  long i, j, a, state_idx;
+  long jgrid, jgrid_real, jgrid_imag;
   double tmp1, tmp2;
 
   // Copy the hole states

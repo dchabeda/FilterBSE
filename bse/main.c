@@ -161,6 +161,7 @@ int main(int argc, char *argv[]){
     // print cube files for debug
 
     rho = malloc(ist.ngrid * sizeof(rho[0]));
+    char str[100];
     
     for (i = 0; i < ist.n_holes; i++){
         //Spin Up Wavefunction

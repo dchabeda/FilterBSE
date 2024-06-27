@@ -181,6 +181,23 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
 /*****************************************************************************//*****************************************************************************/
 
 void get_qp_basis(double *psitot, double *psi_hole, double *psi_elec, index_st *ist, par_st *par, flag_st *flag){
+  // This function copies the wavefunctions for the electron and hole states selected
+  // for the quasiparticle basis from psitot into psi_hole and psi_elec.
+  
+  long i, state_idx;
+
+  //
+  for (i = 0; i < ist->max_hole_states; i++){
+    state_idx = ist->eval_hole_idxs[i];
+    memcpy(psi_hole[i * ist->nspinngrid * ist->complex_idx], psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx, sizeof(psitot[0]));
+  } 
+
+  for (i = 0; i < ist->max_elec_states; i++){
+    state_idx = ist->eval_elec_idxs[i];
+    memcpy(psi_elec[i * ist->nspinngrid * ist->complex_idx], psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx, sizeof(psitot[0]));
+  } 
+
+  return;
 
 }
 

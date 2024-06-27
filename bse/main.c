@@ -154,9 +154,63 @@ int main(int argc, char *argv[]){
     
     // ******
     // ******
-    // get_qp_basis(psitot, psi_hole, psi_elec, &ist, &par, &flag);
+    get_qp_basis(psitot, psi_hole, psi_elec, &ist, &par, &flag);
     // ******
     // ******
+
+    // print cube files for debug
+
+    rho = malloc(ist.ngrid * sizeof(rho[0]));
+    
+    for (i = 0; i < ist.n_holes; i++){
+        //Spin Up Wavefunction
+        sprintf(str,"hole-%ld-Up.cube",ist.eval_hole_idxs[i]);
+        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+        jgrid_real = ist.complex_idx * jgrid;
+        jgrid_imag = ist.complex_idx * jgrid + 1;
+        
+        rho[jgrid] = sqr(psi_hole[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
+        if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
+        }
+        write_cube_file(rho, &grid, str);
+        //Spin Down Wavefunction
+        if (1 == flag.useSpinors){    
+        sprintf(str,"hole-%ld-Dn.cube", ist.eval_hole_idxs[i]);
+        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+            jgrid_real = ist.complex_idx * jgrid;
+            jgrid_imag = ist.complex_idx * jgrid + 1;
+            
+            rho[jgrid] = sqr(psitot[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
+                + sqr(psitot[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);    
+        }
+        write_cube_file(rho, &grid, str);
+        } 
+    }
+
+    for (i = 0;  i < ist.n_elecs; i++){
+        sprintf(str,"lumo-%ld-Up.cube", ist.eval_elec_idxs[i]);
+        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+        jgrid_real = ist.complex_idx * jgrid;
+        jgrid_imag = ist.complex_idx * jgrid + 1;
+        
+        rho[jgrid] = sqr(psitot[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
+        if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
+        }
+        write_cube_file(rho, &grid, str);
+
+        if (1 == flag.useSpinors){
+        sprintf(str,"elec-%ld-Dn.cube", ist.eval_elec_idxs[i]);
+        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+            jgrid_real = ist.complex_idx * jgrid;
+            jgrid_imag = ist.complex_idx * jgrid + 1;
+        
+            rho[jgrid] = sqr(psitot[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
+                + sqr(psitot[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);
+        }
+        write_cube_file(rho, &grid, str);
+        }
+    }
+    free(rho);
 
     // /*************************************************************************/
     // fftwpsi = fftw_malloc(sizeof (fftw_complex )*ist.ngrid*ist.nthreads);

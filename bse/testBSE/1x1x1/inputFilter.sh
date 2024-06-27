@@ -22,17 +22,17 @@ saveCheckpoints="0"
 
 # Input parameters specific to the filter-diagonalization technique
 # Filter settings
-mStatesPerFilter='6'
+mStatesPerFilter='10'
 nFilterCycles='8'
-newtonLength='512'
-vbMin='-0.57'; vbMax='-0.37'
-cbMin='-0.35'; cbMax='-0.17'
-msVB="3"; msCB="3"
+newtonLength='1024'
+vbMin='-0.37'; vbMax='-0.24'
+cbMin='-0.14'; cbMax='-0.07'
+msVB="7"; msCB="3"
 SOFlag="1"
 NLFlag="1"
 
 nThreads=$1
-fermiEnergy="-0.3"
+fermiEnergy="-0.19"
 
 # Print an input.par file for a filter-diagonalization calculation
 cat > $cwd/filter_input.par << EOF

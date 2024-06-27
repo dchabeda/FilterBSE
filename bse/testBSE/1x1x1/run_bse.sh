@@ -46,5 +46,5 @@ cd $sBSEDir
 wait
 
 # Move filter results to home directory and scratch BSE directory 
-cp BSEeval.par conf.dat *cube err* run.dat input.par $hBSEDir/
+cp output.dat BSEeval.par conf.dat *cube err* run.dat input.par $hBSEDir/
 

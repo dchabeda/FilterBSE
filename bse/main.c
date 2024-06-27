@@ -24,7 +24,6 @@ int main(int argc, char *argv[]){
     zomplex *bsmat, *direct, *exchange;
     // custom structs
     par_st par; index_st ist; grid_st grid; flag_st flag; xyz_st *R = NULL; parallel_st parallel; 
-    xyz_st *mux, *muy, *muz, mx, my, mz, rsx, rsy, rsz;
     // FFT 
     fftw_plan_loc *planfw, *planbw; fftw_complex *fftwpsi;
     long fft_flags=0;

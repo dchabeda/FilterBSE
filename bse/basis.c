@@ -5,8 +5,24 @@
 /*****************************************************************************/
 
 void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag){
-  //this is where we set which is eleectron and what is hole
-
+  /*******************************************************************
+  * This function determines the indices of the electron and hole    *
+  * states that will be used in the quasiparticle basis. The eigen-  *
+  * values and sigma_E values are read from the formatted filter     *
+  * output file, output.dat. Based on the user's request for max     *
+  * number of states in the VB and CB, the indices will be set to    *
+  * read the appropriate wavefunctions from psitot.                  *
+  * inputs:                                                          *
+  *  [eig_vals] mn_states_tot-long array of eig vals from eval.dat   *
+  *  [sigma_E] mn_states_tot-long array of sigma vals from eval.dat  *
+  *  [eval_hole_idxs] ptr to arr for the indices of usable h+ states *
+  *  [eval_elec_idxs] ptr to arr for the indices of usable e- states *
+  *  [ist] ptr to counters, indices, and lengths                     *
+  *  [par] ptr to par_st holding VBmin, VBmax... params              *
+  *  [flag] ptr to flag_st holding job flags                         *
+  * outputs: void                                                    *
+  ********************************************************************/
+  
   FILE *pf;
   long i, cntr, eval_homo_idx, eval_lumo_idx, old_n_holes;
   double deltaE;
@@ -181,17 +197,27 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
 /*****************************************************************************//*****************************************************************************/
 
 void get_qp_basis(double *psitot, double *psi_hole, double *psi_elec, index_st *ist, par_st *par, flag_st *flag){
-  // This function copies the wavefunctions for the electron and hole states selected
-  // for the quasiparticle basis from psitot into psi_hole and psi_elec.
-  
+  /*******************************************************************
+  * This function copies the wavefunctions for the elec and hole     *
+  * states for the quasiparticle basis into psi_hole and psi_elec.   *
+  * inputs:                                                          *
+  *  [eig_vals] mn_states_tot-long array of eig vals from eval.dat   *
+  *  [sigma_E] mn_states_tot-long array of sigma vals from eval.dat  *
+  *  [eval_hole_idxs] ptr to arr for the indices of usable h+ states *
+  *  [eval_elec_idxs] ptr to arr for the indices of usable e- states *
+  *  [ist] ptr to counters, indices, and lengths                     *
+  *  [par] ptr to par_st holding VBmin, VBmax... params              *
+  *  [flag] ptr to flag_st holding job flags                         *
+  * outputs: void                                                    *
+  ********************************************************************/
+ 
   long i, state_idx;
-
-  //
+  // Copy the hole states
   for (i = 0; i < ist->max_hole_states; i++){
     state_idx = ist->eval_hole_idxs[i];
     memcpy(&psi_hole[i * ist->nspinngrid * ist->complex_idx], &psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx * sizeof(psitot[0])) ;
   } 
-
+  // Copy the electron states
   for (i = 0; i < ist->max_elec_states; i++){
     state_idx = ist->eval_elec_idxs[i];
     memcpy(&psi_elec[i * ist->nspinngrid * ist->complex_idx], &psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx * sizeof(psitot[0]));

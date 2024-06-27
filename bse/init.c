@@ -25,7 +25,7 @@ void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *
     boxl = (double)grid->nz * grid->dz;
   }
 
-  boxl2 = sqr(boxl)
+  boxl2 = sqr(boxl);
   gamma = 7.0 / (2.0 * minr);
   gamma2 = sqr(gamma);
 

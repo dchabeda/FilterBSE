@@ -43,9 +43,9 @@ typedef struct st0 {
 } zomplex;
 
 typedef struct st1 {
-  double dx, dy, dz, dr, dkx, dky, dkz, dv, epsX, epsY, epsZ, boxl, minr;
+  double dx, dy, dz, dr, dkx, dky, dkz, dv, epsX, epsY, epsZ;
   double xmin, xmax, ymin, ymax, zmin, zmax, kxmin, kymin, kzmin;
-  double KE_max, gamma, gamma2, Elmin, Elmax, Elumo, Ehomo, Vmin, Vmax;
+  double KE_max, Elmin, Elmax, Elumo, Ehomo, Vmin, Vmax;
   double delta_E_elec, delta_E_hole, sigma_E_cut, fermi_E;
   int checkpoint_id;
 } par_st;
@@ -91,6 +91,7 @@ typedef struct parallel{
 #define PIE       3.14159265358979323846
 #define TWOPI     6.28318530717958647692
 #define FOURPI    (4.0*3.14159265358979323846)
+#define SQRTPI    (sqrt(3.14159265358979323846))
 #define SVDEPS    1.0e-10
 #define EPSR      1.0e-10
 #define EPSCHI    1.0e-8
@@ -106,17 +107,12 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
 void get_qp_basis(double *psitot, double *psi_hole, double *psi_elec, index_st *ist, par_st *par, flag_st *flag);
 
 // init.c
-void init(double *potl,double *vx,double *vy,double *vz,double *ksqr,double *rx,double *ry,double *rz,par_st *par,index_st *ist);
-void init_pot(zomplex *potq, zomplex *potqx, grid_st *grid, par_st *par,index_st *ist, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
-void init_psi(zomplex *psi,double *vx,double *vy,double *vz,index_st ist,par_st par,long *idum);
-double screenedcoulomb(double dr, double gamma);
+void init_elec_hole_kernel(zomplex *potq, zomplex *potqx, grid_st *grid, par_st *par,index_st *ist, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
+double calc_coulomb(double dr, double gamma);
 double longerpolate(double r,double dr,double *vr,double *pot,long npot,long n,long j);
-long assign_atom_number(char atyp[2]);
-void assign_atom_type(char *atype,long j);
 
 // read.c
 void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);
-void read_conf(FILE *pf, xyz_st *R, long n);
 
 // norm.c
 double norm(zomplex *, double,long);

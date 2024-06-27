@@ -4,255 +4,142 @@
 
 /*****************************************************************************//*****************************************************************************/
 
-// void init(double *potl, double *vx, double *vy, double *vz, double *ksqr, double *rx, double *ry, double *rz, par_st *par, index_st *ist){
-//   FILE *pf; 
-//   long ntmp, jx, jy, jz, jyz, jxyz, ie, ntot, jp, *npot, nn, flags=0;
-//   double del, mx, my, mz, xd, yd, zd, dx, dy, dz, *ksqrx, *ksqry, *ksqrz;
-//   double *vr, *potatom, *dr;
-
-//   printf("Final Box Dimensions: xd = %g yd = %g zd = %g\n",par->xmax,par->ymax,par->zmax);
-
-//   if ((xd < yd) && (xd < zd))  {
-//     par->minr = xd;
-//     par->boxl = (double)(ist->nx) * par->dx;
-//   }
-//   else if ((yd < xd) && (yd < zd))  {
-//     par->minr = yd;
-//     par->boxl = (double)(ist->ny) * par->dy;
-//   }
-//   else {
-//     par->minr = zd;
-//     par->boxl = (double)(ist->nz) * par->dz;
-//   }    
+void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *grid, par_st *par, index_st *ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
   
-//   par->gamma = 7.0 / (2.0 * par->minr);
-//   par->gamma2 = sqr(par->gamma);
+  long jx, jy, jz, jyz, jxyz, sx, sy, sz;
+  double r, r2, x2, y2, z2, *kx2, *ky2, *kz2, alpha, cosa, sina;
+  double ex_1, ey_1, ez_1, sqrtexeyez_1, sqrtaveps, sqrk0;
+  double boxl, boxl2, minr;
+  double gamma, gamma2, gammaeps;
+  zomplex *potr, *potrx, tmp;
 
-//   printf("Gamma = %.6f\n", par->gamma);
+  // Define gamma
+  if ((grid->xmax < grid->ymax) && (grid->xmax < grid->zmax)){
+    minr = grid->xmax;
+    boxl = (double)grid->nx * grid->dx;
+  } else if ((grid->ymax < grid->zmax) && (grid->ymax < grid->xmax)){
+    minr = grid->ymax;
+    boxl = (double)grid->ny * grid->dy;
+  } else {
+    minr = grid->zmax;
+    boxl = (double)grid->nz * grid->dz;
+  }
+
+  boxl2 = sqr(boxl)
+  gamma = 7.0 / (2.0 * minr);
+  gamma2 = sqr(gamma);
+
+  // Prepare scaling factors for dielectric screening
+  ex_1 = 1.0 / par->epsX;
+  ey_1 = 1.0 / par->epsY;
+  ez_1 = 1.0 / par->epsZ;
+  sqrtexeyez_1 = 1.0 / sqrt(par->epsX * par->epsY * par->epsZ);
+  sqrtaveps = sqrt((par->epsX + par->epsY + par->epsZ) / 3.0);
+  gammaeps = gamma * sqrtaveps;
+
+  /*** no yukawa screening for the exchange ***/
+  sqrk0 = gamma2 * sqr(sqrtaveps);
+
+  // Allocate memory to arrays for computing Coulomb kernel in k-space
+  if ((kx2  = (double*)calloc(grid->nx, sizeof(double)))==NULL)nerror("kx2");
+  if ((ky2  = (double*)calloc(grid->ny, sizeof(double)))==NULL)nerror("ky2");
+  if ((kz2  = (double*)calloc(grid->nz, sizeof(double)))==NULL)nerror("kz2");
+  if ((potr = (zomplex*)calloc(ist->ngrid, sizeof(zomplex)))==NULL)nerror("potr");
+  if ((potrx = (zomplex*)calloc(ist->ngrid, sizeof(zomplex)))==NULL)nerror("potrx");
   
-//   return;
-// }
+  // Initialize the arrays
+  for (kx2[0] = 0.0, jx = 1; jx <= grid->nx / 2; jx++)
+    kx2[jx] = (kx2[grid->nx-jx] = sqr((double)(jx) * par->dkx));
+  for (ky2[0] = 0.0, jy = 1; jy <= grid->ny / 2; jy++)
+    ky2[jy] = (ky2[grid->ny-jy] = sqr((double)(jy) * par->dky));
+  for (kz2[0] = 0.0, jz = 1; jz <= grid->nz / 2; jz++)
+    kz2[jz] = (kz2[grid->nz-jz] = sqr((double)(jz) * par->dkz));
 
+  for (jxyz = 0; jxyz < ist->ngrid; jxyz++) potr[jxyz].re = potr[jxyz].im = 0.0;
+  for (jxyz = 0; jxyz < ist->ngrid; jxyz++) potrx[jxyz].re = potrx[jxyz].im = 0.0;
+  // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 
-// /****************************************************************************/
+  // Compute the screened and bare Coulomb potential at all points on the grid
+  for (jz = 0; jz < grid->nz; jz++) {
+    z2 =sqr(grid->x[jz]);
+    for (jy = 0; jy < grid->ny; jy++) {
+      y2 = sqr(grid->y[jy]);
+      jyz = grid->nx * (grid->ny * jz + jy);
+      for (jx = 0; jx < grid->nx; jx++) {
+      	x2 = sqr(grid->x[jx]);
+      	jxyz = jyz + jx;
+      	r2 = (x2 + y2 + z2);
+      	if (r2 < boxl2) {
+      	  r = sqrt(x2 + y2 + z2);
+      	  potr[jxyz].re = calc_coulomb(r, gamma);
+      	  r = sqrt(ex_1 * x2 + ey_1 * y2 + ez_1 * z2);
+      	  potrx[jxyz].re = sqrtexeyez_1 * calc_coulomb(r, gammaeps);
+      	}
+      }
+    }
+  }
 
-// void init_pot(zomplex *potq,zomplex *potqx, grid_st *grid, par_st *par, index_st *ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi)
-// {
-//   long jx, jy, jz, jyz, jxyz, sx, sy, sz;
-//   double dr, dr2, x2, y2, z2, *kx2, *ky2, *kz2, alpha, cosa, sina;
-//   double ex_1, ey_1, ez_1, sqrtexeyez_1, sqrtaveps, boxl2 = sqr(par->boxl), sqrk0;
-//   double gammaeps;
-//   zomplex *potr, *potrx, tmp;
+  for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
+    pot_direct[jxyz].re = pot_direct[jxyz].im = pot_exchange[jxyz].re = pot_exchange[jxyz].im = 0.0;
+  }
 
-//   ex_1 = 1.0 / par->epsX;
-//   ey_1 = 1.0 / par->epsY;
-//   ez_1 = 1.0 / par->epsZ;
-//   sqrtexeyez_1 = 1.0 / sqrt(par->epsX * par->epsY * par->epsZ);
-//   sqrtaveps = sqrt((par->epsX + par->epsY + par->epsZ) / 3.0);
-//   gammaeps = par->gamma * sqrtaveps;
+  memcpy(&fftwpsi[0], &potr[0], ist->ngrid*sizeof(fftwpsi[0]));
+  fftw_execute(planfw);
+  memcpy(&pot_direct[0], &fftwpsi[0], ist->ngrid*sizeof(pot_direct[0]));
 
-//   /*** no yukawa screening for the exchange ***/
-//   sqrk0 = par->gamma2 * sqr(sqrtaveps);
-
-//   if ((kx2  = (double*)calloc(ist->nx,sizeof(double)))==NULL)nerror("kx2");
-//   if ((ky2  = (double*)calloc(ist->ny,sizeof(double)))==NULL)nerror("ky2");
-//   if ((kz2  = (double*)calloc(ist->nz,sizeof(double)))==NULL)nerror("kz2");
-//   if ((potr = (zomplex*)calloc(ist->ngrid,sizeof(zomplex)))==NULL)nerror("potr");
-//   if ((potrx = (zomplex*)calloc(ist->ngrid,sizeof(zomplex)))==NULL)nerror("potrx");
+  memcpy(&fftwpsi[0], &potrx[0], ist->ngrid*sizeof(fftwpsi[0]));
+  fftw_execute(planfw);
+  memcpy(&pot_exchange[0], &fftwpsi[0], ist->ngrid*sizeof(pot_exchange[0]));
   
-//   for (jxyz = 0; jxyz < ist->ngrid; jxyz++) potr[jxyz].re = potr[jxyz].im = 0.0;
-//   for (jxyz = 0; jxyz < ist->ngrid; jxyz++) potrx[jxyz].re = potrx[jxyz].im = 0.0;
+  for (sz = 1.0, jz = 0; jz < grid->nz; jz++, sz = -sz) {
+    z2 = kz2[jz];
+    for (sy = 1.0, jy = 0; jy < grid->ny; jy++, sy = -sy) {
+      y2 = ky2[jy];
+      jyz = grid->nx * (grid->ny * jz + jy);
+      for (sx = 1.0, jx = 0; jx < grid->nx; jx++, sx = -sx) {
+      	x2 = kx2[jx];
+      	jxyz = jyz + jx;
+      	alpha = PIE * (double)(jx + jy + jz + ist->ngrid / 2);
+      	cosa = cos(alpha);
+      	sina = sin(alpha);
 
-//   for (jz = 0; jz < ist->nz; jz++) {
-//     z2 =sqr(vz[jz]);
-//     for (jy = 0; jy < ist->ny; jy++) {
-//       y2 = sqr(vy[jy]);
-//       jyz = ist->nx * (ist->ny * jz + jy);
-//       for (jx = 0; jx < ist->nx; jx++) {
-//       	x2 = sqr(vx[jx]);
-//       	jxyz = jyz + jx;
-//       	dr2 = (x2 + y2 + z2);
-//       	if (dr2 < boxl2) {
-//       	  dr = sqrt(x2 + y2 + z2);
-//       	  potr[jxyz].re = screenedcoulomb(dr, par->gamma);
-//       	  dr = sqrt(ex_1 * x2 + ey_1 * y2 + ez_1 * z2);
-//       	  potrx[jxyz].re = sqrtexeyez_1 * screenedcoulomb(dr, gammaeps);
-//       	}
-//       }
-//     }
-//   }
-
-//   for (jxyz = 0; jxyz < ist->ngrid; jxyz++)
-//     potq[jxyz].re = potq[jxyz].im = potqx[jxyz].re = potqx[jxyz].im = 0.0;
-  
-//   memcpy(&fftwpsi[0], &potr[0], ist->ngrid*sizeof(fftwpsi[0]));
-//   fftw_execute(planfw);
-//   memcpy(&potq[0], &fftwpsi[0], ist->ngrid*sizeof(potq[0]));
-
-//   memcpy(&fftwpsi[0], &potrx[0], ist->ngrid*sizeof(fftwpsi[0]));
-//   fftw_execute(planfw);
-//   memcpy(&potqx[0], &fftwpsi[0], ist->ngrid*sizeof(potqx[0]));
-  
-//   for (kx2[0] = 0.0, jx = 1; jx <= ist->nx / 2; jx++)
-//     kx2[jx] = (kx2[ist->nx-jx] = sqr((double)(jx) * par->dkx));
-//   for (ky2[0] = 0.0, jy = 1; jy <= ist->ny / 2; jy++)
-//     ky2[jy] = (ky2[ist->ny-jy] = sqr((double)(jy) * par->dky));
-//   for (kz2[0] = 0.0, jz = 1; jz <= ist->nz / 2; jz++)
-//     kz2[jz] = (kz2[ist->nz-jz] = sqr((double)(jz) * par->dkz));
-
-//   for (sz = 1.0, jz = 0; jz < ist->nz; jz++, sz = -sz) {
-//     z2 = kz2[jz];
-//     for (sy = 1.0, jy = 0; jy < ist->ny; jy++, sy = -sy) {
-//       y2 = ky2[jy];
-//       jyz = ist->nx * (ist->ny * jz + jy);
-//       for (sx = 1.0, jx = 0; jx < ist->nx; jx++, sx = -sx) {
-//       	x2 = kx2[jx];
-//       	jxyz = jyz + jx;
-//       	alpha = PIE * (double)(jx + jy + jz + ist->ngrid / 2);
-//       	cosa = cos(alpha);
-//       	sina = sin(alpha);
-
-//       	/*** hartree term ***/
-//       	tmp.re = potq[jxyz].re;
-//       	tmp.im = potq[jxyz].im;
+      	/*** hartree term ***/
+      	tmp.re = pot_direct[jxyz].re;
+      	tmp.im = pot_direct[jxyz].im;
       	
-//       	potq[jxyz].re = (tmp.re * cosa - tmp.im * sina) * par->dv;
-//       	potq[jxyz].im = (tmp.re * sina + tmp.im * cosa) * par->dv;
-//       	potq[jxyz].re += (FOURPI / (x2 + y2 + z2 + par->gamma2));
-//       	potq[jxyz].re *= ist->ngrid_1;
-//       	potq[jxyz].im *= ist->ngrid_1;
+      	pot_direct[jxyz].re = (tmp.re * cosa - tmp.im * sina) * par->dv;
+      	pot_direct[jxyz].im = (tmp.re * sina + tmp.im * cosa) * par->dv;
+      	pot_direct[jxyz].re += (FOURPI / (x2 + y2 + z2 + gamma2));
+      	pot_direct[jxyz].re *= ist->ngrid_1;
+      	pot_direct[jxyz].im *= ist->ngrid_1;
 
-//       	/*** screened exchange term ***/
-//       	tmp.re = potqx[jxyz].re;
-//       	tmp.im = potqx[jxyz].im;
+      	/*** screened exchange term ***/
+      	tmp.re = pot_exchange[jxyz].re;
+      	tmp.im = pot_exchange[jxyz].im;
 
-//       	potqx[jxyz].re = (tmp.re * cosa - tmp.im * sina) * par->dv;
-//       	potqx[jxyz].im = (tmp.re * sina + tmp.im * cosa) * par->dv;
-//       	//potqx[jxyz].re += FOURPI / (par->epsX * x2 + par->epsY * y2 + par->epsZ * z2 + sqrk0);
-//       	potqx[jxyz].re += (FOURPI * (1.0 - exp(-0.25* (par->epsX * x2 + par->epsY * y2 + par->epsZ * z2) / sqrk0)) / (par->epsX * x2 + par->epsY * y2 + par->epsZ * z2 + EPSR));
-//         //printf("denominator = % .12f\n", par->epsX * x2 + par->epsY * y2 + par->epsZ * z2);
-// 		    potqx[jxyz].re *= ist->ngrid_1;
-//       	potqx[jxyz].im *= ist->ngrid_1;
-//       }
-//     }
-//   }
+      	pot_exchange[jxyz].re = (tmp.re * cosa - tmp.im * sina) * par->dv;
+      	pot_exchange[jxyz].im = (tmp.re * sina + tmp.im * cosa) * par->dv;
+      	
+      	pot_exchange[jxyz].re += (FOURPI * (1.0 - exp(-0.25* (par->epsX * x2 + par->epsY * y2 + par->epsZ * z2) / sqrk0)) / (par->epsX * x2 + par->epsY * y2 + par->epsZ * z2 + EPSR));
+        
+		    pot_exchange[jxyz].re *= ist->ngrid_1;
+      	pot_exchange[jxyz].im *= ist->ngrid_1;
+      }
+    }
+  }
 
-//   free(potr);  free(potrx); free(kx2); free(ky2); free(kz2);
+  free(potr);  free(potrx); free(kx2); free(ky2); free(kz2);
 
-//   return;
-// }
+  return;
+}
   
-// /****************************************************************************/
+/****************************************************************************/
 
-// void init_pot_old(double *vx,double *vy,double *vz,zomplex *potq,par_st par,index_st ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi)
-// {
-//   long jx, jy, jz, jyz, jxyz, sx, sy, sz;
-//   double dr, x2, y2, z2, *kx2, *ky2, *kz2, alpha, cosa, sina;
-//   double boxl = (double)(ist->nx) * par->dx;
-//   zomplex *potr, tmp;
-
-//   if ((kx2  = (double*)calloc(ist->nx,sizeof(double)))==NULL)nerror("kx2");
-//   if ((ky2  = (double*)calloc(ist->ny,sizeof(double)))==NULL)nerror("ky2");
-//   if ((kz2  = (double*)calloc(ist->nz,sizeof(double)))==NULL)nerror("kz2");
-//   if ((potr = (zomplex*)calloc(ist->ngrid,sizeof(zomplex)))==NULL)nerror("potr");
+double calc_coulomb(double dr, double gamma){
   
-//   for (jx = 0; jx < ist->ngrid; jx++) potr[jx].re = potr[jx].im = 0.0;
-//   for (jz = 0; jz < ist->nz; jz++){
-//     z2 = sqr(vz[jz]);
-//     for (jy = 0; jy < ist->ny; jy++){
-//       y2 = sqr(vy[jy]);
-//       jyz = ist->nx * (ist->ny * jz + jy);
-//       for (jx = 0; jx < ist->nx; jx++) {
-//       	x2 = sqr(vx[jx]); 
-//       	jxyz = jyz + jx;
-//       	dr = sqrt(x2 + y2 + z2);
-//       	if (dr < boxl) potr[jxyz].re = screenedcoulomb(dr, par->gamma);
-//       }
-//     }
-//   }
-
+  if (dr < EPSR) return (2.0*gamma/SQRTPI);
+  return (erf(gamma * dr) / dr);
   
-//   memcpy(&fftwpsi[0],&potr[0],ist->ngrid*sizeof(fftwpsi[0]));
-//   fftw_execute(planfw);
-//   memcpy(&potq[0],&fftwpsi[0],ist->ngrid*sizeof(potq[0]));
-//   /*fftwnd_one(planfw,potr,potq);*/
-
-//   /*for (jx = 0; jx < ist->nx; jx++)
-//     kx2[jx] = sqr(par->kxmin + (double)(jx) * par->dkx);
-//   for (jy = 0; jy < ist->ny; jy++)
-//     ky2[jy] = sqr(par->kymin + (double)(jy) * par->dky);
-//   for (jz = 0; jz < ist->nz; jz++)
-//   kz2[jz] = sqr(par->kzmin + (double)(jz) * par->dkz);*/
-  
-//   for (kx2[0] = 0.0, jx = 1; jx <= ist->nx / 2; jx++)
-//     kx2[jx] = (kx2[ist->nx-jx] = sqr((double)(jx) * par->dkx));
-//   for (ky2[0] = 0.0, jy = 1; jy <= ist->ny / 2; jy++)
-//     ky2[jy] = (ky2[ist->ny-jy] = sqr((double)(jy) * par->dky));
-//   for (kz2[0] = 0.0, jz = 1; jz <= ist->nz / 2; jz++)
-//     kz2[jz] = (kz2[ist->nz-jz] = sqr((double)(jz) * par->dkz));
-
-//   for (sz = 1.0, jz = 0; jz < ist->nz; jz++, sz = -sz){
-//     z2 = kz2[jz];
-//     for (sy = 1.0, jy = 0; jy < ist->ny; jy++, sy = -sy){
-//       y2 = ky2[jy];
-//       jyz = ist->nx * (ist->ny * jz + jy);
-//       for (sx = 1.0, jx = 0; jx < ist->nx; jx++, sx = -sx){
-// 	x2 = kx2[jx];
-// 	jxyz = jyz + jx;
-// 	alpha = PIE * (double)(jx + jy + jz + ist->ngrid / 2);
-// 	cosa = cos(alpha);
-// 	sina = sin(alpha);
-	
-// 	/*potq[jxyz].re *= (double)(sx * sy * sz) * par->dv;
-// 	  potq[jxyz].im *= (double)(sx * sy * sz) * par->dv;*/
-
-// 	tmp.re = potq[jxyz].re;
-// 	tmp.im = potq[jxyz].im;
-
-// 	potq[jxyz].re = (tmp.re * cosa - tmp.im * sina) * par->dv;
-// 	potq[jxyz].im = (tmp.re * sina + tmp.im * cosa) * par->dv;
-	
-// 	potq[jxyz].re += (FOURPI / (x2 + y2 + z2 + par->gamma2));
-    
-// 	potq[jxyz].re *= ist->ngrid_1;
-// 	potq[jxyz].im *= ist->ngrid_1;
-
-//       }
-//     }
-//   }
-//   free(potr);  free(kx2); free(ky2); free(kz2);
-//   return;
-// }
-
-// /************************************************************************/
-
-// #define SQRTPI       (sqrt(3.14159265358979323846))
-
-// double screenedcoulomb(double dr, double gamma)
-// {
-//   //if (dr < EPSR) return (gamma);
-//   if (dr < EPSR) return (2.0*gamma/SQRTPI);
-//   return (erf(gamma * dr) / dr);
-//   //return ((1.0 - exp(-gamma * dr)) / dr);
-// }
-
-// /************************************************************************/
-
-// void init_psi(zomplex *psi,double *vx,double *vy,double *vz,index_st ist,par_st par,long *idum)
-// {
-//   long jx, jy, jz, jzy, jxyz;
-//   long tidum = (*idum);
-
-//   for (jz = 0; jz < ist->nz; jz++) for (jy = 0; jy < ist->ny; jy++){
-//     for (jzy = ist->nx * (ist->ny * jz + jy), jx = 0; jx < ist->nx; jx++){
-//       jxyz = jzy + jx;
-//       psi[jxyz].re = (-1.0 + 2.0 * ran_nrc(&tidum));
-//       psi[jxyz].im = 0.0;
-//     }
-//   }
-//   normalize_zomplex(psi, par->dv, ist->ngrid);
-//   (*idum) = tidum;
-//   return;
-// }
+}
 
 /************************************************************************/

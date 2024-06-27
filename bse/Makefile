@@ -54,7 +54,7 @@ Windows_NT_FF = gfortran
 Windows_NT_LD = gcc
 
 OBJECTS = \
-	main.o write.o save.o read.o init.o
+	main.o write.o save.o read.o basis.o
 
 #init.o size.o norm.o nerror.o read.o hartree.o single.o interpolate.o \
 #	bethe-salpeter.o diag.o rand.o dipole.o write.o angular.o

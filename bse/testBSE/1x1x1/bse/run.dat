@@ -1,7 +1,7 @@
 ******************************************************************************
 
 RUNNING PROGRAM: BETHE-SALPETHER
-This calculation began at: Sun Jun 23 19:19:19 2024
+This calculation began at: Sun Jun 23 19:45:01 2024
 
 ******************************************************************************
 
@@ -21,3 +21,86 @@ Reading filter output from output.dat:
 	par_st from filter...
 	flag_st from filter...
 	conf from filter...
+	grid from filter...
+	eig_vals from filter...
+	sigma_E from filter...
+	psitot from filter...
+
+Reading BSE job specifications from input.par:
+
+	Grid parameters from filter job:
+	----------------------------------
+	nx = 27, ny = 27, nz = 27
+	dx = 0.8, dy = 0.8, dz = 0.8
+	ngrid = 19683 nspin = 2
+
+	Parameters & counters for BSE algorithm:
+	-------------------------------------------
+	maxHoleStates (# h+ in basis) = 4
+	maxElecStates (# h+ in basis) = 4
+	sigmaECut = 0.01 a.u.
+	DeltaE_hole = 0.02 a.u.  DeltaE_elec = 0.02 a.u.
+	KEmax = 10 a.u.
+	fermiEnergy = -0.44 a.u.
+
+	Dielectric screening options:
+	-------------------------------
+	epsX = 6.1
+	epsY = 6.1
+	epsZ = 6.1
+	Pseudopotentials were short ranged.
+
+	Parameters for two-component representation:
+	----------------------------------------------
+	Spinor wavefunctions turned ON!
+	Spin-orbit coupling is ON!
+	Non-local potential is ON!
+	Wavefunctions are COMPLEX valued! complex_idx = 2
+
+	Flags for optional output:
+	----------------------------
+	Computing spin-allowed sector of BSE matrix -> bright states
+	Timing specs will NOT be printed
+	Fixed point densities will NOT be printed
+	Spin and Ang. Mom. statistics will NOT be computed
+
+	Parameters for parallelization:
+	-------------------------------
+	nThreads (# OMP threads) = 4
+
+	Flags for restarting computation:
+	-----------------------------------
+	No checkpoint saves requested
+	No checkpoint specified for restart. Job will run in normal sequence.
+
+Setting quasiparticle basis indices:
+
+	Total # of filtered hole eigenstates = 3
+	Total # of filtered electron eigenstates = 13
+	The filter eval.dat index of the HOMO state = 12  LUMO state = 13
+
+	Unconstrained energy span of holes 0.190746 a.u. > desired span = 0.02 a.u.
+	Fewer VB basis states would reach the desired result
+	Unconstrained energy span of elecs, 0.230633 a.u. > desired span = 0.02 a.u.
+	Fewer CB basis states would reach the desired result
+	Constraining elec basis states to maxElecStates
+	  new ist->n_elecs = 4
+	Constrained energy span of elecs, 0.00888027 a.u. < desired span = 0.02 a.u.
+	Increase size of CB basis states to reach desired result
+
+	Selected # of filtered h+ qp basis states = 3
+	Selected # of filtered e- qp basis states = 4
+	Total number of quasiparticle states, n_qp = 7
+	The BSEeval.par index of the HOMO state = 2  LUMO state = 3
+	The HOMO energy = -0.458343 a.u. -12.47217 eV
+	The LUMO energy = -0.372097 a.u. -10.12527 eV
+	Fundamental gap = 0.0862468 a.u. 2.34690 eV
+
+
+******************************************************************************
+
+DONE WITH PROGRAM: BETHE-SALPETHER
+This calculation ended at: Sun Jun 23 19:45:01 2024
+
+Total job CPU time (sec) 0.03, wall run time (sec) 0
+******************************************************************************

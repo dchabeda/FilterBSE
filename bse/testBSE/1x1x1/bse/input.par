@@ -9,6 +9,6 @@ spinOrbit = 1
 NonLocal = 1
 calcDarkStates = 0
 timingSpecs = 0
-fermiEnergy = -0.2
+fermiEnergy = -0.44
 deltaEhole = 0.02
 deltaEelec = 0.02

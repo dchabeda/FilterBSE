@@ -41,11 +41,26 @@ void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *
   sqrk0 = gamma2 * sqr(sqrtaveps);
 
   // Allocate memory to arrays for computing Coulomb kernel in k-space
-  if ((kx2  = (double*)calloc(grid->nx, sizeof(double)))==NULL)nerror("kx2");
-  if ((ky2  = (double*)calloc(grid->ny, sizeof(double)))==NULL)nerror("ky2");
-  if ((kz2  = (double*)calloc(grid->nz, sizeof(double)))==NULL)nerror("kz2");
-  if ((potr = (zomplex*)calloc(ist->ngrid, sizeof(zomplex)))==NULL)nerror("potr");
-  if ((potrx = (zomplex*)calloc(ist->ngrid, sizeof(zomplex)))==NULL)nerror("potrx");
+  if ((kx2  = (double*)calloc(grid->nx, sizeof(double)))==NULL){
+    fprintf(stderr, "ERROR: allocating memory for kx2 in init.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((ky2  = (double*)calloc(grid->ny, sizeof(double)))==NULL){
+    fprintf(stderr, "ERROR: allocating memory for ky2 in init.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((kz2  = (double*)calloc(grid->nz, sizeof(double)))==NULL){
+    fprintf(stderr, "ERROR: allocating memory for kz2 in init.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((potr = (zomplex*)calloc(ist->ngrid, sizeof(zomplex)))==NULL){
+    fprintf(stderr, "ERROR: allocating memory for potr in init.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((potrx = (zomplex*)calloc(ist->ngrid, sizeof(zomplex)))==NULL){
+    fprintf(stderr, "ERROR: allocating memory for potrx in init.c\n");
+    exit(EXIT_FAILURE);
+  }
   
   // Initialize the arrays
   for (kx2[0] = 0.0, jx = 1; jx <= grid->nx / 2; jx++)

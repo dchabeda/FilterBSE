@@ -191,7 +191,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
 
 /*****************************************************************************//*****************************************************************************/
 
-void get_qp_basis(double *psitot, double *psi_hole, double *psi_elec, index_st *ist, par_st *par, flag_st *flag){
+void get_qp_basis(double *psi, double *psitot, double *psi_hole, double *psi_elec, double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag){
   /*******************************************************************
   * This function copies the wavefunctions for the elec and hole     *
   * states for the quasiparticle basis into psi_hole and psi_elec.   *
@@ -206,7 +206,9 @@ void get_qp_basis(double *psitot, double *psi_hole, double *psi_elec, index_st *
   * outputs: void                                                    *
   ********************************************************************/
  
-  long i, state_idx;
+  long i, j, a, jgrid, state_idx;
+  double tmp1, tmp2;
+
   // Copy the hole states
   for (i = 0; i < ist->max_hole_states; i++){
     state_idx = ist->eval_hole_idxs[i];
@@ -217,6 +219,29 @@ void get_qp_basis(double *psitot, double *psi_hole, double *psi_elec, index_st *
     state_idx = ist->eval_elec_idxs[i];
     memcpy(&psi_elec[i * ist->nspinngrid * ist->complex_idx], &psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx * sizeof(psitot[0]));
   } 
+
+  // Format the quasiparticle basis for continuity with old code
+  // Not sure if this makes any difference in the later functions
+  for (i = ist->n_holes - 1, a = 0; i >= 0 && a < ist->n_holes; i--, a++) {
+      for (jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
+          psi[a * ist.nspinngrid + jgrid].re = psi_hole[i * ist.nspinngrid + jgrid].re;
+          psi[a * ist.nspinngrid + jgrid].im = psi_hole[i * ist.nspinngrid + jgrid].im;
+      }
+  }
+
+  for (i = ist->n_holes, a = 0; i < ist->n_holes + ist->n_elecs && a < ist->n_elecs; i++, a++) {
+      for (jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
+          psi[i * ist.nspinngrid + jgrid].re = psi_elec[a * ist.nspinngrid + jgrid].re;
+          psi[i * ist.nspinngrid + jgrid].im = psi_elec[a * ist.nspinngrid + jgrid].im;
+      }
+  }
+
+  /* Rearrange eig_vals */
+  for (i = 0, j = ist->n_holes - 1; i < j; i++, j--) {
+      tmp1 = eig_vals[i];    tmp2 = sigma_E[i];
+      eig_vals[i] = eig_vals[j]; sigma_E[i] = sigma_E[j];
+      eig_vals[j] = tmp1;    sigma_E[j] = tmp2;
+  }
 
   return;
 

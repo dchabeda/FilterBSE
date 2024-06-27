@@ -104,7 +104,7 @@ typedef struct parallel{
 
 // basis.c
 void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag);
-void get_qp_basis(double *psitot, double *psi_hole, double *psi_elec, index_st *ist, par_st *par, flag_st *flag);
+void get_qp_basis(double *psi, double *psitot, double *psi_hole, double *psi_elec, double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag);
 
 // init.c
 void init_elec_hole_kernel(zomplex *potq, zomplex *potqx, grid_st *grid, par_st *par,index_st *ist, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);

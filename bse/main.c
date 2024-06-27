@@ -20,7 +20,7 @@ int main(int argc, char *argv[]){
     FILE *pf, *pmem;
     pmem = fopen("mem.dat", "w");
     // zomplex types
-    zomplex *pot_direct, *pot_exchange, *pot_hartree, *psi; 
+    zomplex *pot_direct, *pot_exchange, *pot_hartree; 
     zomplex *bsmat, *direct, *exchange;
     // custom structs
     par_st par; index_st ist; grid_st grid; flag_st flag; xyz_st *R = NULL; parallel_st parallel; 
@@ -28,7 +28,7 @@ int main(int argc, char *argv[]){
     fftw_plan_loc *planfw, *planbw; fftw_complex *fftwpsi;
     long fft_flags=0;
     // double arrays
-    double *psitot = NULL, *psi_hole = NULL, *psi_elec = NULL;;
+    double *psitot = NULL, *psi_hole = NULL, *psi_elec = NULL, *psi;
     double *eig_vals = NULL, *sigma_E = NULL;
     double *h0mat;
     double *gridx = NULL, *gridy = NULL, *gridz = NULL;
@@ -37,18 +37,18 @@ int main(int argc, char *argv[]){
     double *sx, *sy, *sz;
     double *lx, *ly, *lz, *lsqr, *ls;
     // long int arrays and counters
-    long i, a, j, thomo, tlumo, indexfirsthomo;
+    long i, j, state;
     long jgrid, jgrid_real, jgrid_imag;
     long mem = 0;
     ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
-    fprintf(pmem, "ist.atom_types %ld B\n", N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0])); mem += N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]);
+    fprintf(pmem, "alloc ist.atom_types %ld B\n", N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0])); mem += N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]);
     // Clock/Wall time output and stdout formatting
     time_t start_time = time(NULL); // Get the actual time for total wall runtime
     time_t start_clock = clock(); // Get the starting CPU clock time for total CPU runtime
     char *top; top = malloc(2*sizeof(top[0])); 
-    fprintf(pmem, "top %ld B\n", 2*sizeof(top[0])); mem += 2*sizeof(top[0]);
+    fprintf(pmem, "alloc top %ld B\n", 2*sizeof(top[0])); mem += 2*sizeof(top[0]);
     char *bottom; bottom = malloc(2*sizeof(bottom[0]));
-    fprintf(pmem, "bottom %ld B\n", 2*sizeof(bottom[0])); mem += 2*sizeof(bottom[0]);
+    fprintf(pmem, "alloc bottom %ld B\n", 2*sizeof(bottom[0])); mem += 2*sizeof(bottom[0]);
     strcpy(top, "T\0"); strcpy(bottom, "B\0");
 
     /*************************************************************************/
@@ -89,9 +89,9 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "ERROR: allocating memory for grid.z in main\n");
         exit(EXIT_FAILURE);
     }
-    fprintf(pmem, "grid.x %ld B\n", grid.nx * sizeof(grid.x[0])); mem += grid.nx * sizeof(grid.x[0]);
-    fprintf(pmem, "grid.y %ld B\n", grid.ny * sizeof(grid.y[0])); mem += grid.ny * sizeof(grid.y[0]);
-    fprintf(pmem, "grid.z %ld B\n", grid.nz * sizeof(grid.z[0])); mem += grid.nz * sizeof(grid.z[0]);
+    fprintf(pmem, "alloc grid.x %ld B\n", grid.nx * sizeof(grid.x[0])); mem += grid.nx * sizeof(grid.x[0]);
+    fprintf(pmem, "alloc grid.y %ld B\n", grid.ny * sizeof(grid.y[0])); mem += grid.ny * sizeof(grid.y[0]);
+    fprintf(pmem, "alloc grid.z %ld B\n", grid.nz * sizeof(grid.z[0])); mem += grid.nz * sizeof(grid.z[0]);
 
     for (i = 0; i < grid.nx; i++){
         grid.x[i] = gridx[i];
@@ -149,8 +149,8 @@ int main(int argc, char *argv[]){
     if (ist.n_elecs != ist.max_elec_states){
         ist.eval_elec_idxs = realloc(ist.eval_elec_idxs, ist.n_elecs * sizeof(long));
     }
-    fprintf(pmem, "ist.eval_hole_idxs %ld B\n", ist.mn_states_tot * sizeof(ist.eval_hole_idxs[0])); mem += ist.mn_states_tot * sizeof(ist.eval_hole_idxs[0]);
-    fprintf(pmem, "ist.eval_elec_idxs %ld B\n", ist.mn_states_tot * sizeof(ist.eval_elec_idxs[0])); mem += ist.mn_states_tot * sizeof(ist.eval_elec_idxs[0]);
+    fprintf(pmem, "alloc ist.eval_hole_idxs %ld B\n", ist.mn_states_tot * sizeof(ist.eval_hole_idxs[0])); mem += ist.mn_states_tot * sizeof(ist.eval_hole_idxs[0]);
+    fprintf(pmem, "alloc ist.eval_elec_idxs %ld B\n", ist.mn_states_tot * sizeof(ist.eval_elec_idxs[0])); mem += ist.mn_states_tot * sizeof(ist.eval_elec_idxs[0]);
     
 
     /*************************************************************************/
@@ -163,9 +163,17 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "ERROR: allocating memory for psi_elec in main.c\n");
         exit(EXIT_FAILURE);
     }
-    fprintf(pmem, "psi_hole %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_holes * sizeof(psi_hole[0])); mem += ist.complex_idx*ist.nspinngrid*ist.n_holes*sizeof(psi_hole[0]);
-    fprintf(pmem, "psi_elec %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_elecs * sizeof(psi_elec[0])); mem += ist.complex_idx*ist.nspinngrid*ist.n_elecs*sizeof(psi_elec[0]);
-    
+    if ((psi = (double *) malloc( ist.complex_idx * ist.nspinngrid * (ist.n_holes + ist.n_elecs) * sizeof(double))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for psi_elec in main.c\n");
+        exit(EXIT_FAILURE);
+    }
+    fprintf(pmem, "alloc psi_hole %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_holes * sizeof(psi_hole[0])); mem += ist.complex_idx*ist.nspinngrid*ist.n_holes*sizeof(psi_hole[0]);
+    fprintf(pmem, "alloc psi_elec %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_elecs * sizeof(psi_elec[0])); mem += ist.complex_idx*ist.nspinngrid*ist.n_elecs*sizeof(psi_elec[0]);
+    fprintf(pmem, "alloc psi %ld B", ist.complex_idx * ist.nspinngrid * (ist.n_holes + ist.n_elecs) * sizeof(double)); mem += ist.complex_idx * ist.nspinngrid * (ist.n_holes + ist.n_elecs) * sizeof(double);
+    write_separation(pmem, top);
+    fprintf(pmem, "\ntotal mem usage %ld GB\n", mem * ((long)1e-9) );
+    write_separation(pmem, bottom); fflush(pmem);
+
     printf("\nTHE HOLES:\n");
     for (i = 0; i < ist.n_holes; i++){
         printf("%ld\n", ist.eval_hole_idxs[i]);
@@ -177,9 +185,17 @@ int main(int argc, char *argv[]){
     
     // ******
     // ******
-    get_qp_basis(psitot, psi_hole, psi_elec, &ist, &par, &flag);
+    get_qp_basis(psi, psitot, psi_hole, psi_elec, eig_vals, sigma_E, &ist, &par, &flag);
     // ******
     // ******
+    free(psitot); free(psi_hole); free(psi_elec); free(sigma_E);
+    fprintf(pmem, "free psitot %ld B", ist.complex_idx * ist.nspinngrid * ist.mn_states_tot * sizeof(double)); mem -= ist.complex_idx * ist.nspinngrid * ist.mn_states_tot * sizeof(double);
+    fprintf(pmem, "free psi_hole %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_holes * sizeof(psi_hole[0])); mem -= ist.complex_idx*ist.nspinngrid*ist.n_holes*sizeof(psi_hole[0]);
+    fprintf(pmem, "free psi_elec %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_elecs * sizeof(psi_elec[0])); mem -= ist.complex_idx*ist.nspinngrid*ist.n_elecs*sizeof(psi_elec[0]);
+    fprintf(pmem, "free sigma_E %ld B", ist.mn_states_tot * sizeof(double)); mem -= ist.mn_states_tot * sizeof(double);
+    write_separation(pmem, top);
+    fprintf(pmem, "\ntotal mem usage %ld GB\n", mem * ((long)1e-9) );
+    write_separation(pmem, bottom); fflush(pmem);
 
     // print cube files for debug
 
@@ -249,14 +265,14 @@ int main(int argc, char *argv[]){
     pot_direct  = (zomplex *) malloc(ist.ngrid * sizeof(pot_direct[0]));
     pot_exchange  = (zomplex *) malloc(ist.ngrid * sizeof(pot_exchange[0]));
     pot_hartree = (zomplex *) malloc(ist.ngrid*parallel.nthreads*sizeof(pot_hartree[0]));
-    fprintf(pmem, "pot_direct %ld B\n", ist.ngrid*sizeof(pot_direct[0])); mem += ist.ngrid * sizeof(pot_direct[0]);
-    fprintf(pmem, "pot_exchange %ld B\n", ist.ngrid*sizeof(pot_exchange[0])); mem += ist.ngrid * sizeof(pot_exchange[0]);
-    fprintf(pmem, "pot_hartree %ld B\n", ist.ngrid*parallel.nthreads*sizeof(pot_direct[0])); mem += ist.ngrid*parallel.nthreads*sizeof(pot_direct[0]);
+    fprintf(pmem, "alloc pot_direct %ld B\n", ist.ngrid*sizeof(pot_direct[0])); mem += ist.ngrid * sizeof(pot_direct[0]);
+    fprintf(pmem, "alloc pot_exchange %ld B\n", ist.ngrid*sizeof(pot_exchange[0])); mem += ist.ngrid * sizeof(pot_exchange[0]);
+    fprintf(pmem, "alloc pot_hartree %ld B\n", ist.ngrid*parallel.nthreads*sizeof(pot_direct[0])); mem += ist.ngrid*parallel.nthreads*sizeof(pot_direct[0]);
     printf(" done.\n"); fflush(stdout);
 
     // Initialize the FFT arrays for parallel Fourier transform
     fftwpsi = fftw_malloc(ist.ngrid*parallel.nthreads*sizeof(fftw_complex));
-    fprintf(pmem, "fftwpsi %ld B\n", ist.ngrid*parallel.nthreads*sizeof(fftw_complex)); mem += ist.ngrid*parallel.nthreads*sizeof(fftw_complex);
+    fprintf(pmem, "alloc fftwpsi %ld B\n", ist.ngrid*parallel.nthreads*sizeof(fftw_complex)); mem += ist.ngrid*parallel.nthreads*sizeof(fftw_complex);
     
     // Initialize the parallel FFT
     fftw_plan_with_nthreads(ist.nthreads);
@@ -272,140 +288,20 @@ int main(int argc, char *argv[]){
     
     init_elec_hole_kernel(pot_direct, pot_exchange, &grid, &par, &ist, planfw[0], planbw[0], &fftwpsi[0]);
 
-    
-    // long nstates = 0;  // Total number of states
-    
-    // fseek(ppsi, foffset * ist.homo_idx, SEEK_SET); 
-    // counter = ist.homo_idx; // Set loop counter to HOMO index
-    // thomo = 0;           // Counter for hole states used
-    // while (counter >= indexfirsthomo && thomo < ist.max_hole_states) {
-    //     fread(psidummy, sizeof(zomplex), ist.nspinngrid, ppsi);
-    //     if (evalindex[counter].sigma_E_cut < par.sigma_E_cut) {    
-    //         normalize_zomplex(psidummy, par.dv, ist.nspinngrid);
-    //         //sprintf(fname, "pzv%ld.dat", counter);
-    //         eig_vals[nstates] = evalindex[counter].evalue;
-    //         sigma_E[nstates] = evalindex[counter].sigma_E_cut;
-    //         for (j = 0; j < ist.nspinngrid; j++) {
-    //             psi_hole[thomo * ist.nspinngrid + j] = psidummy[j];
-    //         }
-    //         nstates++;
-    //         thomo++;
-			
-    //     }
-    //     counter--;
-        
-        
-    //     int ret =0;
-    //     if (counter >=0) {
-    //         ret= fseek(ppsi, -2 * foffset, SEEK_CUR);
-            
-    //     }
-    //     if(ret) printf("nonzero exit in fseek!\n"); fflush(0); 
-        
-    // }
-
-    // fseek(ppsi, foffset * (ist.homo_idx + 1), SEEK_SET);
-    // counter = ist.homo_idx + 1;
-    // tlumo = 0;
-
-    // while (tlumo < ist.max_elec_states && tlumo < ist.n_elecs) {
-    //     fread(psidummy, sizeof(zomplex), ist.nspinngrid, ppsi);
-    //     if (evalindex[counter].sigma_E_cut < par.sigma_E_cut) {
-    //         normalize_zomplex(psidummy, par.dv, ist.nspinngrid);
-    //         //sprintf(fname, "pzc%ld.dat", counter);
-            
-	// 	    eig_vals[nstates] = evalindex[counter].evalue;
-    //         sigma_E[nstates] = evalindex[counter].sigma_E_cut;
-    //         for (j = 0; j < ist.nspinngrid; j++) {      
-    //             psi_elec[tlumo * ist.nspinngrid + j] = psidummy[j];
-    //         }
-    //     	nstates++;
-    //     	tlumo++;
-			
-    //     }
-    //     counter++;
-    //     // printf("tlumo: %d nstates:%d counter:%d\n",tlumo, nstates, counter); fflush(0);
-
-    // }
-    // free(psidummy);  printf("freeing psidummy\n");fflush(0);
-    // psi = (zomplex *) calloc(nstates, ist.nspinngrid*sizeof(zomplex));
-    // if (!psi) {printf("Failed to allocate memory for psi"); fflush(0); exit(EXIT_FAILURE);}
-    // fclose(ppsi); printf("closed ppsi");fflush(0);
-    
-    // /**********************************************************************/
-
-    // for (i = thomo - 1, a = 0; i >= 0 && a < thomo; i--, a++) {
-    //     for (j = 0; j < ist.nspinngrid; j++) {
-    //         psi[a * ist.nspinngrid + j].re = psi_hole[i * ist.nspinngrid + j].re;
-    //         psi[a * ist.nspinngrid + j].im = psi_hole[i * ist.nspinngrid + j].im;
-    //     }
-    // }
-
-    // for (i = thomo, a = 0; i < tlumo + thomo && a < tlumo; i++, a++) {
-    //     for (j = 0; j < ist.nspinngrid; j++) {
-    //         psi[i * ist.nspinngrid + j].re = psi_elec[a * ist.nspinngrid + j].re;
-    //         psi[i * ist.nspinngrid + j].im = psi_elec[a * ist.nspinngrid + j].im;
-    //     }
-    // }
-
-    // double tmp1, tmp2;
-    // /* Rearrange eig_vals */
-    // for (i = 0, j = thomo - 1; i < j; i++, j--) {
-    //     tmp1 = eig_vals[i];    tmp2 = sigma_E[i];
-    //     eig_vals[i] = eig_vals[j]; sigma_E[i] = sigma_E[j];
-    //     eig_vals[j] = tmp1;    sigma_E[j] = tmp2;
-    // }
-    // /* Write smaller psi.par and eval.par for augerBSE */
-    // FILE *new_eval = fopen("BSEeval.par", "w");
-    // FILE *new_psi = fopen("BSEpsi.par", "w");
-    // if (!new_eval || !new_psi) {printf("Failed opening BSEeval.par");fflush(0); exit(EXIT_FAILURE);}
-
-    // fwrite(psi, sizeof(zomplex) * ist.nspinngrid, nstates, new_psi);
-
-    // for (i = 0; i < nstates; i++) {
-    //     fprintf(new_eval, "%ld %.*g %.*g\n", i, DBL_DIG, eig_vals[i], DBL_DIG, sigma_E[i]); 
-    // }
-    // fclose(new_eval);
-    // fclose(new_psi);
-    // printf("closed eval and psi");fflush(0);
-    // /**********************************************************************/
-    
-    
-    // free(evalindex); printf("freeing evalindex\n");fflush(0);
-    // free(psi_hole); printf("freeing psi_hole\n");fflush(0);
-    // free(psi_elec); printf("freeing psidlumo\n");fflush(0);
-    
-    // printf("freeing Things");fflush(0);
-
-    // printf("Number of hole eigenstates used in the BSE calculation = %ld\n", thomo);
-    // printf("Number of electron eigenstates used in the BSE calculation =  %ld\n", tlumo);
-    // printf("Total number of eigenstates used in the BSE calculation = %ld\n", nstates);
-    // fflush(0);
-
-    // pf = fopen("qp_spins.dat", "w");
-    // for (int state  = 0; state<nstates; state++){
-    //     fprintf(pf, "\nStats on state%d: (E=%lg)\n",state, eig_vals[state]);
-    //     double perUp = 0;
-    //     double perDn = 0;
-    //     for (long igrid = 0; igrid < ist.ngrid; igrid++){
-    //         perUp+=sqr(psi[state*ist.nspinngrid+igrid].re)+sqr(psi[state*ist.nspinngrid+igrid].im);
-    //         perDn+=sqr(psi[state*ist.nspinngrid+ist.ngrid+igrid].re)+sqr(psi[state*ist.nspinngrid+ist.ngrid+igrid].im);
-    //     }
-    //     fprintf(pf, " Spin up fraction: %f\n", perUp*par.dv);
-    //     fprintf(pf, " Spin dn fraction: %f\n", perDn*par.dv);
-    // }
-    // fclose(pf);
-    // /*************************************************************************/
-    // ist.n_qp = nstates;
-    // ist.lumo_idx = thomo;
-    // ist.homo_idx = thomo - 1;
-    // ist.n_elecs = tlumo;
-    // ist.n_holes = thomo;
-  
-    // /*                              END CHANGES                           */
-    // /*************************************************************************/
-
-    // /**************************************************************************/
+    pf = fopen("qp_spins.dat", "w");
+    for (int state  = 0; state < ist.n_qp; state++){
+        fprintf(pf, "\nStats on state%d: (E=%lg)\n",state, eig_vals[state]);
+        double perUp = 0;
+        double perDn = 0;
+        for (long igrid = 0; igrid < ist.ngrid; igrid++){
+            perUp+=sqr(psi[state*ist.nspinngrid+igrid].re)+sqr(psi[state*ist.nspinngrid+igrid].im);
+            perDn+=sqr(psi[state*ist.nspinngrid+ist.ngrid+igrid].re)+sqr(psi[state*ist.nspinngrid+ist.ngrid+igrid].im);
+        }
+        fprintf(pf, " Spin up fraction: %f\n", perUp*par.dv);
+        fprintf(pf, " Spin dn fraction: %f\n", perDn*par.dv);
+    }
+    fclose(pf);
+    /*************************************************************************/
     
     // /**************************************************************************/
     // /*** this routine computes the coulomb coupling between

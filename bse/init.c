@@ -152,7 +152,7 @@ void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *
 
 double calc_coulomb(double dr, double gamma){
   
-  if (dr < EPSR) return (2.0*gamma/SQRTPI);
+  if (dr < EPSR) return (2.0 * gamma / SQRTPI);
   return (erf(gamma * dr) / dr);
   
 }

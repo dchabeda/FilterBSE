@@ -290,15 +290,18 @@ int main(int argc, char *argv[]){
 
     pf = fopen("qp_spins.dat", "w");
     for (int state  = 0; state < ist.n_qp; state++){
-        fprintf(pf, "\nStats on state%d: (E=%lg)\n",state, eig_vals[state]);
+        fprintf(pf, "\nStats on state%d: (E=%lg)\n", state, eig_vals[state]);
         double perUp = 0;
         double perDn = 0;
-        for (long igrid = 0; igrid < ist.ngrid; igrid++){
-            perUp+=sqr(psi[state*ist.nspinngrid+igrid].re)+sqr(psi[state*ist.nspinngrid+igrid].im);
-            perDn+=sqr(psi[state*ist.nspinngrid+ist.ngrid+igrid].re)+sqr(psi[state*ist.nspinngrid+ist.ngrid+igrid].im);
+        for (long jgrid = 0; jgrid < ist.ngrid; jgrid++){
+            jgrid_real = ist.complex_idx * jgrid;
+            jgrid_imag = ist.complex_idx * jgrid + 1;
+        
+            perUp+=sqr(psi[state*ist.nspinngrid+jgrid_real])+sqr(psi[state*ist.nspinngrid+jgrid_imag]);
+            perDn+=sqr(psi[state*ist.nspinngrid+ist.ngrid+jgrid_real])+sqr(psi[state*ist.nspinngrid+ist.ngrid+jgrid_imag]);
         }
-        fprintf(pf, " Spin up fraction: %f\n", perUp*par.dv);
-        fprintf(pf, " Spin dn fraction: %f\n", perDn*par.dv);
+        fprintf(pf, " Spin up fraction: %f\n", perUp * par.dv);
+        fprintf(pf, " Spin dn fraction: %f\n", perDn * par.dv);
     }
     fclose(pf);
     /*************************************************************************/

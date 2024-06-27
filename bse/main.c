@@ -162,7 +162,7 @@ int main(int argc, char *argv[]){
 
     rho = malloc(ist.ngrid * sizeof(rho[0]));
     char str[100];
-    
+
     for (i = 0; i < ist.n_holes; i++){
         //Spin Up Wavefunction
         sprintf(str,"hole-%ld-Up.cube",ist.eval_hole_idxs[i]);
@@ -189,7 +189,7 @@ int main(int argc, char *argv[]){
     }
 
     for (i = 0;  i < ist.n_elecs; i++){
-        sprintf(str,"lumo-%ld-Up.cube", ist.eval_elec_idxs[i]);
+        sprintf(str,"elec-%ld-Up.cube", ist.eval_elec_idxs[i]);
         for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
         jgrid_real = ist.complex_idx * jgrid;
         jgrid_imag = ist.complex_idx * jgrid + 1;

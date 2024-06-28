@@ -252,6 +252,26 @@ int main(int argc, char *argv[]){
     // }
     // free(rho);
 
+    if (1 == flag.useSpinors){
+        printf("Computing spin composition of quasiparticle spinors\n"); fflush(stdout);
+        pf = fopen("qp_spins.dat", "w");
+        for (int state  = 0; state < ist.n_qp; state++){
+            fprintf(pf, "\nStats on state%d: (E=%lg)\n", state, eig_vals[state]);
+            double perUp = 0;
+            double perDn = 0;
+            for (long jgrid = 0; jgrid < ist.ngrid; jgrid++){
+                jgrid_real = ist.complex_idx * jgrid;
+                jgrid_imag = ist.complex_idx * jgrid + 1;
+            
+                perUp += sqr(psi_qp[state*ist.nspinngrid+jgrid_real])+sqr(psi_qp[state*ist.nspinngrid+jgrid_imag]);
+                perDn += sqr(psi_qp[state*ist.nspinngrid+ist.ngrid+jgrid_real])+sqr(psi_qp[state*ist.nspinngrid+ist.ngrid+jgrid_imag]);
+            }
+            fprintf(pf, " Spin up fraction: %f\n", perUp * grid.dv);
+            fprintf(pf, " Spin dn fraction: %f\n", perDn * grid.dv);
+        }
+        fclose(pf);
+    }
+
     /*************************************************************************/
     // 2. Compute electron-hole interaction potentials
     
@@ -289,28 +309,15 @@ int main(int argc, char *argv[]){
     printf("Computing kernel...\n"); fflush(stdout);
     init_elec_hole_kernel(pot_direct, pot_exchange, &grid, &ist, &par, planfw[0], planbw[0], &fftwpsi[0]);
 
-    if (1 == flag.useSpinors){
-        printf("Computing spin composition of quasiparticle spinors\n"); fflush(stdout);
-        pf = fopen("qp_spins.dat", "w");
-        for (int state  = 0; state < ist.n_qp; state++){
-            fprintf(pf, "\nStats on state%d: (E=%lg)\n", state, eig_vals[state]);
-            double perUp = 0;
-            double perDn = 0;
-            for (long jgrid = 0; jgrid < ist.ngrid; jgrid++){
-                jgrid_real = ist.complex_idx * jgrid;
-                jgrid_imag = ist.complex_idx * jgrid + 1;
-            
-                perUp += sqr(psi_qp[state*ist.nspinngrid+jgrid_real])+sqr(psi_qp[state*ist.nspinngrid+jgrid_imag]);
-                perDn += sqr(psi_qp[state*ist.nspinngrid+ist.ngrid+jgrid_real])+sqr(psi_qp[state*ist.nspinngrid+ist.ngrid+jgrid_imag]);
-            }
-            fprintf(pf, " Spin up fraction: %f\n", perUp * grid.dv);
-            fprintf(pf, " Spin dn fraction: %f\n", perDn * grid.dv);
-        }
-        fclose(pf);
-    }
     /*************************************************************************/
+    /*************************************************************************/
+    // 2. Compute single particle optical properties
     
-    printf("Computing single-particle optical properties\n");
+    write_separation(stdout, top);
+    printf("\n3.\tCOMPUTING SINGLE-PARTICLE OPTICAL PROPERTIES\n");
+    write_separation(stdout, bottom); fflush(stdout);
+
+    /*************************************************************************/
     printf("Allocating memory for dipole and angular momentum matrix elements... "); fflush(stdout);
     // trans_dipole def= <psi_i|mu|psi_a>
     if ((trans_dipole = (xyz_st *) malloc(ist.n_elecs*ist.n_holes * sizeof(trans_dipole[0]))) == NULL){
@@ -343,6 +350,7 @@ int main(int argc, char *argv[]){
     write_separation(pmem, bottom); fflush(pmem);
     printf("done\n"); fflush(stdout);
 
+    printf("\nElectric transition dipole moment...\n");
     calc_electric_dipole(trans_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
     // calc_magnetic_dipole(vx, vy, vz, psi_qp, mx, my, mz, eig_vals, planfw, planbw, fftwpsi, &ist, &par);
     // calc_rotational_strength(rs, mux, muy, muz, mx, my, mz, eig_vals, &ist);

@@ -27,9 +27,9 @@ void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals
   
   // Output will be written to these files
   pf = fopen("OS0.dat" , "w"); 
-  fprintf(pf, "i a sqrt(mu2) Ea-Ei f_osc mu_x.re mu_y.re mu_z.re");
+  fprintf(pf, " i   a   sqrt(mu2)       Ea-Ei 	  f_osc       mu_x.re     mu_y.re     mu_z.re");
   if (flag->useSpinors){
-    fprintf(pf, " mu_x.im mu_y.im mu_z.im");
+    fprintf(pf, "     mu_x.im     mu_y.im     mu_z.im");
   }
   //pf1 = fopen("mu_x.dat", "w"); pf2 = fopen("mu_y.dat", "w"); pf3 = fopen("mu_z.dat", "w");
 
@@ -102,7 +102,7 @@ void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals
       // fprintf (pf3,"%ld %ld %g %g\n",i,a,muz[i*ist->n_elecs+(a-ist->lumo_idx)].re, muz[i*ist->n_elecs+(a-ist->lumo_idx)].im);
 
       bohr_freq = eig_vals[a] - eig_vals[i];
-      fprintf(pf,"\n%ld %ld %.8f %.12f % .8f % .8f % .8f % .8f", i, a, sqrt(osc_strength), bohr_freq, (2.0/3.0)*bohr_freq*osc_strength, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re,
+      fprintf(pf,"\n%3ld %3ld %.8f %.12f % .8f % .8f % .8f % .8f", i, a, sqrt(osc_strength), bohr_freq, (2.0/3.0)*bohr_freq*osc_strength, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re,
         trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_re, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_re);
 
       if (1 == flag->useSpinors){

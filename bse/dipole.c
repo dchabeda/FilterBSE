@@ -86,15 +86,15 @@ void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals
           }
         }
       }
-      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)]->x_re = par->dv * sumX.re;  
-      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)]->y_re = par->dv * sumY.re; 
-      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)]->z_re = par->dv * sumZ.re; 
+      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re = par->dv * sumX.re;  
+      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_re = par->dv * sumY.re; 
+      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_re = par->dv * sumZ.re; 
       osc_strength = sqr(par->dv) * (sqr(sumX.re) + sqr(sumY.re) + sqr(sumZ.re));
        
       if (1 == flag->useSpinors){
-        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)]->x_im = par->dv * sumX.im; 
-        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)]->y_im = par->dv * sumY.im;
-        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)]->z_im = par->dv * sumZ.im;
+        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_im = par->dv * sumX.im; 
+        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_im = par->dv * sumY.im;
+        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_im = par->dv * sumZ.im;
         osc_strength += sqr(par->dv) * (sqr(sumX.im) + sqr(sumY.im) + sqr(sumZ.im));
       }
       // fprintf (pf1,"%ld %ld %g %g\n",i,a,mux[i*ist->n_elecs+(a-ist->lumo_idx)].re, mux[i*ist->n_elecs+(a-ist->lumo_idx)].im);
@@ -102,11 +102,11 @@ void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals
       // fprintf (pf3,"%ld %ld %g %g\n",i,a,muz[i*ist->n_elecs+(a-ist->lumo_idx)].re, muz[i*ist->n_elecs+(a-ist->lumo_idx)].im);
 
       bohr_freq = eig_vals[a] - eig_vals[i];
-      fprintf(pf,"\n%ld %ld %.8f %.12f % .8f % .8f % .8f % .8f", i, a, sqrt(osc_strength), bohr_freq, (2.0/3.0)*bohr_freq*osc_strength, trans_dipole->x_re[i*ist->n_elecs+(a-ist->lumo_idx)],
-        trans_dipole->y_re[i*ist->n_elecs+(a-ist->lumo_idx)], trans_dipole->z_re[i*ist->n_elecs+(a-ist->lumo_idx)]);
+      fprintf(pf,"\n%ld %ld %.8f %.12f % .8f % .8f % .8f % .8f", i, a, sqrt(osc_strength), bohr_freq, (2.0/3.0)*bohr_freq*osc_strength, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re,
+        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_re, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_re);
 
       if (1 == flag->useSpinors){
-        fprintf(pf," %.8f %.8f %.8f", trans_dipole->x_im[i*ist->n_elecs+(a-ist->lumo_idx)], trans_dipole->y_im[i*ist->n_elecs+(a-ist->lumo_idx)], trans_dipole->z_im[i*ist->n_elecs+(a-ist->lumo_idx)]);
+        fprintf(pf," %.8f %.8f %.8f", trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_im, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_im, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_im);
       }
     }
   }

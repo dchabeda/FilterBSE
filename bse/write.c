@@ -33,7 +33,7 @@ void write_cube_file(double *rho, grid_st *grid, char *fileName) {
   while(fgets(line, 80, pConfFile) != NULL) {
     sscanf(line, "%2s %lf %lf %lf %ld %*lf", (char*)&atomSymbol, &x, &y, &z, &atomType);
     
-    //TODO: make sane atom_info handling.... 
+    //TODO: make sane atom handling.... 
     if (! strcmp(atomSymbol, "Cd")) { 
       atomType = 48;
     }

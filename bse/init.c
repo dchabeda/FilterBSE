@@ -4,8 +4,26 @@
 
 /*****************************************************************************//*****************************************************************************/
 
-void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *grid, par_st *par, index_st *ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
-  
+void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
+  /*******************************************************************
+  * This function computes the value of the Coulomb kernel at each   *
+  * grid point. The actual calculation of 1/r takes place in k-space *
+  * using FFT. The direct Coulomb term is screened by the average    *
+  * dielectric constant, and the exchange term is unscreened (bare)  *
+  * according to the derivation by Rohlfing and Louie: PRB 62 (8)    *
+  * inputs:                                                          *
+  *  [pot_direct] array to hold value of the direct Coulomb pot      *
+  *  [pot_exchange] array to hold value of the screened exchange pot *
+  *  [grid] grid_st instance holding values of all grid points       *
+  *  [ist] ptr to counters, indices, and lengths                     *
+  *  [par] ptr to par_st holding VBmin, VBmax... params              *
+  *  [flag] ptr to flag_st holding job flags                         *
+  *  [planfw] FFTW3 plan for executing 3D forward DFT                *
+  *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+  *  [fftwpsi] location to store outcome of Fourier transform        *
+  * outputs: void                                                    *
+  ********************************************************************/
+
   long jx, jy, jz, jyz, jxyz, sx, sy, sz;
   double r, r2, x2, y2, z2, *kx2, *ky2, *kz2, alpha, cosa, sina;
   double ex_1, ey_1, ez_1, sqrtexeyez_1, sqrtaveps, sqrk0;
@@ -98,10 +116,12 @@ void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *
     pot_direct[jxyz].re = pot_direct[jxyz].im = pot_exchange[jxyz].re = pot_exchange[jxyz].im = 0.0;
   }
 
+  printf("\tScreened direct Coulomb term...\n");
   memcpy(&fftwpsi[0], &potr[0], ist->ngrid*sizeof(fftwpsi[0]));
   fftw_execute(planfw);
   memcpy(&pot_direct[0], &fftwpsi[0], ist->ngrid*sizeof(pot_direct[0]));
 
+  printf("\tBare exchange Coulomb term...\n");
   memcpy(&fftwpsi[0], &potrx[0], ist->ngrid*sizeof(fftwpsi[0]));
   fftw_execute(planfw);
   memcpy(&pot_exchange[0], &fftwpsi[0], ist->ngrid*sizeof(pot_exchange[0]));
@@ -150,10 +170,26 @@ void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *
   
 /****************************************************************************/
 
-double calc_coulomb(double dr, double gamma){
-  
-  if (dr < EPSR) return (2.0 * gamma / SQRTPI);
-  return (erf(gamma * dr) / dr);
+double calc_coulomb(double r, double gamma){
+  /*******************************************************************
+  * This function computes the 1/r potential in reciprocal space     *
+  * as erf(r)/r                                                      *
+  * dielectric constant, and the exchange term is unscreened (bare)  *
+  * according to the derivation by Rohlfing and Louie: PRB 62 (8)    *
+  * inputs:                                                          *
+  *  [pot_direct] array to hold value of the direct Coulomb pot      *
+  *  [pot_exchange] array to hold value of the screened exchange pot *
+  *  [grid] grid_st instance holding values of all grid points       *
+  *  [ist] ptr to counters, indices, and lengths                     *
+  *  [par] ptr to par_st holding VBmin, VBmax... params              *
+  *  [flag] ptr to flag_st holding job flags                         *
+  *  [planfw] FFTW3 plan for executing 3D forward DFT                *
+  *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+  *  [fftwpsi] location to store outcome of Fourier transform        *
+  * outputs: void                                                    *
+  ********************************************************************/
+  if (r < EPSR) return (2.0 * gamma / SQRTPI);
+  return (erf(gamma * r) / r);
   
 }
 

@@ -26,7 +26,7 @@ void single_coulomb_openmp(zomplex       *psi,
     zomplex *rho, sum1, sum2, tmp;
 
     rho = (zomplex *) calloc(ist.ngrid * ist.nthreads, sizeof(zomplex));
-    listibs = (long *) calloc(ist.ms2, sizeof(long));
+    listibs = (long *) calloc(ist.n_xton, sizeof(long));
 
     for (ibs = 0, a = ist.lumo_idx; a < ist.lumo_idx+ist.n_elecs; a++) {
         for (i = 0; i < ist.n_holes; i++, ibs++) {
@@ -96,18 +96,18 @@ void single_coulomb_openmp(zomplex       *psi,
                     //get the matrix indicies for {ai,bj} and set bsmat
 	                ibs = listibs[(a - ist.lumo_idx)*ist.n_holes + i];
 	                jbs = listibs[(b - ist.lumo_idx)*ist.n_holes + j];
-                    //printf("Index bsmas: ibs:%ld jbs:%ld index:%ld\n",ibs, jbs,ibs * ist.ms2 + jbs);
-	                bsmat[ibs * ist.ms2 + jbs].re = sum1.re;
-                    bsmat[ibs * ist.ms2 + jbs].im = sum1.im;
+                    //printf("Index bsmas: ibs:%ld jbs:%ld index:%ld\n",ibs, jbs,ibs * ist.n_xton + jbs);
+	                bsmat[ibs * ist.n_xton + jbs].re = sum1.re;
+                    bsmat[ibs * ist.n_xton + jbs].im = sum1.im;
                     
-                    direct[ibs * ist.ms2 + jbs].re = sum1.re;
-                    direct[ibs * ist.ms2 + jbs].im = sum1.im;
+                    direct[ibs * ist.n_xton + jbs].re = sum1.re;
+                    direct[ibs * ist.n_xton + jbs].im = sum1.im;
 	                
                     //if diagonal put the energy difference in the h0mat
                     if (ibs == jbs) 
-                        h0mat[ibs*ist.ms2+jbs] = eval[a] - eval[i];
+                        h0mat[ibs*ist.n_xton+jbs] = eval[a] - eval[i];
 	                else 
-                        h0mat[ibs*ist.ms2+jbs] = 0.0;
+                        h0mat[ibs*ist.n_xton+jbs] = 0.0;
 	                fprintf(pf,"%ld %ld %ld %ld %ld %ld %.*g %.*g %.*g %.*g\n",a,i,b,j,
 		                     listibs[(a-ist.lumo_idx)*ist.n_holes+i],
 		                     listibs[(b-ist.lumo_idx)*ist.n_holes+j],
@@ -177,13 +177,13 @@ void single_coulomb_openmp(zomplex       *psi,
                     ibs = listibs[(a-ist.lumo_idx)*ist.n_holes+i];
 	                jbs = listibs[(b-ist.lumo_idx)*ist.n_holes+j];
                     //NOTE: scalar version has a 2 as to calc for bright only. Don't want for full matrix. Took out 11/10 --DW
-					bsmat[ibs*ist.ms2+jbs].re -=  sum2.re;
-                    bsmat[ibs*ist.ms2+jbs].im -=  sum2.im;
+					bsmat[ibs*ist.n_xton+jbs].re -=  sum2.re;
+                    bsmat[ibs*ist.n_xton+jbs].im -=  sum2.im;
 
-                    exchange[ibs*ist.ms2+jbs].re = -1.0* sum2.re;
-                    exchange[ibs*ist.ms2+jbs].im = -1.0* sum2.im;
+                    exchange[ibs*ist.n_xton+jbs].re = -1.0* sum2.re;
+                    exchange[ibs*ist.n_xton+jbs].im = -1.0* sum2.im;
 
-                    if(ibs==jbs){bsmat[ibs*ist.ms2+jbs].im = 0.0;}
+                    if(ibs==jbs){bsmat[ibs*ist.n_xton+jbs].im = 0.0;}
 	                fprintf(pf,"%ld %ld %ld %ld %ld %ld %.*g %.*g %.*g %.*g\n",
                             a,i,b,j,ibs,jbs,
                             DBL_DIG, ene1, DBL_DIG, ene2, DBL_DIG, sum2.re, DBL_DIG, sum2.im);

@@ -207,6 +207,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->ngrid_1 = 1.0 / (double)(ist->ngrid); // for rescaling FFT
   ist->nthreads = parallel->nthreads;
   ist->complex_idx = flag->isComplex + 1;
+  par->dv = grid->dv;
+  ist->nx = grid->nx; ist->ny = grid->ny; ist->nz = grid->nz;
 
   // Using input parameters, print the current job state
   print_input_state(stdout, flag, grid, par, ist, parallel);
@@ -217,14 +219,14 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
 
 /****************************************************************************/
 
-void read_bseCoeff(int ms2,int numExcStatesToRead, zomplex* u, FILE* pf){
+void read_bseCoeff(int n_xton,int numExcStatesToRead, zomplex* u, FILE* pf){
   int i,j;
 
   if(numExcStatesToRead>100){numExcStatesToRead=100;}
 
-  for (i = 0; i < ms2; i++) {
+  for (i = 0; i < n_xton; i++) {
     for (j = 0; j < numExcStatesToRead; j++) {  
-    fscanf (pf,"{%lg, %lg}\t", &(u[i*ms2+j].re), &(u[i*ms2+j].im));
+    fscanf (pf,"{%lg, %lg}\t", &(u[i*n_xton+j].re), &(u[i*n_xton+j].im));
     } 
   }
 }

@@ -111,13 +111,13 @@ void print_cube(double *pgrid, index_st ist, par_st par, char *fName) {
   int ncub = 10;
   double dz, dx, dy,x,y,z;
   char line[80],atyp[10];
-  if(ist.ms2<ncub) ncub = ist.ms2; 
+  if(ist.n_xton<ncub) ncub = ist.n_xton; 
   
   fr = fopen("conf.par", "r");
   pf = fopen(fName , "w");
   fprintf(pf, "CUBE FILE\n");
   fprintf(pf, "OUTER LOOP: Z, MIDDLE LOOP: Y, INNER LOOP: X\n");
-  fprintf(pf, "%5li%12.6f%12.6f%12.6f\n", ist.natom, par.xmin, par.ymin, par.zmin);
+  fprintf(pf, "%5li%12.6f%12.6f%12.6f\n", ist.natoms, par.xmin, par.ymin, par.zmin);
   fprintf(pf, "%5li%12.6f%12.6f%12.6f\n", ist.nz, 0.0, 0.0, par.dz);
   fprintf(pf, "%5li%12.6f%12.6f%12.6f\n", ist.ny, 0.0, par.dy, 0.0);
   fprintf(pf, "%5li%12.6f%12.6f%12.6f\n", ist.nx, par.dx, 0.0, 0.0);
@@ -271,7 +271,7 @@ void print_fixed_qp_density(double *psi, double *Cbs, double *vz, index_st ist, 
       for (i = 0; i < ist.n_holes; i++, ibs++) {
         for (jbs = 0, b = ist.lumo_idx; b < ist.lumo_idx+ist.n_elecs; b++) {
           for (j = 0; j < ist.n_holes; j++, jbs++) {
-            coeff = Cbs[exc_index*ist.ms2 + ibs] * Cbs[exc_index*ist.ms2 + jbs];
+            coeff = Cbs[exc_index*ist.n_xton + ibs] * Cbs[exc_index*ist.n_xton + jbs];
             // Store cia*cjb*psii*psij and cia*cjb*psia*psib loop over all grid points
             // Can do these with just loops over just i and j (a and b) separately
             for (jgrid = 0; jgrid < ist.ngrid; jgrid++) {

@@ -44,18 +44,18 @@ typedef struct st0 {
 
 typedef struct st1 {
   double dx, dy, dz, dr, dkx, dky, dkz, dv, epsX, epsY, epsZ;
-  double xmin, xmax, ymin, ymax, zmin, zmax, kxmin, kymin, kzmin;
-  double KE_max, Elmin, Elmax, Elumo, Ehomo, Vmin, Vmax;
+  double xmin, xmax, ymin, ymax, zmin, zmax;
+  double KE_max;
   double delta_E_elec, delta_E_hole, sigma_E_cut, fermi_E;
   int checkpoint_id;
 } par_st;
 
 typedef struct st4 {
   long max_elec_states, max_hole_states, mn_states_tot;
-  long n1, n2, n12, natom, nthreads;
-  long n_qp, ms2, niter, nc, npot, npsi;
-  long ngrid, nspinngrid, n_atom_types;
-  long *atom_types;
+  long nthreads;
+  long n_qp, n_xton;
+  long nx, ny, nz, ngrid, nspinngrid;
+  long n_atom_types, *atom_types;
   long natoms, homo_idx, lumo_idx, n_holes, n_elecs;
   long *eval_hole_idxs, *eval_elec_idxs;
   double ngrid_1;
@@ -68,6 +68,7 @@ typedef struct st4 {
 
 typedef struct st5 {
   double x, y, z;
+  double x_re, x_im, y_re, y_im, z_re, z_im;
 } xyz_st;
 
 typedef fftw_plan fftw_plan_loc;
@@ -102,46 +103,35 @@ typedef struct parallel{
 /*#define DEPS  0.02
 #define DENERGY 0.01*/
 
+// save.c
+void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel);
+void read_filter_output(char *file_name, double **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag);
+
+// write.c
+void write_cube_file(double *rho, grid_st *grid, char *fileName);
+void write_current_time(FILE *pf);
+void write_separation(FILE *pf, char *top_bttm);
+
+// read.c
+void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);
+
 // basis.c
 void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag);
 void get_qp_basis(double *psi, double *psitot, double *psi_hole, double *psi_elec, double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag);
 
 // init.c
-void init_elec_hole_kernel(zomplex *potq, zomplex *potqx, grid_st *grid, par_st *par,index_st *ist, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
+void init_elec_hole_kernel(zomplex *potq, zomplex *potqx, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 double calc_coulomb(double dr, double gamma);
-double longerpolate(double r,double dr,double *vr,double *pot,long npot,long n,long j);
-
-// read.c
-void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);
 
 // norm.c
 double norm(zomplex *, double,long);
 double normalize_zomplex(zomplex *psi, double dr, long ngrid);
-void normalize(double *vector, double dV, long ngrid);
 void normalize_all(double *,double,long,long);
 void norm_vector(double *vector, double dV, long length);
-double norm_rho(zomplex *rho,double dr,long ngrid);
-
-// write.c
-void write_psi(double *,double *,double *,double *,double *,index_st,par_st);
-void write_pot(double *,double *,double *,double *,index_st);
 
 void scalar_product(zomplex *,zomplex *,zomplex *,double,long,long);
 
-void nerror(char *);
-
-double rlong(double); 
-/*
-long int random(void);
-void srandom(unsigned long);
-*/
-double ran_nrc(long *idum);
-void Randomize();
-double ran();
-
-double get_dot_ligand_size(double *,double *,double *,long);
-double get_dot_ligand_size_z(double *rz,long n);
-
+// hartree.c
 void hartree(zomplex *rho,zomplex *potq,zomplex *poth,index_st ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 
 void single_coulomb_openmp(zomplex       *psi, 
@@ -161,24 +151,17 @@ void single_coulomb_openmp(zomplex       *psi,
 
 
 
-void prlong_pz(double *psi,double *sige,double *vz,par_st par,index_st ist);
-
 void diag(const int n, int nthreads, zomplex *mat, double *eval);
-void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchage, double *h0mat, zomplex *psi, double *vz, zomplex *mux, zomplex *muy, zomplex * muz,
-          double *mx, double *my, double *mz,zomplex *sx, zomplex *sy, zomplex *sz,zomplex *lx, zomplex *ly, zomplex *lz, zomplex* lsqr, zomplex* ls, index_st ist, par_st par);
-void psi_rnd(zomplex *psi,long ngrid,double dv,long *idum);
+void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchage, double *h0mat, zomplex *psi, double *vz, xyz_st *trans_dipole,
+          xyz_st *mag_dipole, xyz_st *S_mom, xyz_st *L_mom, xyz_st *L_mom2, zomplex *LdotS, index_st *ist, par_st *par);
 
 double findmaxabsre(zomplex *dwmat,long n);
 double findmaxabsim(zomplex *dwmat,long n);
 
 // dipole.c
-void dipole(zomplex *psi,zomplex *mux,zomplex *muy,zomplex *muz,double *eval,grid_st *grid, index_st *ist,par_st *par);
-void mag_dipole(double *vx, double *vy, double *vz, double *psi, double *mx, double *my, double *mz, 
-  double *eval, fftw_plan_loc *planfw,fftw_plan_loc *planbw,fftw_complex *fftwpsi, index_st ist, par_st par);
-void rotational_strength(double *rs, double *mux, double *muy, double *muz, double *mx, 
-  double *my, double *mz, double *eval, index_st ist);
-
-void prlong_cube(double *pgrid,index_st ist,par_st par);
+void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, grid_st *grid, index_st *ist, par_st *par);
+void magnetic_dipole(double *psi, xyz_st *mag_dipole, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc *planfw,fftw_plan_loc *planbw,fftw_complex *fftwpsi);
+void rotational_strength(xyz_st *rot_strength, xyz_st *trans_dipole, xyz_st *mag_dipole, double *eig_vals, index_st *ist, par_st *par);
 
 
 void print_pz_one(double *psi,double *vz,par_st par,index_st ist,char *str);
@@ -186,11 +169,6 @@ void print_pz(double *psi,double *sige,double *vz,par_st par,index_st ist);
 int z_project(double *vector, double *vz, par_st par, index_st ist, char *fname);
 void print_cube(double *pgrid,index_st ist,par_st par,char *fName);
 void print_fixed_qp_density(double *psi, double *Cbs, double *vz, index_st ist, par_st par);
-
-// Functions that write input or output - write.c
-void write_cube_file(double *rho, grid_st *grid, char *fileName);
-void write_current_time(FILE *pf);
-void write_separation(FILE *pf, char *top_bttm);
 
 //angular.c
 void spins(zomplex *sx, zomplex *sy, zomplex *sz,zomplex *psi,index_st ist,par_st par);
@@ -200,7 +178,4 @@ void lOpp(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi,
   double* vx, double* vy, double* vz,
   fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi,index_st ist, par_st par);
 
-// save.c
-void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel);
-void read_filter_output(char *file_name, double **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag);
 /*****************************************************************************/

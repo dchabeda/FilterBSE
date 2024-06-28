@@ -4,55 +4,76 @@
 
 /****************************************************************************/
 
-void spins(zomplex *sx, zomplex *sy, zomplex *sz,zomplex *psi,index_st ist,par_st par){
-long a,i,b,j,jx, jy, jz, jgridup,jgriddn, jyz, index;
-FILE *pfx, *pfy, *pfz;
+void spins(zomplex *S, zomplex *psi_qp, index_st ist, par_st par){
+  /*******************************************************************
+  * This function computes the value of the spin projection operator *
+  * between the electron and hole quasiparticle states. The spin     *
+  * projection operators are defined by the Pauli matrices as:       *
+  * Sx = 1/2 (|up><down| + |down><up|)                               *
+  * Sy = 1/2 (-i|up><down| + i|down><up|)                            *
+  * Sz = 1/2 (|up><up| - |down><down|)                               *
+  * and we compute the matrix elements <i|Sx|j> as                   *
+  * sum_r psi_i(r, s) * Sx * psi_j(r, s)                             *
+  * inputs:                                                          *
+  *  [S] array to hold components of the spin projection mat elems   *
+  *  [psi_qp] array holding all qp_basis states                      *
+  *  [grid] grid_st instance holding values of all grid points       *
+  *  [ist] ptr to counters, indices, and lengths                     *
+  *  [par] ptr to par_st holding VBmin, VBmax... params              *
+  *  [flag] ptr to flag_st holding job flags                         *
+  *  [planfw] FFTW3 plan for executing 3D forward DFT                *
+  *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+  *  [fftwpsi] location to store outcome of Fourier transform        *
+  * outputs: void                                                    *
+  ********************************************************************/
+ 
+  long a,i,b,j,jx, jy, jz, jgridup, jgriddn, jyz, index;
+  FILE *pfx, *pfy, *pfz;
 
-pfx = fopen("sx.dat", "w"); pfy = fopen("sy.dat", "w"); pfz = fopen("sz.dat", "w");
-//calculate spin matrix elements between all occupied (hole) orbitals
-	for(i =0; i< ist.n_holes;i++){
-		for (j = 0; j< ist.n_holes;j++){
-			
+  pfx = fopen("sx.dat", "w"); pfy = fopen("sy.dat", "w"); pfz = fopen("sz.dat", "w");
+  //calculate spin matrix elements between all occupied (hole) orbitals
+	for(i = 0; i < ist.n_holes; i++){
+		for (j = 0; j < ist.n_holes; j++){
 			for (jz = 0; jz < ist.nz; jz++) {
-        		for (jy = 0; jy < ist.ny; jy++) {
-          			jyz = ist.nx * (ist.ny * jz + jy);
-          			for (jx = 0; jx < ist.nx; jx++) {
-          				jgridup = jyz + jx;
-            			jgriddn = jgridup+ist.ngrid;
+        for (jy = 0; jy < ist.ny; jy++) {
+          jyz = ist.nx * (ist.ny * jz + jy);
+          for (jx = 0; jx < ist.nx; jx++) {
+            jgridup = jyz + jx;
+            jgriddn = jgridup+ist.ngrid;
 						
-					//Spin x part
+					  //Spin x part
 						//<j|r,dn> * <r,up|i>
-						sx[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgridup].re
-												  + psi[j*ist.nspinngrid+jgriddn].im * psi[i*ist.nspinngrid+jgridup].im;
-						sx[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgridup].im
-												  - psi[j*ist.nspinngrid+jgriddn].im * psi[i*ist.nspinngrid+jgridup].re;
+						sx[i*ist.n_holes+j].re += psi_qp[j*ist.nspinngrid+jgriddn].re * psi_qp[i*ist.nspinngrid+jgridup].re
+												  + psi_qp[j*ist.nspinngrid+jgriddn].im * psi_qp[i*ist.nspinngrid+jgridup].im;
+						sx[i*ist.n_holes+j].im += psi_qp[j*ist.nspinngrid+jgriddn].re * psi_qp[i*ist.nspinngrid+jgridup].im
+												  - psi_qp[j*ist.nspinngrid+jgriddn].im * psi_qp[i*ist.nspinngrid+jgridup].re;
 						//<j|r,up> * <r,dn|i>
-						sx[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgriddn].re
-												  + psi[j*ist.nspinngrid+jgridup].im * psi[i*ist.nspinngrid+jgriddn].im;
-						sx[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgriddn].im
-												  - psi[j*ist.nspinngrid+jgridup].im * psi[i*ist.nspinngrid+jgriddn].re;
+						sx[i*ist.n_holes+j].re += psi_qp[j*ist.nspinngrid+jgridup].re * psi_qp[i*ist.nspinngrid+jgriddn].re
+												  + psi_qp[j*ist.nspinngrid+jgridup].im * psi_qp[i*ist.nspinngrid+jgriddn].im;
+						sx[i*ist.n_holes+j].im += psi_qp[j*ist.nspinngrid+jgridup].re * psi_qp[i*ist.nspinngrid+jgriddn].im
+												  - psi_qp[j*ist.nspinngrid+jgridup].im * psi_qp[i*ist.nspinngrid+jgriddn].re;
 					//Spin y part
 						//i*<j|r,dn> * <r,up|i>
-						sy[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgridup].re
-												  + psi[j*ist.nspinngrid+jgriddn].im * psi[i*ist.nspinngrid+jgridup].im;
-						sy[i*ist.n_holes+j].re -= psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgridup].im
-												  - psi[j*ist.nspinngrid+jgriddn].im * psi[i*ist.nspinngrid+jgridup].re;
+						sy[i*ist.n_holes+j].im += psi_qp[j*ist.nspinngrid+jgriddn].re * psi_qp[i*ist.nspinngrid+jgridup].re
+												  + psi_qp[j*ist.nspinngrid+jgriddn].im * psi_qp[i*ist.nspinngrid+jgridup].im;
+						sy[i*ist.n_holes+j].re -= psi_qp[j*ist.nspinngrid+jgriddn].re * psi_qp[i*ist.nspinngrid+jgridup].im
+												  - psi_qp[j*ist.nspinngrid+jgriddn].im * psi_qp[i*ist.nspinngrid+jgridup].re;
 						//-i*<j|r,up> * <r,dn|i>
-						sy[i*ist.n_holes+j].im -= psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgriddn].re
-												  + psi[j*ist.nspinngrid+jgridup].im * psi[i*ist.nspinngrid+jgriddn].im;
-						sy[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgriddn].im
-												  - psi[j*ist.nspinngrid+jgridup].im * psi[i*ist.nspinngrid+jgriddn].re;
+						sy[i*ist.n_holes+j].im -= psi_qp[j*ist.nspinngrid+jgridup].re * psi_qp[i*ist.nspinngrid+jgriddn].re
+												  + psi_qp[j*ist.nspinngrid+jgridup].im * psi_qp[i*ist.nspinngrid+jgriddn].im;
+						sy[i*ist.n_holes+j].re += psi_qp[j*ist.nspinngrid+jgridup].re * psi_qp[i*ist.nspinngrid+jgriddn].im
+												  - psi_qp[j*ist.nspinngrid+jgridup].im * psi_qp[i*ist.nspinngrid+jgriddn].re;
 					//Spin z part
 						//<j|r,up> * <r,up|i>
-						sz[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgridup].re
-												  + psi[j*ist.nspinngrid+jgridup].im * psi[i*ist.nspinngrid+jgridup].im;
-						sz[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgridup].re * psi[i*ist.nspinngrid+jgridup].im
-												  - psi[j*ist.nspinngrid+jgridup].im * psi[i*ist.nspinngrid+jgridup].re;
+						sz[i*ist.n_holes+j].re += psi_qp[j*ist.nspinngrid+jgridup].re * psi_qp[i*ist.nspinngrid+jgridup].re
+												  + psi_qp[j*ist.nspinngrid+jgridup].im * psi_qp[i*ist.nspinngrid+jgridup].im;
+						sz[i*ist.n_holes+j].im += psi_qp[j*ist.nspinngrid+jgridup].re * psi_qp[i*ist.nspinngrid+jgridup].im
+												  - psi_qp[j*ist.nspinngrid+jgridup].im * psi_qp[i*ist.nspinngrid+jgridup].re;
 						//<j|r,dn> * <r,dn|i>
-						sz[i*ist.n_holes+j].re -= psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgriddn].re
-												  + psi[j*ist.nspinngrid+jgriddn].im * psi[i*ist.nspinngrid+jgriddn].im;
-						sz[i*ist.n_holes+j].im -= psi[j*ist.nspinngrid+jgriddn].re * psi[i*ist.nspinngrid+jgriddn].im
-												  - psi[j*ist.nspinngrid+jgriddn].im * psi[i*ist.nspinngrid+jgriddn].re;
+						sz[i*ist.n_holes+j].re -= psi_qp[j*ist.nspinngrid+jgriddn].re * psi_qp[i*ist.nspinngrid+jgriddn].re
+												  + psi_qp[j*ist.nspinngrid+jgriddn].im * psi_qp[i*ist.nspinngrid+jgriddn].im;
+						sz[i*ist.n_holes+j].im -= psi_qp[j*ist.nspinngrid+jgriddn].re * psi_qp[i*ist.nspinngrid+jgriddn].im
+												  - psi_qp[j*ist.nspinngrid+jgriddn].im * psi_qp[i*ist.nspinngrid+jgriddn].re;
 				
 
 					}
@@ -87,37 +108,37 @@ pfx = fopen("sx.dat", "w"); pfy = fopen("sy.dat", "w"); pfz = fopen("sz.dat", "w
 						
 					//Spin x part
 						//<b|r,dn> * <r,up|a>
-						sx[index].re += psi[b*ist.nspinngrid+jgriddn].re * psi[a*ist.nspinngrid+jgridup].re
-									  + psi[b*ist.nspinngrid+jgriddn].im * psi[a*ist.nspinngrid+jgridup].im;
-						sx[index].im += psi[b*ist.nspinngrid+jgriddn].re * psi[a*ist.nspinngrid+jgridup].im
-									  - psi[b*ist.nspinngrid+jgriddn].im * psi[a*ist.nspinngrid+jgridup].re;
+						sx[index].re += psi_qp[b*ist.nspinngrid+jgriddn].re * psi_qp[a*ist.nspinngrid+jgridup].re
+									  + psi_qp[b*ist.nspinngrid+jgriddn].im * psi_qp[a*ist.nspinngrid+jgridup].im;
+						sx[index].im += psi_qp[b*ist.nspinngrid+jgriddn].re * psi_qp[a*ist.nspinngrid+jgridup].im
+									  - psi_qp[b*ist.nspinngrid+jgriddn].im * psi_qp[a*ist.nspinngrid+jgridup].re;
 						//<b|r,up> * <r,dn|a>
-						sx[index].re += psi[b*ist.nspinngrid+jgridup].re * psi[a*ist.nspinngrid+jgriddn].re
-									  + psi[b*ist.nspinngrid+jgridup].im * psi[a*ist.nspinngrid+jgriddn].im;
-						sx[index].im += psi[b*ist.nspinngrid+jgridup].re * psi[a*ist.nspinngrid+jgriddn].im
-									  - psi[b*ist.nspinngrid+jgridup].im * psi[a*ist.nspinngrid+jgriddn].re;
+						sx[index].re += psi_qp[b*ist.nspinngrid+jgridup].re * psi_qp[a*ist.nspinngrid+jgriddn].re
+									  + psi_qp[b*ist.nspinngrid+jgridup].im * psi_qp[a*ist.nspinngrid+jgriddn].im;
+						sx[index].im += psi_qp[b*ist.nspinngrid+jgridup].re * psi_qp[a*ist.nspinngrid+jgriddn].im
+									  - psi_qp[b*ist.nspinngrid+jgridup].im * psi_qp[a*ist.nspinngrid+jgriddn].re;
 					//Spin y part
 						//i*<b|r,dn> * <r,up|a>
-						sy[index].im += psi[b*ist.nspinngrid+jgriddn].re * psi[a*ist.nspinngrid+jgridup].re
-									  + psi[b*ist.nspinngrid+jgriddn].im * psi[a*ist.nspinngrid+jgridup].im;
-						sy[index].re -= psi[b*ist.nspinngrid+jgriddn].re * psi[a*ist.nspinngrid+jgridup].im
-									  - psi[b*ist.nspinngrid+jgriddn].im * psi[a*ist.nspinngrid+jgridup].re;
+						sy[index].im += psi_qp[b*ist.nspinngrid+jgriddn].re * psi_qp[a*ist.nspinngrid+jgridup].re
+									  + psi_qp[b*ist.nspinngrid+jgriddn].im * psi_qp[a*ist.nspinngrid+jgridup].im;
+						sy[index].re -= psi_qp[b*ist.nspinngrid+jgriddn].re * psi_qp[a*ist.nspinngrid+jgridup].im
+									  - psi_qp[b*ist.nspinngrid+jgriddn].im * psi_qp[a*ist.nspinngrid+jgridup].re;
 						//-i*<b|r,up> * <r,dn|a>
-						sy[index].im -= psi[b*ist.nspinngrid+jgridup].re * psi[a*ist.nspinngrid+jgriddn].re
-									  + psi[b*ist.nspinngrid+jgridup].im * psi[a*ist.nspinngrid+jgriddn].im;
-						sy[index].re += psi[b*ist.nspinngrid+jgridup].re * psi[a*ist.nspinngrid+jgriddn].im
-									  - psi[b*ist.nspinngrid+jgridup].im * psi[a*ist.nspinngrid+jgriddn].re;
+						sy[index].im -= psi_qp[b*ist.nspinngrid+jgridup].re * psi_qp[a*ist.nspinngrid+jgriddn].re
+									  + psi_qp[b*ist.nspinngrid+jgridup].im * psi_qp[a*ist.nspinngrid+jgriddn].im;
+						sy[index].re += psi_qp[b*ist.nspinngrid+jgridup].re * psi_qp[a*ist.nspinngrid+jgriddn].im
+									  - psi_qp[b*ist.nspinngrid+jgridup].im * psi_qp[a*ist.nspinngrid+jgriddn].re;
 					//Spin z part
 						//<b|r,up> * <r,up|a>
-						sz[index].re += psi[b*ist.nspinngrid+jgridup].re * psi[a*ist.nspinngrid+jgridup].re
-									  + psi[b*ist.nspinngrid+jgridup].im * psi[a*ist.nspinngrid+jgridup].im;
-						sz[index].im += psi[b*ist.nspinngrid+jgridup].re * psi[a*ist.nspinngrid+jgridup].im
-									  - psi[b*ist.nspinngrid+jgridup].im * psi[a*ist.nspinngrid+jgridup].re;
+						sz[index].re += psi_qp[b*ist.nspinngrid+jgridup].re * psi_qp[a*ist.nspinngrid+jgridup].re
+									  + psi_qp[b*ist.nspinngrid+jgridup].im * psi_qp[a*ist.nspinngrid+jgridup].im;
+						sz[index].im += psi_qp[b*ist.nspinngrid+jgridup].re * psi_qp[a*ist.nspinngrid+jgridup].im
+									  - psi_qp[b*ist.nspinngrid+jgridup].im * psi_qp[a*ist.nspinngrid+jgridup].re;
 						//<b|r,dn> * <r,dn|a>
-						sz[index].re -= psi[b*ist.nspinngrid+jgriddn].re * psi[a*ist.nspinngrid+jgriddn].re
-									  + psi[b*ist.nspinngrid+jgriddn].im * psi[a*ist.nspinngrid+jgriddn].im;
-						sz[index].im -= psi[b*ist.nspinngrid+jgriddn].re * psi[a*ist.nspinngrid+jgriddn].im
-									  - psi[b*ist.nspinngrid+jgriddn].im * psi[a*ist.nspinngrid+jgriddn].re;
+						sz[index].re -= psi_qp[b*ist.nspinngrid+jgriddn].re * psi_qp[a*ist.nspinngrid+jgriddn].re
+									  + psi_qp[b*ist.nspinngrid+jgriddn].im * psi_qp[a*ist.nspinngrid+jgriddn].im;
+						sz[index].im -= psi_qp[b*ist.nspinngrid+jgriddn].re * psi_qp[a*ist.nspinngrid+jgriddn].im
+									  - psi_qp[b*ist.nspinngrid+jgriddn].im * psi_qp[a*ist.nspinngrid+jgriddn].re;
 					}
 				}
 			}
@@ -144,7 +165,7 @@ pfx = fopen("sx.dat", "w"); pfy = fopen("sy.dat", "w"); pfz = fopen("sz.dat", "w
 
 /****************************************************************************/
 
-void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, double *vx, double *vy, double *vz, zomplex *psi,
+void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, double *vx, double *vy, double *vz, zomplex *psi_qp,
 	fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st ist, par_st par){
 
 	zomplex* Lxpsi = (zomplex*) calloc(ist.nspinngrid,sizeof(zomplex));
@@ -164,10 +185,10 @@ void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, 
 	for (i = 0;i<ist.n_holes;i++){
 		
 		//spin up part
-		lOpp(&Lxpsi[0],&Lypsi[0],&Lzpsi[0], &psi[i*ist.nspinngrid], 
+		lOpp(&Lxpsi[0],&Lypsi[0],&Lzpsi[0], &psi_qp[i*ist.nspinngrid], 
 			vx,vy,vz,planfw,planbw, fftwpsi,ist, par);
 		//spin dn part
-		lOpp(&Lxpsi[ist.ngrid],&Lypsi[ist.ngrid],&Lzpsi[ist.ngrid], &psi[i*ist.nspinngrid+ist.ngrid], 
+		lOpp(&Lxpsi[ist.ngrid],&Lypsi[ist.ngrid],&Lzpsi[ist.ngrid], &psi_qp[i*ist.nspinngrid+ist.ngrid], 
 			vx,vy,vz,planfw,planbw, fftwpsi,ist, par);
 
 
@@ -207,25 +228,25 @@ void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, 
 
 
 			for(jgrid=0;jgrid<ist.nspinngrid;jgrid++){
-				lx[i*ist.n_holes+j].re -= Lxpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lxpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // -<j|L_x|i>^*
-				lx[i*ist.n_holes+j].im += Lxpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lxpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
+				lx[i*ist.n_holes+j].re -= Lxpsi[jgrid].re*psi_qp[j*ist.nspinngrid+jgrid].re + Lxpsi[jgrid].im*psi_qp[j*ist.nspinngrid+jgrid].im; // -<j|L_x|i>^*
+				lx[i*ist.n_holes+j].im += Lxpsi[jgrid].im*psi_qp[j*ist.nspinngrid+jgrid].re - Lxpsi[jgrid].re*psi_qp[j*ist.nspinngrid+jgrid].im;
 
 
-				ly[i*ist.n_holes+j].re -= Lypsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lypsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // -<j|L_y|i>^*
-				ly[i*ist.n_holes+j].im += Lypsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lypsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
+				ly[i*ist.n_holes+j].re -= Lypsi[jgrid].re*psi_qp[j*ist.nspinngrid+jgrid].re + Lypsi[jgrid].im*psi_qp[j*ist.nspinngrid+jgrid].im; // -<j|L_y|i>^*
+				ly[i*ist.n_holes+j].im += Lypsi[jgrid].im*psi_qp[j*ist.nspinngrid+jgrid].re - Lypsi[jgrid].re*psi_qp[j*ist.nspinngrid+jgrid].im;
 
-				lz[i*ist.n_holes+j].re -= Lzpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lzpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // -<j|L_z|i>^*
-				lz[i*ist.n_holes+j].im += Lzpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lzpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
+				lz[i*ist.n_holes+j].re -= Lzpsi[jgrid].re*psi_qp[j*ist.nspinngrid+jgrid].re + Lzpsi[jgrid].im*psi_qp[j*ist.nspinngrid+jgrid].im; // -<j|L_z|i>^*
+				lz[i*ist.n_holes+j].im += Lzpsi[jgrid].im*psi_qp[j*ist.nspinngrid+jgrid].re - Lzpsi[jgrid].re*psi_qp[j*ist.nspinngrid+jgrid].im;
 
 
-				lsqr[i*ist.n_holes+j].re += Lxsqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lxsqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // <j|L_x^2|i>^*
-				lsqr[i*ist.n_holes+j].im -= Lxsqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lxsqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
+				lsqr[i*ist.n_holes+j].re += Lxsqrpsi[jgrid].re*psi_qp[j*ist.nspinngrid+jgrid].re + Lxsqrpsi[jgrid].im*psi_qp[j*ist.nspinngrid+jgrid].im; // <j|L_x^2|i>^*
+				lsqr[i*ist.n_holes+j].im -= Lxsqrpsi[jgrid].im*psi_qp[j*ist.nspinngrid+jgrid].re - Lxsqrpsi[jgrid].re*psi_qp[j*ist.nspinngrid+jgrid].im;
 
-				lsqr[i*ist.n_holes+j].re += Lysqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lysqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // <j|L_y^2|i>^*
-				lsqr[i*ist.n_holes+j].im -= Lysqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lysqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
+				lsqr[i*ist.n_holes+j].re += Lysqrpsi[jgrid].re*psi_qp[j*ist.nspinngrid+jgrid].re + Lysqrpsi[jgrid].im*psi_qp[j*ist.nspinngrid+jgrid].im; // <j|L_y^2|i>^*
+				lsqr[i*ist.n_holes+j].im -= Lysqrpsi[jgrid].im*psi_qp[j*ist.nspinngrid+jgrid].re - Lysqrpsi[jgrid].re*psi_qp[j*ist.nspinngrid+jgrid].im;
 
-				lsqr[i*ist.n_holes+j].re += Lzsqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].re + Lzsqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].im; // <j|L_z^2|i>^*
-				lsqr[i*ist.n_holes+j].im -= Lzsqrpsi[jgrid].im*psi[j*ist.nspinngrid+jgrid].re - Lzsqrpsi[jgrid].re*psi[j*ist.nspinngrid+jgrid].im;
+				lsqr[i*ist.n_holes+j].re += Lzsqrpsi[jgrid].re*psi_qp[j*ist.nspinngrid+jgrid].re + Lzsqrpsi[jgrid].im*psi_qp[j*ist.nspinngrid+jgrid].im; // <j|L_z^2|i>^*
+				lsqr[i*ist.n_holes+j].im -= Lzsqrpsi[jgrid].im*psi_qp[j*ist.nspinngrid+jgrid].re - Lzsqrpsi[jgrid].re*psi_qp[j*ist.nspinngrid+jgrid].im;
 
 
 
@@ -241,76 +262,76 @@ void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, 
 				/*
 				//sxlx
 				//<j|r,dn> * <r,up|Lxi>
-				lsx.re += psi[j*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].re
-										  + psi[j*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].im;
-				lsx.im += psi[j*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].im
-										  - psi[j*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].re;
+				lsx.re += psi_qp[j*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].re
+										  + psi_qp[j*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].im;
+				lsx.im += psi_qp[j*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].im
+										  - psi_qp[j*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].re;
 				//<j|r,up> * <r,dn|Lxi>
-				lsx.re += psi[j*ist.nspinngrid+jgridup].re * Lxpsi[jgridup].re
-										  + psi[j*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].im;
-				lsx.im += psi[j*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].im
-										  - psi[j*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].re;
+				lsx.re += psi_qp[j*ist.nspinngrid+jgridup].re * Lxpsi[jgridup].re
+										  + psi_qp[j*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].im;
+				lsx.im += psi_qp[j*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].im
+										  - psi_qp[j*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].re;
 
 				//syly
 				//i*<j|r,dn> * <r,up|Lyi>
-				lsy.im += psi[j*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].re
-							  			  + psi[j*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].im;
-				lsy.re -= psi[j*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].im
-							  			  - psi[j*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].re;
+				lsy.im += psi_qp[j*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].re
+							  			  + psi_qp[j*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].im;
+				lsy.re -= psi_qp[j*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].im
+							  			  - psi_qp[j*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].re;
 				//-i*<j|r,up> * <r,dn|Lyi>
-				lsy.im -= psi[j*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].re
-							  			  + psi[j*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].im;
-				lsy.re += psi[j*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].im
-							  			  - psi[j*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].re;
+				lsy.im -= psi_qp[j*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].re
+							  			  + psi_qp[j*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].im;
+				lsy.re += psi_qp[j*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].im
+							  			  - psi_qp[j*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].re;
 
 
 				//szlz
   			  	//<j|r,up> * <r,up|Lzi>
-				lsz.re += psi[j*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].re
-										  + psi[j*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].im;
-				lsz.im += psi[j*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].im
-										  - psi[j*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].re;
+				lsz.re += psi_qp[j*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].re
+										  + psi_qp[j*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].im;
+				lsz.im += psi_qp[j*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].im
+										  - psi_qp[j*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].re;
 				//<j|r,dn> * <r,dn|Lzi>
-				lsz.re -= psi[j*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].re
-										  + psi[j*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].im;
-				lsz.im -= psi[j*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].im
-										  - psi[j*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].re;
+				lsz.re -= psi_qp[j*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].re
+										  + psi_qp[j*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].im;
+				lsz.im -= psi_qp[j*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].im
+										  - psi_qp[j*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].re;
 
 				*/
 
-				ls[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].re
-										  + psi[j*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].im;
-				ls[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].im
-										  - psi[j*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].re;
+				ls[i*ist.n_holes+j].re += psi_qp[j*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].re
+										  + psi_qp[j*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].im;
+				ls[i*ist.n_holes+j].im += psi_qp[j*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].im
+										  - psi_qp[j*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].re;
 				//<j|r,up> * <r,dn|Lxi>
-				ls[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].re
-										  + psi[j*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].im;
-				ls[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].im
-										  - psi[j*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].re;
+				ls[i*ist.n_holes+j].re += psi_qp[j*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].re
+										  + psi_qp[j*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].im;
+				ls[i*ist.n_holes+j].im += psi_qp[j*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].im
+										  - psi_qp[j*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].re;
 
 				//syly
 				//i*<j|r,dn> * <r,up|Lyi>
-				ls[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].re
-							  			  + psi[j*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].im;
-				ls[i*ist.n_holes+j].re -= psi[j*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].im
-							  			  - psi[j*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].re;
+				ls[i*ist.n_holes+j].im += psi_qp[j*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].re
+							  			  + psi_qp[j*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].im;
+				ls[i*ist.n_holes+j].re -= psi_qp[j*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].im
+							  			  - psi_qp[j*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].re;
 				//-i*<j|r,up> * <r,dn|Lyi>
-				ls[i*ist.n_holes+j].im -= psi[j*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].re
-							  			  + psi[j*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].im;
-				ls[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].im
-							  			  - psi[j*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].re;
+				ls[i*ist.n_holes+j].im -= psi_qp[j*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].re
+							  			  + psi_qp[j*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].im;
+				ls[i*ist.n_holes+j].re += psi_qp[j*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].im
+							  			  - psi_qp[j*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].re;
 
   			  	//szlz
   			  	//<j|r,up> * <r,up|Lzi>
-				ls[i*ist.n_holes+j].re += psi[j*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].re
-										  + psi[j*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].im;
-				ls[i*ist.n_holes+j].im += psi[j*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].im
-										  - psi[j*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].re;
+				ls[i*ist.n_holes+j].re += psi_qp[j*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].re
+										  + psi_qp[j*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].im;
+				ls[i*ist.n_holes+j].im += psi_qp[j*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].im
+										  - psi_qp[j*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].re;
 				//<j|r,dn> * <r,dn|Lzi>
-				ls[i*ist.n_holes+j].re -= psi[j*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].re
-										  + psi[j*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].im;
-				ls[i*ist.n_holes+j].im -= psi[j*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].im
-										  - psi[j*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].re;
+				ls[i*ist.n_holes+j].re -= psi_qp[j*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].re
+										  + psi_qp[j*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].im;
+				ls[i*ist.n_holes+j].im -= psi_qp[j*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].im
+										  - psi_qp[j*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].re;
 			  
 
 			}
@@ -341,12 +362,12 @@ void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, 
 	printf("Electron States:\n");
 	for (a = ist.lumo_idx;a<ist.n_elecs+ist.lumo_idx;a++){
 		//spin up part
-		lOpp(&Lxpsi[0],&Lypsi[0],&Lzpsi[0], &psi[a*ist.nspinngrid], 
+		lOpp(&Lxpsi[0],&Lypsi[0],&Lzpsi[0], &psi_qp[a*ist.nspinngrid], 
 			vx,vy,vz,planfw,planbw, fftwpsi,ist, par);
 		
 
 		//spin dn part
-		lOpp(&Lxpsi[ist.ngrid],&Lypsi[ist.ngrid],&Lzpsi[ist.ngrid], &psi[a*ist.nspinngrid+ist.ngrid], 
+		lOpp(&Lxpsi[ist.ngrid],&Lypsi[ist.ngrid],&Lzpsi[ist.ngrid], &psi_qp[a*ist.nspinngrid+ist.ngrid], 
 			vx,vy,vz,planfw,planbw, fftwpsi,ist, par);
 		
 
@@ -385,25 +406,25 @@ void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, 
 
 
 			for(jgrid=0;jgrid<ist.nspinngrid;jgrid++){
-				lx[index].re += Lxpsi[jgrid].re*psi[b*ist.nspinngrid+jgrid].re + Lxpsi[jgrid].im*psi[b*ist.nspinngrid+jgrid].im; // <b|L_x|a>
-				lx[index].im += Lxpsi[jgrid].im*psi[b*ist.nspinngrid+jgrid].re - Lxpsi[jgrid].re*psi[b*ist.nspinngrid+jgrid].im;
+				lx[index].re += Lxpsi[jgrid].re*psi_qp[b*ist.nspinngrid+jgrid].re + Lxpsi[jgrid].im*psi_qp[b*ist.nspinngrid+jgrid].im; // <b|L_x|a>
+				lx[index].im += Lxpsi[jgrid].im*psi_qp[b*ist.nspinngrid+jgrid].re - Lxpsi[jgrid].re*psi_qp[b*ist.nspinngrid+jgrid].im;
 
 
-				ly[index].re += Lypsi[jgrid].re*psi[b*ist.nspinngrid+jgrid].re + Lypsi[jgrid].im*psi[b*ist.nspinngrid+jgrid].im; // <b|L_y|a>
-				ly[index].im += Lypsi[jgrid].im*psi[b*ist.nspinngrid+jgrid].re - Lypsi[jgrid].re*psi[b*ist.nspinngrid+jgrid].im;
+				ly[index].re += Lypsi[jgrid].re*psi_qp[b*ist.nspinngrid+jgrid].re + Lypsi[jgrid].im*psi_qp[b*ist.nspinngrid+jgrid].im; // <b|L_y|a>
+				ly[index].im += Lypsi[jgrid].im*psi_qp[b*ist.nspinngrid+jgrid].re - Lypsi[jgrid].re*psi_qp[b*ist.nspinngrid+jgrid].im;
 
-				lz[index].re += Lzpsi[jgrid].re*psi[b*ist.nspinngrid+jgrid].re + Lzpsi[jgrid].im*psi[b*ist.nspinngrid+jgrid].im; // <b|L_z|a>
-				lz[index].im += Lzpsi[jgrid].im*psi[b*ist.nspinngrid+jgrid].re - Lzpsi[jgrid].re*psi[b*ist.nspinngrid+jgrid].im;
+				lz[index].re += Lzpsi[jgrid].re*psi_qp[b*ist.nspinngrid+jgrid].re + Lzpsi[jgrid].im*psi_qp[b*ist.nspinngrid+jgrid].im; // <b|L_z|a>
+				lz[index].im += Lzpsi[jgrid].im*psi_qp[b*ist.nspinngrid+jgrid].re - Lzpsi[jgrid].re*psi_qp[b*ist.nspinngrid+jgrid].im;
 
 
-				lsqr[index].re += Lxsqrpsi[jgrid].re*psi[b*ist.nspinngrid+jgrid].re + Lxsqrpsi[jgrid].im*psi[b*ist.nspinngrid+jgrid].im; // <b|L_x^2|a>
-				lsqr[index].im += Lxsqrpsi[jgrid].im*psi[b*ist.nspinngrid+jgrid].re - Lxsqrpsi[jgrid].re*psi[b*ist.nspinngrid+jgrid].im;
+				lsqr[index].re += Lxsqrpsi[jgrid].re*psi_qp[b*ist.nspinngrid+jgrid].re + Lxsqrpsi[jgrid].im*psi_qp[b*ist.nspinngrid+jgrid].im; // <b|L_x^2|a>
+				lsqr[index].im += Lxsqrpsi[jgrid].im*psi_qp[b*ist.nspinngrid+jgrid].re - Lxsqrpsi[jgrid].re*psi_qp[b*ist.nspinngrid+jgrid].im;
 
-				lsqr[index].re += Lysqrpsi[jgrid].re*psi[b*ist.nspinngrid+jgrid].re + Lysqrpsi[jgrid].im*psi[b*ist.nspinngrid+jgrid].im; // <b|L_y^2|a>
-				lsqr[index].im += Lysqrpsi[jgrid].im*psi[b*ist.nspinngrid+jgrid].re - Lysqrpsi[jgrid].re*psi[b*ist.nspinngrid+jgrid].im;
+				lsqr[index].re += Lysqrpsi[jgrid].re*psi_qp[b*ist.nspinngrid+jgrid].re + Lysqrpsi[jgrid].im*psi_qp[b*ist.nspinngrid+jgrid].im; // <b|L_y^2|a>
+				lsqr[index].im += Lysqrpsi[jgrid].im*psi_qp[b*ist.nspinngrid+jgrid].re - Lysqrpsi[jgrid].re*psi_qp[b*ist.nspinngrid+jgrid].im;
 
-				lsqr[index].re += Lzsqrpsi[jgrid].re*psi[b*ist.nspinngrid+jgrid].re + Lzsqrpsi[jgrid].im*psi[b*ist.nspinngrid+jgrid].im; // <b|L_z^2|a>
-				lsqr[index].im += Lzsqrpsi[jgrid].im*psi[b*ist.nspinngrid+jgrid].re - Lzsqrpsi[jgrid].re*psi[b*ist.nspinngrid+jgrid].im;
+				lsqr[index].re += Lzsqrpsi[jgrid].re*psi_qp[b*ist.nspinngrid+jgrid].re + Lzsqrpsi[jgrid].im*psi_qp[b*ist.nspinngrid+jgrid].im; // <b|L_z^2|a>
+				lsqr[index].im += Lzsqrpsi[jgrid].im*psi_qp[b*ist.nspinngrid+jgrid].re - Lzsqrpsi[jgrid].re*psi_qp[b*ist.nspinngrid+jgrid].im;
 
 
 			}
@@ -419,76 +440,76 @@ void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, 
 				/*
 				//sxlx
 				//<b|r,dn> * <r,up|Lxa>
-				lsx.re += psi[b*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].re
-							  + psi[b*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].im;
-				lsx.im += psi[b*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].im
-							  - psi[b*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].re;
+				lsx.re += psi_qp[b*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].re
+							  + psi_qp[b*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].im;
+				lsx.im += psi_qp[b*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].im
+							  - psi_qp[b*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].re;
 				//<b|r,up> * <r,dn|Lxa>
-				lsx.re += psi[b*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].re
-							  + psi[b*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].im;
-				lsx.im += psi[b*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].im
-							  - psi[b*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].re;
+				lsx.re += psi_qp[b*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].re
+							  + psi_qp[b*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].im;
+				lsx.im += psi_qp[b*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].im
+							  - psi_qp[b*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].re;
 
 				//syly
 				//i*<j|r,dn> * <r,up|Lyi>
-				lsy.im += psi[b*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].re
-				  			  + psi[b*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].im;
-				lsy.re -= psi[b*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].im
-				  			  - psi[b*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].re;
+				lsy.im += psi_qp[b*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].re
+				  			  + psi_qp[b*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].im;
+				lsy.re -= psi_qp[b*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].im
+				  			  - psi_qp[b*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].re;
 				//-i*<j|r,up> * <r,dn|Lyi>
-				lsy.im -= psi[b*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].re
-				  			  + psi[b*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].im;
-				lsy.re += psi[b*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].im
-				  			  - psi[b*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].re;
+				lsy.im -= psi_qp[b*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].re
+				  			  + psi_qp[b*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].im;
+				lsy.re += psi_qp[b*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].im
+				  			  - psi_qp[b*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].re;
 
   			  	//szlz
   			  	//<j|r,up> * <r,up|Lzi>
-				lsz.re += psi[b*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].re
-							  + psi[b*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].im;
-				lsz.im += psi[b*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].im
-							  - psi[b*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].re;
+				lsz.re += psi_qp[b*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].re
+							  + psi_qp[b*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].im;
+				lsz.im += psi_qp[b*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].im
+							  - psi_qp[b*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].re;
 				//<j|r,dn> * <r,dn|Lzi>
-				lsz.re -= psi[b*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].re
-							  + psi[b*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].im;
-				lsz.im -= psi[b*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].im
-							  - psi[b*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].re;
+				lsz.re -= psi_qp[b*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].re
+							  + psi_qp[b*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].im;
+				lsz.im -= psi_qp[b*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].im
+							  - psi_qp[b*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].re;
 				*/
 				
 				//sxlx
 				//<b|r,dn> * <r,up|Lxa>
-				ls[index].re += psi[b*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].re
-							  + psi[b*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].im;
-				ls[index].im += psi[b*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].im
-							  - psi[b*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].re;
+				ls[index].re += psi_qp[b*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].re
+							  + psi_qp[b*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].im;
+				ls[index].im += psi_qp[b*ist.nspinngrid+jgriddn].re * Lxpsi[jgridup].im
+							  - psi_qp[b*ist.nspinngrid+jgriddn].im * Lxpsi[jgridup].re;
 				//<b|r,up> * <r,dn|Lxa>
-				ls[index].re += psi[b*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].re
-							  + psi[b*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].im;
-				ls[index].im += psi[b*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].im
-							  - psi[b*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].re;
+				ls[index].re += psi_qp[b*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].re
+							  + psi_qp[b*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].im;
+				ls[index].im += psi_qp[b*ist.nspinngrid+jgridup].re * Lxpsi[jgriddn].im
+							  - psi_qp[b*ist.nspinngrid+jgridup].im * Lxpsi[jgriddn].re;
 
 				//syly
 				//i*<j|r,dn> * <r,up|Lyi>
-				ls[index].im += psi[b*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].re
-				  			  + psi[b*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].im;
-				ls[index].re -= psi[b*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].im
-				  			  - psi[b*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].re;
+				ls[index].im += psi_qp[b*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].re
+				  			  + psi_qp[b*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].im;
+				ls[index].re -= psi_qp[b*ist.nspinngrid+jgriddn].re * Lypsi[jgridup].im
+				  			  - psi_qp[b*ist.nspinngrid+jgriddn].im * Lypsi[jgridup].re;
 				//-i*<j|r,up> * <r,dn|Lyi>
-				ls[index].im -= psi[b*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].re
-				  			  + psi[b*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].im;
-				ls[index].re += psi[b*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].im
-				  			  - psi[b*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].re;
+				ls[index].im -= psi_qp[b*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].re
+				  			  + psi_qp[b*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].im;
+				ls[index].re += psi_qp[b*ist.nspinngrid+jgridup].re * Lypsi[jgriddn].im
+				  			  - psi_qp[b*ist.nspinngrid+jgridup].im * Lypsi[jgriddn].re;
 
   			  	//szlz
   			  	//<j|r,up> * <r,up|Lzi>
-				ls[index].re += psi[b*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].re
-							  + psi[b*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].im;
-				ls[index].im += psi[b*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].im
-							  - psi[b*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].re;
+				ls[index].re += psi_qp[b*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].re
+							  + psi_qp[b*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].im;
+				ls[index].im += psi_qp[b*ist.nspinngrid+jgridup].re * Lzpsi[jgridup].im
+							  - psi_qp[b*ist.nspinngrid+jgridup].im * Lzpsi[jgridup].re;
 				//<j|r,dn> * <r,dn|Lzi>
-				ls[index].re -= psi[b*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].re
-							  + psi[b*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].im;
-				ls[index].im -= psi[b*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].im
-							  - psi[b*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].re;
+				ls[index].re -= psi_qp[b*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].re
+							  + psi_qp[b*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].im;
+				ls[index].im -= psi_qp[b*ist.nspinngrid+jgriddn].re * Lzpsi[jgriddn].im
+							  - psi_qp[b*ist.nspinngrid+jgriddn].im * Lzpsi[jgriddn].re;
 							  
 
 			}
@@ -525,7 +546,7 @@ void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, 
 /************************************************************/
 //Calculate the three vector components of the action of the L operator on the 
 //spatial part of the grid (no spin part)
-void lOpp(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi, 
+void lOpp(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi_qp, 
 	double* vx, double* vy, double* vz,
  	fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi,index_st ist, par_st par){
 	
@@ -561,8 +582,8 @@ void lOpp(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi,
   	}
 
 
-	// Copy psi to fftwpsi
-  	memcpy(&fftwpsi[0], &psi[0], ist.ngrid*sizeof(fftwpsi[0]));
+	// Copy psi_qp to fftwpsi
+  	memcpy(&fftwpsi[0], &psi_qp[0], ist.ngrid*sizeof(fftwpsi[0]));
   	// FT from r-space to k-space
   	fftw_execute(planfw);
   	
@@ -583,12 +604,12 @@ void lOpp(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi,
 
 	// Inverse FT back to r-space
 	fftw_execute(planbw);
-	// Copy fftwpsi to psi to store Lx|psi> into |Lxpsi>
+	// Copy fftwpsi to psi_qp to store Lx|psi_qp> into |Lxpsi>
 	memcpy(&Lxpsi[0], &fftwpsi[0], ist.ngrid*sizeof(Lxpsi[0]));
 	
 
-	// Copy psi to fftwpsi
-  	memcpy(&fftwpsi[0], &psi[0], ist.ngrid*sizeof(fftwpsi[0]));
+	// Copy psi_qp to fftwpsi
+  	memcpy(&fftwpsi[0], &psi_qp[0], ist.ngrid*sizeof(fftwpsi[0]));
 
   	// FT from r-space to k-space
   	fftw_execute(planfw);
@@ -611,13 +632,13 @@ void lOpp(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi,
 	// Inverse FT back to r-space
 	fftw_execute(planbw);
   
-	// Copy fftwpsi to psi to store Ly|psi> into |Lypsi>
+	// Copy fftwpsi to psi_qp to store Ly|psi_qp> into |Lypsi>
 	memcpy(&Lypsi[0], &fftwpsi[0], ist.ngrid*sizeof(Lypsi[0]));
 	
 	
 
-	// Copy psi to fftwpsi
-  	memcpy(&fftwpsi[0], &psi[0], ist.ngrid*sizeof(fftwpsi[0]));
+	// Copy psi_qp to fftwpsi
+  	memcpy(&fftwpsi[0], &psi_qp[0], ist.ngrid*sizeof(fftwpsi[0]));
 
   	// FT from r-space to k-space
   	fftw_execute(planfw);
@@ -639,7 +660,7 @@ void lOpp(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi,
 	// Inverse FT back to r-space
 	fftw_execute(planbw);
   
-	// Copy fftwpsi to psi to store Lz|psi> into |Lzpsi>
+	// Copy fftwpsi to psi_qp to store Lz|psi_qp> into |Lzpsi>
 	memcpy(&Lzpsi[0], &fftwpsi[0], ist.ngrid*sizeof(Lzpsi[0]));
 
 	free(kx); free(ky); free(kz);

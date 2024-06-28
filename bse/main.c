@@ -171,7 +171,7 @@ int main(int argc, char *argv[]){
     fprintf(pmem, "alloc psi_elec %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_elecs * sizeof(psi_elec[0])); mem += ist.complex_idx*ist.nspinngrid*ist.n_elecs*sizeof(psi_elec[0]);
     fprintf(pmem, "alloc psi_qp %ld B", ist.complex_idx * ist.nspinngrid * (ist.n_holes + ist.n_elecs) * sizeof(double)); mem += ist.complex_idx * ist.nspinngrid * (ist.n_holes + ist.n_elecs) * sizeof(double);
     write_separation(pmem, top);
-    fprintf(pmem, "\ntotal mem usage %ld GB\n", (long) (mem * 1e-9)  );
+    fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / (long)1000000 );
     write_separation(pmem, bottom); fflush(pmem);
 
     printf("\nTHE HOLES:\n");
@@ -194,7 +194,7 @@ int main(int argc, char *argv[]){
     fprintf(pmem, "free psi_elec %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_elecs * sizeof(psi_elec[0])); mem -= ist.complex_idx*ist.nspinngrid*ist.n_elecs*sizeof(psi_elec[0]);
     fprintf(pmem, "free sigma_E %ld B", ist.mn_states_tot * sizeof(double)); mem -= ist.mn_states_tot * sizeof(double);
     write_separation(pmem, top);
-    fprintf(pmem, "\ntotal mem usage %ld GB\n", (long) (mem * 1e-9) );
+    fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / (long)1000000 );
     write_separation(pmem, bottom); fflush(pmem);
 
     // print cube files for debug
@@ -346,7 +346,7 @@ int main(int argc, char *argv[]){
     //     LdotS  = (zomplex *) calloc(ist.n_holes*ist.n_holes+ist.n_elecs*ist.n_elecs * sizeof(LdotS[0])); //<psi_r|L.S|psi_s>
     // }
     write_separation(pmem, top);
-    fprintf(pmem, "\ntotal mem usage %ld GB\n", (long) (mem * 1e-9)  );
+    fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / (long)1000000 );
     write_separation(pmem, bottom); fflush(pmem);
     printf("done\n"); fflush(stdout);
 

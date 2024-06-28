@@ -402,7 +402,7 @@ int main(int argc, char *argv[]){
     free(pot_hartree); free(pot_direct); free(pot_exchange);
     // free(direct); free(exchange); free(bsmat); free(h0mat);
     free(trans_dipole); free(mag_dipole); free(rot_strength);
-    free(S_mom); free(L_mom); free(L_mom2);
+    // free(S_mom); free(L_mom); free(L_mom2);
     free(planfw); free(planbw);
 
     time_t end_time = time(NULL);

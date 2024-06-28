@@ -155,7 +155,7 @@ void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *
       	pot_exchange[jxyz].re = (tmp.re * cosa - tmp.im * sina) * par->dv;
       	pot_exchange[jxyz].im = (tmp.re * sina + tmp.im * cosa) * par->dv;
       	
-      	pot_exchange[jxyz].re += (FOURPI * (1.0 - exp(-0.25* (par->epsX * x2 + par->epsY * y2 + par->epsZ * z2) / sqrk0)) / (par->epsX * x2 + par->epsY * y2 + par->epsZ * z2 + EPSR));
+      	pot_exchange[jxyz].re += (FOURPI * (1.0 - exp(-0.25 * (par->epsX * x2 + par->epsY * y2 + par->epsZ * z2) / sqrk0)) / (par->epsX * x2 + par->epsY * y2 + par->epsZ * z2 + EPSR));
         
 		    pot_exchange[jxyz].re *= ist->ngrid_1;
       	pot_exchange[jxyz].im *= ist->ngrid_1;

@@ -343,7 +343,7 @@ int main(int argc, char *argv[]){
     write_separation(pmem, bottom); fflush(pmem);
     printf("done\n"); fflush(stdout);
 
-    calc_electric_dipole(trans_dipole, psi_qp, eig_vals, &grid, &ist, &par);
+    calc_electric_dipole(trans_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
     // calc_magnetic_dipole(vx, vy, vz, psi_qp, mx, my, mz, eig_vals, planfw, planbw, fftwpsi, &ist, &par);
     // calc_rotational_strength(rs, mux, muy, muz, mx, my, mz, eig_vals, &ist);
     

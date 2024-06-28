@@ -159,7 +159,7 @@ double findmaxabsre(zomplex *dwmat,long n);
 double findmaxabsim(zomplex *dwmat,long n);
 
 // dipole.c
-void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, grid_st *grid, index_st *ist, par_st *par);
+void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
 void magnetic_dipole(double *psi, xyz_st *mag_dipole, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc *planfw,fftw_plan_loc *planbw,fftw_complex *fftwpsi);
 void rotational_strength(xyz_st *rot_strength, xyz_st *trans_dipole, xyz_st *mag_dipole, double *eig_vals, index_st *ist, par_st *par);
 

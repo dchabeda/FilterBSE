@@ -34,7 +34,7 @@ void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals
   //pf1 = fopen("mu_x.dat", "w"); pf2 = fopen("mu_y.dat", "w"); pf3 = fopen("mu_z.dat", "w");
 
   // Make sure mu_x, mu_y and mu_z are zero to begin with
-  for (i = 0; i < ist->n_elecs*ist->n_holes; i++) mux[i].re = muy[i].re = muz[i].re = mux[i].im = muy[i].im = muz[i].im = 0.0;
+  // for (i = 0; i < ist->n_elecs*ist->n_holes; i++) mux[i].re = muy[i].re = muz[i].re = mux[i].im = muy[i].im = muz[i].im = 0.0;
 
   // Main computional work of function performed here - must loop over all electron-hole (i-a) pairs
   // compute $$\vec{\mu} = <a|\vec{r}|i> = \int dr \sum_\simga \psi_{a}^{*}(r,\sigma) \vec{r} \psi_i(r,\sigma)$$
@@ -77,8 +77,8 @@ void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals
               tmp.re += + psi_qp[a_dn_real] * psi_qp[i_dn_real]  + psi_qp[a_dn_imag] * psi_qp[i_dn_imag];
 
               // IMAG PART OF MATRIX ELEM
-              tmp.im = (- psi_qp[a_up_im]) * psi_qp[i_up_real] + psi_qp[a_up_real] * psi_qp[i_up_imag];
-              tmp.im += (- psi_qp[a_dn_im]) * psi_qp[i_dn_real] + psi_qp[a_dn_real] * psi_qp[i_dn_imag];
+              tmp.im = (- psi_qp[a_up_imag]) * psi_qp[i_up_real] + psi_qp[a_up_real] * psi_qp[i_up_imag];
+              tmp.im += (- psi_qp[a_dn_imag]) * psi_qp[i_dn_real] + psi_qp[a_dn_real] * psi_qp[i_dn_imag];
             
               sumX.re += tmp.re * x; sumY.re += tmp.re * y; sumZ.re += tmp.re * z;
               sumX.im +=  tmp.im * x; sumY.im +=  tmp.im * y; sumZ.im +=  tmp.im * z;
@@ -86,15 +86,15 @@ void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals
           }
         }
       }
-      trans_dipole->x_re[i*ist->n_elecs+(a-ist->lumo_idx)] = par->dv * sumX.re;  
-      trans_dipole->y_re[i*ist->n_elecs+(a-ist->lumo_idx)] = par->dv * sumY.re; 
-      trans_dipole->z_re[i*ist->n_elecs+(a-ist->lumo_idx)] = par->dv * sumZ.re; 
+      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)]->x_re = par->dv * sumX.re;  
+      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)]->y_re = par->dv * sumY.re; 
+      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)]->z_re = par->dv * sumZ.re; 
       osc_strength = sqr(par->dv) * (sqr(sumX.re) + sqr(sumY.re) + sqr(sumZ.re));
        
       if (1 == flag->useSpinors){
-        trans_dipole->x_im[i*ist->n_elecs+(a-ist->lumo_idx)] = par->dv * sumX.im; 
-        trans_dipole->y_im[i*ist->n_elecs+(a-ist->lumo_idx)] = par->dv * sumY.im;
-        trans_dipole->z_im[i*ist->n_elecs+(a-ist->lumo_idx)] = par->dv * sumZ.im;
+        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)]->x_im = par->dv * sumX.im; 
+        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)]->y_im = par->dv * sumY.im;
+        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)]->z_im = par->dv * sumZ.im;
         osc_strength += sqr(par->dv) * (sqr(sumX.im) + sqr(sumY.im) + sqr(sumZ.im));
       }
       // fprintf (pf1,"%ld %ld %g %g\n",i,a,mux[i*ist->n_elecs+(a-ist->lumo_idx)].re, mux[i*ist->n_elecs+(a-ist->lumo_idx)].im);

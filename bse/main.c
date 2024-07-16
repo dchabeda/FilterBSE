@@ -11,8 +11,8 @@ int main(int argc, char *argv[]){
     * The algorithm computes correlated excitonic states using the   *
     * Bethe-Salpether formalism described by Rohlfing and Louie:     *
     * Phys. Rev. B 62, 4927                                          *
-    * It is applied to nanocrystal systems through the use of semi-  *
-    * empirical pseudopotentials.                                    *
+    * It is applied to nanocrystal systems by using an electron-hole *
+    * basis constructed from a semi-empirical pseudopot. hamiltonian *
     ******************************************************************/ 
 
     // DECLARE VARIABLES AND STRUCTS
@@ -22,14 +22,14 @@ int main(int argc, char *argv[]){
     // zomplex types
     zomplex *pot_direct, *pot_exchange, *pot_hartree; 
     zomplex *bsmat, *direct, *exchange;
-    zomplex LdotS;
+    zomplex *LdotS;
     // custom structs
     par_st par; index_st ist; grid_st grid; flag_st flag; xyz_st *R = NULL; parallel_st parallel; 
     xyz_st *trans_dipole, *L_mom, *mag_dipole, *rot_strength;
     xyz_st *S_mom = NULL, *L_mom2 = NULL;
     // FFT 
     fftw_plan_loc *planfw, *planbw; fftw_complex *fftwpsi;
-    long fft_flags=0;
+    long fft_flags = 0;
     // double arrays
     double *psitot = NULL, *psi_hole = NULL, *psi_elec = NULL, *psi_qp;
     double *eig_vals = NULL, *sigma_E = NULL;

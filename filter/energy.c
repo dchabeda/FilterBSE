@@ -184,10 +184,10 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
 
   // Expand the delta E range artificially to help algorithm convergence (less efficient, but more robust).
   Emax *= 1.2;
-  Emin -= 0.2 *fabs(Emin);
+  Emin -= 0.2 * fabs(Emin);
   
   // Set parameters for calc'ing Filter coefficients
-  par->Vmin =  Emin;
+  par->Vmin = Emin;
   par->dE = (Emax - Emin);
   par->dE_1 = 4.0 / par->dE;
 

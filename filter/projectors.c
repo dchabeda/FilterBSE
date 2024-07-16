@@ -94,7 +94,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	double sum, preFactor;
 	int i,j,rpoint,kpoint,projector;
 	double lam1, lam2;
-	FILE* pf, *pproj;
+	FILE *pf, *pproj;
 	char fileName[100];
 
 	// Width of the gaussian fucntion used for the SO potential. 
@@ -156,7 +156,8 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	long long INFO = 0;
 	//diagonalize the matrix
 	dsyev_(&JOBZ, &UPLO, &N, &A[0], &LDA, &W[0], &WORK[0], &LWORK, &INFO);
-	fprintf(pproj,"gen_projectors: dsyev exit: %lld\n",INFO );
+	pproj = fopen("projectors.dat", "w");
+	fprintf(pproj, "gen_projectors: dsyev exit: %lld\n", INFO);
 	fflush(0);
 	// printf("Checkpoint 4\n"); fflush(0);
 

@@ -48,10 +48,10 @@ double normalize(zomplex *psi,double dv,long ngrid,long nthreads){
 
   long k;
   double N = calc_norm(psi,dv,ngrid,nthreads);
-  //printf("norm in normalize = %g\n", N);
+  // printf("norm in normalize = %g\n", N);
   omp_set_dynamic(0);
   omp_set_num_threads(nthreads);
-#pragma omp parallel for 
+#pragma omp parallel for private(k)
   for (k = 0; k < ngrid; k++){
     psi[k].re /= N;
     psi[k].im /= N;

@@ -30,6 +30,12 @@ void hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *
   // Copy psi_out into psi_tmp
   memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid*sizeof(psi_tmp[0]));
   
+  FILE *pf; long j;
+  pf = fopen("psi_out_ham.dat", "w");
+  for (j = 0; j < ist->ngrid; j++){
+    fprintf(pf, "%ld %lg\n", j, psi_out[j].re);
+  }
+  fclose(pf);
   // Calculate the action of the kinetic energy part of the Hamiltonian on psi_tmp: |psi_out> = T|psi_tmp>
   for (jspin = 0; jspin < ist->nspin; jspin++){
       kinetic(&psi_out[jspin*ist->ngrid], ksqr, planfw, planbw, fftwpsi, ist); //spin up/down
@@ -60,24 +66,47 @@ void kinetic(zomplex *psi_out, double *ksqr, fftw_plan_loc planfw, fftw_plan_loc
 
   long j;
   
+
   // Copy inputted psi to fftwpsi
-  memcpy(&fftwpsi[0], &psi_out[0], ist->ngrid*sizeof(fftwpsi[0]));
+  memcpy(&fftwpsi[0], &psi_out[0], ist->ngrid*sizeof(fftw_complex));
   
+  FILE *pf;
+  pf = fopen("psi_out_kinetic.dat", "w");
+  for (j = 0; j < ist->ngrid; j++){
+    fprintf(pf, "%ld %lg\n", j, psi_out[j].re);
+  }
+  fclose(pf);
+
+  pf = fopen("fft_init.dat", "w");
+  for (j = 0; j < ist->ngrid; j++){
+    fprintf(pf, "%ld %lg\n", j, fftwpsi[j][0]);
+  }
+  fclose(pf);
+
   // FT from r-space to k-space
   fftw_execute(planfw);
-  
+  pf = fopen("fft_fw.dat", "w");
+  for (j = 0; j < ist->ngrid; j++){
+    fprintf(pf, "%ld %lg\n", j, fftwpsi[j][0]);
+  }
+  fclose(pf);
   // Kinetic energy is diagonal in k-space, just multiply fftwpsi by k^2
   for (j = 0; j < ist->ngrid; j++) {
     fftwpsi[j][0] *= ksqr[j];
     fftwpsi[j][1] *= ksqr[j];
   }
+
   
   // Inverse FT back to r-space
   fftw_execute(planbw);
-  
+  pf = fopen("fft_bw.dat", "w");
+  for (j = 0; j < ist->ngrid; j++){
+    fprintf(pf, "%ld %lg\n", j, fftwpsi[j][0]);
+  }
+  fclose(pf);
   // Copy fftwpsi to psi_out to store T|psi_tmp> into |psi_out>
   memcpy(&psi_out[0], &fftwpsi[0], ist->ngrid*sizeof(psi_out[0]));
-
+  
   return;
 }
 

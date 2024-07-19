@@ -137,21 +137,8 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
     // Apply the Hamiltonian, shift orig by |phi>, and normalize (equivalent to forward imag. time propagation step)
     memcpy(&psi[0], &phi[0], ist->nspinngrid*sizeof(phi[0]));
     
-    FILE *pf1;
-    pf1 = fopen("psi_emin.dat", "w");
-    for (i = 0; i < ist->ngrid; i++){
-      fprintf(pf1, "%ld %lg\n", i, psi[i].re);
-    }
-    fclose(pf1);
-    
     hamiltonian(phi, psi, pot_local, nlc, nl,ksqr, ist, par, flag, planfw, planbw, fftwpsi);
     
-    pf1 = fopen("phi_emin.dat", "w");
-    for (i = 0; i < ist->ngrid; i++){
-      fprintf(pf1, "%ld %lg\n", i, phi[i].re);
-    }
-    fclose(pf1);
-    exit(0);
     for (ispn = 0; ispn < ist->nspin; ispn++) {
       for (jgrid = 0; jgrid < ist->ngrid; jgrid++) {
         phi[ispn*ist->ngrid+jgrid].re = psi[ispn*ist->ngrid+jgrid].re - tau*phi[ispn*ist->ngrid+jgrid].re;

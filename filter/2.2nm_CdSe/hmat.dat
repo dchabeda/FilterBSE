@@ -1,0 +1,321 @@
+calculate the H matrix
+finshed row 0
+finshed row 1
+finshed row 2
+finshed row 3
+finshed row 4
+finshed row 5
+finshed row 6
+finshed row 7
+finshed row 8
+finshed row 9
+finshed row 10
+finshed row 11
+finshed row 12
+finshed row 13
+finshed row 14
+finshed row 15
+finshed row 16
+finshed row 17
+finshed row 18
+finshed row 19
+finshed row 20
+finshed row 21
+finshed row 22
+finshed row 23
+finshed row 24
+finshed row 25
+finshed row 26
+finshed row 27
+finshed row 28
+finshed row 29
+finshed row 30
+finshed row 31
+finshed row 32
+finshed row 33
+finshed row 34
+finshed row 35
+finshed row 36
+finshed row 37
+finshed row 38
+finshed row 39
+finshed row 40
+finshed row 41
+finshed row 42
+finshed row 43
+finshed row 44
+finshed row 45
+finshed row 46
+finshed row 47
+finshed row 48
+finshed row 49
+finshed row 50
+finshed row 51
+finshed row 52
+finshed row 53
+finshed row 54
+finshed row 55
+finshed row 56
+finshed row 57
+finshed row 58
+finshed row 59
+finshed row 60
+finshed row 61
+finshed row 62
+finshed row 63
+finshed row 64
+finshed row 65
+finshed row 66
+finshed row 67
+finshed row 68
+finshed row 69
+finshed row 70
+finshed row 71
+finshed row 72
+finshed row 73
+finshed row 74
+finshed row 75
+finshed row 76
+finshed row 77
+finshed row 78
+finshed row 79
+finshed row 80
+finshed row 81
+finshed row 82
+finshed row 83
+finshed row 84
+finshed row 85
+finshed row 86
+finshed row 87
+finshed row 88
+finshed row 89
+finshed row 90
+finshed row 91
+finshed row 92
+finshed row 93
+finshed row 94
+finshed row 95
+finshed row 96
+finshed row 97
+finshed row 98
+finshed row 99
+finshed row 100
+finshed row 101
+finshed row 102
+finshed row 103
+finshed row 104
+finshed row 105
+finshed row 106
+finshed row 107
+finshed row 108
+finshed row 109
+finshed row 110
+finshed row 111
+finshed row 112
+finshed row 113
+finshed row 114
+finshed row 115
+finshed row 116
+finshed row 117
+finshed row 118
+finshed row 119
+finshed row 120
+finshed row 121
+finshed row 122
+finshed row 123
+finshed row 124
+finshed row 125
+finshed row 126
+finshed row 127
+finshed row 128
+finshed row 129
+finshed row 130
+finshed row 131
+finshed row 132
+finshed row 133
+finshed row 134
+finshed row 135
+finshed row 136
+finshed row 137
+finshed row 138
+finshed row 139
+finshed row 140
+finshed row 141
+finshed row 142
+finshed row 143
+finshed row 144
+finshed row 145
+finshed row 146
+finshed row 147
+finshed row 148
+finshed row 149
+finshed row 150
+finshed row 151
+finshed row 152
+finshed row 153
+finshed row 154
+finshed row 155
+finshed row 156
+finshed row 157
+finshed row 158
+finshed row 159
+finshed row 160
+finshed row 161
+finshed row 162
+finshed row 163
+finshed row 164
+finshed row 165
+finshed row 166
+finshed row 167
+finshed row 168
+finshed row 169
+finshed row 170
+finshed row 171
+finshed row 172
+finshed row 173
+finshed row 174
+finshed row 175
+finshed row 176
+finshed row 177
+finshed row 178
+finshed row 179
+finshed row 180
+finshed row 181
+finshed row 182
+diagonalize the new Hamiltonian H
+copy the new function into psitot
+finished grid point 0
+finished grid point 1000
+finished grid point 2000
+finished grid point 3000
+finished grid point 4000
+finished grid point 5000
+finished grid point 6000
+finished grid point 7000
+finished grid point 8000
+finished grid point 9000
+finished grid point 10000
+finished grid point 11000
+finished grid point 12000
+finished grid point 13000
+finished grid point 14000
+finished grid point 15000
+finished grid point 16000
+finished grid point 17000
+finished grid point 18000
+finished grid point 19000
+finished grid point 20000
+finished grid point 21000
+finished grid point 22000
+finished grid point 23000
+finished grid point 24000
+finished grid point 25000
+finished grid point 26000
+finished grid point 27000
+finished grid point 28000
+finished grid point 29000
+finished grid point 30000
+finished grid point 31000
+finished grid point 32000
+finished grid point 33000
+finished grid point 34000
+finished grid point 35000
+finished grid point 36000
+finished grid point 37000
+finished grid point 38000
+finished grid point 39000
+finished grid point 40000
+finished grid point 41000
+finished grid point 42000
+finished grid point 43000
+finished grid point 44000
+finished grid point 45000
+finished grid point 46000
+finished grid point 47000
+finished grid point 48000
+finished grid point 49000
+finished grid point 50000
+finished grid point 51000
+finished grid point 52000
+finished grid point 53000
+finished grid point 54000
+finished grid point 55000
+finished grid point 56000
+finished grid point 57000
+finished grid point 58000
+finished grid point 59000
+finished grid point 60000
+finished grid point 61000
+finished grid point 62000
+finished grid point 63000
+finished grid point 64000
+finished grid point 65000
+finished grid point 66000
+finished grid point 67000
+finished grid point 68000
+finished grid point 69000
+finished grid point 70000
+finished grid point 71000
+finished grid point 72000
+finished grid point 73000
+finished grid point 74000
+finished grid point 75000
+finished grid point 76000
+finished grid point 77000
+finished grid point 78000
+finished grid point 79000
+finished grid point 80000
+finished grid point 81000
+finished grid point 82000
+finished grid point 83000
+finished grid point 84000
+finished grid point 85000
+finished grid point 86000
+finished grid point 87000
+finished grid point 88000
+finished grid point 89000
+finished grid point 90000
+finished grid point 91000
+finished grid point 92000
+finished grid point 93000
+finished grid point 94000
+finished grid point 95000
+finished grid point 96000
+finished grid point 97000
+finished grid point 98000
+finished grid point 99000
+finished grid point 100000
+finished grid point 101000
+finished grid point 102000
+finished grid point 103000
+finished grid point 104000
+finished grid point 105000
+finished grid point 106000
+finished grid point 107000
+finished grid point 108000
+finished grid point 109000
+finished grid point 110000
+finished grid point 111000
+finished grid point 112000
+finished grid point 113000
+finished grid point 114000
+finished grid point 115000
+finished grid point 116000
+finished grid point 117000
+finished grid point 118000
+finished grid point 119000
+finished grid point 120000
+finished grid point 121000
+finished grid point 122000
+finished grid point 123000
+finished grid point 124000
+finished grid point 125000
+finished grid point 126000
+finished grid point 127000
+finished grid point 128000
+finished grid point 129000
+finished grid point 130000
+finished grid point 131000
+finished grid point 132000
+finished grid point 133000
+free memory

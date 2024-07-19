@@ -16,8 +16,8 @@ LIB = $(Linux_DYLIB) $(Linux_LIB) $(Linux_CLIB)
 
 # flags ...
 Linux_OPTFLAGS = -DMKL_ILP64 -O3
-#Linux_CFLAGS = $(Linux_OPTFLAGS) -g -O3 -fopenmp #-I/usr/local/include
-Linux_CFLAGS = -g -O0
+Linux_CFLAGS = $(Linux_OPTFLAGS) -g -O3 -fopenmp #-I/usr/local/include
+#Linux_CFLAGS = -g -O0
 Linux_FFLAGS = $(Linux_OPTFLAGS)
 
 MAINNAM = Filter

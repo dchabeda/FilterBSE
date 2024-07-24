@@ -360,12 +360,12 @@ int main(int argc, char *argv[]){
       if (1 == flag.isComplex){
         ist.mn_states_tot = ortho((MKL_Complex16 *)psitot, grid_par.dv, &ist, &par, &flag);      
       } else if (0 == flag.isComplex) {
-        ist.mn_states_tot = ortho(psitot, grid.dv, &ist, &par, &flag);
+        ist.mn_states_tot = ortho(psitot, grid_par.dv, &ist, &par, &flag);
       }
       printf("mn_states_tot after ortho = %ld\n", ist.mn_states_tot);
       psitot = (double *) realloc(psitot, ist.mn_states_tot * ist.nspinngrid * ist.complex_idx * sizeof(psitot[0]) );
 
-      normalize_all(&psitot[0],grid.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
+      normalize_all(&psitot[0],grid_par.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
       
       printf("\ndone calculating ortho, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
@@ -400,7 +400,7 @@ int main(int argc, char *argv[]){
       
       inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
       diag_H(psi,phi,psitot,pot_local,nlc,nl,ksqr,eig_vals,&ist,&par,&flag,planfw,planbw,fftwpsi);
-      normalize_all(&psitot[0],grid.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
+      normalize_all(&psitot[0],grid_par.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
       jms = ist.mn_states_tot;
       printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t);
@@ -633,7 +633,7 @@ int main(int argc, char *argv[]){
       /*************************************************************************/
       /*** free memory ***/
       free(ist.atom_types);
-      free(grid.x); free(grid.y); free(grid.z); 
+      free(grid); 
       free(R); free(atom);
       free(psitot); free(psi); free(phi); 
       free(pot_local); free(ksqr);

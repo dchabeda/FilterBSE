@@ -12,11 +12,16 @@ int main(int argc, char *argv[]){
     fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi; 
     long fft_flags=0;
     // custom structs 
-    flag_st flag; index_st ist; par_st par; atom_info *atom; 
-    pot_st pot; grid_st grid; xyz_st *R; nlc_st *nlc = NULL; 
+    flag_st flag; index_st ist; par_st par; 
+    atom_info *atom_equil; atom_info *atom;
+    pot_st pot; 
+    grid_st grid_par; 
+    xyz_st *grid;
+    xyz_st *R; xyz_st *R_equil;
+    nlc_st *nlc = NULL; 
     parallel_st parallel; 
     // double arrays
-    double *ksqr, *pot_local;
+    double *ksqr, *pot_local_equil_equil, *pot_local;
     double *SO_projectors; 
     // long int arrays and counters
     long *nl = NULL;
@@ -44,35 +49,30 @@ int main(int argc, char *argv[]){
 
     /*** read initial setup from input.par ***/
     printf("\nReading job specifications from input.par:\n");
-    read_input(&flag, &grid, &ist, &par, &parallel);
+    read_input(&flag, &grid_par, &ist, &par, &parallel);
 
     /*** allocating memory ***/
     // the positions of the atoms in the x, y, and z directions 
-    if ((R = (xyz_st *) calloc(ist.natoms, sizeof(xyz_st))) == NULL) {
+    if ((R_equil = (xyz_st *) calloc(ist.natoms, sizeof(xyz_st))) == NULL) {
         fprintf(stderr, "\nOUT OF MEMORY: R array\n\n"); exit(EXIT_FAILURE);
     }
     // the atom specific information 
-    if ((atom = (atom_info *) calloc(ist.natoms, sizeof(atom_info))) == NULL){
+    if ((atom_equil = (atom_info *) calloc(ist.natoms, sizeof(atom_info))) == NULL){
         fprintf(stderr, "\nOUT OF MEMORY: atom struct\n\n"); exit(EXIT_FAILURE);
     }
     
     /*** read the nanocrystal configuration ***/
     printf("\nReading atomic configuration from conf.par:\n");
-    read_conf(R, atom, &ist, &par, &flag);
+    read_conf(R_equil, atom_equil, &ist, &par, &flag);
 
     /*** initialize parameters for the grid ***/
     printf("\nInitializing the grid parameters:\n");
-    init_grid_params(&grid, R, &ist, &par);
+    init_grid_params(&grid_par, R_equil, &ist, &par, &flag);
 
     // Allocate memory for the grid in the x, y, and z directions ***/
-    if ((grid.x = (double *) calloc(grid.nx, sizeof(double))) == NULL){
-        fprintf(stderr, "\nOUT OF MEMORY: grid.x\n\n"); exit(EXIT_FAILURE);
-    }
-    if ((grid.y = (double *) calloc(grid.ny, sizeof(double))) == NULL){
-        fprintf(stderr, "\nOUT OF MEMORY: grid.y\n\n"); exit(EXIT_FAILURE);
-    }
-    if ((grid.z = (double *) calloc(grid.nz, sizeof(double))) == NULL){
-        fprintf(stderr, "\nOUT OF MEMORY: grid.z\n\n"); exit(EXIT_FAILURE);
+    // Allocate memory for the grid in the x, y, and z directions ***/
+    if ((grid = (xyz_st *) calloc(grid_par.ngrid, sizeof(xyz_st))) == NULL){
+        fprintf(stderr, "\nOUT OF MEMORY: grid\n\n"); exit(EXIT_FAILURE);
     }
     // the kinetic energy stored on the grid
     if ((ksqr = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]){
 
     /*** build the real- and k-space grids ***/
     printf("\nBuilding the real-space and k-space grids:\n");
-    build_grid_ksqr(ksqr, R, &grid, &ist, &par);
+    build_grid_ksqr(ksqr, R_equil, grid, &grid_par, &ist, &par, &flag);
     
     /*************************************************************************/
     /*** allocating memory for the rest of the program ***/
@@ -90,8 +90,8 @@ int main(int argc, char *argv[]){
     // FFT
     fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist.ngrid);
     /*** initialization for the fast Fourier transform ***/
-    planfw = fftw_plan_dft_3d(grid.nz, grid.ny, grid.nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-    planbw = fftw_plan_dft_3d(grid.nz, grid.ny, grid.nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+    planfw = fftw_plan_dft_3d(grid_par.nz, grid_par.ny, grid_par.nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
+    planbw = fftw_plan_dft_3d(grid_par.nz, grid_par.ny, grid_par.nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
     
     // For reading the atomic potentials ***/
     pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
@@ -113,8 +113,8 @@ int main(int argc, char *argv[]){
     if ((phi = (zomplex *)calloc(ist.nspinngrid, sizeof(zomplex))) == NULL){
         fprintf(stderr, "\nOUT OF MEMORY: phi\n\n"); exit(EXIT_FAILURE);
     }
-    if ((pot_local = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
-        fprintf(stderr, "\nOUT OF MEMORY: pot_local\n\n"); exit(EXIT_FAILURE);
+    if ((pot_local_equil = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
+        fprintf(stderr, "\nOUT OF MEMORY: pot_local_equil\n\n"); exit(EXIT_FAILURE);
     }
     
     // memory allocation for the spin-orbit potential 
@@ -133,14 +133,11 @@ int main(int argc, char *argv[]){
     
     printf("\tdone allocating memory.\n"); fflush(stdout);
 
-    // The filter code supports restarting the job from a saved state. See save.c for formatting
-    // of checkpoint files. See read_input in read.c for specifying the checkpoint restart
-
     /**************************************************************************/
     printf("\nInitializing potentials...\n");
     
     printf("\nLocal pseudopotential:\n");
-    build_local_pot(pot_local, &pot, R, ksqr, atom, &grid, &ist, &par, &flag, &parallel);
+    build_local_pot(pot_local_equil, &pot, R_equil, ksqr, atom_equil, grid, &grid_par, &ist, &par, &flag, &parallel);
     
     free(pot.r); pot.r = NULL; 
     free(pot.pseudo); pot.pseudo = NULL; 
@@ -151,16 +148,16 @@ int main(int argc, char *argv[]){
     free(pot.pseudo_LR); pot.pseudo_LR = NULL; 
     }
     
-    write_cube_file(pot_local, &grid, "localPot.cube");
+    write_cube_file(pot_local_equil, &grid_par, "localPot.cube");
     
     if(flag.SO==1) {
     printf("\nSpin-orbit pseudopotential:\n");
-    init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par);
+    init_SO_projectors(SO_projectors, &grid_par, R, atom, &ist, &par);
     }
     /*** initialization for the non-local potential ***/
     if (flag.NL == 1){
     printf("\nNon-local pseudopotential:\n"); fflush(0);
-    init_NL_projectors(nlc, nl, SO_projectors, &grid, R, atom, &ist, &par, &flag);
+    init_NL_projectors(nlc, nl, SO_projectors, &grid_par, R, atom, &ist, &par, &flag);
     }
     // free memory allocated to SO_projectors
     if ( (flag.SO == 1) || (flag.NL == 1) ){
@@ -170,66 +167,47 @@ int main(int argc, char *argv[]){
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** 
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
     // Potential mat elems
+    // This code computes dU = U(r; R) - U(r; R_equil)
+    // the difference between the potential energy surfaces of a Hamiltonian
+    // that parametrically depends on the nuclear coordinates vs one that
+    // only depends on the equilibrium nuclear configuration.
+    // We calculate the variation in the energies as a perturbation expansion
+    // E_0(R) = E_0(R_equil) + <phi_0|dU|phi_0> + sum_{i neq 0} |<phi_0|dU|phi_i>|^2/dE + ...
+    // We verify that the first order term is sufficient to describe the changes
+    // by computing its magnitude in comparison to the energy differences between
+    // states in the electronic manifold at the equilibrium geometry.
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** 
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 
-    // 1. Initialize list of grid indices within Rnlcut of the atom.
-    long g_idx, rand_gridpt;
-    long r, r_p;
-    int n_r_pts = 50;
-    long select_atom = atol(argv[1]);
-    zomplex up_val, dn_val;
-    printf("The coupling will be calculated on grid points around atom %s %ld\n", atom->atyp[select_atom], select_atom);
-    
-    
-    pseed = fopen("seed.dat", "w");
-    if (flag.setSeed == 1){
-    rand_seed = - par.rand_seed;} 
-    else {
-    Randomize();  rand_seed = -random();
+    // 1. Read in the equilibrium and distorted nuclear configurations
+    /*** allocating memory ***/
+    // the distorted positions of the atoms in the x, y, and z directions 
+    if ((R = (xyz_st *) calloc(ist.natoms, sizeof(xyz_st))) == NULL) {
+        fprintf(stderr, "\nOUT OF MEMORY: R array\n\n"); exit(EXIT_FAILURE);
+    }
+    // the atom specific information 
+    if ((atom = (atom_info *) calloc(ist.natoms, sizeof(atom_info))) == NULL){
+        fprintf(stderr, "\nOUT OF MEMORY: atom struct\n\n"); exit(EXIT_FAILURE);
     }
     
-    printf("\nGrid points of coupling elements <r'|V|r>\n");
-    pr = fopen("r_grpts.dat", "w");
-    pf = fopen("pot_mat_elems.dat", "w");
+    /*** read the nanocrystal configuration ***/
+    printf("\nReading atomic configuration from conf.par:\n");
+    read_conf(R, atom, &ist, &par, &flag);
 
-    
-    for (i = 0; i < n_r_pts; i++){
-        fprintf(pseed, "%ld\n", rand_seed);
-        rand_gridpt = rand_interval(0, ist.n_NL_gridpts, &rand_seed); rand_seed = - random();
-        g_idx = select_atom * ist.n_NL_gridpts + rand_gridpt; 
-
-        r_p = nlc[g_idx].jxyz;
-        fprintf(pseed, "%ld\n", rand_seed);
-
-        rand_gridpt = rand_interval(0, ist.n_NL_gridpts, &rand_seed); rand_seed = - random();
-        g_idx = select_atom * ist.n_NL_gridpts + rand_gridpt; 
-
-        r = nlc[g_idx].jxyz;
-        
-        // Initialize a wavefunction with only 1/sqrt(2) at gript r
-        psi[r].re = 1/sqrt(2); psi[r].im = 1/sqrt(2);
-        psi[r + ist.ngrid].re = 1/sqrt(2); psi[r + ist.ngrid].im = 1/sqrt(2);
-
-        // Apply the potential to this wavefunction to obtain phi = V|psi>
-        potential(phi, psi, pot_local, nlc, nl, &ist, &par, &flag);
-
-        // Calculate the inner product <r_p|V|r>
-        up_val.re = 1/sqrt(2) * phi[r_p].re + 1/sqrt(2) * phi[r_p].im;
-        up_val.im = -1/sqrt(2) * phi[r_p].re + 1/sqrt(2) * phi[r_p].im;
-        dn_val.re = 1/sqrt(2) * phi[r_p + ist.ngrid].re + 1/sqrt(2) * phi[r_p + ist.ngrid].im;
-        dn_val.im = -1/sqrt(2) * phi[r_p + ist.ngrid].re + 1/sqrt(2) * phi[r_p + ist.ngrid].im;
-
-        fprintf(pf, "%ld %ld %lg %lg %lg %lg\n", r_p, r, up_val.re, up_val.im, dn_val.re, dn_val.im);
+    // 2. Calculate their local potentials
+    if ((pot_local_equil = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
+        fprintf(stderr, "\nOUT OF MEMORY: pot_local_equil\n\n"); exit(EXIT_FAILURE);
     }
+    build_local_pot(pot_local, &pot, R, ksqr, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
     
-    fclose(pseed);
-    fclose(pf);
-    fclose(pr);
+    // 3. Read in the equilibrium wavefunction.
+
+    // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
+    
+    // 5. Calculate matrix elements of the equilibrium wavefunction with U(r;R)
+    
+    
     
     return 0;
 }
 
-long rand_interval(long min, long max, long *seed) { // min and max included 
-  return floor(ran_nrc(seed) * (max - min + 1) + min);
-}

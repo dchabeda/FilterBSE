@@ -88,7 +88,7 @@ void init_grid_params(grid_st *grid_par, xyz_st *R, index_st *ist, par_st *par, 
     if (access("grid.par", F_OK) != -1 ) {
       pf = fopen("grid.par", "r");
       fscanf(pf, "%ld", &grid_par->ngrid);
-      grid_par->nspinngrid = ist->nspin * grid_par->ngrid;
+      
       ist->ngrid = grid_par->ngrid;
       ist->nspinngrid = ist->nspin * ist->ngrid;
       

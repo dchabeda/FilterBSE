@@ -164,7 +164,6 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, xyz_st *grid, grid_st *grid_par, i
       }
 
     } else {
-      else{
       printf("PROGRAM EXITING: grid.par does not exist in directory\n");
       fprintf(stderr, "PROGRAM EXITING: grid.par does not exist in directory\n");
       exit(EXIT_FAILURE);

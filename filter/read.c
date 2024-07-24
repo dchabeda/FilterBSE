@@ -26,6 +26,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // NC configuration parameters
   ist->n_max_atom_types = N_MAX_ATOM_TYPES;
   flag->centerConf = 1; // this should honestly always be 1
+  // Basis set configuration
+  flag->readGrid = 0; // Read the grid points from an input file
+  flag->useGaussianBasis = 0; // Use atom-centered Gaussian basis set
   // Filter algorithm parameters
   par->KE_max = 10.0; //NOTE: lowered this to 10 for tests
   flag->setTargets = 0;
@@ -65,11 +68,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->retryFilter = 0; // When = 1, if no eigstates acquired, then retry the filter job 
   flag->alreadyTried = 0; // gets tripped to 1 after the first time retrying a Filter.
   
-  par->potloc_dv = 0;
-  par->potSO_dv = 1;
-  par->potNL_dv = 1;
   // Parse the input file
-  if( access( "input.par", F_OK) != -1 ) {
+  if (access( "input.par", F_OK) != -1 ) {
     pf = fopen("input.par", "r");
 
     while (fscanf(pf, "%s = %s", field, tmp) != EOF && i < 100) {
@@ -101,6 +101,12 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "centerConf")) {
           flag->centerConf = strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "readGrid")) {
+          flag->readGrid = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "useGaussianBasis")) {
+          flag->useGaussianBasis = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
@@ -227,15 +233,6 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "restartFromCheckpoint")) {
           flag->restartFromCheckpoint = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-      } else if (!strcmp(field, "potloc_dv")) {
-          par->potloc_dv = (int) strtol(tmp, &endptr, 10);
-          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-      } else if (!strcmp(field, "potSO_dv")) {
-          par->potSO_dv = (int) strtol(tmp, &endptr, 10);
-          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-      } else if (!strcmp(field, "potNL_dv")) {
-          par->potNL_dv = (int) strtol(tmp, &endptr, 10);
-          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Handle exceptions
@@ -251,6 +248,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("dy = double (grid spacing in y direction, units of Bohr)\n");
           printf("dz = double (grid spacing in z direction, units of Bohr)\n");
           printf("dGrid = double (grid spacing; sets the values of dx, dy, and dz equal)\n");
+          printf("centerConf = int (if 1, center the NC atoms at the COM)\n");
+          printf("readGrid = int (if 1, read grid from input file grid.par)\n");
+          printf("useGaussianBasis = int (if 1, use atom-centered Gaussian basis set)\n");
           printf("mStatesPerFilter = int (number of total energy targets for each filter cycle)\n");
           printf("nFilterCycles = int (number of filter cycles/number random initial wavefunctions)\n");
           printf("nCheby = int (number of terms in the Chebyshev expansion)\n");
@@ -271,7 +271,6 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("NonLocal = int (0 for no non-local, 1 for non-local potential)\n");
           printf("setTargets = int (0 if half/half split of VB/CB targets suffices for your job)\n");
           printf("If setTargets = 1, the next two entries MUST be \'n_targets_VB n_targets_CB\'\n");
-          printf("centerConf = int (if 1, center the NC atoms at the COM)\n");
           printf("calcPotOverlap = int (calculate matrix overlaps of pseudopotential)\n");
           printf("sigmaECut = double, the cutoff std. dev allowed for printed eigenstates/cubes\n");
           printf("getAllStates = int (0 to only save states with small variance, 1 to save all)\n");

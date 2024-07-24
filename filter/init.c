@@ -162,7 +162,7 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, xyz_st *grid, grid_st *grid_par, i
       for (i = 0; i < grid_par->ngrid; i++){
         fscanf(pf, "%ld %lg %lg %lg\n", &grindex, &grid[i].x, &grid[i].y, &grid[i].z);
       }
-      
+
     } else {
       printf("PROGRAM EXITING: grid.par does not exist in directory\n");
       fprintf(stderr, "PROGRAM EXITING: grid.par does not exist in directory\n");
@@ -616,7 +616,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R, 
 
 
 /*****************************************************************************/
-void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, parallel_st *parallel){
+void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid_par, parallel_st *parallel){
   /*******************************************************************
   * This function initializes a random, normalized wavefnc on grid   *
   * inputs:                                                          *

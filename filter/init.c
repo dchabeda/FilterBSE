@@ -184,15 +184,15 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, xyz_st *grid, grid_st *grid_par, i
   // The kinetic energy is 0.5k^2, which is symmetric, so only loop over half grid points
   for (ksqrx[0] = 0.0, jx = 1; jx <= grid_par->nx / 2; jx++)
     ksqrx[jx] = (ksqrx[grid_par->nx-jx] = 0.5 * sqr((double)(jx) * grid_par->dkx) *
-		grid_par->nx_1 * grid_par->ny_1 * grid_par->nz_1);
+		(1.0 / grid_par->ngrid));
 
   for (ksqry[0] = 0.0, jy = 1; jy <= grid_par->ny / 2; jy++)
     ksqry[jy] = (ksqry[grid_par->ny-jy] = 0.5 * sqr((double)(jy) * grid_par->dky) *
-		grid_par->ny_1 * grid_par->nx_1 * grid_par->nz_1);
+		(1.0 / grid_par->ngrid));
 
   for (ksqrz[0] = 0.0, jz = 1; jz <= grid_par->nz / 2; jz++)
     ksqrz[jz] = (ksqrz[grid_par->nz-jz] = 0.5 * sqr((double)(jz) * grid_par->dkz) *
-		grid_par->nz_1 * grid_par->nx_1 * grid_par->ny_1);
+		(1.0 / grid_par->ngrid));
 
   pf = fopen("ksqr.dat", "w");
   par->KE_max *= (grid_par->ny_1 * grid_par->nx_1 * grid_par->nz_1);

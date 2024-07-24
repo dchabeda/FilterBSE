@@ -89,8 +89,7 @@ void init_grid_params(grid_st *grid_par, xyz_st *R, index_st *ist, par_st *par){
       pf = fopen("grid.par", "r");
       fscanf("%ld", &grid_par->ngrid);
       ist->ngrid = grid_par->ngrid;
-    } else {
-      else{
+    } else{
       printf("PROGRAM EXITING: grid.par does not exist in directory\n");
       fprintf(stderr, "PROGRAM EXITING: grid.par does not exist in directory\n");
       exit(EXIT_FAILURE);

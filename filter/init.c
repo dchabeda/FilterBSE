@@ -3,7 +3,7 @@
 
 /*****************************************************************************/
 
-void init_grid_params(grid_st *grid_par, xyz_st *R, index_st *ist, par_st *par){
+void init_grid_params(grid_st *grid_par, xyz_st *R, index_st *ist, par_st *par, flag_st *flag){
   /*****************************************************************
   * This function initializes the parameters for building the grid *
   * The input geometry size is computed to ensure the number of    *
@@ -87,7 +87,7 @@ void init_grid_params(grid_st *grid_par, xyz_st *R, index_st *ist, par_st *par){
     FILE *pf;
     if (access("grid.par", F_OK) != -1 ) {
       pf = fopen("grid.par", "r");
-      fscanf("%ld", &grid_par->ngrid);
+      fscanf(pf, "%ld", &grid_par->ngrid);
       ist->ngrid = grid_par->ngrid;
     } else{
       printf("PROGRAM EXITING: grid.par does not exist in directory\n");
@@ -155,14 +155,14 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, xyz_st *grid, grid_st *grid_par, i
       long grindex;
       long i;
       pf = fopen("grid.par", "r");
-      fscanf("%ld", &grid_par->ngrid);
+      fscanf(pf, "%ld", &grid_par->ngrid);
       ist->ngrid = grid_par->ngrid;
       
       // Read in the custom grid
-      for (i = 0; i < grid_par; i++){
-        fscanf("%ld %lg %lg %lg\n", &grindex, &grid[i].x, &grid[i].y, &grid[i].z);
+      for (i = 0; i < grid_par->ngrid; i++){
+        fscanf(pf, "%ld %lg %lg %lg\n", &grindex, &grid[i].x, &grid[i].y, &grid[i].z);
       }
-
+      
     } else {
       printf("PROGRAM EXITING: grid.par does not exist in directory\n");
       fprintf(stderr, "PROGRAM EXITING: grid.par does not exist in directory\n");

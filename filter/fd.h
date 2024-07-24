@@ -152,7 +152,7 @@ typedef struct parallel{
 // Function declarations
 
 //init.c
-void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par);
+void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag_st *flag);
 void build_grid_ksqr(double *ksqr, xyz_st *R, xyz_st *grid, grid_st *grid_params, index_st *ist, par_st *par, flag_st *flag);
 void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, atom_info *atom, xyz_st *grid, grid_st *grid_par,
     index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);

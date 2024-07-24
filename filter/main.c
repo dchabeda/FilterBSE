@@ -78,7 +78,7 @@ int main(int argc, char *argv[]){
 
   /*** initialize parameters for the grid ***/
   printf("\nInitializing the grid parameters:\n");
-  init_grid_params(&grid_par, R, &ist, &par);
+  init_grid_params(&grid_par, R, &ist, &par, &flag);
 
   // Allocate memory for the grid in the x, y, and z directions ***/
   if ((grid = (xyz_st *) calloc(grid_par.ngrid, sizeof(xyz_st))) == NULL){

@@ -78,10 +78,10 @@ int main(int argc, char *argv[]){
 
   /*** initialize parameters for the grid ***/
   printf("\nInitializing the grid parameters:\n");
-  init_grid_par(&grid_par, R, &ist, &par);
+  init_grid_params(&grid_par, R, &ist, &par);
 
   // Allocate memory for the grid in the x, y, and z directions ***/
-  if ((grid = (xyz_st *) calloc(grid.ngrid, sizeof(xyz_st))) == NULL){
+  if ((grid = (xyz_st *) calloc(grid_par.ngrid, sizeof(xyz_st))) == NULL){
     fprintf(stderr, "\nOUT OF MEMORY: grid\n\n"); exit(EXIT_FAILURE);
   }
   
@@ -106,8 +106,8 @@ int main(int argc, char *argv[]){
   // FFT
   fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist.ngrid);
   /*** initialization for the fast Fourier transform ***/
-  planfw = fftw_plan_dft_3d(grid.nz, grid.ny, grid.nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-  planbw = fftw_plan_dft_3d(grid.nz, grid.ny, grid.nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+  planfw = fftw_plan_dft_3d(grid_par.nz, grid_par.ny, grid_par.nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
+  planbw = fftw_plan_dft_3d(grid_par.nz, grid_par.ny, grid_par.nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
   
   // For reading the atomic potentials ***/
   pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
@@ -358,7 +358,7 @@ int main(int argc, char *argv[]){
       inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
       printf("mn_states_tot before ortho = %ld\n", ist.mn_states_tot);
       if (1 == flag.isComplex){
-        ist.mn_states_tot = ortho((MKL_Complex16 *)psitot, grid.dv, &ist, &par, &flag);      
+        ist.mn_states_tot = ortho((MKL_Complex16 *)psitot, grid_par.dv, &ist, &par, &flag);      
       } else if (0 == flag.isComplex) {
         ist.mn_states_tot = ortho(psitot, grid.dv, &ist, &par, &flag);
       }

@@ -67,7 +67,7 @@ int main(int argc, char *argv[]){
     
     char *file_name_equil; file_name_equil = malloc(16*sizeof(file_name_equil[0]));
     strcpy(file_name_equil, "conf_equil.par");
-    sprintf(str, "\nReading atomic configuration from %s:\n", &file_name_equil);
+    sprintf(str, "\nReading atomic configuration from %s:\n", file_name_equil);
     printf(str);
     read_conf(file_name_equil, R_equil, atom_equil, &ist, &par, &flag);
 
@@ -210,38 +210,38 @@ int main(int argc, char *argv[]){
     strcpy(file_name, "conf.par");
     read_conf(file_name, R, atom, &ist, &par, &flag);
 
-    // 2. Calculate their local potentials
-    if ((pot_local_equil = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
-        fprintf(stderr, "\nOUT OF MEMORY: pot_local_equil\n\n"); exit(EXIT_FAILURE);
-    }
-    build_local_pot(pot_local, &pot, R, ksqr, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
+    // // 2. Calculate their local potentials
+    // if ((pot_local_equil = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
+    //     fprintf(stderr, "\nOUT OF MEMORY: pot_local_equil\n\n"); exit(EXIT_FAILURE);
+    // }
+    // build_local_pot(pot_local, &pot, R, ksqr, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
     
-    // 3. Read in the equilibrium wavefunction.
-    //count number of states found
-    jms = countlines("eval.dat");
-    printf("%ld total states in psi.dat\n", jms); fflush(0);
+    // // 3. Read in the equilibrium wavefunction.
+    // //count number of states found
+    // jms = countlines("eval.dat");
+    // printf("%ld total states in psi.dat\n", jms); fflush(0);
   
-    //allocate memory for psi
-    if ((psi = (zomplex *) calloc(ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");
+    // //allocate memory for psi
+    // if ((psi = (zomplex *) calloc(ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");
 
-    //read psi from file
-	ppsi = fopen("psi.dat" , "r");
+    // //read psi from file
+	// ppsi = fopen("psi.dat" , "r");
 
-	char filename[20];
-    for (j = start; j <= end; j++){ 
-        printf("Reading state %d from psi.dat\n", j);
+	// char filename[20];
+    // for (j = start; j <= end; j++){ 
+    //     printf("Reading state %d from psi.dat\n", j);
 
-        if(fseek(ppsi,j*ist.nspinngrid*sizeof(zomplex),SEEK_SET)!=0){
-        printf("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
-        }
-        fread (&psi[0],sizeof(zomplex),ist.nspinngrid,ppsi);
+    //     if(fseek(ppsi,j*ist.nspinngrid*sizeof(zomplex),SEEK_SET)!=0){
+    //     printf("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
+    //     }
+    //     fread (&psi[0],sizeof(zomplex),ist.nspinngrid,ppsi);
 
 
-    // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
+    // // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
     
-    // 5. Calculate matrix elements of the equilibrium wavefunction with U(r;R)
+    // // 5. Calculate matrix elements of the equilibrium wavefunction with U(r;R)
     
-    }
+    // }
     
     return 0;
 }

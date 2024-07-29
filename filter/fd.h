@@ -249,6 +249,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double*  projectors,
 
 // pseudopotential.c
 void calc_pot_overlap(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par,index_st *ist, flag_st *flag);
+int countlines(char *filename);
 
 //angular.c
 void calc_angular_exp(double *psitot, grid_st *grid, int start, int stop, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);

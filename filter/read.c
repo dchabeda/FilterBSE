@@ -393,6 +393,7 @@ void read_conf(char *file_name, xyz_st *R, atom_info *atom, index_st *ist, par_s
   for (i = 0; i < ist->natoms; i++){
     // Read each line of the conf.par file
     fscanf (pf, "%s %lf %lf %lf\n", atom[i].atyp, &R[i].x, &R[i].y, &R[i].z);
+    printf ("%s %lf %lf %lf\n", atom[i].atyp, R[i].x, R[i].y, R[i].z);
     // Get the atomic number of each atom
     atom[i].Zval = assign_atom_number(atom[i].atyp);
     

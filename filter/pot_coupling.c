@@ -166,16 +166,16 @@ int main(int argc, char *argv[]){
     
     if(flag.SO==1) {
     printf("\nSpin-orbit pseudopotential:\n");
-    init_SO_projectors(SO_projectors, R_equil, atom_equil, &grid_par, &ist, &par);
+    init_SO_projectors(SO_projectors_equil, R_equil, atom_equil, &grid_par, &ist, &par);
     }
     /*** initialization for the non-local potential ***/
     if (flag.NL == 1){
     printf("\nNon-local pseudopotential:\n"); fflush(0);
-    init_NL_projectors(nlc_equil, nl_equil, SO_projectors, R_equil, atom_equil, grid, &grid_par, &ist, &par, &flag);
+    init_NL_projectors(nlc_equil, nl_equil, SO_projectors_equil, R_equil, atom_equil, grid, &grid_par, &ist, &par, &flag);
     }
     // free memory allocated to SO_projectors
     if ( (flag.SO == 1) || (flag.NL == 1) ){
-    free(SO_projectors); SO_projectors = NULL;
+    free(SO_projectors_equil); SO_projectors_equil = NULL;
     }
 
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** 
@@ -193,7 +193,7 @@ int main(int argc, char *argv[]){
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** 
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 
-    // 1. Read in the equilibrium and distorted nuclear configurations
+    // 1. Read in the distorted nuclear configurations
     /*** allocating memory ***/
     // the distorted positions of the atoms in the x, y, and z directions 
     if ((R = (xyz_st *) calloc(ist.natoms, sizeof(xyz_st))) == NULL) {
@@ -210,7 +210,7 @@ int main(int argc, char *argv[]){
     strcpy(file_name, "conf.par");
     read_conf(file_name, R, atom, &ist, &par, &flag);
 
-    // 2. Calculate their local potentials
+    // 2. Calculate the distorted local potential
     if ((pot_local = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
         fprintf(stderr, "\nOUT OF MEMORY: pot_local_equil\n\n"); exit(EXIT_FAILURE);
     }
@@ -239,7 +239,24 @@ int main(int argc, char *argv[]){
     free(pot.pseudo_LR); pot.pseudo_LR = NULL; 
     }
 
-    // // 3. Read in the equilibrium wavefunction.
+
+    // 3. Calculate the distorted nonlocal potentials
+
+    if(flag.SO==1) {
+    printf("\nSpin-orbit pseudopotential:\n");
+    init_SO_projectors(SO_projectors, R, atom, &grid_par, &ist, &par);
+    }
+    /*** initialization for the non-local potential ***/
+    if (flag.NL == 1){
+    printf("\nNon-local pseudopotential:\n"); fflush(0);
+    init_NL_projectors(nlc, nl, SO_projectors, R, atom, grid, &grid_par, &ist, &par, &flag);
+    }
+    // free memory allocated to SO_projectors
+    if ( (flag.SO == 1) || (flag.NL == 1) ){
+    free(SO_projectors); SO_projectors = NULL;
+    }
+
+    // // 4. Read in the equilibrium wavefunction.
     // //count number of states found
     // jms = countlines("eval.dat");
     // printf("%ld total states in psi.dat\n", jms); fflush(0);

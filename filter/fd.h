@@ -165,7 +165,7 @@ double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int)
 
 //read.c
 void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);
-void read_conf(const char file_name, xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag);
+void read_conf(char *file_name, xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag);
 void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag);
 void read_pot_file(FILE *pf, pot_st *pot, long j, long n, char *req);
 void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par);

@@ -339,7 +339,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
 
 
 
-void read_conf(const char *file_name, xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag){
+void read_conf(char *file_name, xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag){
   /*******************************************************************
   * This function reads the conf.par file and initializes the NC     *
   * Also, atom-specific parameters (SO/NL, local geom, etc) are set  *

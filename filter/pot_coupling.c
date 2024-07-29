@@ -63,9 +63,9 @@ int main(int argc, char *argv[]){
     
     /*** read the nanocrystal configuration ***/
     printf("\nReading atomic configuration from conf.par:\n");
-    char *file_name; file_name = malloc(16*sizeof(file_name[0]));
-    strcpy(file_name, "conf_equil.par");
-    read_conf(file_name, R_equil, atom_equil, &ist, &par, &flag);
+    char *file_name_equil; file_name_equil = malloc(16*sizeof(file_name_equil[0]));
+    strcpy(file_name_equil, "conf_equil.par");
+    read_conf(file_name_equil, R_equil, atom_equil, &ist, &par, &flag);
 
     /*** initialize parameters for the grid ***/
     printf("\nInitializing the grid parameters:\n");
@@ -202,8 +202,9 @@ int main(int argc, char *argv[]){
     
     /*** read the nanocrystal configuration ***/
     printf("\nReading atomic configuration from conf.par:\n");
-    strcpy()
-    read_conf("conf.par", R, atom, &ist, &par, &flag);
+    char *file_name; file_name = malloc(9*sizeof(file_name[0]));
+    strcpy(file_name, "conf.par");
+    read_conf(file_name, R, atom, &ist, &par, &flag);
 
     // 2. Calculate their local potentials
     if ((pot_local_equil = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){

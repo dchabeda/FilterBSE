@@ -5,7 +5,7 @@ long rand_interval(long min, long max, long *seed);
 int main(int argc, char *argv[]){
     // DECLARE VARIABLES AND STRUCTS
     // file pointers
-    FILE *pf, *pseed, *pr; 
+    FILE *pf, *ppsi; 
     // zomplex types
     zomplex *psi, *phi; 
     // FFT
@@ -25,7 +25,8 @@ int main(int argc, char *argv[]){
     double *SO_projectors_equil; double *SO_projectors; 
     // long int arrays and counters
     long *nl_equil = NULL; long *nl = NULL;
-    long i, rand_seed;
+    long i, jms, j, rand_seed;
+    int start, end;
     ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
     // Clock/Wall time output and stdout formatting
     time_t start_time = time(NULL); // Get the actual time for total wall runtime
@@ -237,8 +238,26 @@ int main(int argc, char *argv[]){
     
     // 5. Calculate matrix elements of the equilibrium wavefunction with U(r;R)
     
-    
+    }
     
     return 0;
 }
+
+/*****************************************************************************/
+int countlines(char *filename){
+  FILE* fp = fopen(filename,"r");
+  int lines = 0;
+  int ch;
+  while(1){
+    ch = fgetc(fp);
+    if (feof(fp)){ break; }
+    if(ch == '\n')
+    {
+      lines++;
+    }
+  }
+  fclose(fp);
+  return lines;
+}
+
 

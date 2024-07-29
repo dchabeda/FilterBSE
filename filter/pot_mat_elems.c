@@ -5,7 +5,7 @@ long rand_interval(long min, long max, long *seed);
 int main(int argc, char *argv[]){
     // DECLARE VARIABLES AND STRUCTS
     // file pointers
-    FILE *pf, *pseed, *pr; 
+    FILE *pf, *pseed, *pr, *ppsi; 
     // zomplex types
     zomplex *psi, *phi; 
     // FFT

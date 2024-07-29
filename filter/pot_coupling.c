@@ -63,9 +63,12 @@ int main(int argc, char *argv[]){
     }
     
     /*** read the nanocrystal configuration ***/
-    printf("\nReading atomic configuration from conf.par:\n");
+    char str[100];
+    
     char *file_name_equil; file_name_equil = malloc(16*sizeof(file_name_equil[0]));
     strcpy(file_name_equil, "conf_equil.par");
+    sprintf(str, "\nReading atomic configuration from %s:\n", &file_name_equil);
+    printf(str);
     read_conf(file_name_equil, R_equil, atom_equil, &ist, &par, &flag);
 
     /*** initialize parameters for the grid ***/

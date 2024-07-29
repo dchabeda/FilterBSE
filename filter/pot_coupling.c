@@ -211,7 +211,7 @@ int main(int argc, char *argv[]){
     read_conf(file_name, R, atom, &ist, &par, &flag);
 
     // 2. Calculate their local potentials
-    if ((pot_local_equil = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
+    if ((pot_local = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
         fprintf(stderr, "\nOUT OF MEMORY: pot_local_equil\n\n"); exit(EXIT_FAILURE);
     }
     pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));

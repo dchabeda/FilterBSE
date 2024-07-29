@@ -162,7 +162,7 @@ int main(int argc, char *argv[]){
     free(pot.pseudo_LR); pot.pseudo_LR = NULL; 
     }
     
-    write_cube_file(pot_local_equil, &grid_par, "localPot.cube");
+    write_cube_file(pot_local_equil, &grid_par, "local_pot_equil.cube");
     
     if(flag.SO==1) {
     printf("\nSpin-orbit pseudopotential:\n");
@@ -210,12 +210,35 @@ int main(int argc, char *argv[]){
     strcpy(file_name, "conf.par");
     read_conf(file_name, R, atom, &ist, &par, &flag);
 
-    // // 2. Calculate their local potentials
-    // if ((pot_local_equil = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
-    //     fprintf(stderr, "\nOUT OF MEMORY: pot_local_equil\n\n"); exit(EXIT_FAILURE);
-    // }
-    // build_local_pot(pot_local, &pot, R, ksqr, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
+    // 2. Calculate their local potentials
+    if ((pot_local_equil = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
+        fprintf(stderr, "\nOUT OF MEMORY: pot_local_equil\n\n"); exit(EXIT_FAILURE);
+    }
+    pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
+    pot.r = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+    if (1.0 != par.scale_surface_Cs){
+        // allocate memory for separately read LR potentials if the surface atoms will be charge balanced
+        pot.r_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+    }
+    pot.pseudo = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+    if (1.0 != par.scale_surface_Cs){
+        pot.pseudo_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+    }
+    pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
     
+    build_local_pot(pot_local, &pot, R, ksqr, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
+    
+    write_cube_file(pot_local, &grid_par, "local_pot.cube");
+    
+    free(pot.r); pot.r = NULL; 
+    free(pot.pseudo); pot.pseudo = NULL; 
+    free(pot.dr); pot.dr = NULL; 
+    free(pot.file_lens); pot.file_lens = NULL;
+    if (1.0 != par.scale_surface_Cs){
+    free(pot.r_LR); pot.r_LR = NULL;
+    free(pot.pseudo_LR); pot.pseudo_LR = NULL; 
+    }
+
     // // 3. Read in the equilibrium wavefunction.
     // //count number of states found
     // jms = countlines("eval.dat");

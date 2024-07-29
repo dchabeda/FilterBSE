@@ -18,13 +18,13 @@ int main(int argc, char *argv[]){
     grid_st grid_par; 
     xyz_st *grid;
     xyz_st *R; xyz_st *R_equil;
-    nlc_st *nlc = NULL; 
+    nlc_st *nlc = NULL; nlc_st *nlc_equil = NULL; 
     parallel_st parallel; 
     // double arrays
-    double *ksqr, *pot_local_equil_equil, *pot_local;
-    double *SO_projectors; 
+    double *ksqr, *pot_local_equil, *pot_local;
+    double *SO_projectors_equil; double *SO_projectors; 
     // long int arrays and counters
-    long *nl = NULL;
+    long *nl_equil = NULL; long *nl = NULL;
     long i, rand_seed;
     ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
     // Clock/Wall time output and stdout formatting
@@ -63,7 +63,9 @@ int main(int argc, char *argv[]){
     
     /*** read the nanocrystal configuration ***/
     printf("\nReading atomic configuration from conf.par:\n");
-    read_conf("conf_equil.par", R_equil, atom_equil, &ist, &par, &flag);
+    char *file_name; file_name = malloc(16*sizeof(file_name[0]));
+    strcpy(file_name, "conf_equil.par");
+    read_conf(file_name, R_equil, atom_equil, &ist, &par, &flag);
 
     /*** initialize parameters for the grid ***/
     printf("\nInitializing the grid parameters:\n");
@@ -119,10 +121,18 @@ int main(int argc, char *argv[]){
     
     // memory allocation for the spin-orbit potential 
     if ( (flag.SO == 1) || (flag.NL == 1) ){
+        if ((SO_projectors_equil = (double*) calloc(PROJ_LEN * ist.nproj, sizeof(double)))==NULL){nerror("mem_SO_projector");}  
         if ((SO_projectors = (double*) calloc(PROJ_LEN * ist.nproj, sizeof(double)))==NULL){nerror("mem_SO_projector");}  
     }
     // memory allocation for the non-local potential
     if (1 == flag.NL){
+        if ((nlc_equil = (nlc_st *) calloc(ist.n_NL_atoms*ist.n_NL_gridpts, sizeof(nlc_st))) == NULL){ 
+        fprintf(stderr, "\nOUT OF MEMORY: nlc\n\n"); exit(EXIT_FAILURE);
+        }
+        if ((nl_equil = (long *) calloc(ist.natoms, sizeof(nl[0]))) == NULL) {
+        fprintf(stderr, "\nOUT OF MEMORY: nl\n\n"); exit(EXIT_FAILURE);
+        }
+
         if ((nlc = (nlc_st *) calloc(ist.n_NL_atoms*ist.n_NL_gridpts, sizeof(nlc_st))) == NULL){ 
         fprintf(stderr, "\nOUT OF MEMORY: nlc\n\n"); exit(EXIT_FAILURE);
         }
@@ -152,12 +162,12 @@ int main(int argc, char *argv[]){
     
     if(flag.SO==1) {
     printf("\nSpin-orbit pseudopotential:\n");
-    init_SO_projectors(SO_projectors, &grid_par, R, atom, &ist, &par);
+    init_SO_projectors(SO_projectors, R_equil, atom_equil, &grid_par, &ist, &par);
     }
     /*** initialization for the non-local potential ***/
     if (flag.NL == 1){
     printf("\nNon-local pseudopotential:\n"); fflush(0);
-    init_NL_projectors(nlc, nl, SO_projectors, &grid_par, R, atom, &ist, &par, &flag);
+    init_NL_projectors(nlc_equil, nl_equil, SO_projectors, R_equil, atom_equil, grid, &grid_par, &ist, &par, &flag);
     }
     // free memory allocated to SO_projectors
     if ( (flag.SO == 1) || (flag.NL == 1) ){
@@ -192,6 +202,7 @@ int main(int argc, char *argv[]){
     
     /*** read the nanocrystal configuration ***/
     printf("\nReading atomic configuration from conf.par:\n");
+    strcpy()
     read_conf("conf.par", R, atom, &ist, &par, &flag);
 
     // 2. Calculate their local potentials
@@ -201,6 +212,25 @@ int main(int argc, char *argv[]){
     build_local_pot(pot_local, &pot, R, ksqr, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
     
     // 3. Read in the equilibrium wavefunction.
+    //count number of states found
+    jms = countlines("eval.dat");
+    printf("%ld total states in psi.dat\n", jms); fflush(0);
+  
+    //allocate memory for psi
+    if ((psi = (zomplex *) calloc(ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");
+
+    //read psi from file
+	ppsi = fopen("psi.dat" , "r");
+
+	char filename[20];
+    for (j = start; j <= end; j++){ 
+        printf("Reading state %d from psi.dat\n", j);
+
+        if(fseek(ppsi,j*ist.nspinngrid*sizeof(zomplex),SEEK_SET)!=0){
+        printf("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
+        }
+        fread (&psi[0],sizeof(zomplex),ist.nspinngrid,ppsi);
+
 
     // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
     

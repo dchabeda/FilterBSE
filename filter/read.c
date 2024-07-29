@@ -339,7 +339,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
 
 
 
-void read_conf(const char file_name, xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag){
+void read_conf(const char *file_name, xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag){
   /*******************************************************************
   * This function reads the conf.par file and initializes the NC     *
   * Also, atom-specific parameters (SO/NL, local geom, etc) are set  *
@@ -385,7 +385,7 @@ void read_conf(const char file_name, xyz_st *R, atom_info *atom, index_st *ist, 
   ist->n_NL_atoms = 0;
   xd = yd = zd = 0.0;
 
-  pf = fopen(&file_name , "r");
+  pf = fopen(file_name , "r");
   // This has already been set, but there should be no harm in overwriting it again... famous last words
   fscanf(pf, "%ld", &ist->natoms); // reading first line so that the file pointer moves to the line with coordinates
 

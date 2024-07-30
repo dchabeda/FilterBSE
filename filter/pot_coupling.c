@@ -256,25 +256,49 @@ int main(int argc, char *argv[]){
     free(SO_projectors); SO_projectors = NULL;
     }
 
-    // // 4. Read in the equilibrium wavefunction.
-    // //count number of states found
-    // jms = countlines("eval.dat");
-    // printf("%ld total states in psi.dat\n", jms); fflush(0);
+    // 4. Read in the equilibrium wavefunction.
+
+    //count number of states found
+    jms = countlines("eval.dat");
+    printf("%ld total states in psi.dat\n", jms); fflush(0);
   
-    // //allocate memory for psi
-    // if ((psi = (zomplex *) calloc(ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");
+    // allocate memory for all equilibrium wavefunctions, psi
+    if ((psi = (zomplex *) calloc(jms * ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");
 
-    // //read psi from file
-	// ppsi = fopen("psi.dat" , "r");
+    //read psi from file
+	ppsi = fopen("psi.dat" , "r");
+    fread(psi[0], sizeof(psi[0], jms*ist.nspinngrid, ppsi));
+	
+    // Determine which states are hole states and which states are electron states
+    long i, a, ieof, nval;
+    char str[50];
+    double evalloc, deloc;
+    FILE *pf;
 
-	// char filename[20];
-    // for (j = start; j <= end; j++){ 
-    //     printf("Reading state %d from psi.dat\n", j);
+    ist.homo_idx = ist.lumo_idx = 0;
+    pf = fopen("eval.dat" , "r");
+    for (i = ieof = 0; ieof != EOF; i++){
+    ieof = fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
+    if (deloc < par.sigma_E_cut && evalloc < par.fermi_E) ist.homo_idx = i;
+    }
+    fclose(pf);
 
-    //     if(fseek(ppsi,j*ist.nspinngrid*sizeof(zomplex),SEEK_SET)!=0){
-    //     printf("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
-    //     }
-    //     fread (&psi[0],sizeof(zomplex),ist.nspinngrid,ppsi);
+    nval = i - 1;
+    pf = fopen("eval.dat" , "r");
+    for (i = 0; i <= ist.homo_idx; i++) fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
+    for (i = ist.homo_idx+1; i < nval; i++) {
+    fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
+    if (deloc < par.sigma_E_cut) {
+        ist.lumo_idx = i;
+        break;
+    }
+    }
+    fclose(pf);
+
+    printf("index of homo, homo_idx = %ld; index of lumo, nlumo = %ld\n", ist.homo_idx, ist.lumo_idx); fflush(0);
+    // Set the total number of electron and hole states in order to calculate the potential overlap integrals
+    ist.total_homo = ist.homo_idx + 1; ist.total_lumo = ist.mn_states_tot - ist.total_homo;
+    printf("total_homo = %ld total_lumo = %ld\n", ist.total_homo, ist.total_lumo); fflush(0);
 
 
     // // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)

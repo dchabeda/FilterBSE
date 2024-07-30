@@ -269,7 +269,7 @@ int main(int argc, char *argv[]){
     //read psi from file
 	ppsi = fopen("psi.dat" , "r");
     fread(&psi[0], sizeof(psitot[0]), jms*ist.nspinngrid, ppsi);
-	
+	printf("Successfully read wavefunction\n"); fflush(0);
     // Determine which states are hole states and which states are electron states
     long a, ieof, nval;
     double evalloc, deloc;
@@ -337,7 +337,7 @@ int main(int argc, char *argv[]){
     }
     // // 5. Calculate matrix elements of the equilibrium wavefunction with U(r;R)
     
-    
+
     return 0;
 }
 

@@ -321,7 +321,7 @@ int main(int argc, char *argv[]){
         }
         memcpy(&phi[0],&psi[0],ist.nspinngrid*sizeof(phi[0]));
         // Apply the potential to |psi>: |phi> = V|psi>
-        potential(phi, psi, pot_local, nlc, nl, ist, par, flag);
+        potential(phi, psi, pot_local, nlc, nl, &ist, &par, &flag);
         // Calculate the expectation value of H for wavefunc psi: <psi|H|psi> = <psi|phi> = sum_{jgrid} psi[jgrid] * phi[jgrid] * dv
         for (eval = 0.0, jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
         jgrid_real = ist.complex_idx*jgrid;
@@ -332,15 +332,15 @@ int main(int argc, char *argv[]){
             eval += psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_imag] * phi[jgrid].im;
         }
         }
-        eval *= par->dv;
+        eval *= par.dv;
 
-
+    }
     // // 5. Calculate matrix elements of the equilibrium wavefunction with U(r;R)
     
-    // }
     
     return 0;
 }
+
 
 /*****************************************************************************/
 int countlines(char *filename){
@@ -358,5 +358,4 @@ int countlines(char *filename){
   fclose(fp);
   return lines;
 }
-
 

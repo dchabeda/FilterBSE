@@ -21,6 +21,7 @@ int main(int argc, char *argv[]){
     nlc_st *nlc = NULL; nlc_st *nlc_equil = NULL; 
     parallel_st parallel; 
     // double arrays
+    double *psitot;
     double *ksqr, *pot_local_equil, *pot_local;
     double *SO_projectors_equil; double *SO_projectors; 
     // long int arrays and counters
@@ -304,31 +305,31 @@ int main(int argc, char *argv[]){
     long jgrid, jgrid_real, jgrid_imag, ims;
     double eval, eval2;
     // Loop over all M*N states
-    for (ims = 0; ims < ist->mn_states_tot; ims++) {
+    for (ims = 0; ims < ist.mn_states_tot; ims++) {
         // select the current state to compute sigma_E for
-        for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-        jgrid_real = ist->complex_idx * jgrid;
-        jgrid_imag = ist->complex_idx * jgrid + 1;
+        for (jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
+        jgrid_real = ist.complex_idx * jgrid;
+        jgrid_imag = ist.complex_idx * jgrid + 1;
 
-        psi[jgrid].re = psitot[ist->complex_idx*ims*ist->nspinngrid+jgrid_real];
-        if (1 == flag->isComplex){
-            psi[jgrid].im = psitot[ist->complex_idx*ims*ist->nspinngrid+jgrid_imag];
-        } else if (0 == flag->isComplex){
+        psi[jgrid].re = psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_real];
+        if (1 == flag.isComplex){
+            psi[jgrid].im = psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_imag];
+        } else if (0 == flag.isComplex){
             psi[jgrid].im = 0.0;
         }
         
         }
-        memcpy(&phi[0],&psi[0],ist->nspinngrid*sizeof(phi[0]));
+        memcpy(&phi[0],&psi[0],ist.nspinngrid*sizeof(phi[0]));
         // Apply the potential to |psi>: |phi> = V|psi>
-        potential(psi_out, psi_tmp, pot_local, nlc, nl, ist, par, flag);
+        potential(phi, psi, pot_local, nlc, nl, ist, par, flag);
         // Calculate the expectation value of H for wavefunc psi: <psi|H|psi> = <psi|phi> = sum_{jgrid} psi[jgrid] * phi[jgrid] * dv
-        for (eval = 0.0, jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-        jgrid_real = ist->complex_idx*jgrid;
-        jgrid_imag = ist->complex_idx*jgrid + 1;
+        for (eval = 0.0, jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
+        jgrid_real = ist.complex_idx*jgrid;
+        jgrid_imag = ist.complex_idx*jgrid + 1;
 
-        eval += psitot[ist->complex_idx*ims*ist->nspinngrid+jgrid_real] * phi[jgrid].re;
-        if (1 == flag->isComplex){
-            eval += psitot[ist->complex_idx*ims*ist->nspinngrid+jgrid_imag] * phi[jgrid].im;
+        eval += psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_real] * phi[jgrid].re;
+        if (1 == flag.isComplex){
+            eval += psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_imag] * phi[jgrid].im;
         }
         }
         eval *= par->dv;

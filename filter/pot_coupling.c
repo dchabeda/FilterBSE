@@ -267,7 +267,7 @@ int main(int argc, char *argv[]){
 
     //read psi from file
 	ppsi = fopen("psi.dat" , "r");
-    fread(psi[0], sizeof(psi[0]), jms*ist.nspinngrid, ppsi);
+    fread(&psi[0], sizeof(psi[0]), jms*ist.nspinngrid, ppsi);
 	
     // Determine which states are hole states and which states are electron states
     long a, ieof, nval;

@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 
   //command line input parsing
   if (argc!=3){
-    printf("Usage: makecube start end");
+    printf("Usage: makecube start end\n");
     exit(EXIT_FAILURE);
   }
 
@@ -57,7 +57,9 @@ int main(int argc, char *argv[])
   
   /*** read the nanocrystal configuration ***/
   printf("\nReading atomic configuration from conf.par:\n"); fflush(0);
-  read_conf(R, atom, &ist, &par, &flag, &flag);
+  char *file_name; file_name = malloc(9*sizeof(file_name[0]));
+  strcpy(file_name, "conf.par");
+  read_conf(file_name, R, atom, &ist, &par, &flag);
   
   /*** initialize the grid ***/
   printf("\nInitializing the grid parameters:\n"); fflush(0);

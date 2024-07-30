@@ -968,7 +968,7 @@ void read_pot_file(FILE *pf, pot_st *pot, long j, long n, char *req){
   long iscan;
   char *std, *LR, *orthoLR, *ortho;
   std = malloc(4 * sizeof(std[0])); strcpy(std, "std"); 
-  LR = malloc(2 * sizeof(std[0])); strcpy(LR, "LR");
+  LR = malloc(3 * sizeof(std[0])); strcpy(LR, "LR");
   ortho = malloc(6 * sizeof(ortho[0])); strcpy(ortho, "ortho");
   orthoLR = malloc(8 * sizeof(ortho[0])); strcpy(orthoLR, "orthoLR");
 

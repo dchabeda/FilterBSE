@@ -264,12 +264,13 @@ int main(int argc, char *argv[]){
     printf("%ld total states in psi.dat\n", jms); fflush(0);
   
     // allocate memory for all equilibrium wavefunctions, psi
-    if ((psitot = (zomplex *) calloc(jms * ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psitot");
+    if ((psitot = (double *) calloc(ist.complex_idx * jms * ist.nspinngrid, sizeof(psitot[0]))) == NULL) nerror("psitot");
 
     //read psi from file
 	ppsi = fopen("psi.dat" , "r");
-    fread(&psi[0], sizeof(psitot[0]), jms*ist.nspinngrid, ppsi);
+    fread(&psi[0], sizeof(psitot[0]), ist.complex_idx*jms*ist.nspinngrid, ppsi);
 	printf("Successfully read wavefunction\n"); fflush(0);
+
     // Determine which states are hole states and which states are electron states
     long a, ieof, nval;
     double evalloc, deloc;
@@ -277,20 +278,22 @@ int main(int argc, char *argv[]){
     ist.homo_idx = ist.lumo_idx = 0;
     pf = fopen("eval.dat" , "r");
     for (i = ieof = 0; ieof != EOF; i++){
-    ieof = fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
-    if (deloc < par.sigma_E_cut && evalloc < par.fermi_E) ist.homo_idx = i;
+        ieof = fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
+        if (deloc < par.sigma_E_cut && evalloc < par.fermi_E) ist.homo_idx = i;
     }
     fclose(pf);
 
     nval = i - 1;
     pf = fopen("eval.dat" , "r");
-    for (i = 0; i <= ist.homo_idx; i++) fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
-    for (i = ist.homo_idx+1; i < nval; i++) {
-    fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
-    if (deloc < par.sigma_E_cut) {
-        ist.lumo_idx = i;
-        break;
+    for (i = 0; i <= ist.homo_idx; i++){
+        fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
     }
+    for (i = ist.homo_idx+1; i < nval; i++) {
+        fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
+        if (deloc < par.sigma_E_cut) {
+            ist.lumo_idx = i;
+            break;
+        }
     }
     fclose(pf);
 
@@ -299,42 +302,44 @@ int main(int argc, char *argv[]){
     ist.total_homo = ist.homo_idx + 1; ist.total_lumo = ist.mn_states_tot - ist.total_homo;
     printf("total_homo = %ld total_lumo = %ld\n", ist.total_homo, ist.total_lumo); fflush(0);
 
+    // Select which states should be used for the calculation. Must be converged.
+
 
     // // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
     
-    long jgrid, jgrid_real, jgrid_imag, ims;
-    double eval, eval2;
-    // Loop over all M*N states
-    for (ims = 0; ims < ist.mn_states_tot; ims++) {
-        // select the current state to compute sigma_E for
-        for (jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
-        jgrid_real = ist.complex_idx * jgrid;
-        jgrid_imag = ist.complex_idx * jgrid + 1;
+    // long jgrid, jgrid_real, jgrid_imag, ims;
+    // double eval, eval2;
+    // // Loop over all M*N states
+    // for (ims = 0; ims < ist.mn_states_tot; ims++) {
+    //     // select the current state to compute sigma_E for
+    //     for (jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
+    //     jgrid_real = ist.complex_idx * jgrid;
+    //     jgrid_imag = ist.complex_idx * jgrid + 1;
 
-        psi[jgrid].re = psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_real];
-        if (1 == flag.isComplex){
-            psi[jgrid].im = psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_imag];
-        } else if (0 == flag.isComplex){
-            psi[jgrid].im = 0.0;
-        }
+    //     psi[jgrid].re = psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_real];
+    //     if (1 == flag.isComplex){
+    //         psi[jgrid].im = psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_imag];
+    //     } else if (0 == flag.isComplex){
+    //         psi[jgrid].im = 0.0;
+    //     }
         
-        }
-        memcpy(&phi[0],&psi[0],ist.nspinngrid*sizeof(phi[0]));
-        // Apply the potential to |psi>: |phi> = V|psi>
-        potential(phi, psi, pot_local, nlc, nl, &ist, &par, &flag);
-        // Calculate the expectation value of H for wavefunc psi: <psi|H|psi> = <psi|phi> = sum_{jgrid} psi[jgrid] * phi[jgrid] * dv
-        for (eval = 0.0, jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
-        jgrid_real = ist.complex_idx*jgrid;
-        jgrid_imag = ist.complex_idx*jgrid + 1;
+    //     }
+    //     memcpy(&phi[0],&psi[0],ist.nspinngrid*sizeof(phi[0]));
+    //     // Apply the potential to |psi>: |phi> = V|psi>
+    //     potential(phi, psi, pot_local, nlc, nl, &ist, &par, &flag);
+    //     // Calculate the expectation value of H for wavefunc psi: <psi|H|psi> = <psi|phi> = sum_{jgrid} psi[jgrid] * phi[jgrid] * dv
+    //     for (eval = 0.0, jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
+    //     jgrid_real = ist.complex_idx*jgrid;
+    //     jgrid_imag = ist.complex_idx*jgrid + 1;
 
-        eval += psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_real] * phi[jgrid].re;
-        if (1 == flag.isComplex){
-            eval += psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_imag] * phi[jgrid].im;
-        }
-        }
-        eval *= par.dv;
+    //     eval += psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_real] * phi[jgrid].re;
+    //     if (1 == flag.isComplex){
+    //         eval += psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_imag] * phi[jgrid].im;
+    //     }
+    //     }
+    //     eval *= par.dv;
 
-    }
+    // }
     // // 5. Calculate matrix elements of the equilibrium wavefunction with U(r;R)
     
 

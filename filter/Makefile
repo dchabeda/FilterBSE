@@ -17,7 +17,7 @@ LIB = $(${OS}_LIB) $(${OS}_CLIB) $(${OS}_FCLIB) $(${OS}_MYLIB)
 
 # flags ...
 #Linux_OPTFLAGS = -fast -qopenmp -static
-Linux_OPTFLAGS = -DMKL_ILP64 -O3 -xSSE3  -qopenmp -static
+Linux_OPTFLAGS = -DMKL_ILP64 -O3 -xSSE3  -qopenmp -static -fast
 #Linux_OPTFLAGS = -O0 -g
 Linux_CFLAGS = $(${OS}_OPTFLAGS) -DFFT_FFTW -I${HOME}/usr/include -I /opt/rocks/include -I"${MKLROOT}/include" -Wall -pedantic 
 Linux_FFLAGS = $(${OS}_OPTFLAGS)
@@ -49,7 +49,7 @@ CUBEOBJECTS = \
 		makecube.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o vector.o strain.o
 
 POTMATOBJECTS = \
-                pot_mat_elems.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o\
+                pot_coupling.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o\
 		hamiltonian.o strain.o vector.o
 
 # compilation ...
@@ -71,7 +71,7 @@ cube: $(CUBEOBJECTS)
 	$(${OS}_LD) -o makecube.x $(${OS}_CFLAGS) $(CUBEOBJECTS) $(LIB)
 
 potmat: $(POTMATOBJECTS)
-	$(${OS}_LD) -o pot_mat_elems.x $(${OS}_CFLAGS) $(POTMATOBJECTS) $(LIB)
+	$(${OS}_LD) -o pot_coupling.x $(${OS}_CFLAGS) $(POTMATOBJECTS) $(LIB)
 
 clean:
 	/bin/rm *.o *.x

@@ -267,13 +267,11 @@ int main(int argc, char *argv[]){
 
     //read psi from file
 	ppsi = fopen("psi.dat" , "r");
-    fread(psi[0], sizeof(psi[0], jms*ist.nspinngrid, ppsi));
+    fread(psi[0], sizeof(psi[0]), jms*ist.nspinngrid, ppsi);
 	
     // Determine which states are hole states and which states are electron states
-    long i, a, ieof, nval;
-    char str[50];
+    long a, ieof, nval;
     double evalloc, deloc;
-    FILE *pf;
 
     ist.homo_idx = ist.lumo_idx = 0;
     pf = fopen("eval.dat" , "r");

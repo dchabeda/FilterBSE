@@ -115,7 +115,7 @@ int main(int argc, char *argv[]){
     // ******
     read_input(&flag, &grid, &ist, &par, &parallel);
     // Set defaults that do not currently get read in from filter
-    ist->n_max_atom_types = N_MAX_ATOM_TYPES;
+    ist.n_max_atom_types = N_MAX_ATOM_TYPES;
     // ******
     // ******
     fflush(stdout);

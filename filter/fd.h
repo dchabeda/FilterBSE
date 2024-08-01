@@ -154,7 +154,7 @@ typedef struct parallel{
 //init.c
 void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag_st *flag);
 void build_grid_ksqr(double *ksqr, xyz_st *R, xyz_st *grid, grid_st *grid_params, index_st *ist, par_st *par, flag_st *flag);
-void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, atom_info *atom, xyz_st *grid, grid_st *grid_par,
+void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, xyz_st *grid, grid_st *grid_par,
     index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *flag);
 void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par);
@@ -270,6 +270,5 @@ void save_job_state(char *file_name, int checkpoint_id, double *psitot, double *
     nlc_st *nlc, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void restart_from_save(char *file_name, int checkpoint_id, double *psitot, double *pot_local, double *ksqr, zomplex *an, double *zn, double *ene_targets, long *nl,\
     nlc_st *nlc, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, double *pot_local, double *ksqr, long *nl,\
-    nlc_st *nlc, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
+void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, xyz_st *R, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
 /*****************************************************************************/

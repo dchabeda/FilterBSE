@@ -4,7 +4,7 @@
 
 /***************************************************************************************/
 
-void hartree(zomplex *rho, zomplex *potq, zomplex *poth, long_st ist, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi) {  
+void hartree(zomplex *rho, zomplex *potq, zomplex *poth, index_st ist, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi) {  
   long j;
   zomplex tmp;
 

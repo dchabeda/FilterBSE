@@ -46,7 +46,7 @@ TESTOBJECTS = \
 	      interpolate.o projectors.o read.o
 
 CUBEOBJECTS = \
-		makecube.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o vector.o strain.o
+		makecube.o write.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o vector.o strain.o
 
 POTMATOBJECTS = \
                 pot_coupling.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o\

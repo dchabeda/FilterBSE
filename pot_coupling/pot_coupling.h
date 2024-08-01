@@ -127,17 +127,41 @@ typedef struct parallel{
 
 /*****************************************************************************/
 // Macro definitions
+// double macros
+#define sqr(x)       ((x) * (x))
+#define cube(x)      ((x) * (x) * (x))
+#define forth(x)     ((x) * (x) * (x) * (x))
+#define ISWAP(a,b)   {double temp = (a); (a) = (b); (b) = -temp;}
+#define ISWAP2(a,b)  {double temp = (a); (a) = 2.0 * (b); (b) = -2.0 * temp;}
+
+// complex number macros
+#define cplus(a,b,c)  {zomplex tmp; (tmp).re=(a).re+(b).re; (tmp).im=(a).im+(b).im; c=tmp;}
+#define cminus(a,b,c) {zomplex tmp; (tmp).re=(a).re-(b).re; (tmp).im=(a).im-(b).im; c=tmp;}
+#define cmul(a,b,c)   {zomplex tmp; (tmp).re=(a).re*(b).re-(a).im*(b).im; (tmp).im=(a).re*(b).im+(a).im*(b).re; c=tmp;}
+#define cmuls(a,b,c)  {zomplex tmp; (tmp).re=(a).re*(b).re+(a).im*(b).im; (tmp).im=(a).re*(b).im-(a).im*(b).re; c=tmp;}
+#define cdev(a,b,c)   {zomplex tmp; double mechane; mechane = (1.0 / ((b).re*(b).re+(b).im*(b).im)); (tmp).re=((a).re*(b).re+(a).im*(b).im) * mechane; (tmp).im = ((a).im * (b).re - (a).re*(b).im)*mechane; c=tmp;}
+#define cexp(a,c)     {double texp = exp((a).re); zomplex tmp; (tmp).re=texp * cos((a).im); (tmp).im = texp * sin((a).im); c= tmp;}
+#define cexpminx(a,c) {double texp = exp(-(a).re); (c).re=texp * cos((a).im); (c).im = -texp * sin((a).im);}
 
 // constant macros
+#define AUTOEV    27.211385
 #define PIE       3.14159265358979323846
-#define N_MAX_ATOM_TYPES 20
+#define TWOPI     6.28318530717958647692
+#define SVDEPS    1.0e-10
+#define EPSR      1.0e-10
+#define EPSE      1.0e-10
+#define EPSR02	  1.0e-2
+#define EPSR0     1.0e-4
+#define EPSCHI    1.0e-8
+#define DENE      1.0e-10
+#define EPSDX     1.0e-20
+#define ANGTOBOHR 1.889726125
 #define PROJ_LEN	1024
-
+#define N_MAX_ATOM_TYPES 20
 // physical parameters
 #define PbIBondMax  ( (3.3) * (ANGTOBOHR) ) 
 #define orthoBondAngle  160.6344 
 #define minCubicBondAngle  175.0
-
 
 /*****************************************************************************/
 // Function declerations

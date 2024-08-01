@@ -2,7 +2,7 @@
 // File contains the main functions for calcuating the action of the hamiltonian on 
 // a wavefunction including non-local spin-orbit contributions 
 
-#include "fd.h"
+#include "pot_coupling.h"
 
 /*****************************************************************************/
 

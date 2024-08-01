@@ -131,8 +131,7 @@ typedef struct parallel{
 #define sqr(x)       ((x) * (x))
 #define cube(x)      ((x) * (x) * (x))
 #define forth(x)     ((x) * (x) * (x) * (x))
-#define ISWAP(a,b)   {double temp = (a); (a) = (b); (b) = -temp;}
-#define ISWAP2(a,b)  {double temp = (a); (a) = 2.0 * (b); (b) = -2.0 * temp;}
+#define rlong(x)      (rint(x))
 
 // complex number macros
 #define cplus(a,b,c)  {zomplex tmp; (tmp).re=(a).re+(b).re; (tmp).im=(a).im+(b).im; c=tmp;}
@@ -142,11 +141,15 @@ typedef struct parallel{
 #define cdev(a,b,c)   {zomplex tmp; double mechane; mechane = (1.0 / ((b).re*(b).re+(b).im*(b).im)); (tmp).re=((a).re*(b).re+(a).im*(b).im) * mechane; (tmp).im = ((a).im * (b).re - (a).re*(b).im)*mechane; c=tmp;}
 #define cexp(a,c)     {double texp = exp((a).re); zomplex tmp; (tmp).re=texp * cos((a).im); (tmp).im = texp * sin((a).im); c= tmp;}
 #define cexpminx(a,c) {double texp = exp(-(a).re); (c).re=texp * cos((a).im); (c).im = -texp * sin((a).im);}
+#define ISWAP(a,b)   {double temp = (a); (a) = (b); (b) = -temp;}
+#define ISWAP2(a,b)  {double temp = (a); (a) = 2.0 * (b); (b) = -2.0 * temp;}
 
 // constant macros
 #define AUTOEV    27.211385
 #define PIE       3.14159265358979323846
 #define TWOPI     6.28318530717958647692
+#define FOURPI    (4.0*3.14159265358979323846)
+#define SQRTPI    (sqrt(3.14159265358979323846))
 #define SVDEPS    1.0e-10
 #define EPSR      1.0e-10
 #define EPSE      1.0e-10
@@ -196,7 +199,6 @@ double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int)
 // projectors
 void gen_SO_projectors(double dx, double rcut, long nproj,double*  projectors, double* vr);
 void gen_nlc_projectors(double dx, double rcut, long nproj, double*  projectors,int* sgnProj, double* vr, atom_info *atm,long jatom);
-
 
 //strain 
 void read_nearest_neighbors(vector *atom_neighbors, double *tetrahedron_vol_ref, long natoms, int crystal_structure, int outmost_material);

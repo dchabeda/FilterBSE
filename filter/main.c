@@ -643,8 +643,7 @@ int main(int argc, char *argv[]){
 
       /*************************************************************************/
       /*** free memory ***/
-      free(ist.atom_types);
-      free(grid); 
+      free(ist.atom_types); 
       free(R); free(atom);
       free(psitot); free(psi); free(phi); 
       free(pot_local); free(ksqr);

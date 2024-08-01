@@ -153,6 +153,12 @@ int assign_crystal_structure(char *crystal_structure);
 int assign_outmost_material(char *outmost_material);
 double get_ideal_bond_len(long natyp_1, long natyp_2, int crystalStructureInt);
 
+// init
+void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, grid_st *grid_par,
+    index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
+void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par);
+void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, xyz_st *R, atom_info *atom, xyz_st *grid, grid_st *grid_par, index_st *ist, par_st *par, flag_st *flag);
+
 //strain 
 void read_nearest_neighbors(vector *atom_neighbors, double *tetrahedron_vol_ref, long natoms, int crystal_structure, int outmost_material);
 void calc_strain_scale(double *strain_scale, vector *atom_neighbors, double *tetrahedron_vol_ref, atom_info *atom, double *a4_params, double *a5_params, long natoms);
@@ -172,12 +178,6 @@ double dotpreal(zomplex *psi,double *phi,long m,long ngrid,double dv);
 // basis
 void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag);
 void get_qp_basis(double *psi, double *psitot, double *psi_hole, double *psi_elec, double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag);
-
-// init
-void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, xyz_st *grid, grid_st *grid_par,
-    index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par);
-void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, xyz_st *R, atom_info *atom, xyz_st *grid, grid_st *grid_par, index_st *ist, par_st *par, flag_st *flag);
 
 // write
 void write_cube_file(double *rho, grid_st *grid, char *fileName);

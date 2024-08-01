@@ -30,8 +30,6 @@ int main(int argc, char *argv[]){
     // file pointers
     FILE *pmem;
     pmem = fopen("mem.dat", "w");
-    // zomplex types
-    zomplex *psi, *phi;
     // custom structs 
     flag_st flag; index_st ist; par_st par; 
     atom_info *atom; atom_info *atom_equil;
@@ -511,8 +509,7 @@ int main(int argc, char *argv[]){
 
 
     /***********************************************************************/
-    free(psi_qp); 
-    free(psi); free(phi);
+    free(psi_qp);
     free(pot_local); free(pot_local_equil);
     free(nlc_equil); free(nlc);
     free(nl_equil); free(nl);

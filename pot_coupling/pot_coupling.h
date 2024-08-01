@@ -186,10 +186,14 @@ int assign_outmost_material(char *outmost_material);
 double get_ideal_bond_len(long natyp_1, long natyp_2, int crystalStructureInt);
 
 // init
-void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, grid_st *grid_par,
+void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, grid_st *grid,
     index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par);
-void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid_par, index_st *ist, par_st *par, flag_st *flag);
+void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
+double calc_dot_dimension(xyz_st *R, long n, char *dir);
+double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int);
+
+// projector
 
 //strain 
 void read_nearest_neighbors(vector *atom_neighbors, double *tetrahedron_vol_ref, long natoms, int crystal_structure, int outmost_material);

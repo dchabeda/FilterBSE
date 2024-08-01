@@ -77,6 +77,7 @@ int main(int argc, char *argv[]){
     ist.max_pot_file_len = 8192;
     flag.useStrain = 0; // By default, do not compute strain dependent terms in pseudopotential
     flag.LR = 1; // Long range flag. By default, pseudopotentials are LONG ranged.
+    flag.interpolatePot = 0;
     strcpy(par.crystal_structure, "unknown"); // set the following parameters for strain dependent potentials to NULL
     strcpy(par.outmost_material, "unknown");
     ist.crystal_structure_int = -1;

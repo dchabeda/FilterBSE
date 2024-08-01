@@ -22,8 +22,7 @@ int main(int argc, char *argv[]){
     flag_st flag; index_st ist; par_st par; 
     atom_info *atom; atom_info *atom_equil;
     pot_st pot; 
-    grid_st grid_par; 
-    xyz_st *grid;
+    grid_st grid;
     xyz_st *R_equil; xyz_st *R; 
     nlc_st *nlc_equil = NULL; nlc_st *nlc = NULL;  
     parallel_st parallel; 

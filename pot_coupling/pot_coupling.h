@@ -25,9 +25,8 @@ typedef struct flag {
   int retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint, saveOutput;
   int readGrid, useGaussianBasis;
 
-  int setSeed;
   int printFPDensity;
-  int calcDarkStates, calcSpinAngStat;
+  int calcDarkStates;
   int timingSpecs;
 } flag_st;
 
@@ -69,7 +68,7 @@ typedef struct par {
   // Redundnacies
   double dv;
 
-  double dx, dy, dz, dr, dkx, dky, dkz, dv, epsX, epsY, epsZ;
+  double dx, dy, dz, dr, dkx, dky, dkz, epsX, epsY, epsZ;
   double xmin, xmax, ymin, ymax, zmin, zmax;
   double delta_E_elec, delta_E_hole;
 } par_st;
@@ -125,6 +124,14 @@ typedef fftw_plan fftw_plan_loc;
 typedef struct parallel{
   long nthreads;
 } parallel_st;
+
+/*****************************************************************************/
+// Macro definitions
+
+#define N_MAX_ATOM_TYPES 20
+
+/*****************************************************************************/
+// Function declerations
 
 // save
 void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel);

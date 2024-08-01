@@ -448,11 +448,10 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
   ********************************************************************/
   
   FILE *pf;
-  long jatom, jx, jy, jz, jyz, jxyz;
-  int rpoint, iproj, *sgnProj;
-  double dx, dy, dz, dxeps, dyeps, dzeps, dr, dr_1, dr2;
-  double *vr, dr_proj; 
-  double *nlcprojectors;
+  long jatom;
+  int rpoint;
+  double dr;
+  double *vr, dr_proj;
   long N = PROJ_LEN;
 
   // TODO NOTE: the current method for computing the NL potential relies on the SO_projectors being defined.
@@ -474,8 +473,6 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
   dr_proj = vr[1];
   // printf("Projector dr = %f\n",dr_proj); fflush(0);
   //gen projectors on the fly
-  if ((nlcprojectors = (double*) calloc(N * ist->nproj, sizeof(double)))==NULL){nerror("nlc_projector");}
-  if ((sgnProj = (int*) calloc(ist->nproj, sizeof(int)))==NULL){nerror("nlc_sgnProj");}
   
   // Non-local piece
   // Find all the grid points within par->Rnlcut of each atom and calculate
@@ -483,8 +480,22 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
   /*** for the nonlocal potential ***/
 
   // 2. Calculate r, r2, y1[1+m], proj(r), etc. at the grid points
+#pragma omp parallel for private(jatom)
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
+    long jx, jy, jz, jyz, jxyz;
+    int iproj, *sgnProj;
+    double dx, dy, dz, dxeps, dyeps, dzeps, dr_1, dr2; 
+    double *nlcprojectors;
 
+    if ((sgnProj = (int*) calloc(ist->nproj, sizeof(int)))==NULL){
+      fprintf(stderr, "OUT OF MEMORY: sgnProj\n");
+      exit(EXIT_FAILURE);
+    }
+    if ((nlcprojectors = (double*) calloc(N * ist->nproj, sizeof(double)))==NULL){
+      fprintf(stderr, "OUT OF MEMORY: nlcprojectors\n");
+      exit(EXIT_FAILURE);
+    }
+  
     //generate the nonlocal part for each atom
     gen_nlc_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, nlcprojectors, sgnProj, vr, atom, jatom);
     // printf("Exited gen_nlc_projectors %ld\n", jatom); fflush(0);
@@ -547,6 +558,9 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
         }
       }
     }
+
+    free(nlcprojectors);
+    free(sgnProj);
   }
 
   pf = fopen("list_NL_grid.dat" , "w");
@@ -558,8 +572,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
   printf("\tNL projectors generated.\n");
 
   free(vr);
-  free(nlcprojectors);
-  free(sgnProj);
+  
   return;
 }
 

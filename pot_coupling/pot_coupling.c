@@ -62,49 +62,49 @@ int main(int argc, char *argv[]){
     // ****** ****** ****** ****** ****** ****** 
 
     // NC configuration parameters
-    ist->n_max_atom_types = N_MAX_ATOM_TYPES;
-    flag->centerConf = 1; // this should honestly always be 1
+    ist.n_max_atom_types = N_MAX_ATOM_TYPES;
+    flag.centerConf = 1; // this should honestly always be 1
     // Basis set configuration
-    flag->readGrid = 0; // Read the grid points from an input file
-    flag->useGaussianBasis = 0; // Use atom-centered Gaussian basis set
+    flag.readGrid = 0; // Read the grid points from an input file
+    flag.useGaussianBasis = 0; // Use atom-centered Gaussian basis set
     // Filter algorithm parameters
-    par->KE_max = 10.0; //NOTE: lowered this to 10 for tests
-    flag->setTargets = 0;
-    flag->printPsiFilt = 0;
-    flag->printOrtho = 0;
-    par->checkpoint_id = 0;
+    par.KE_max = 10.0; //NOTE: lowered this to 10 for tests
+    flag.setTargets = 0;
+    flag.printPsiFilt = 0;
+    flag.printOrtho = 0;
+    par.checkpoint_id = 0;
     // Pseudopotential parameters
-    ist->max_pot_file_len = 8192;
-    flag->useStrain = 0; // By default, do not compute strain dependent terms in pseudopotential
-    flag->LR = 0; // Long range flag. By default, pseudopotentials are short ranged.
-    strcpy(par->crystal_structure, "unknown"); // set the following parameters for strain dependent potentials to NULL
-    strcpy(par->outmost_material, "unknown");
-    ist->crystal_structure_int = -1;
-    ist->outmost_material_int = -1;
-    ist->ngeoms = 1; // number of different psuedopotential geometries (eg. cubic/ortho) for interpolating psuedopotentials
-    par->scale_surface_Cs = 1.0; // By default, do not charge balance the surface Cs atoms
+    ist.max_pot_file_len = 8192;
+    flag.useStrain = 0; // By default, do not compute strain dependent terms in pseudopotential
+    flag.LR = 0; // Long range flag. By default, pseudopotentials are short ranged.
+    strcpy(par.crystal_structure, "unknown"); // set the following parameters for strain dependent potentials to NULL
+    strcpy(par.outmost_material, "unknown");
+    ist.crystal_structure_int = -1;
+    ist.outmost_material_int = -1;
+    ist.ngeoms = 1; // number of different psuedopotential geometries (eg. cubic/ortho) for interpolating psuedopotentials
+    par.scale_surface_Cs = 1.0; // By default, do not charge balance the surface Cs atoms
     // Spin-orbit and non-local terms
-    flag->useSpinors = 0; // default is to use non-spinor wavefunctions
-    flag->isComplex = 0;
-    ist->nspin = 1; // turning on the useSpinors flag will set nspin to 2.
-    flag->SO = 0; // computes the spin-orbit terms in the Hamiltonian
-    flag->NL = 0; // computes the non-local terms in the Hamiltonian; automatically on if SO flag on
-    ist->nproj = 5; // number of terms to expand projections in. converged by 5
-    par->t_rev_factor = 1; // can time rev filt'rd states to get 2X eigst8. mem alloc multiplied by par.t_rev_factor
+    flag.useSpinors = 0; // default is to use non-spinor wavefunctions
+    flag.isComplex = 0;
+    ist.nspin = 1; // turning on the useSpinors flag will set nspin to 2.
+    flag.SO = 0; // computes the spin-orbit terms in the Hamiltonian
+    flag.NL = 0; // computes the non-local terms in the Hamiltonian; automatically on if SO flag on
+    ist.nproj = 5; // number of terms to expand projections in. converged by 5
+    par.t_rev_factor = 1; // can time rev filt'rd states to get 2X eigst8. mem alloc multiplied by par.t_rev_factor
     // Optional output flags
-    flag->saveOutput = 1; // By default, write the formatted output file that can be read by BSE to recreate job state
-    flag->calcPotOverlap = 0; // Calculates matrix elements of the potential <i|V|j>
-    flag->getAllStates = 1; // which states are written to disk
-    flag->calcSpinAngStat = 0; // Are angular momentum statistics computed. Only available with SO coupling
-    flag->timeHamiltonian = 0; // print timing info for computing the Hamiltonian
-    par->fermi_E = -0.18; // This default value is not good for LR potentials.
-    flag->printNorm = 0; // do not print output from normalize_all
-    par->sigma_E_cut = 0.01;
-    flag->saveCheckpoints = 0; // by default do not save job checkpoints
-    flag->restartFromCheckpoint = -1; // by default do not restart from checkpoint
+    flag.saveOutput = 1; // By default, write the formatted output file that can be read by BSE to recreate job state
+    flag.calcPotOverlap = 0; // Calculates matrix elements of the potential <i|V|j>
+    flag.getAllStates = 1; // which states are written to disk
+    flag.calcSpinAngStat = 0; // Are angular momentum statistics computed. Only available with SO coupling
+    flag.timeHamiltonian = 0; // print timing info for computing the Hamiltonian
+    par.fermi_E = -0.18; // This default value is not good for LR potentials.
+    flag.printNorm = 0; // do not print output from normalize_all
+    par.sigma_E_cut = 0.01;
+    flag.saveCheckpoints = 0; // by default do not save job checkpoints
+    flag.restartFromCheckpoint = -1; // by default do not restart from checkpoint
     // Restart job flags
-    flag->retryFilter = 0; // When = 1, if no eigstates acquired, then retry the filter job 
-    flag->alreadyTried = 0; // gets tripped to 1 after the first time retrying a Filter.
+    flag.retryFilter = 0; // When = 1, if no eigstates acquired, then retry the filter job 
+    flag.alreadyTried = 0; // gets tripped to 1 after the first time retrying a Filter.
     
     /*************************************************************************/
     /*************************************************************************/

@@ -21,8 +21,8 @@ int main(int argc, char *argv[]){
   long fft_flags=0;
   // custom structs 
   flag_st flag; index_st ist; par_st par; atom_info *atom; 
-  pot_st pot; grid_st grid_par; 
-  xyz_st *R; xyz_st *grid;
+  pot_st pot; grid_st grid; 
+  xyz_st *R; 
   nlc_st *nlc = NULL; 
   parallel_st parallel; 
   // double arrays
@@ -56,7 +56,7 @@ int main(int argc, char *argv[]){
 
   /*** read initial setup from input.par ***/
   printf("\nReading job specifications from input.par:\n");
-  read_input(&flag, &grid_par, &ist, &par, &parallel);
+  read_input(&flag, &grid, &ist, &par, &parallel);
 
   /*** allocating memory ***/
   // the positions of the atoms in the x, y, and z directions 
@@ -80,11 +80,20 @@ int main(int argc, char *argv[]){
 
   /*** initialize parameters for the grid ***/
   printf("\nInitializing the grid parameters:\n");
-  init_grid_params(&grid_par, R, &ist, &par, &flag);
+  init_grid_params(&grid, R, &ist, &par, &flag);
 
   // Allocate memory for the grid in the x, y, and z directions ***/
-  if ((grid = (xyz_st *) calloc(grid_par.ngrid, sizeof(xyz_st))) == NULL){
-    fprintf(stderr, "\nOUT OF MEMORY: grid\n\n"); exit(EXIT_FAILURE);
+  if ((grid.x = malloc( grid.nx * sizeof(grid.x[0]))) == NULL ){
+    fprintf(stderr, "ERROR: allocating memory for grid.x in main\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((grid.y = malloc(grid.ny * sizeof(grid.y[0]))) == NULL ){
+    fprintf(stderr, "ERROR: allocating memory for grid.y in main\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((grid.z = malloc( grid.nz * sizeof(grid.z[0]))) == NULL ){
+    fprintf(stderr, "ERROR: allocating memory for grid.z in main\n");
+    exit(EXIT_FAILURE);
   }
   
   // the kinetic energy stored on the grid
@@ -94,7 +103,7 @@ int main(int argc, char *argv[]){
 
   /*** build the real- and k-space grids ***/
   printf("\nBuilding the real-space and k-space grids:\n");
-  build_grid_ksqr(ksqr, R, grid, &grid_par, &ist, &par, &flag);
+  build_grid_ksqr(ksqr, R, &grid, &ist, &par, &flag);
   
   /*** set the energy targets ***/
   printf("\nSetting the filter energy targets:\n");
@@ -108,8 +117,8 @@ int main(int argc, char *argv[]){
   // FFT
   fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist.ngrid);
   /*** initialization for the fast Fourier transform ***/
-  planfw = fftw_plan_dft_3d(grid_par.nz, grid_par.ny, grid_par.nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-  planbw = fftw_plan_dft_3d(grid_par.nz, grid_par.ny, grid_par.nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+  planfw = fftw_plan_dft_3d(grid.nz, grid.ny, grid.nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
+  planbw = fftw_plan_dft_3d(grid.nz, grid.ny, grid.nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
   
   // For reading the atomic potentials ***/
   pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
@@ -178,7 +187,7 @@ int main(int argc, char *argv[]){
       printf("\nInitializing potentials...\n");
       
       printf("\nLocal pseudopotential:\n");
-      build_local_pot(pot_local, &pot, R, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
+      build_local_pot(pot_local, &pot, R, atom, &grid, &ist, &par, &flag, &parallel);
       
       free(pot.r); pot.r = NULL; 
       free(pot.pseudo); pot.pseudo = NULL; 
@@ -190,16 +199,16 @@ int main(int argc, char *argv[]){
       }
       
 
-      write_cube_file(pot_local, &grid_par, "localPot.cube");
+      write_cube_file(pot_local, &grid, "localPot.cube");
       
       if(flag.SO==1) {
         printf("\nSpin-orbit pseudopotential:\n");
-        init_SO_projectors(SO_projectors, R, atom, &grid_par, &ist, &par);
+        init_SO_projectors(SO_projectors, R, atom, &grid, &ist, &par);
       }
       /*** initialization for the non-local potential ***/
       if (flag.NL == 1){
         printf("\nNon-local pseudopotential:\n"); fflush(0);
-        init_NL_projectors(nlc, nl, SO_projectors, R, atom, grid, &grid_par, &ist, &par, &flag);
+        init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag);
       }
       // free memory allocated to SO_projectors
       if ( (flag.SO == 1) || (flag.NL == 1) ){
@@ -216,7 +225,7 @@ int main(int argc, char *argv[]){
       inital_clock_t = (double)clock(); 
       initial_wall_t = (double)time(NULL);
       
-      get_energy_range(psi, phi, pot_local, &grid_par, nlc, nl, ksqr, &ist, &par, &parallel, &flag, planfw, planbw, fftwpsi);
+      get_energy_range(psi, phi, pot_local, &grid, nlc, nl, ksqr, &ist, &par, &parallel, &flag, planfw, planbw, fftwpsi);
       
       printf("\ndone calculate energy range, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
@@ -253,7 +262,7 @@ int main(int argc, char *argv[]){
         write_separation(stdout, bottom); 
         printf("\n"); fflush(stdout);
 
-        save_job_state("checkpoint_0.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid_par,&ist,&par,&flag,&parallel);
+        save_job_state("checkpoint_0.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       }
     
     // If checkpoint_id is 0, then restart job right before filtering step
@@ -264,7 +273,7 @@ int main(int argc, char *argv[]){
         printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
         write_separation(stdout, bottom); fflush(stdout);
         
-        restart_from_save("checkpoint_0.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid_par,&ist,&par,&flag,&parallel);
+        restart_from_save("checkpoint_0.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       } 
       par.checkpoint_id++;
       /**************************************************************************/
@@ -282,7 +291,7 @@ int main(int argc, char *argv[]){
       for (jns = 0; jns < ist.n_filter_cycles; jns++) {
         for (jspin = 0; jspin < ist.nspin; jspin++) {
           fprintf(pseed, "%ld %ld\n", ist.nspin*jns + jspin, rand_seed);
-          init_psi(&psi[jspin*ist.ngrid], &rand_seed, flag.isComplex, &grid_par, &parallel);
+          init_psi(&psi[jspin*ist.ngrid], &rand_seed, flag.isComplex, &grid, &parallel);
         }
 
         for (jms = 0; jms < ist.m_states_per_filter; jms++) {
@@ -314,7 +323,7 @@ int main(int argc, char *argv[]){
       for (jns = 0; jns < ist.n_filter_cycles; jns++) {
         thread_id = omp_get_thread_num();	
         run_filter_cycle(&psitot[ist.complex_idx*jns*ist.m_states_per_filter*ist.nspinngrid], pot_local, nlc, nl, ksqr, an, zn,\
-        ene_targets, thread_id, jns, &grid_par, &ist, &par, &flag, &parallel);
+        ene_targets, thread_id, jns, &grid, &ist, &par, &flag, &parallel);
       } 
       printf("\ndone calculating filter, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
@@ -337,7 +346,7 @@ int main(int argc, char *argv[]){
         write_separation(stdout, bottom);
         printf("\n"); fflush(stdout);
 
-        save_job_state("checkpoint_1.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid_par,&ist,&par,&flag,&parallel);
+        save_job_state("checkpoint_1.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       }
     // If checkpoint_id is 1, restart job after filtering (+ time reversal) but before orthogonalization
     case 1:
@@ -347,7 +356,7 @@ int main(int argc, char *argv[]){
         printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
         write_separation(stdout, bottom); fflush(stdout);
         
-        restart_from_save("checkpoint_1.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid_par,&ist,&par,&flag,&parallel);
+        restart_from_save("checkpoint_1.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       }
       par.checkpoint_id++;
       /*************************************************************************/
@@ -360,14 +369,14 @@ int main(int argc, char *argv[]){
       inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
       printf("mn_states_tot before ortho = %ld\n", ist.mn_states_tot);
       if (1 == flag.isComplex){
-        ist.mn_states_tot = ortho((MKL_Complex16 *)psitot, grid_par.dv, &ist, &par, &flag);      
+        ist.mn_states_tot = ortho((MKL_Complex16 *)psitot, grid.dv, &ist, &par, &flag);      
       } else if (0 == flag.isComplex) {
-        ist.mn_states_tot = ortho(psitot, grid_par.dv, &ist, &par, &flag);
+        ist.mn_states_tot = ortho(psitot, grid.dv, &ist, &par, &flag);
       }
       printf("mn_states_tot after ortho = %ld\n", ist.mn_states_tot);
       psitot = (double *) realloc(psitot, ist.mn_states_tot * ist.nspinngrid * ist.complex_idx * sizeof(psitot[0]) );
 
-      normalize_all(&psitot[0],grid_par.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
+      normalize_all(&psitot[0],grid.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
       
       printf("\ndone calculating ortho, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
@@ -379,7 +388,7 @@ int main(int argc, char *argv[]){
         write_separation(stdout, bottom); 
         printf("\n"); fflush(stdout);
 
-        save_job_state("checkpoint_2.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid_par,&ist,&par,&flag,&parallel);
+        save_job_state("checkpoint_2.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       }
     // If checkpoint_id is 2, restart job right after orthogonalization, before diagonalization
     case 2:
@@ -389,7 +398,7 @@ int main(int argc, char *argv[]){
         printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
         write_separation(stdout, bottom); fflush(stdout);
         
-        restart_from_save("checkpoint_2.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid_par,&ist,&par,&flag,&parallel);
+        restart_from_save("checkpoint_2.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       }
       par.checkpoint_id++;
       /***********************************************************************/
@@ -402,7 +411,7 @@ int main(int argc, char *argv[]){
       
       inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
       diag_H(psi,phi,psitot,pot_local,nlc,nl,ksqr,eig_vals,&ist,&par,&flag,planfw,planbw,fftwpsi);
-      normalize_all(&psitot[0],grid_par.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
+      normalize_all(&psitot[0],grid.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
       jms = ist.mn_states_tot;
       printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t);
@@ -567,7 +576,7 @@ int main(int argc, char *argv[]){
             rho[jgrid] = sqr(psitot[ist.complex_idx*(ist.homo_idx-i)*ist.nspinngrid + jgrid_real]);
             if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*(ist.homo_idx-i)*ist.nspinngrid + jgrid_imag]);
           }
-          write_cube_file(rho, &grid_par, str);
+          write_cube_file(rho, &grid, str);
           //Spin Down Wavefunction
           if (1 == flag.useSpinors){    
             sprintf(str,"homo-%ld-Dn.cube", i);
@@ -578,7 +587,7 @@ int main(int argc, char *argv[]){
               rho[jgrid] = sqr(psitot[ist.complex_idx*((ist.homo_idx-i)*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
                   + sqr(psitot[ist.complex_idx*((ist.homo_idx-i)*ist.nspinngrid+ist.ngrid)+jgrid_imag]);    
             }
-            write_cube_file(rho, &grid_par, str);
+            write_cube_file(rho, &grid, str);
           } 
         }
 
@@ -591,7 +600,7 @@ int main(int argc, char *argv[]){
             rho[jgrid] = sqr(psitot[ist.complex_idx*(ist.lumo_idx+i)*ist.nspinngrid + jgrid_real]);
             if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*(ist.lumo_idx+i)*ist.nspinngrid + jgrid_imag]);
           }
-          write_cube_file(rho, &grid_par, str);
+          write_cube_file(rho, &grid, str);
 
           if (1 == flag.useSpinors){
             sprintf(str,"lumo+%ld-Dn.cube",i);
@@ -602,7 +611,7 @@ int main(int argc, char *argv[]){
               rho[jgrid] = sqr(psitot[ist.complex_idx*((ist.lumo_idx+i)*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
                   + sqr(psitot[ist.complex_idx*((ist.lumo_idx+i)*ist.nspinngrid+ist.ngrid)+jgrid_imag]);
             }
-            write_cube_file(rho, &grid_par, str);
+            write_cube_file(rho, &grid, str);
           }
         }
         free(rho);
@@ -624,7 +633,7 @@ int main(int argc, char *argv[]){
         printf("\nCALCULATING SPIN & ANG. MOM. STATISTICS\n"); 
         write_separation(stdout, bottom); fflush(stdout);
 
-        calc_angular_exp(psitot, &grid_par,0, ist.mn_states_tot, &ist, &par, &flag, &parallel, planfw, planbw, fftwpsi);
+        calc_angular_exp(psitot, &grid,0, ist.mn_states_tot, &ist, &par, &flag, &parallel, planfw, planbw, fftwpsi);
       
       } 
       if ( (flag.printCubes != 1) && (flag.calcPotOverlap != 1) && (flag.calcSpinAngStat != 1) ) {

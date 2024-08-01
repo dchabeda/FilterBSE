@@ -3,7 +3,7 @@
 
 /*****************************************************************************/
 
-void init_grid_params(grid_st *grid_par, xyz_st *R, index_st *ist, par_st *par, flag_st *flag){
+void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par){
   /*****************************************************************
   * This function initializes the parameters for building the grid *
   * The input geometry size is computed to ensure the number of    *
@@ -32,78 +32,62 @@ void init_grid_params(grid_st *grid_par, xyz_st *R, index_st *ist, par_st *par, 
   printf("\txd = %g yd = %g zd = %g\n", 2*xd, 2*yd, 2*zd);
 
   /***initial parameters for the pot reduce mass, etc. in the x direction ***/
-  grid_par->xmin = -xd;
-  grid_par->xmax = xd;
-  printf("\tThe x_max = %lg and x_min %lg\n", grid_par->xmax, grid_par->xmin);
-  ntmp  = (long)((grid_par->xmax - grid_par->xmin) / grid_par->dx);
-  if (ntmp > grid_par->nx){
+  grid->xmin = -xd;
+  grid->xmax = xd;
+  printf("\tThe x_max = %lg and x_min %lg\n", grid->xmax, grid->xmin);
+  ntmp  = (long)((grid->xmax - grid->xmin) / grid->dx);
+  if (ntmp > grid->nx){
     printf("\tinput nx insufficient; updating parameter.\n");
-    grid_par->nx = ntmp;
+    grid->nx = ntmp;
   }
-  grid_par->xmin = -((double)(grid_par->nx) * grid_par->dx) / 2.0;
-  grid_par->xmax = ((double)(grid_par->nx) * grid_par->dx) / 2.0;
+  grid->xmin = -((double)(grid->nx) * grid->dx) / 2.0;
+  grid->xmax = ((double)(grid->nx) * grid->dx) / 2.0;
   
-  grid_par->dkx = TWOPI / ((double)grid_par->nx * grid_par->dx); // reciprocal lattice vector length
+  grid->dkx = TWOPI / ((double)grid->nx * grid->dx); // reciprocal lattice vector length
   
   /***initial parameters for the pot reduce mass, etc. in the y direction ***/
-  grid_par->ymin = -yd;
-  grid_par->ymax = yd;
-  printf("\tThe y_max = %lg and y_min %lg\n", grid_par->ymax, grid_par->ymin);
-  ntmp  = (long)((grid_par->ymax - grid_par->ymin) / grid_par->dy);
-  if (ntmp > grid_par->ny){
+  grid->ymin = -yd;
+  grid->ymax = yd;
+  printf("\tThe y_max = %lg and y_min %lg\n", grid->ymax, grid->ymin);
+  ntmp  = (long)((grid->ymax - grid->ymin) / grid->dy);
+  if (ntmp > grid->ny){
     printf("\tinput ny insufficient; updating parameter.\n");
-    grid_par->ny = ntmp;
+    grid->ny = ntmp;
   }
-  grid_par->ymin = -((double)(grid_par->ny) * grid_par->dy) / 2.0;
-  grid_par->ymax = ((double)(grid_par->ny) * grid_par->dy) / 2.0;
+  grid->ymin = -((double)(grid->ny) * grid->dy) / 2.0;
+  grid->ymax = ((double)(grid->ny) * grid->dy) / 2.0;
 
-  grid_par->dky = TWOPI / ((double)grid_par->ny * grid_par->dy);
+  grid->dky = TWOPI / ((double)grid->ny * grid->dy);
 
   /***initial parameters for the pot reduce mass, etc. in the z direction ***/
-  grid_par->zmin = -zd;
-  grid_par->zmax = zd;
-  ntmp  = (long)((grid_par->zmax - grid_par->zmin) / grid_par->dz);
-  printf("\tThe z_max = %lg and z_min %lg\n", grid_par->zmax, grid_par->zmin);
-  if (ntmp > grid_par->nz){
+  grid->zmin = -zd;
+  grid->zmax = zd;
+  ntmp  = (long)((grid->zmax - grid->zmin) / grid->dz);
+  printf("\tThe z_max = %lg and z_min %lg\n", grid->zmax, grid->zmin);
+  if (ntmp > grid->nz){
     printf("\tinput nz insufficient; updating parameter.\n");
-    grid_par->nz = ntmp;
+    grid->nz = ntmp;
   }
-  grid_par->zmin = -((double)(grid_par->nz) * grid_par->dz) / 2.0;
-  grid_par->zmax = ((double)(grid_par->nz) * grid_par->dz) / 2.0;
+  grid->zmin = -((double)(grid->nz) * grid->dz) / 2.0;
+  grid->zmax = ((double)(grid->nz) * grid->dz) / 2.0;
 
-  grid_par->dkz = TWOPI / ((double)grid_par->nz * grid_par->dz);
+  grid->dkz = TWOPI / ((double)grid->nz * grid->dz);
   
-  grid_par->nx_1 = 1.0 / (double)(grid_par->nx);
-  grid_par->ny_1 = 1.0 / (double)(grid_par->ny);
-  grid_par->nz_1 = 1.0 / (double)(grid_par->nz);
-  grid_par->dv = par->dv = grid_par->dx * grid_par->dy * grid_par->dz;
-  grid_par->dr = sqrt(sqr(grid_par->dx) + sqr(grid_par->dy) + sqr(grid_par->dz));
+  grid->nx_1 = 1.0 / (double)(grid->nx);
+  grid->ny_1 = 1.0 / (double)(grid->ny);
+  grid->nz_1 = 1.0 / (double)(grid->nz);
+  grid->dv = par->dv = grid->dx * grid->dy * grid->dz;
+  grid->dr = sqrt(sqr(grid->dx) + sqr(grid->dy) + sqr(grid->dz));
 
-  ist->ngrid = grid_par->ngrid = grid_par->nx * grid_par->ny * grid_par->nz;
+  ist->ngrid = grid->ngrid = grid->nx * grid->ny * grid->nz;
   ist->nspinngrid = ist->nspin * ist->ngrid;
-  ist->nx = grid_par->nx; ist->ny = grid_par->ny; ist->nz = grid_par->nz;
+  ist->nx = grid->nx; ist->ny = grid->ny; ist->nz = grid->nz;
 
-  if (1 == flag->readGrid){
-    FILE *pf;
-    if (access("grid.par", F_OK) != -1 ) {
-      pf = fopen("grid.par", "r");
-      fscanf(pf, "%ld", &grid_par->ngrid);
-      
-      ist->ngrid = grid_par->ngrid;
-      ist->nspinngrid = ist->nspin * ist->ngrid;
-      
-    } else{
-      printf("PROGRAM EXITING: grid.par does not exist in directory\n");
-      fprintf(stderr, "PROGRAM EXITING: grid.par does not exist in directory\n");
-      exit(EXIT_FAILURE);
-    }
-    fclose(pf);
-  }
 
   printf("\n\tFinal grid parameters:\n");
   printf("\t----------------------\n");
-  printf("\txd = %.1f yd = %.1f zd = %.1f\n", 2*grid_par->xmax, 2*grid_par->ymax, 2*grid_par->zmax);
-  printf("\tdx = %g dy = %g dz = %g dv = %g dr = %g\n", grid_par->dx, grid_par->dy, grid_par->dz, grid_par->dv, grid_par->dr);
+  printf("\txd = %.1f yd = %.1f zd = %.1f\n", 2*grid->xmax, 2*grid->ymax, 2*grid->zmax);
+  printf("\tdx = %g dy = %g dz = %g dv = %g dr = %g\n", grid->dx, grid->dy, grid->dz, grid->dv, grid->dr);
   printf("\tnx = %ld  ny = %ld  nz = %ld\n", ist->nx, ist->ny, ist->nz);
   printf("\tngrid = %ld, nspin = %d, nspinngrid = %ld\n", ist->ngrid, ist->nspin, ist->nspinngrid);
   
@@ -115,7 +99,7 @@ void init_grid_params(grid_st *grid_par, xyz_st *R, index_st *ist, par_st *par, 
 
 /*****************************************************************************/
 
-void build_grid_ksqr(double *ksqr, xyz_st *R, xyz_st *grid, grid_st *grid_par, index_st *ist, par_st *par, flag_st *flag){
+void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_st *par, flag_st *flag){
   /*******************************************************************
   * This function builds the real- and k-space grids.                *
   * inputs:                                                          *
@@ -136,70 +120,37 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, xyz_st *grid, grid_st *grid_par, i
   // ****** ****** ****** ****** ****** ******
   printf("\tBuilding the grid...\n");
   
-  if (0 == flag->readGrid){
-    // By default construct a cartesian grid
-    for (jz = 0; jz < grid_par->nz; jz++){
-      for (jy = 0; jy < grid_par->ny; jy++){
-        jyz = grid_par->nx * (grid_par->ny * jz + jy);
-        for (jx = 0; jx < grid_par->nx; jx++){
-          jxyz = jyz + jx;
-          grid[jxyz].x = grid_par->xmin + jx * grid_par->dx;
-          grid[jxyz].y = grid_par->ymin + jy * grid_par->dy;
-          grid[jxyz].z = grid_par->zmin + jz * grid_par->dz;
-        }
-      }
-    }
-    // for (jx = 0, dx = grid_par->xmin; jx < grid_par->nx; jx++, dx += grid_par->dx) grid_par->x[jx] = dx;
-    // for (jy = 0, dy = grid_par->ymin; jy < grid_par->ny; jy++, dy += grid_par->dy) grid_par->y[jy] = dy;
-    // for (jz = 0, dz = grid_par->zmin; jz < grid_par->nz; jz++, dz += grid_par->dz) grid_par->z[jz] = dz;
-  } else if (1 == flag->readGrid){
-    // For special cases, read in a custom grid
-    if (access("grid.par", F_OK) != -1 ) {
-      long grindex;
-      long i;
-      pf = fopen("grid.par", "r");
-      fscanf(pf, "%ld", &grid_par->ngrid);
-      ist->ngrid = grid_par->ngrid;
-      
-      // Read in the custom grid
-      for (i = 0; i < grid_par->ngrid; i++){
-        fscanf(pf, "%ld %lg %lg %lg\n", &grindex, &grid[i].x, &grid[i].y, &grid[i].z);
-      }
-
-    } else {
-      printf("PROGRAM EXITING: grid.par does not exist in directory\n");
-      fprintf(stderr, "PROGRAM EXITING: grid.par does not exist in directory\n");
-      exit(EXIT_FAILURE);
-    }
-    fclose(pf);
-  }
+  for (jx = 0, dx = grid->xmin; jx < grid->nx; jx++, dx += grid->dx) grid->x[jx] = dx;
+  for (jy = 0, dy = grid->ymin; jy < grid->ny; jy++, dy += grid->dy) grid->y[jy] = dy;
+  for (jz = 0, dz = grid->zmin; jz < grid->nz; jz++, dz += grid->dz) grid->z[jz] = dz;
+  
   // ****** ****** ****** ****** ****** ****** 
   // Initializing the k^2 vectors
   // ****** ****** ****** ****** ****** ******
-  if ((ksqrx  = (double*)calloc(grid_par->nx,sizeof(double)))==NULL)nerror("ksqrx");
-  if ((ksqry  = (double*)calloc(grid_par->ny,sizeof(double)))==NULL)nerror("ksqry");
-  if ((ksqrz  = (double*)calloc(grid_par->nz,sizeof(double)))==NULL)nerror("ksqrz");
+  if ((ksqrx  = (double*)calloc(grid->nx,sizeof(double)))==NULL)nerror("ksqrx");
+  if ((ksqry  = (double*)calloc(grid->ny,sizeof(double)))==NULL)nerror("ksqry");
+  if ((ksqrz  = (double*)calloc(grid->nz,sizeof(double)))==NULL)nerror("ksqrz");
 
   //hold extra factor of 0.5 for the kinetic energy
   // The kinetic energy is 0.5k^2, which is symmetric, so only loop over half grid points
-  for (ksqrx[0] = 0.0, jx = 1; jx <= grid_par->nx / 2; jx++)
-    ksqrx[jx] = (ksqrx[grid_par->nx-jx] = 0.5 * sqr((double)(jx) * grid_par->dkx) *
-		(1.0 / grid_par->ngrid));
+  for (ksqrx[0] = 0.0, jx = 1; jx <= grid->nx / 2; jx++)
+    ksqrx[jx] = (ksqrx[grid->nx-jx] = 0.5 * sqr((double)(jx) * grid->dkx) *
+		grid->nx_1 * grid->ny_1 * grid->nz_1);
 
-  for (ksqry[0] = 0.0, jy = 1; jy <= grid_par->ny / 2; jy++)
-    ksqry[jy] = (ksqry[grid_par->ny-jy] = 0.5 * sqr((double)(jy) * grid_par->dky) *
-		(1.0 / grid_par->ngrid));
+  for (ksqry[0] = 0.0, jy = 1; jy <= grid->ny / 2; jy++)
+    ksqry[jy] = (ksqry[grid->ny-jy] = 0.5 * sqr((double)(jy) * grid->dky) *
+		grid->ny_1 * grid->nx_1 * grid->nz_1);
 
-  for (ksqrz[0] = 0.0, jz = 1; jz <= grid_par->nz / 2; jz++)
-    ksqrz[jz] = (ksqrz[grid_par->nz-jz] = 0.5 * sqr((double)(jz) * grid_par->dkz) *
-		(1.0 / grid_par->ngrid));
+  for (ksqrz[0] = 0.0, jz = 1; jz <= grid->nz / 2; jz++)
+    ksqrz[jz] = (ksqrz[grid->nz-jz] = 0.5 * sqr((double)(jz) * grid->dkz) *
+		grid->nz_1 * grid->nx_1 * grid->ny_1);
 
   pf = fopen("ksqr.dat", "w");
-  par->KE_max *= (grid_par->ny_1 * grid_par->nx_1 * grid_par->nz_1);
-  for (jz = 0; jz < grid_par->nz; jz++){
-    for (jy = 0; jy < grid_par->ny; jy++){
-      jyz = grid_par->nx * (grid_par->ny * jz + jy);
-      for (jx = 0; jx < grid_par->nx; jx++){
+  par->KE_max *= (grid->ny_1 * grid->nx_1 * grid->nz_1);
+  for (jz = 0; jz < grid->nz; jz++){
+    for (jy = 0; jy < grid->ny; jy++){
+      jyz = grid->nx * (grid->ny * jz + jy);
+      for (jx = 0; jx < grid->nx; jx++){
         jxyz = jyz + jx;
         ksqr[jxyz] = ksqrx[jx] + ksqry[jy] + ksqrz[jz];
         if (ksqr[jxyz] > par->KE_max) ksqr[jxyz] = par->KE_max; // KE cutoff at KE_max
@@ -214,14 +165,12 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, xyz_st *grid, grid_st *grid_par, i
     printf("\tCount max no. grid points in Rnlcut of an atom\n");
     ist->n_NL_gridpts = 0;
     for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
-      for (jtmp =0, jz = 0; jz < grid_par->nz; jz++) {
-        for (jy = 0; jy < grid_par->ny; jy++) {
-          jyz = grid_par->nx * (grid_par->ny * jz + jy);
-          for (jx = 0; jx < grid_par->nx; jx++) {
-            jxyz = jyz + jx;
-            dx = grid[jxyz].x - R[jatom].x;
-            dy = grid[jxyz].y - R[jatom].y;
-            dz = grid[jxyz].z - R[jatom].z;
+      for (jtmp =0, jz = 0; jz < grid->nz; jz++) {
+        for (jy = 0; jy < grid->ny; jy++) {
+          for (jx = 0; jx < grid->nx; jx++) {
+            dx = grid->x[jx] - R[jatom].x;
+            dy = grid->y[jy] - R[jatom].y;
+            dz = grid->z[jz] - R[jatom].z;
             if (dx*dx + dy*dy + dz*dz < par->R_NLcut2) {
               jtmp++; 
             }
@@ -307,8 +256,8 @@ void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *f
 
 
 /*****************************************************************************/
-void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, xyz_st *grid,
-    grid_st *grid_par, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
+    grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function calculates the local potential at all gridpoints.  *
   * inputs:                                                          *
@@ -386,15 +335,15 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
   omp_set_dynamic(0);
   omp_set_num_threads(parallel->nthreads);
 #pragma omp parallel for private(dx,dy,dz,del,jy,jx,jyz,jxyz,sum,jatom)
-  for (jz = 0; jz < grid_par->nz; jz++) {
-    for (jy = 0; jy < grid_par->ny; jy++) {
-      jyz = grid_par->nx * (grid_par->ny * jz + jy);
-      for (jx = 0; jx < grid_par->nx; jx++) {
+  for (jz = 0; jz < grid->nz; jz++) {
+    for (jy = 0; jy < grid->ny; jy++) {
+      jyz = grid->nx * (grid->ny * jz + jy);
+      for (jx = 0; jx < grid->nx; jx++) {
       	jxyz = jyz + jx;
       	for (sum = 0.0, jatom = 0; jatom < ist->natoms; jatom++){
-      	  dx = grid[jxyz].x - R[jatom].x;
-      	  dy = grid[jxyz].y - R[jatom].y;
-      	  dz = grid[jxyz].z - R[jatom].z;
+      	  dx = grid->x[jx] - R[jatom].x;
+      	  dy = grid->y[jy] - R[jatom].y;
+      	  dz = grid->z[jz] - R[jatom].z;
       	  del = sqrt(dx * dx + dy * dy + dz * dz);
 
           // If strain dependent terms are requested, then set strain_factor to be the strain term for this atom
@@ -442,7 +391,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
 }
 
 /*****************************************************************************/
-void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid_par, index_st *ist, par_st *par){
+void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par){
   /*******************************************************************
   * This function initializes the spin-orbit pot projectors.         *
   * It also calculates the number of grid points within R_NL_cut2    *
@@ -471,7 +420,7 @@ void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_
   dr_proj = vr[1];
 
   //gen projectors on the fly
-  gen_SO_projectors(grid_par->dx, sqrt(par->R_NLcut2), ist->nproj, SO_projectors, vr); 
+  gen_SO_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, SO_projectors, vr); 
   
   //printf("Projector dr = %f\n",dr_proj); fflush(0);
   
@@ -483,7 +432,7 @@ void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_
 
 
 /*****************************************************************************/
-void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R, atom_info *atom, xyz_st *grid, grid_st *grid_par, index_st *ist,par_st *par, flag_st *flag){
+void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,atom_info *atom, grid_st *grid, index_st *ist,par_st *par, flag_st *flag){
   /*******************************************************************
   * This function initializes the non local pot projectors.          *
   * inputs:                                                          *
@@ -537,23 +486,21 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R, 
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
 
     //generate the nonlocal part for each atom
-    gen_nlc_projectors(grid_par->dx, sqrt(par->R_NLcut2), ist->nproj, nlcprojectors, sgnProj, vr, atom, jatom);
+    gen_nlc_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, nlcprojectors, sgnProj, vr, atom, jatom);
     // printf("Exited gen_nlc_projectors %ld\n", jatom); fflush(0);
 
     nl[jatom] = 0;
-    for (jz = 0; jz < grid_par->nz; jz++) {
-      for (jy = 0; jy < grid_par->ny; jy++) {
-        jyz = grid_par->nx * (grid_par->ny * jz + jy);
-        for (jx = 0; jx < grid_par->nx; jx++) {
+    for (jz = 0; jz < grid->nz; jz++) {
+      dz = grid->z[jz] - R[jatom].z;
+      dzeps = dz + EPSDX;
+      for (jy = 0; jy < grid->ny; jy++) {
+        jyz = grid->nx * (grid->ny * jz + jy);
+        dy = grid->y[jy] - R[jatom].y;
+        dyeps = dy + EPSDX;
+        for (jx = 0; jx < grid->nx; jx++) {
           jxyz = jyz + jx;
-          
-          dx = grid[jxyz].x - R[jatom].x;
+          dx = grid->x[jx] - R[jatom].x;
           dxeps = dx + EPSDX;
-          dy = grid[jxyz].y - R[jatom].y;
-          dyeps = dy + EPSDX;
-          dz = grid[jxyz].z - R[jatom].z;
-          dzeps = dz + EPSDX;
-
           dr2 = dx * dx + dy * dy + dz * dz;
           if (dr2 < par->R_NLcut2) {
             nlc[jatom*ist->n_NL_gridpts + nl[jatom]].jxyz = jxyz;
@@ -613,54 +560,6 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R, 
   free(vr);
   free(nlcprojectors);
   free(sgnProj);
-  return;
-}
-
-
-
-/*****************************************************************************/
-void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid_par, parallel_st *parallel){
-  /*******************************************************************
-  * This function initializes a random, normalized wavefnc on grid   *
-  * inputs:                                                          *
-  *  [psi] ngrid-long array of double/zomplex for storing wavefnc    *
-  *  [rand_seed] ptr to value of random seed; value reset on return  *
-  *  [grid] struct containing grid dimension values                  *
-  *  [parallel] struct holding parallelization options (for norm)    *
-  * outputs: void                                                    *
-  ********************************************************************/
-
-  long jx, jy, jz, jzy, jxyz;
-  long randint = (*rand_seed);
-
-  // Loop over entire grid to set new values at all grid points
-  for (jz = 0; jz < grid_par->nz; jz++){
-    for (jy = 0; jy < grid_par->ny; jy++){
-      jzy = grid_par->nx * (grid_par->ny * jz + jy);
-      for (jx = 0; jx < grid_par->nx; jx++) {
-        jxyz = jzy + jx;
-        // Initialize wavefunction value at this grid point to a
-        // random number between [-1.0,1.0] 
-        // ran_nrc generates random between [0.0,1.0] and resets the seed
-        psi[jxyz].re = (-1.0 + 2.0 * ran_nrc(&randint));
-
-        // If using complex-valued functions, then initialize a random value for imag component
-        if (1 == isComplex){
-          psi[jxyz].im = (-1.0 + 2.0 * ran_nrc(&randint));
-        } else if (0 == isComplex){
-          // otherwise set imaginary component to 0.0
-          psi[jxyz].im = 0.0;
-        }
-        
-      }
-    }
-  }
-  
-  // normalize this wavefunction and set the value of rand_seed to the new
-  // seed so the next wavefunction is different.
-  normalize(psi, grid_par->dv, grid_par->ngrid, parallel->nthreads);
-  (*rand_seed) = randint;
-
   return;
 }
 

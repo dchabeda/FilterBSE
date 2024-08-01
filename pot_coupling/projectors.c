@@ -156,6 +156,8 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	long long INFO = 0;
 	//diagonalize the matrix
 	dsyev_(&JOBZ, &UPLO, &N, &A[0], &LDA, &W[0], &WORK[0], &LWORK, &INFO);
+	
+	pproj = fopen("projectors.dat", "w");
 	fprintf(pproj,"gen_projectors: dsyev exit: %lld\n",INFO );
 	fflush(0);
 	// printf("Checkpoint 4\n"); fflush(0);

@@ -193,7 +193,10 @@ void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, xyz_st *R,
 double calc_dot_dimension(xyz_st *R, long n, char *dir);
 double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int);
 
-// projector
+// projectors
+void gen_SO_projectors(double dx, double rcut, long nproj,double*  projectors, double* vr);
+void gen_nlc_projectors(double dx, double rcut, long nproj, double*  projectors,int* sgnProj, double* vr, atom_info *atm,long jatom);
+
 
 //strain 
 void read_nearest_neighbors(vector *atom_neighbors, double *tetrahedron_vol_ref, long natoms, int crystal_structure, int outmost_material);

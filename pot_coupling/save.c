@@ -116,7 +116,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
 
 /*****************************************************************************/
 
-void read_filter_output(char *file_name, double **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag){
+void read_filter_output(char *file_name, double **psitot, double **eig_vals, double **sigma_E, xyz_st **R, xyz_st **grid, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag){
 
     FILE *pf;
     long j;

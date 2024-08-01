@@ -21,7 +21,7 @@ int main(int argc, char *argv[]){
     // custom structs 
     flag_st flag; index_st ist; par_st par; 
     atom_info *atom; atom_info *atom_equil;
-    pot_st pot; 
+    pot_st pot;
     grid_st grid;
     xyz_st *R_equil; xyz_st *R; 
     nlc_st *nlc_equil = NULL; nlc_st *nlc = NULL;  
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]){
     // double arrays
     double *pot_local_equil, *pot_local;
     double *SO_projectors_equil; double *SO_projectors; 
-    
+    double *gridx = NULL, *gridy = NULL, *gridz = NULL;
     double *psitot = NULL, *psi_hole = NULL, *psi_elec = NULL, *psi_qp;
     double *eig_vals = NULL, *sigma_E = NULL;
     double *gridx = NULL, *gridy = NULL, *gridz = NULL;
@@ -76,7 +76,7 @@ int main(int argc, char *argv[]){
     printf("\nReading filter output from output.dat:\n"); fflush(stdout);
     // ******
     // ******
-    read_filter_output("output.dat", &psitot, &eig_vals, &sigma_E, &R, &grid, &gridx, &gridy, &gridz, &ist, &par, &flag);
+    read_filter_output("output.dat", &psitot, &eig_vals, &sigma_E, &R, &grid_par, &gridx, &gridy, &gridz, &ist, &par, &flag);
     // ******
     // ******
 
@@ -361,7 +361,7 @@ int main(int argc, char *argv[]){
     pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
     
     // Calculate the distorted local potential
-    build_local_pot(pot_local, &pot, R, ksqr, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
+    build_local_pot(pot_local, &pot, R, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
     
     write_cube_file(pot_local, &grid_par, "local_pot_distorted.cube");
     
@@ -422,7 +422,7 @@ int main(int argc, char *argv[]){
     }
     pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
     
-    build_local_pot(pot_local, &pot, R, ksqr, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
+    build_local_pot(pot_local, &pot, R, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
     
     write_cube_file(pot_local, &grid_par, "local_pot.cube");
     

@@ -129,6 +129,7 @@ typedef struct parallel{
 // Macro definitions
 
 #define N_MAX_ATOM_TYPES 20
+#define PROJ_LEN	1024
 
 /*****************************************************************************/
 // Function declerations
@@ -181,3 +182,6 @@ void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, xyz_st *R,
 // write
 void write_cube_file(double *rho, grid_st *grid, char *fileName);
 void write_separation(FILE *pf, char *top_bttm);
+
+// nerror
+void nerror(char *);

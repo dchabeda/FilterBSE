@@ -128,8 +128,16 @@ typedef struct parallel{
 /*****************************************************************************/
 // Macro definitions
 
+// constant macros
+#define PIE       3.14159265358979323846
 #define N_MAX_ATOM_TYPES 20
 #define PROJ_LEN	1024
+
+// physical parameters
+#define PbIBondMax  ( (3.3) * (ANGTOBOHR) ) 
+#define orthoBondAngle  160.6344 
+#define minCubicBondAngle  175.0
+
 
 /*****************************************************************************/
 // Function declerations

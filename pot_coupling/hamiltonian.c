@@ -24,7 +24,7 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
   ********************************************************************/
 
   long j, jtmp, jspin;
-  
+  memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid*sizeof(psi_tmp[0]));
 
   if(flag->SO==1){
     // Calculate |psi_out> = V_SO|psi_tmp>

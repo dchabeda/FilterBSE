@@ -30,9 +30,9 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
     istate = ist->complex_idx* i *ist->nspinngrid;
     // Copy the current hole wavefunction into |psi>
     
-    printf("Before memcpy"); fflush(0);
+    printf("Before memcpy\n"); fflush(0);
     memcpy(&psi[0], &psitot[ist->complex_idx*i*ist->nspinngrid], ist->complex_idx*ist->nspinngrid*sizeof(psitot[0]));
-    printf("memcpy successfull"); fflush(0);
+    printf("memcpy successful\n"); fflush(0);
     // Initialize the vector that will become |phi> = Vloc + Vnonlocal + Vso|psi>, as 0.0s
     // This next line is technically not necessaRy because calloc initializes memory to 0
     for (jgridup = 0; jgridup < ist->nspinngrid; jgridup++){
@@ -41,9 +41,9 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
     
     // Compute the potential |phi> = Vloc + Vnonlocal + Vso|psi>
     potential(phi, psi, pot_local_equil, nlc_equil, nl_equil, ist, par, flag);
-    printf("Starting calculation of equilibrium geometry matrix elements"); fflush(0);
+    printf("Starting calculation of equilibrium geometry matrix elements\n"); fflush(0);
     for (a = 0; a < ist->mn_states_tot; a++){
-        printf("a = %ld", a); fflush(0);
+        printf("a = %ld\n", a); fflush(0);
         astate = ist->complex_idx* a *ist->nspinngrid;
         // Make sure g is zero'd to begin with
         g.re = g.im = 0.0;
@@ -53,7 +53,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
             jgriddn = jgridup+ist->ngrid;
             jgriddn_real = ist->complex_idx *(jgridup+ist->ngrid);
             jgriddn_imag = ist->complex_idx *(jgridup+ist->ngrid) + 1;
-            printf("calculate tmp"); fflush(0);
+            printf("calculate tmp\n"); fflush(0);
             tmp.re =  (psitot[astate+jgridup_real] * phi[jgridup].re + psitot[astate+jgridup_imag] * phi[jgridup].im
                         +psitot[astate+jgriddn_real] * phi[jgriddn].re + psitot[astate+jgriddn_imag] * phi[jgriddn].im );
             if (1 == flag->isComplex){

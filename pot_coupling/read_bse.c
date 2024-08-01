@@ -31,7 +31,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   par->KE_max = 10.0; //NOTE: lowered this to 10 for tests
   par->checkpoint_id = 0;
   // Pseudopotential parameters
-  flag->LR = 0; // Long range flag. By default, pseudopotentials are short ranged.
+  flag->LR = 1; // Long range flag. By default, pseudopotentials are short ranged.
   // Spin-orbit and non-local terms
   flag->useSpinors = 0; // default is to use non-spinor wavefunctions
   flag->isComplex = 0;

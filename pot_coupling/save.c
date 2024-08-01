@@ -22,7 +22,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\n\tParameters & counters for BSE algorithm:\n");
     fprintf(pf, "\t-------------------------------------------\n");
     if (-1 == ist->max_hole_states){
-        fprintf(pf, "maxHoleStates (# h+ in basis) not set, will use all h+ states\n");
+        fprintf(pf, "\tmaxHoleStates (# h+ in basis) not set, using all h+ states\n");
     } else if (ist->max_hole_states > 0){
         fprintf(pf, "\tmaxHoleStates (# h+ in basis) = %ld\n", ist->max_hole_states);
     } else {
@@ -31,9 +31,9 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     }
 
     if (-1 == ist->max_elec_states){
-        fprintf(pf, "maxElecStates (# h+ in basis) not set, will use all h+ states\n");
+        fprintf(pf, "\tmaxElecStates (# e- in basis) not set, using all e- states\n");
     } else if (ist->max_elec_states > 0){
-        fprintf(pf, "\tmaxElecStates (# h+ in basis) = %ld\n", ist->max_elec_states);
+        fprintf(pf, "\tmaxElecStates (# e- in basis) = %ld\n", ist->max_elec_states);
     } else {
         fprintf(pf, "ERROR: invalid maxElecStates!\n");
         exit(EXIT_FAILURE);

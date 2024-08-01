@@ -563,6 +563,66 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
   return;
 }
 
+
+/*****************************************************************************/
+void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, parallel_st *parallel){
+  /*******************************************************************
+  * This function initializes a random, normalized wavefnc on grid   *
+  * inputs:                                                          *
+  *  [psi] ngrid-long array of double/zomplex for storing wavefnc    *
+  *  [rand_seed] ptr to value of random seed; value reset on return  *
+  *  [grid] struct containing grid dimension values                  *
+  *  [parallel] struct holding parallelization options (for norm)    *
+  * outputs: void                                                    *
+  ********************************************************************/
+
+  long jx, jy, jz, jzy, jxyz;
+  long randint = (*rand_seed);
+
+  // Loop over entire grid to set new values at all grid points
+  for (jz = 0; jz < grid->nz; jz++){
+    for (jy = 0; jy < grid->ny; jy++){
+      jzy = grid->nx * (grid->ny * jz + jy);
+      for (jx = 0; jx < grid->nx; jx++) {
+        jxyz = jzy + jx;
+        // Initialize wavefunction value at this grid point to a
+        // random number between [-1.0,1.0] 
+        // ran_nrc generates random between [0.0,1.0] and resets the seed
+        psi[jxyz].re = (-1.0 + 2.0 * ran_nrc(&randint));
+
+        // If using complex-valued functions, then initialize a random value for imag component
+        if (1 == isComplex){
+          psi[jxyz].im = (-1.0 + 2.0 * ran_nrc(&randint));
+        } else if (0 == isComplex){
+          // otherwise set imaginary component to 0.0
+          psi[jxyz].im = 0.0;
+        }
+        
+      }
+    }
+  }
+  
+  // normalize this wavefunction and set the value of rand_seed to the new
+  // seed so the next wavefunction is different.
+  FILE *pf;
+  pf = fopen("psi-init.dat", "w");
+  for (jxyz = 0; jxyz < grid->ngrid; jxyz++){
+    fprintf(pf, "%ld %lg\n", jxyz, psi[jxyz].re);
+  }
+  fclose(pf);
+  normalize(psi, grid->dv, grid->ngrid, parallel->nthreads);
+  (*rand_seed) = randint;
+  pf = fopen("psi-init-norm.dat", "w");
+  for (jxyz = 0; jxyz < grid->ngrid; jxyz++){
+    fprintf(pf, "%ld %lg\n", jxyz, psi[jxyz].re);
+  }
+  fclose(pf);
+  
+  return;
+}
+
+/***************************************************************************/
+
 /***************************************************************************/
 
 double calc_dot_dimension(xyz_st *R, long n_atoms, char *dir){

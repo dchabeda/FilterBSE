@@ -13,14 +13,22 @@ void write_cube_file(double *rho, grid_st *grid, char *fileName) {
   ******************************************************************/ 
 
   FILE *pf, *pConfFile;
+  
   long jgrid, iX, iY, iZ, iYZ, natoms, atomType;
   double x, y, z;
   char line[80], atomSymbol[10];
 
-
-  pConfFile = fopen("conf.dat", "r");
+  if( access("conf.dat", F_OK) == -1 ){
+        printf("ERROR: no conf.dat file exists in directory\n", file_name);
+        fprintf(stderr, "ERROR: no conf.dat file exists in directory\n", file_name);
+        exit(EXIT_FAILURE);
+  } else{
+    pConfFile = fopen("conf.dat", "r");
+  }
   fscanf(pConfFile, "%ld", &natoms);
+
   pf = fopen(fileName, "w");
+  
   fprintf(pf, "CUBE FILE\n");
   fprintf(pf, "OUTER LOOP: X, MIDDLE LOOP: Y, INNER LOOP: Z\n");
   fprintf(pf, "%5li%12.6f%12.6f%12.6f\n", natoms, grid->xmin, grid->ymin, grid->zmin);
@@ -29,7 +37,7 @@ void write_cube_file(double *rho, grid_st *grid, char *fileName) {
   fprintf(pf, "%5li%12.6f%12.6f%12.6f\n", grid->nz, 0.0, 0.0, grid->dz);
   fgets(line, 80, pConfFile); 
   while(fgets(line, 80, pConfFile) != NULL) {
-    sscanf(line, "%2s %lf %lf %lf %ld %*lf", (char*)&atomSymbol, &x, &y, &z, &atomType);
+    sscanf(line, "%2s %lf %lf %lf", (char*)&atomSymbol, &x, &y, &z);
     
     //TODO: make sane atom_info handling.... 
     if (! strcmp(atomSymbol, "Cd")) { 

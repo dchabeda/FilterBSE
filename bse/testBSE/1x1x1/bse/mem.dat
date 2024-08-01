@@ -1,0 +1,41 @@
+alloc ist.atom_types 160 B
+alloc top 2 B
+alloc bottom 2 B
+alloc grid.x 216 B
+alloc grid.y 216 B
+alloc grid.z 216 B
+alloc ist.eval_hole_idxs 840 B
+alloc ist.eval_elec_idxs 840 B
+alloc psi_hole 2519424 B
+alloc psi_elec 2519424 B
+alloc psi_qp 5038848 B
+
+******************************************************************************
+
+total mem usage 10 MB
+
+******************************************************************************
+free psitot 66134880 B
+free psi_hole 2519424 B
+free psi_elec 2519424 B
+free sigma_E 840 B
+
+******************************************************************************
+
+total mem usage -61 MB
+
+******************************************************************************
+alloc pot_direct 314928 B
+alloc pot_exchange 314928 B
+alloc pot_hartree 1259712 B
+alloc fftwpsi 1259712 B
+alloc trans_dipole 1152 B
+alloc mag_dipole 1152 B
+alloc rot_strength 1152 B
+
+
+******************************************************************************
+
+total mem usage -57 MB
+
+******************************************************************************

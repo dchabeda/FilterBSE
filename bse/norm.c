@@ -4,16 +4,6 @@
 
 /*****************************************************************************/
 
-double norm_rho(zomplex *rho,double dr,long ngrid)
-{
-  long i;
-  double norm = 0.0;
-
-  for (i = 0; i < ngrid; i++) norm += (rho[i].re);
-  return (norm * dr);
-}
-
-/*****************************************************************************/
 
 double norm(zomplex *psi, double dr,long ngrid)
 {
@@ -40,12 +30,12 @@ double normalize_zomplex(zomplex *psi, double dr, long ngrid) {
 
 /*****************************************************************************/
 
-void normalize_all(double *psi,double dr,long ms,long ngrid)
+void normalize_all(double *psi,double dr,long n_qp,long ngrid)
 {
   long i, ie, ieg;
   double nrm;
 
-  for (ie = 0; ie < ms; ie++){
+  for (ie = 0; ie < n_qp; ie++){
     for (ieg = ie * ngrid, nrm = 0.0, i = 0; i < ngrid; i++)
       nrm += sqr(psi[ieg+i]);
     if (nrm != 0.0){
@@ -55,19 +45,6 @@ void normalize_all(double *psi,double dr,long ms,long ngrid)
     for (ieg = ie * ngrid, i = 0; i < ngrid; i++)
       psi[ieg+i] *= nrm;
   }
-  return;
-}
-
-/*****************************************************************************/
-
-void normalize(double *vector, double dV, long ngrid) {
-  long i;
-  double norm = 0.0;
-
-  for (i = 0; i < ngrid; i++) norm += vector[i] * vector[i];
-  if (norm > 0) norm = 1.0 / sqrt(norm * dV); /* to prevent division by zero */
-  for (i = 0; i < ngrid; i++) vector[i] *= norm;
-
   return;
 }
 

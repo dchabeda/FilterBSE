@@ -4,7 +4,7 @@
 
 int main(int argc, char *argv[]){
   /*****************************************************************
-  * This is the main function for filter.x. It is the driver that  *
+  * This is the main function for Filter.x. It is the driver that  *
   * controls memory allocation, structs, and the filter algorithm. *
   * The algorithm computes quasiparticle excited states using      *
   * sparse-matrix techniques. It is applied to nanocrystal         *
@@ -497,7 +497,7 @@ int main(int argc, char *argv[]){
       // The standard portion of the filter diagonalization procedure has concluded
       // Print the output.dat file for use in future workflows unless explicitly requested to NOT save output
       if (0 != flag.saveOutput){
-        save_output("output.dat",psitot,eig_vals,sigma_E,pot_local,ksqr,nl,nlc,&grid_par,&ist,&par,&flag);
+        save_output("output.dat",psitot,eig_vals,sigma_E,R,&grid,&ist,&par,&flag);
       }
 
       /**************************************************************************************************************/
@@ -533,7 +533,7 @@ int main(int argc, char *argv[]){
       }
       fclose(pf);
 
-      printf("index of homo, homo_idx = %ld; index of lumo, nlumo = %ld\n", ist.homo_idx, ist.lumo_idx); fflush(0);
+      printf("index of homo, homo_idx = %ld; index of lumo, lumo_idx = %ld\n", ist.homo_idx, ist.lumo_idx); fflush(0);
       // Set the total number of electron and hole states in order to calculate the potential overlap integrals
       ist.total_homo = ist.homo_idx + 1; ist.total_lumo = ist.mn_states_tot - ist.total_homo;
       printf("total_homo = %ld total_lumo = %ld\n", ist.total_homo, ist.total_lumo); fflush(0);

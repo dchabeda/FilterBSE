@@ -270,6 +270,5 @@ void save_job_state(char *file_name, int checkpoint_id, double *psitot, double *
     nlc_st *nlc, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void restart_from_save(char *file_name, int checkpoint_id, double *psitot, double *pot_local, double *ksqr, zomplex *an, double *zn, double *ene_targets, long *nl,\
     nlc_st *nlc, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, double *pot_local, double *ksqr, long *nl,\
-    nlc_st *nlc, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
+void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, xyz_st *R, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
 /*****************************************************************************/

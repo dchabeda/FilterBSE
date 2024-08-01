@@ -317,7 +317,7 @@ int main(int argc, char *argv[]){
     /**************************************************************************/
     
     printf("\nEquilibrium local pseudopotential:\n");
-    build_local_pot(pot_local_equil, &pot, R_equil, ksqr, atom_equil, grid, &grid, &ist, &par, &flag, &parallel);
+    build_local_pot(pot_local_equil, &pot, R_equil, atom_equil, grid, &grid, &ist, &par, &flag, &parallel);
     
     free(pot.r); pot.r = NULL; 
     free(pot.pseudo); pot.pseudo = NULL; 
@@ -337,7 +337,7 @@ int main(int argc, char *argv[]){
     /*** initialization for the non-local potential ***/
     if (flag.NL == 1){
     printf("\nEquilibrium non-local pseudopotential:\n"); fflush(0);
-    init_NL_projectors(nlc_equil, nl_equil, SO_projectors_equil, R_equil, atom_equil, grid, &grid, &ist, &par, &flag);
+    init_NL_projectors(nlc_equil, nl_equil, SO_projectors_equil, R_equil, atom_equil, &grid, &ist, &par, &flag);
     }
     // free memory allocated to SO_projectors
     if ( (flag.SO == 1) || (flag.NL == 1) ){
@@ -382,7 +382,7 @@ int main(int argc, char *argv[]){
     /*** initialization for the non-local potential ***/
     if (flag.NL == 1){
     printf("\nNon-local pseudopotential:\n"); fflush(0);
-    init_NL_projectors(nlc, nl, SO_projectors, R, atom, grid, &grid, &ist, &par, &flag);
+    init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag);
     }
     // free memory allocated to SO_projectors
     if ( (flag.SO == 1) || (flag.NL == 1) ){
@@ -451,53 +451,7 @@ int main(int argc, char *argv[]){
     free(SO_projectors); SO_projectors = NULL;
     }
 
-    // 4. Read in the equilibrium wavefunction.
-
-    //count number of states found
-    jms = countlines("eval.dat");
-    printf("%ld total states in psi.dat\n", jms); fflush(0);
-  
-    // allocate memory for all equilibrium wavefunctions, psi
-    if ((psitot = (double *) calloc(ist.complex_idx * jms * ist.nspinngrid, sizeof(psitot[0]))) == NULL) nerror("psitot");
-
-    //read psi from file
-	ppsi = fopen("psi.dat" , "r");
-    fread(&psi[0], sizeof(psitot[0]), ist.complex_idx*jms*ist.nspinngrid, ppsi);
-	printf("Successfully read wavefunction\n"); fflush(0);
-
-    // Determine which states are hole states and which states are electron states
-    long a, ieof, nval;
-    double evalloc, deloc;
-
-    ist.homo_idx = ist.lumo_idx = 0;
-    pf = fopen("eval.dat" , "r");
-    for (i = ieof = 0; ieof != EOF; i++){
-        ieof = fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
-        if (deloc < par.sigma_E_cut && evalloc < par.fermi_E) ist.homo_idx = i;
-    }
-    fclose(pf);
-
-    nval = i - 1;
-    pf = fopen("eval.dat" , "r");
-    for (i = 0; i <= ist.homo_idx; i++){
-        fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
-    }
-    for (i = ist.homo_idx+1; i < nval; i++) {
-        fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
-        if (deloc < par.sigma_E_cut) {
-            ist.lumo_idx = i;
-            break;
-        }
-    }
-    fclose(pf);
-
-    printf("index of homo, homo_idx = %ld; index of lumo, nlumo = %ld\n", ist.homo_idx, ist.lumo_idx); fflush(0);
-    // Set the total number of electron and hole states in order to calculate the potential overlap integrals
-    ist.total_homo = ist.homo_idx + 1; ist.total_lumo = ist.mn_states_tot - ist.total_homo;
-    printf("total_homo = %ld total_lumo = %ld\n", ist.total_homo, ist.total_lumo); fflush(0);
-
-    // Select which states should be used for the calculation. Must be converged.
-
+    
 
     // // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
     

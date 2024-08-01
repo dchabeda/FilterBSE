@@ -157,7 +157,7 @@ double get_ideal_bond_len(long natyp_1, long natyp_2, int crystalStructureInt);
 void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, grid_st *grid_par,
     index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par);
-void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, xyz_st *R, atom_info *atom, xyz_st *grid, grid_st *grid_par, index_st *ist, par_st *par, flag_st *flag);
+void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid_par, index_st *ist, par_st *par, flag_st *flag);
 
 //strain 
 void read_nearest_neighbors(vector *atom_neighbors, double *tetrahedron_vol_ref, long natoms, int crystal_structure, int outmost_material);

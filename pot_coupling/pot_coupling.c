@@ -444,7 +444,7 @@ int main(int argc, char *argv[]){
     /*** initialization for the non-local potential ***/
     if (flag.NL == 1){
     printf("\nNon-local pseudopotential:\n"); fflush(0);
-    init_NL_projectors(nlc, nl, SO_projectors, R, atom, grid, &grid, &ist, &par, &flag);
+    init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag);
     }
     // free memory allocated to SO_projectors
     if ( (flag.SO == 1) || (flag.NL == 1) ){

@@ -345,23 +345,23 @@ int main(int argc, char *argv[]){
     if (1 == flag.NL){
         // Count the max number of grid points within Rnlcut of an atom***/
         printf("\tCount max no. grid points in Rnlcut; equil\n");
-        ist->n_NL_gridpts = 0;
-        for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
-            for (jtmp =0, jz = 0; jz < grid->nz; jz++) {
-                for (jy = 0; jy < grid->ny; jy++) {
-                    for (jx = 0; jx < grid->nx; jx++) {
-                        dx = grid->x[jx] - R_equil[jatom].x;
-                        dy = grid->y[jy] - R_equil[jatom].y;
-                        dz = grid->z[jz] - R_equil[jatom].z;
-                        if (dx*dx + dy*dy + dz*dz < par->R_NLcut2) {
+        ist.n_NL_gridpts = 0;
+        for (jatom = 0; jatom < ist.n_NL_atoms; jatom++) {
+            for (jtmp =0, jz = 0; jz < grid.nz; jz++) {
+                for (jy = 0; jy < grid.ny; jy++) {
+                    for (jx = 0; jx < grid.nx; jx++) {
+                        dx = grid.x[jx] - R_equil[jatom].x;
+                        dy = grid.y[jy] - R_equil[jatom].y;
+                        dz = grid.z[jz] - R_equil[jatom].z;
+                        if (dx*dx + dy*dy + dz*dz < par.R_NLcut2) {
                             jtmp++; 
                         }
                     }
                 }
             }
-            if (jtmp > ist->n_NL_gridpts) ist->n_NL_gridpts = jtmp;
+            if (jtmp > ist.n_NL_gridpts) ist.n_NL_gridpts = jtmp;
         }
-        printf("\tequilibrium n_NL_gridpts = %ld\n", ist->n_NL_gridpts);
+        printf("\tequilibrium n_NL_gridpts = %ld\n", ist.n_NL_gridpts);
 
         if ((nlc_equil = (nlc_st *) calloc(ist.n_NL_atoms*ist.n_NL_gridpts, sizeof(nlc_st))) == NULL){ 
         fprintf(stderr, "\nOUT OF MEMORY: nlc\n\n"); exit(EXIT_FAILURE);
@@ -372,23 +372,23 @@ int main(int argc, char *argv[]){
 
         // Count the max number of grid points within Rnlcut of an atom***/
         printf("\tCount max no. grid points in Rnlcut; equil\n");
-        ist->n_NL_gridpts = 0;
-        for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
-            for (jtmp =0, jz = 0; jz < grid->nz; jz++) {
-                for (jy = 0; jy < grid->ny; jy++) {
-                    for (jx = 0; jx < grid->nx; jx++) {
-                        dx = grid->x[jx] - R[jatom].x;
-                        dy = grid->y[jy] - R[jatom].y;
-                        dz = grid->z[jz] - R[jatom].z;
-                        if (dx*dx + dy*dy + dz*dz < par->R_NLcut2) {
+        ist.n_NL_gridpts = 0;
+        for (jatom = 0; jatom < ist.n_NL_atoms; jatom++) {
+            for (jtmp =0, jz = 0; jz < grid.nz; jz++) {
+                for (jy = 0; jy < grid.ny; jy++) {
+                    for (jx = 0; jx < grid.nx; jx++) {
+                        dx = grid.x[jx] - R[jatom].x;
+                        dy = grid.y[jy] - R[jatom].y;
+                        dz = grid.z[jz] - R[jatom].z;
+                        if (dx*dx + dy*dy + dz*dz < par.R_NLcut2) {
                             jtmp++; 
                         }
                     }
                 }
             }
-            if (jtmp > ist->n_NL_gridpts) ist->n_NL_gridpts = jtmp;
+            if (jtmp > ist.n_NL_gridpts) ist.n_NL_gridpts = jtmp;
         }
-        printf("\tdistorted n_NL_gridpts = %ld\n", ist->n_NL_gridpts);
+        printf("\tdistorted n_NL_gridpts = %ld\n", ist.n_NL_gridpts);
 
         if ((nlc = (nlc_st *) calloc(ist.n_NL_atoms*ist.n_NL_gridpts, sizeof(nlc_st))) == NULL){ 
         fprintf(stderr, "\nOUT OF MEMORY: nlc\n\n"); exit(EXIT_FAILURE);

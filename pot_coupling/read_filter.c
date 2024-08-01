@@ -132,7 +132,7 @@ void read_conf(char *file_name, xyz_st *R, atom_info *atom, index_st *ist, par_s
   fclose(pw);
   
   // If strain dependent pseudopotentials requested, determine the crystal structure and outmost material
-	if (flag->useStrain){
+	if (1 == flag->useStrain){
     ist->crystal_structure_int = assign_crystal_structure(par->crystal_structure);
     
     /*** Assign outmostMaterialInt ***/

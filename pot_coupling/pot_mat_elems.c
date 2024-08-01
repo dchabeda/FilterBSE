@@ -88,6 +88,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
     potential(phi, psi, pot_local, nlc, nl, ist, par, flag);
     
     for (a = 0; a < ist->mn_states_tot; a++){
+        astate = ist->complex_idx* a *ist->nspinngrid;
         // Make sure g is zero'd to begin with
         g.re = g.im = 0.0;
         for (jgridup = 0; jgridup < ist->ngrid; jgridup++) {

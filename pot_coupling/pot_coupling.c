@@ -373,11 +373,17 @@ int main(int argc, char *argv[]){
         ist.n_NL_gridpts = 0;
         for (jatom = 0; jatom < ist.n_NL_atoms; jatom++) {
             for (jtmp =0, jz = 0; jz < grid.nz; jz++) {
+                printf("*****************************\n")
+                printf("jz = %ld %lg\n", jz, grid.z[jz]);
+                printf("*****************************\n")
                 for (jy = 0; jy < grid.ny; jy++) {
+                    printf("jy = %ld %lg\n", jy, grid.y[jy]);
                     for (jx = 0; jx < grid.nx; jx++) {
+                        printf("jx = %ld %lg\n", jx, grid.x[jx]);
                         dx = grid.x[jx] - R[jatom].x;
                         dy = grid.y[jy] - R[jatom].y;
                         dz = grid.z[jz] - R[jatom].z;
+                        
                         if (dx*dx + dy*dy + dz*dz < par.R_NLcut2) {
                             jtmp++; 
                         }

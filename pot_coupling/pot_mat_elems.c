@@ -60,8 +60,8 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
         }
         g.re += tmp.re; g.im += tmp.im;
         }
-        g.re *= par.dv;
-        g.im *= par.dv;
+        g.re *= par->dv;
+        g.im *= par->dv;
 
     fprintf(pf,"%ld %ld %.12f %.12f %.12f\n", i, a, eval[a] - eval[i], g.re, g.im);
     }
@@ -105,9 +105,11 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
         } else if (0 == flag->isComplex){
         tmp.im =  0.0 ;
         }
-        g.re += par->dv*tmp.re; g.im += par->dv*tmp.im;
+        g.re += tmp.re; g.im += tmp.im;
         }
-        
+        g.re *= par->dv;
+        g.im *= par->dv;
+
         fprintf(pf,"%ld %ld %.12f %.12f %.12f\n", i, a, eval[a] - eval[i], g.re, g.im);
         }
   }

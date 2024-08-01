@@ -176,7 +176,7 @@ int main(int argc, char *argv[]){
       printf("\nInitializing potentials...\n");
       
       printf("\nLocal pseudopotential:\n");
-      build_local_pot(pot_local, &pot, R, ksqr, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
+      build_local_pot(pot_local, &pot, R, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
       
       free(pot.r); pot.r = NULL; 
       free(pot.pseudo); pot.pseudo = NULL; 

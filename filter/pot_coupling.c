@@ -214,13 +214,10 @@ int main(int argc, char *argv[]){
     // Initialize job from input file
     
     write_separation(stdout, top);
-    printf("\n1.\tINITIALIZING JOB\n");
+    printf("\n2.\tREADING EQUILIBRIUM & DISTORTED GEOMETRIES\n");
     write_separation(stdout, bottom); fflush(stdout);
 
     /*** read initial setup from input.par ***/
-    printf("\nReading job specifications from input.par:\n");
-    read_input(&flag, &grid_par, &ist, &par, &parallel);
-
     /*** allocating memory ***/
     // the positions of the atoms in the x, y, and z directions 
     if ((R_equil = (xyz_st *) calloc(ist.natoms, sizeof(xyz_st))) == NULL) {
@@ -231,36 +228,34 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "\nOUT OF MEMORY: atom struct\n\n"); exit(EXIT_FAILURE);
     }
     
-    /*** read the nanocrystal configuration ***/
-    char str[100];
+    // the distorted positions of the atoms in the x, y, and z directions 
+    if ((R = (xyz_st *) calloc(ist.natoms, sizeof(xyz_st))) == NULL) {
+        fprintf(stderr, "\nOUT OF MEMORY: R array\n\n"); exit(EXIT_FAILURE);
+    }
+    // the atom specific information 
+    if ((atom = (atom_info *) calloc(ist.natoms, sizeof(atom_info))) == NULL){
+        fprintf(stderr, "\nOUT OF MEMORY: atom struct\n\n"); exit(EXIT_FAILURE);
+    }
     
+    /*** create strings to differentiate files ***/
+    char str[100];
     char *file_name_equil; file_name_equil = malloc(16*sizeof(file_name_equil[0]));
     strcpy(file_name_equil, "conf_equil.par");
+    char *file_name; file_name = malloc(9*sizeof(file_name[0]));
+    strcpy(file_name, "conf.par");
+
+    /*** read the equilibrium configuration ***/
     sprintf(str, "\nReading atomic configuration from %s:\n", file_name_equil);
     printf("%s", str);
     read_conf(file_name_equil, R_equil, atom_equil, &ist, &par, &flag);
 
-    // /*** initialize parameters for the grid ***/
-    // printf("\nInitializing the grid parameters:\n");
-    // init_grid_params(&grid_par, R_equil, &ist, &par, &flag);
+    /*** read the distorted configuration ***/
+    sprintf(str, "\nReading atomic configuration from %s:\n", file_name_equil);
+    printf("%s", str);
+    read_conf(file_name, R, atom, &ist, &par, &flag);
 
-    // // Allocate memory for the grid in the x, y, and z directions ***/
-    // // Allocate memory for the grid in the x, y, and z directions ***/
-    // if ((grid = (xyz_st *) calloc(grid_par.ngrid, sizeof(xyz_st))) == NULL){
-    //     fprintf(stderr, "\nOUT OF MEMORY: grid\n\n"); exit(EXIT_FAILURE);
-    // }
-    // // the kinetic energy stored on the grid
-    // if ((ksqr = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
-    //     fprintf(stderr, "\nOUT OF MEMORY: ksqr\n\n"); exit(EXIT_FAILURE);
-    // }
-
-    // /*** build the real- and k-space grids ***/
-    // printf("\nBuilding the real-space and k-space grids:\n");
-    //build_grid_ksqr(ksqr, R_equil, grid, &grid_par, &ist, &par, &flag);
-    
     /*************************************************************************/
     /*** allocating memory for the rest of the program ***/
-    printf("\nAllocating memory for FFT, pot, psi, eig_vals...");
     
     // For reading the atomic potentials ***/
     pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
@@ -275,7 +270,6 @@ int main(int argc, char *argv[]){
     }
     pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
     
-     
     // Wavefunction-type objects
     if ((psi = (zomplex *)calloc(ist.nspinngrid, sizeof(zomplex))) == NULL){
         fprintf(stderr, "\nOUT OF MEMORY: psi\n\n"); exit(EXIT_FAILURE);
@@ -285,6 +279,9 @@ int main(int argc, char *argv[]){
     }
     if ((pot_local_equil = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
         fprintf(stderr, "\nOUT OF MEMORY: pot_local_equil\n\n"); exit(EXIT_FAILURE);
+    }
+    if ((pot_local = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
+        fprintf(stderr, "\nOUT OF MEMORY: pot_local\n\n"); exit(EXIT_FAILURE);
     }
     
     // memory allocation for the spin-orbit potential 
@@ -311,10 +308,17 @@ int main(int argc, char *argv[]){
     
     printf("\tdone allocating memory.\n"); fflush(stdout);
 
-    /**************************************************************************/
+    /*************************************************************************/
+    /*****************************************************************************/
+    // CALCULATE POTENTIALS IN EQUILIBRIUM AND DISTORTED GEOMETRIES
+    /*************************************************************************/
+    /*****************************************************************************/
+
     printf("\nInitializing potentials...\n");
     
-    printf("\nLocal pseudopotential:\n");
+    /**************************************************************************/
+    
+    printf("\nEquilibrium local pseudopotential:\n");
     build_local_pot(pot_local_equil, &pot, R_equil, ksqr, atom_equil, grid, &grid_par, &ist, &par, &flag, &parallel);
     
     free(pot.r); pot.r = NULL; 
@@ -329,12 +333,12 @@ int main(int argc, char *argv[]){
     write_cube_file(pot_local_equil, &grid_par, "local_pot_equil.cube");
     
     if(flag.SO==1) {
-    printf("\nSpin-orbit pseudopotential:\n");
+    printf("\nEquilibrium spin-orbit pseudopotential:\n");
     init_SO_projectors(SO_projectors_equil, R_equil, atom_equil, &grid_par, &ist, &par);
     }
     /*** initialization for the non-local potential ***/
     if (flag.NL == 1){
-    printf("\nNon-local pseudopotential:\n"); fflush(0);
+    printf("\nEquilibrium non-local pseudopotential:\n"); fflush(0);
     init_NL_projectors(nlc_equil, nl_equil, SO_projectors_equil, R_equil, atom_equil, grid, &grid_par, &ist, &par, &flag);
     }
     // free memory allocated to SO_projectors
@@ -342,6 +346,50 @@ int main(int argc, char *argv[]){
     free(SO_projectors_equil); SO_projectors_equil = NULL;
     }
 
+    /**************************************************************************/
+    
+    // Allocate memory for the distorted potentials
+    pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
+    pot.r = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+    if (1.0 != par.scale_surface_Cs){
+        // allocate memory for separately read LR potentials if the surface atoms will be charge balanced
+        pot.r_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+    }
+    pot.pseudo = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+    if (1.0 != par.scale_surface_Cs){
+        pot.pseudo_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+    }
+    pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
+    
+    // Calculate the distorted local potential
+    build_local_pot(pot_local, &pot, R, ksqr, atom, grid, &grid_par, &ist, &par, &flag, &parallel);
+    
+    write_cube_file(pot_local, &grid_par, "local_pot_distorted.cube");
+    
+    free(pot.r); pot.r = NULL; 
+    free(pot.pseudo); pot.pseudo = NULL; 
+    free(pot.dr); pot.dr = NULL; 
+    free(pot.file_lens); pot.file_lens = NULL;
+    if (1.0 != par.scale_surface_Cs){
+    free(pot.r_LR); pot.r_LR = NULL;
+    free(pot.pseudo_LR); pot.pseudo_LR = NULL; 
+    }
+
+    // Calculate the distorted nonlocal potentials
+
+    if(flag.SO==1) {
+    printf("\nSpin-orbit pseudopotential:\n");
+    init_SO_projectors(SO_projectors, R, atom, &grid_par, &ist, &par);
+    }
+    /*** initialization for the non-local potential ***/
+    if (flag.NL == 1){
+    printf("\nNon-local pseudopotential:\n"); fflush(0);
+    init_NL_projectors(nlc, nl, SO_projectors, R, atom, grid, &grid_par, &ist, &par, &flag);
+    }
+    // free memory allocated to SO_projectors
+    if ( (flag.SO == 1) || (flag.NL == 1) ){
+    free(SO_projectors); SO_projectors = NULL;
+    }
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** 
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
     // Potential mat elems
@@ -357,22 +405,7 @@ int main(int argc, char *argv[]){
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** 
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 
-    // 1. Read in the distorted nuclear configurations
-    /*** allocating memory ***/
-    // the distorted positions of the atoms in the x, y, and z directions 
-    if ((R = (xyz_st *) calloc(ist.natoms, sizeof(xyz_st))) == NULL) {
-        fprintf(stderr, "\nOUT OF MEMORY: R array\n\n"); exit(EXIT_FAILURE);
-    }
-    // the atom specific information 
-    if ((atom = (atom_info *) calloc(ist.natoms, sizeof(atom_info))) == NULL){
-        fprintf(stderr, "\nOUT OF MEMORY: atom struct\n\n"); exit(EXIT_FAILURE);
-    }
     
-    /*** read the nanocrystal configuration ***/
-    printf("\nReading atomic configuration from conf.par:\n");
-    char *file_name; file_name = malloc(9*sizeof(file_name[0]));
-    strcpy(file_name, "conf.par");
-    read_conf(file_name, R, atom, &ist, &par, &flag);
 
     // 2. Calculate the distorted local potential
     if ((pot_local = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){

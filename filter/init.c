@@ -307,7 +307,7 @@ void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *f
 
 
 /*****************************************************************************/
-void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, atom_info *atom, xyz_st *grid,
+void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, xyz_st *grid,
     grid_st *grid_par, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function calculates the local potential at all gridpoints.  *

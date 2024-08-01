@@ -345,7 +345,7 @@ int main(int argc, char *argv[]){
         printf("\tCount max no. grid points in Rnlcut; equil\n");
         ist.n_NL_gridpts = 0;
         for (jatom = 0; jatom < ist.n_NL_atoms; jatom++) {
-            for (jtmp =0, jz = 0; jz < grid.nz; jz++) {
+            for (jtmp = 0, jz = 0; jz < grid.nz; jz++) {
                 for (jy = 0; jy < grid.ny; jy++) {
                     for (jx = 0; jx < grid.nx; jx++) {
                         dx = grid.x[jx] - R_equil[jatom].x;

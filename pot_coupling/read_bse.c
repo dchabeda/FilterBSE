@@ -194,7 +194,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   if (flag->SO == 1) {
     flag->useSpinors = 1;
     flag->NL = 1; // SO automatically switches on NL
-    // par->R_NLcut2 = 1.5 +  6.0 * log(10.0) + 3.0 * grid->dx;
+    par->R_NLcut2 = 1.5 +  6.0 * log(10.0) + 3.0 * grid->dx;
     
   }
   if (flag->useSpinors == 1) {

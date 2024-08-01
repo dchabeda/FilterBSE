@@ -38,6 +38,8 @@ int main(int argc, char *argv[]){
     long i, j, state;
     long jgrid, jgrid_real, jgrid_imag;
     long mem = 0;
+    long jx, jy, jz, jyz, jxyz, jtmp, jatom;
+    double dx, dy, dz
     ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
     fprintf(pmem, "alloc ist.atom_types %ld B\n", N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0])); mem += N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]);
     // Clock/Wall time output and stdout formatting
@@ -339,7 +341,7 @@ int main(int argc, char *argv[]){
         if ((SO_projectors = (double*) calloc(PROJ_LEN * ist.nproj, sizeof(double)))==NULL){nerror("mem_SO_projector");}  
     }
     // memory allocation for the non-local potential
-
+    
     if (1 == flag.NL){
         // Count the max number of grid points within Rnlcut of an atom***/
         printf("\tCount max no. grid points in Rnlcut; equil\n");
@@ -421,8 +423,6 @@ int main(int argc, char *argv[]){
     }
     
     write_cube_file(pot_local_equil, &grid, "local_pot_equil.cube");
-    long jx, jy, jz, jyz, jxyz, jtmp, jatom;
-    double dx, dy, dz
 
     if(flag.SO==1) {
     printf("\nEquilibrium spin-orbit pseudopotential:\n");

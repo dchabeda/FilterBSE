@@ -2,7 +2,7 @@
 //This file contains the function for generating the projectors used for the
 //non-local part of the hamiltonian
 
-#include "fd.h"
+#include "pot_coupling.h"
 
 /*****************************************************************************/
 #define calcBessel(x,x1)   ((x) < EPS ? 0 : (sin((x)) * ((x1)*(x1)) - cos((x)) * (x1)))

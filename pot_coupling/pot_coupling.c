@@ -388,6 +388,7 @@ int main(int argc, char *argv[]){
     if ( (flag.SO == 1) || (flag.NL == 1) ){
     free(SO_projectors); SO_projectors = NULL;
     }
+    
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** 
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
     // Potential mat elems
@@ -405,53 +406,6 @@ int main(int argc, char *argv[]){
 
     
 
-    // 2. Calculate the distorted local potential
-    if ((pot_local = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
-        fprintf(stderr, "\nOUT OF MEMORY: pot_local_equil\n\n"); exit(EXIT_FAILURE);
-    }
-    pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
-    pot.r = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
-    if (1.0 != par.scale_surface_Cs){
-        // allocate memory for separately read LR potentials if the surface atoms will be charge balanced
-        pot.r_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
-    }
-    pot.pseudo = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
-    if (1.0 != par.scale_surface_Cs){
-        pot.pseudo_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
-    }
-    pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
-    
-    build_local_pot(pot_local, &pot, R, atom, grid, &grid, &ist, &par, &flag, &parallel);
-    
-    write_cube_file(pot_local, &grid, "local_pot.cube");
-    
-    free(pot.r); pot.r = NULL; 
-    free(pot.pseudo); pot.pseudo = NULL; 
-    free(pot.dr); pot.dr = NULL; 
-    free(pot.file_lens); pot.file_lens = NULL;
-    if (1.0 != par.scale_surface_Cs){
-    free(pot.r_LR); pot.r_LR = NULL;
-    free(pot.pseudo_LR); pot.pseudo_LR = NULL; 
-    }
-
-
-    // 3. Calculate the distorted nonlocal potentials
-
-    if(flag.SO==1) {
-    printf("\nSpin-orbit pseudopotential:\n");
-    init_SO_projectors(SO_projectors, R, atom, &grid, &ist, &par);
-    }
-    /*** initialization for the non-local potential ***/
-    if (flag.NL == 1){
-    printf("\nNon-local pseudopotential:\n"); fflush(0);
-    init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag);
-    }
-    // free memory allocated to SO_projectors
-    if ( (flag.SO == 1) || (flag.NL == 1) ){
-    free(SO_projectors); SO_projectors = NULL;
-    }
-
-    
 
     // // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
     

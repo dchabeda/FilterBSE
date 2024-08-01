@@ -1,6 +1,6 @@
 #include "pot_coupling.h"
 
-void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equil, long *nl_equil, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par,index_st *ist, flag_st *flag){
+void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equil, long *nl_equil, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par, index_st *ist, flag_st *flag){
   FILE *pf, *pf1; 
   long i, a; 
   zomplex tmp;

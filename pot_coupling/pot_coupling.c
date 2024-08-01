@@ -12,6 +12,20 @@ int main(int argc, char *argv[]){
     * thesis                                                         *
     ******************************************************************/ 
 
+    // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** 
+    // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
+    // Potential mat elems
+    // This code computes dU = U(r; R) - U(r; R_equil)
+    // the difference between the potential energy surfaces of a Hamiltonian
+    // that parametrically depends on the nuclear coordinates vs one that
+    // only depends on the equilibrium nuclear configuration.
+    // We calculate the variation in the energies as a perturbation expansion
+    // E_0(R) = E_0(R_equil) + <phi_0|dU|phi_0> + sum_{i neq 0} |<phi_0|dU|phi_i>|^2/dE + ...
+    // We verify that the first order term is sufficient to describe the changes
+    // by computing its magnitude in comparison to the energy differences between
+    // states in the electronic manifold at the equilibrium geometry.
+    // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** 
+    // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
     // DECLARE VARIABLES AND STRUCTS
     // file pointers
     FILE *pmem;
@@ -231,14 +245,14 @@ int main(int argc, char *argv[]){
     fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / 1000000 );
     write_separation(pmem, bottom); fflush(pmem);
 
-    printf("\nTHE HOLES:\n");
-    for (i = 0; i < ist.n_holes; i++){
-        printf("%ld\n", ist.eval_hole_idxs[i]);
-    }
-    printf("\nTHE ELECS:\n");
-    for (i = 0; i < ist.n_elecs; i++){
-        printf("%ld\n", ist.eval_elec_idxs[i]);
-    }
+    // printf("\nTHE HOLES:\n");
+    // for (i = 0; i < ist.n_holes; i++){
+    //     printf("%ld\n", ist.eval_hole_idxs[i]);
+    // }
+    // printf("\nTHE ELECS:\n");
+    // for (i = 0; i < ist.n_elecs; i++){
+    //     printf("%ld\n", ist.eval_elec_idxs[i]);
+    // }
     
     // ******
     // ******
@@ -300,7 +314,7 @@ int main(int argc, char *argv[]){
     read_conf(file_name_equil, R_equil, atom_equil, &ist, &par, &flag);
 
     /*** read the distorted configuration ***/
-    sprintf(str, "\nReading atomic configuration from %s:\n", file_name_equil);
+    sprintf(str, "\nReading atomic configuration from %s:\n", file_name);
     printf("%s", str);
     read_conf(file_name, R, atom, &ist, &par, &flag);
 
@@ -320,13 +334,7 @@ int main(int argc, char *argv[]){
     }
     pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
     
-    // Wavefunction-type objects
-    if ((psi = (zomplex *)calloc(ist.nspinngrid, sizeof(zomplex))) == NULL){
-        fprintf(stderr, "\nOUT OF MEMORY: psi\n\n"); exit(EXIT_FAILURE);
-    }
-    if ((phi = (zomplex *)calloc(ist.nspinngrid, sizeof(zomplex))) == NULL){
-        fprintf(stderr, "\nOUT OF MEMORY: phi\n\n"); exit(EXIT_FAILURE);
-    }
+    // Local potential arrays
     if ((pot_local_equil = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
         fprintf(stderr, "\nOUT OF MEMORY: pot_local_equil\n\n"); exit(EXIT_FAILURE);
     }
@@ -339,8 +347,8 @@ int main(int argc, char *argv[]){
         if ((SO_projectors_equil = (double*) calloc(PROJ_LEN * ist.nproj, sizeof(double)))==NULL){nerror("mem_SO_projector");}  
         if ((SO_projectors = (double*) calloc(PROJ_LEN * ist.nproj, sizeof(double)))==NULL){nerror("mem_SO_projector");}  
     }
+
     // memory allocation for the non-local potential
-    
     if (1 == flag.NL){
         // Count the max number of grid points within Rnlcut of an atom***/
         printf("\tCount max no. grid points in Rnlcut; equil\n");
@@ -370,7 +378,7 @@ int main(int argc, char *argv[]){
         }
 
         // Count the max number of grid points within Rnlcut of an atom***/
-        printf("\tCount max no. grid points in Rnlcut; equil\n");
+        printf("\tCount max no. grid points in Rnlcut; distorted\n");
         ist.n_NL_gridpts = 0;
         for (jatom = 0; jatom < ist.n_NL_atoms; jatom++) {
             for (jtmp =0, jz = 0; jz < grid.nz; jz++) {
@@ -490,22 +498,14 @@ int main(int argc, char *argv[]){
     free(SO_projectors); SO_projectors = NULL;
     }
     
-    // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** 
-    // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
-    // Potential mat elems
-    // This code computes dU = U(r; R) - U(r; R_equil)
-    // the difference between the potential energy surfaces of a Hamiltonian
-    // that parametrically depends on the nuclear coordinates vs one that
-    // only depends on the equilibrium nuclear configuration.
-    // We calculate the variation in the energies as a perturbation expansion
-    // E_0(R) = E_0(R_equil) + <phi_0|dU|phi_0> + sum_{i neq 0} |<phi_0|dU|phi_i>|^2/dE + ...
-    // We verify that the first order term is sufficient to describe the changes
-    // by computing its magnitude in comparison to the energy differences between
-    // states in the electronic manifold at the equilibrium geometry.
-    // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** 
-    // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 
-    // // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
+    /*************************************************************************/
+    /*****************************************************************************/
+    // CALCULATE MATRIX ELEMENTS OF THE POTENTIALS
+    /*************************************************************************/
+    /*****************************************************************************/
+
+    // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
     printf("\n4.CALCULATING <psi_i|dU(r;R)|psi_j> \n"); fflush(0);
     calc_pot_mat_elems(psi_qp,pot_local_equil,nlc_equil,nl_equil,pot_local,nlc,nl,eig_vals,&par,&ist,&flag);
 

@@ -39,7 +39,7 @@ int main(int argc, char *argv[]){
     long jgrid, jgrid_real, jgrid_imag;
     long mem = 0;
     long jx, jy, jz, jyz, jxyz, jtmp, jatom;
-    double dx, dy, dz
+    double dx, dy, dz;
     ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
     fprintf(pmem, "alloc ist.atom_types %ld B\n", N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0])); mem += N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]);
     // Clock/Wall time output and stdout formatting
@@ -406,7 +406,7 @@ int main(int argc, char *argv[]){
     /*************************************************************************/
     /*****************************************************************************/
 
-    printf("\n3.\INITIALIZING EQUILIBRIUM & DISTORTED POTENTIALS\n");
+    printf("\n3.INITIALIZING EQUILIBRIUM & DISTORTED POTENTIALS\n");
     
     /**************************************************************************/
     
@@ -501,7 +501,7 @@ int main(int argc, char *argv[]){
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 
     // // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
-    printf("\n4.\CALCULATING <psi_i|dU(r;R)|psi_j> \n");
+    printf("\n4.CALCULATING <psi_i|dU(r;R)|psi_j> \n");
     calc_pot_mat_elems(psitot,pot_local_equil,nlc_equil,nl_equil,pot_local,nlc,nl,eig_vals,&par,&ist,&flag);
 
 

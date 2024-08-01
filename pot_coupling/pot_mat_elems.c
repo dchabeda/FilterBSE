@@ -23,7 +23,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
   printf("Starting calculation of equilibrium geometry matrix elements"); fflush(0);
   // First the hole-hole couplings
   // compute V_ia = <i|Vloc + Vnonlocal + Vso|j> 
-#pragma omp parallel for private(i)
+//#pragma omp parallel for private(i)
   for (i = 0; i < ist->mn_states_tot; i++){
     long istate, astate, jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
     

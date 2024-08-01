@@ -12,10 +12,10 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
 
   // Allocate memory for the v|psi> object
   if ((phi = (zomplex *)calloc(ist->nspinngrid, sizeof(zomplex))) == NULL){
-    fprintf(stderr, "\nOUT OF MEMORy: phi in calc_pot_overlap\n\n"); exit(EXIT_FAILURE);
+    fprintf(stderr, "\nOUT OF MEMORY: phi in calc_pot_overlap\n\n"); exit(EXIT_FAILURE);
   }
   if ((psi = (zomplex *)calloc(ist->nspinngrid, sizeof(zomplex))) == NULL){
-    fprintf(stderr, "\nOUT OF MEMORy: psi in calc_pot_overlap\n\n"); exit(EXIT_FAILURE);
+    fprintf(stderr, "\nOUT OF MEMORY: psi in calc_pot_overlap\n\n"); exit(EXIT_FAILURE);
   }
 
   // Main computional work of function performed here - must loop over all electron-electrom (a-a)
@@ -26,10 +26,13 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
 //#pragma omp parallel for private(i)
   for (i = 0; i < ist->mn_states_tot; i++){
     long istate, astate, jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
-    
+    printf("i = %ld", i); fflush(0);
     istate = ist->complex_idx* i *ist->nspinngrid;
     // Copy the current hole wavefunction into |psi>
+    
+    printf("Before memcpy"); fflush(0);
     memcpy(&psi[0], &psitot[ist->complex_idx*i*ist->nspinngrid], ist->complex_idx*ist->nspinngrid*sizeof(psitot[0]));
+    printf("memcpy successfull"); fflush(0);
     // Initialize the vector that will become |phi> = Vloc + Vnonlocal + Vso|psi>, as 0.0s
     // This next line is technically not necessaRy because calloc initializes memory to 0
     for (jgridup = 0; jgridup < ist->nspinngrid; jgridup++){
@@ -38,32 +41,33 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
     
     // Compute the potential |phi> = Vloc + Vnonlocal + Vso|psi>
     potential(phi, psi, pot_local_equil, nlc_equil, nl_equil, ist, par, flag);
-    
+    printf("Starting calculation of equilibrium geometry matrix elements"); fflush(0);
     for (a = 0; a < ist->mn_states_tot; a++){
+        printf("a = %ld", a); fflush(0);
         astate = ist->complex_idx* a *ist->nspinngrid;
         // Make sure g is zero'd to begin with
         g.re = g.im = 0.0;
         for (jgridup = 0; jgridup < ist->ngrid; jgridup++) {
-        jgridup_real = ist->complex_idx * jgridup;
-        jgridup_imag = ist->complex_idx * jgridup + 1;
-        jgriddn = jgridup+ist->ngrid;
-        jgriddn_real = ist->complex_idx *(jgridup+ist->ngrid);
-        jgriddn_imag = ist->complex_idx *(jgridup+ist->ngrid) + 1;
-
-        tmp.re =  (psitot[astate+jgridup_real] * phi[jgridup].re + psitot[astate+jgridup_imag] * phi[jgridup].im
-                    +psitot[astate+jgriddn_real] * phi[jgriddn].re + psitot[astate+jgriddn_imag] * phi[jgriddn].im );
-        if (1 == flag->isComplex){
-            tmp.im =  (-psitot[astate+jgridup_imag] * phi[jgridup].re + psitot[astate+jgridup_real] * phi[jgridup].im
-                        -psitot[astate+jgriddn_imag] * phi[jgriddn].re + psitot[astate+jgriddn_real] * phi[jgriddn].im) ;
-        } else if (0 == flag->isComplex){
-            tmp.im =  0.0;
-        }
-        g.re += tmp.re; g.im += tmp.im;
+            jgridup_real = ist->complex_idx * jgridup;
+            jgridup_imag = ist->complex_idx * jgridup + 1;
+            jgriddn = jgridup+ist->ngrid;
+            jgriddn_real = ist->complex_idx *(jgridup+ist->ngrid);
+            jgriddn_imag = ist->complex_idx *(jgridup+ist->ngrid) + 1;
+            printf("calculate tmp"); fflush(0);
+            tmp.re =  (psitot[astate+jgridup_real] * phi[jgridup].re + psitot[astate+jgridup_imag] * phi[jgridup].im
+                        +psitot[astate+jgriddn_real] * phi[jgriddn].re + psitot[astate+jgriddn_imag] * phi[jgriddn].im );
+            if (1 == flag->isComplex){
+                tmp.im =  (-psitot[astate+jgridup_imag] * phi[jgridup].re + psitot[astate+jgridup_real] * phi[jgridup].im
+                            -psitot[astate+jgriddn_imag] * phi[jgriddn].re + psitot[astate+jgriddn_real] * phi[jgriddn].im) ;
+            } else if (0 == flag->isComplex){
+                tmp.im =  0.0;
+            }
+            g.re += tmp.re; g.im += tmp.im;
         }
         g.re *= par->dv;
         g.im *= par->dv;
 
-    fprintf(pf,"%ld %ld %.12f %.12f %.12f\n", i, a, eval[a] - eval[i], g.re, g.im);
+        fprintf(pf,"%ld %ld %.12f %.12f %.12f\n", i, a, eval[a] - eval[i], g.re, g.im);
     }
   }
   fclose(pf);

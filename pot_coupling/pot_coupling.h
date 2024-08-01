@@ -188,13 +188,19 @@ int assign_crystal_structure(char *crystal_structure);
 int assign_outmost_material(char *outmost_material);
 double get_ideal_bond_len(long natyp_1, long natyp_2, int crystalStructureInt);
 
-// init
+// init_filter
 void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, grid_st *grid,
     index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par);
 void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
 double calc_dot_dimension(xyz_st *R, long n, char *dir);
 double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int);
+
+// init_bse
+// init.c
+void init_elec_hole_kernel(zomplex *potq, zomplex *potqx, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
+double calc_coulomb(double dr, double gamma);
+
 
 // projectors
 void gen_SO_projectors(double dx, double rcut, long nproj,double*  projectors, double* vr);

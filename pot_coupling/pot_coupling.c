@@ -411,6 +411,7 @@ int main(int argc, char *argv[]){
     pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
     
     // Calculate the distorted local potential
+    printf("\nDistorted local pseudopotential:\n");
     build_local_pot(pot_local, &pot, R, atom, &grid, &ist, &par, &flag, &parallel);
     
     write_cube_file(pot_local, &grid, "local_pot_distorted.cube");
@@ -427,12 +428,12 @@ int main(int argc, char *argv[]){
     // Calculate the distorted nonlocal potentials
 
     if(flag.SO==1) {
-    printf("\nSpin-orbit pseudopotential:\n");
+    printf("\nDistorted spin-orbit pseudopotential:\n");
     init_SO_projectors(SO_projectors, R, atom, &grid, &ist, &par);
     }
     /*** initialization for the non-local potential ***/
     if (flag.NL == 1){
-    printf("\nNon-local pseudopotential:\n"); fflush(0);
+    printf("\nDistorted non-local pseudopotential:\n"); fflush(0);
     init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag);
     }
     // free memory allocated to SO_projectors
@@ -455,65 +456,11 @@ int main(int argc, char *argv[]){
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** 
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 
-    
-
-
     // // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
-    
-    // long jgrid, jgrid_real, jgrid_imag, ims;
-    // double eval, eval2;
-    // // Loop over all M*N states
-    // for (ims = 0; ims < ist.mn_states_tot; ims++) {
-    //     // select the current state to compute sigma_E for
-    //     for (jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
-    //     jgrid_real = ist.complex_idx * jgrid;
-    //     jgrid_imag = ist.complex_idx * jgrid + 1;
-
-    //     psi[jgrid].re = psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_real];
-    //     if (1 == flag.isComplex){
-    //         psi[jgrid].im = psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_imag];
-    //     } else if (0 == flag.isComplex){
-    //         psi[jgrid].im = 0.0;
-    //     }
-        
-    //     }
-    //     memcpy(&phi[0],&psi[0],ist.nspinngrid*sizeof(phi[0]));
-    //     // Apply the potential to |psi>: |phi> = V|psi>
-    //     potential(phi, psi, pot_local, nlc, nl, &ist, &par, &flag);
-    //     // Calculate the expectation value of H for wavefunc psi: <psi|H|psi> = <psi|phi> = sum_{jgrid} psi[jgrid] * phi[jgrid] * dv
-    //     for (eval = 0.0, jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
-    //     jgrid_real = ist.complex_idx*jgrid;
-    //     jgrid_imag = ist.complex_idx*jgrid + 1;
-
-    //     eval += psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_real] * phi[jgrid].re;
-    //     if (1 == flag.isComplex){
-    //         eval += psitot[ist.complex_idx*ims*ist.nspinngrid+jgrid_imag] * phi[jgrid].im;
-    //     }
-    //     }
-    //     eval *= par.dv;
-
-    // }
-    // // 5. Calculate matrix elements of the equilibrium wavefunction with U(r;R)
-    
+    void calc_pot_mat_elems(psitot,pot_local_equil,nlc_equil,nl_equil,pot_local,nlc,nl,eig_vals,&par,&ist,&flag);
 
     return 0;
 }
 
 
-/*****************************************************************************/
-int countlines(char *filename){
-  FILE* fp = fopen(filename,"r");
-  int lines = 0;
-  int ch;
-  while(1){
-    ch = fgetc(fp);
-    if (feof(fp)){ break; }
-    if(ch == '\n')
-    {
-      lines++;
-    }
-  }
-  fclose(fp);
-  return lines;
-}
 

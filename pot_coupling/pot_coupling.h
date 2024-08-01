@@ -200,7 +200,6 @@ double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int)
 void init_elec_hole_kernel(zomplex *potq, zomplex *potqx, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 double calc_coulomb(double dr, double gamma);
 
-
 // projectors
 void gen_SO_projectors(double dx, double rcut, long nproj,double*  projectors, double* vr);
 void gen_nlc_projectors(double dx, double rcut, long nproj, double*  projectors,int* sgnProj, double* vr, atom_info *atm,long jatom);
@@ -219,7 +218,7 @@ void spin_orbit_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, inde
 void nonlocal_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, index_st *ist, par_st *par);
 
 //
-double dotpreal(zomplex *psi,double *phi,long m,long ngrid,double dv);
+void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equil, long *nl_equil, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par,index_st *ist, flag_st *flag);
 
 // basis
 void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag);

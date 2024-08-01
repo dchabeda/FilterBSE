@@ -2,7 +2,7 @@
 
 void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equil, long *nl_equil, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par,index_st *ist, flag_st *flag){
   FILE *pf, *pf1; 
-  long i, a, istate, jstate, astate, bstate, jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag; 
+  long i, a; 
   zomplex tmp;
   zomplex g, *phi, *psi;
   
@@ -23,7 +23,10 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
   
   // First the hole-hole couplings
   // compute V_ia = <i|Vloc + Vnonlocal + Vso|j> 
+#pragma omp parallel for private(i)
   for (i = 0; i < ist->mn_states_tot; i++){
+    long istate, astate, jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
+    
     istate = ist->complex_idx* i *ist->nspinngrid;
     // Copy the current hole wavefunction into |psi>
     memcpy(&psi[0], &psitot[ist->complex_idx*i*ist->nspinngrid], ist->complex_idx*ist->nspinngrid*sizeof(psitot[0]));
@@ -68,7 +71,10 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
   // Now the electron-electron couplings
   
   // compute V_ab = <a|Vloc + Vnonlocal + Vso|b> 
+#pragma omp parallel for private(i)
   for (i = 0; i < ist->mn_states_tot; i++){
+    long istate, astate, jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
+    
     istate = ist->complex_idx*i*ist->nspinngrid;
     // Copy the current hole wavefunction into |psi>
     memcpy(&psi[0], &psitot[ist->complex_idx*i*ist->nspinngrid], ist->nspinngrid*sizeof(psitot[0]));

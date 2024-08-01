@@ -363,7 +363,7 @@ int main(int argc, char *argv[]){
     /*************************************************************************/
     /*****************************************************************************/
 
-    printf("\nInitializing potentials...\n");
+    printf("\n3.\INITIALIZING EQUILIBRIUM & DISTORTED POTENTIALS\n");
     
     /**************************************************************************/
     
@@ -457,6 +457,7 @@ int main(int argc, char *argv[]){
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 
     // // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
+    printf("\n4.\CALCULATING <psi_i|dU(r;R)|psi_j> \n");
     calc_pot_mat_elems(psitot,pot_local_equil,nlc_equil,nl_equil,pot_local,nlc,nl,eig_vals,&par,&ist,&flag);
 
 

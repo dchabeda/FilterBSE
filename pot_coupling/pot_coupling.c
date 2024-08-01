@@ -317,7 +317,7 @@ int main(int argc, char *argv[]){
     /**************************************************************************/
     
     printf("\nEquilibrium local pseudopotential:\n");
-    build_local_pot(pot_local_equil, &pot, R_equil, atom_equil, grid, &grid, &ist, &par, &flag, &parallel);
+    build_local_pot(pot_local_equil, &pot, R_equil, atom_equil, &grid, &ist, &par, &flag, &parallel);
     
     free(pot.r); pot.r = NULL; 
     free(pot.pseudo); pot.pseudo = NULL; 
@@ -360,7 +360,7 @@ int main(int argc, char *argv[]){
     pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
     
     // Calculate the distorted local potential
-    build_local_pot(pot_local, &pot, R, atom, grid, &grid, &ist, &par, &flag, &parallel);
+    build_local_pot(pot_local, &pot, R, atom, &grid, &ist, &par, &flag, &parallel);
     
     write_cube_file(pot_local, &grid, "local_pot_distorted.cube");
     

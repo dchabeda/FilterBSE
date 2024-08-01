@@ -14,7 +14,7 @@ int main(int argc, char *argv[]){
 
     // DECLARE VARIABLES AND STRUCTS
     // file pointers
-    FILE *pf, *pmem;
+    FILE *pmem;
     pmem = fopen("mem.dat", "w");
     // zomplex types
     zomplex *psi, *phi;
@@ -32,13 +32,11 @@ int main(int argc, char *argv[]){
     double *gridx = NULL, *gridy = NULL, *gridz = NULL;
     double *psitot = NULL, *psi_hole = NULL, *psi_elec = NULL, *psi_qp;
     double *eig_vals = NULL, *sigma_E = NULL;
-    double *rho;
     // long int arrays and counters
     long *nl_equil = NULL; long *nl = NULL;
-    long i, j, state;
-    long jgrid, jgrid_real, jgrid_imag;
+    long i;
     long mem = 0;
-    long jx, jy, jz, jyz, jxyz, jtmp, jatom;
+    long jx, jy, jz, jtmp, jatom;
     double dx, dy, dz;
     ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
     fprintf(pmem, "alloc ist.atom_types %ld B\n", N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0])); mem += N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]);

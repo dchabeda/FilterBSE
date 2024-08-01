@@ -1,46 +1,214 @@
-#include "fd.h"
+/*****************************************************************************/
 
-long rand_interval(long min, long max, long *seed);
+#include "pot_coupling.h"
+
+/*****************************************************************************/
 
 int main(int argc, char *argv[]){
+    /*****************************************************************
+    * This is the main function for pot_coupling.x. It is the driver *
+    * for computing integrals of <psi_i|deltaU(r;R)|psi_j> used in   *
+    * the derivation of dynamics expressions (see Dipti Jasrasaria)  *
+    * thesis                                                         *
+    ******************************************************************/ 
+
     // DECLARE VARIABLES AND STRUCTS
     // file pointers
-    FILE *pf, *ppsi; 
+    FILE *pf, *pmem;
+    pmem = fopen("mem.dat", "w");
     // zomplex types
-    zomplex *psi, *phi; 
-    // FFT
-    fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi; 
-    long fft_flags=0;
+    zomplex *psi, *phi;
     // custom structs 
     flag_st flag; index_st ist; par_st par; 
-    atom_info *atom_equil; atom_info *atom;
+    atom_info *atom; atom_info *atom_equil;
     pot_st pot; 
     grid_st grid_par; 
     xyz_st *grid;
-    xyz_st *R; xyz_st *R_equil;
-    nlc_st *nlc = NULL; nlc_st *nlc_equil = NULL; 
+    xyz_st *R_equil; xyz_st *R; 
+    nlc_st *nlc_equil = NULL; nlc_st *nlc = NULL;  
     parallel_st parallel; 
     // double arrays
-    double *psitot;
-    double *ksqr, *pot_local_equil, *pot_local;
+    double *pot_local_equil, *pot_local;
     double *SO_projectors_equil; double *SO_projectors; 
+    
+    double *psitot = NULL, *psi_hole = NULL, *psi_elec = NULL, *psi_qp;
+    double *eig_vals = NULL, *sigma_E = NULL;
+    double *gridx = NULL, *gridy = NULL, *gridz = NULL;
+    double *rho;
     // long int arrays and counters
     long *nl_equil = NULL; long *nl = NULL;
-    long i, jms, j, rand_seed;
-    int start, end;
+    long i, j, state;
+    long jgrid, jgrid_real, jgrid_imag;
+    long mem = 0;
     ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
+    fprintf(pmem, "alloc ist.atom_types %ld B\n", N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0])); mem += N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]);
     // Clock/Wall time output and stdout formatting
     time_t start_time = time(NULL); // Get the actual time for total wall runtime
-    // time_t start_clock = clock(); // Get the starting CPU clock time for total CPU runtime
+    time_t start_clock = clock(); // Get the starting CPU clock time for total CPU runtime
     char *top; top = malloc(2*sizeof(top[0])); 
+    fprintf(pmem, "alloc top %ld B\n", 2*sizeof(top[0])); mem += 2*sizeof(top[0]);
     char *bottom; bottom = malloc(2*sizeof(bottom[0]));
+    fprintf(pmem, "alloc bottom %ld B\n", 2*sizeof(bottom[0])); mem += 2*sizeof(bottom[0]);
     strcpy(top, "T\0"); strcpy(bottom, "B\0");
-    
+
+
+    /*************************************************************************/
     fprintf(stdout, "******************************************************************************\n");
-    printf("\nRUNNING PROGRAM: POT MATRIX ELEMS\n");
+    printf("\nRUNNING PROGRAM: POT COUPLING INTEGRALS\n");
     printf("This calculation began at: %s", ctime(&start_time)); 
     write_separation(stdout, bottom);
     fflush(stdout);
+
+    /*************************************************************************/
+    /*************************************************************************/
+    // READ IN EQUILIBRIUM WAVEFUNCTIONS
+    /*************************************************************************/
+    /*************************************************************************/
+    
+    /*************************************************************************/
+    // 1. Initialize job from input file
+    
+    write_separation(stdout, top);
+    printf("\n1.\tREADING EQUILIBRIUM EIGENFUNCTIONS\n");
+    write_separation(stdout, bottom); fflush(stdout);
+
+    /*************************************************************************/
+    /*** Read output from filter output.par ***/
+    printf("\nReading filter output from output.dat:\n"); fflush(stdout);
+    // ******
+    // ******
+    read_filter_output("output.dat", &psitot, &eig_vals, &sigma_E, &R, &grid, &gridx, &gridy, &gridz, &ist, &par, &flag);
+    // ******
+    // ******
+
+    // Move the grid values into the grid struct arrays.
+    // The memory allocation got too thorny, so we do this simple transfer
+    
+    if ((grid.x = malloc( grid.nx * sizeof(grid.x[0]))) == NULL ){
+        fprintf(stderr, "ERROR: allocating memory for grid.x in main\n");
+        exit(EXIT_FAILURE);
+    }
+    if ((grid.y = malloc(grid.ny * sizeof(grid.y[0]))) == NULL ){
+            fprintf(stderr, "ERROR: allocating memory for grid.y in main\n");
+            exit(EXIT_FAILURE);
+        }
+    if ((grid.z = malloc( grid.nz * sizeof(grid.z[0]))) == NULL ){
+        fprintf(stderr, "ERROR: allocating memory for grid.z in main\n");
+        exit(EXIT_FAILURE);
+    }
+    fprintf(pmem, "alloc grid.x %ld B\n", grid.nx * sizeof(grid.x[0])); mem += grid.nx * sizeof(grid.x[0]);
+    fprintf(pmem, "alloc grid.y %ld B\n", grid.ny * sizeof(grid.y[0])); mem += grid.ny * sizeof(grid.y[0]);
+    fprintf(pmem, "alloc grid.z %ld B\n", grid.nz * sizeof(grid.z[0])); mem += grid.nz * sizeof(grid.z[0]);
+
+    for (i = 0; i < grid.nx; i++){
+        grid.x[i] = gridx[i];
+    }
+    for (i = 0; i < grid.ny; i++){
+        grid.y[i] = gridy[i];
+    }
+    for (i = 0; i < grid.nz; i++){
+        grid.z[i] = gridz[i];
+    }
+
+    /*************************************************************************/
+    /*** Read initial setup from input.par ***/
+    printf("\nReading BSE job specifications from input.par:\n"); fflush(stdout);
+    // ******
+    // ******
+    read_input(&flag, &grid, &ist, &par, &parallel);
+    // ******
+    // ******
+    fflush(stdout);
+
+    /*************************************************************************/
+    /*** Determine the configuration of the quasiparticle basis ***/
+    printf("\nSetting quasiparticle basis indices:\n"); fflush(stdout);
+    
+    // Allocate memory for the lists of the indices of eigenstates
+    // The maximum possible number of hole states is mn_states_tot from filter.
+    // We allocate an entire block of that size for both elecs and holes 
+    // because we will reallocate after the get_qp_basis_indices function.
+    if((ist.eval_hole_idxs = (long*) malloc(ist.mn_states_tot * sizeof(ist.eval_hole_idxs[0]))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for ist.eval_hole_idxs in main.c\n");
+        exit(EXIT_FAILURE);
+    }
+    if((ist.eval_elec_idxs = (long*) malloc(ist.mn_states_tot * sizeof(ist.eval_elec_idxs[0]))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for ist.eval_elec_idxs in main.c\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    // ******
+    // ******
+    get_qp_basis_indices(eig_vals, sigma_E, &ist.eval_hole_idxs, &ist.eval_elec_idxs, &ist, &par, &flag);
+    // ******
+    // ******
+    
+    // Reallocate the eig_vals and sigma_E arrays to only contain the n_qp states
+    eig_vals = realloc(eig_vals, ist.n_qp * sizeof(eig_vals[0]));
+    sigma_E = realloc(sigma_E, ist.n_qp * sizeof(sigma_E[0]));
+    
+    // Resize the index arrays to tightly contain the indices of eigenstates in VB/CB
+    // The conditional checks whether n_holes saturated the memory block (if so, no need to resize)
+    // or if they are not equal, then n_holes is smaller and we should shrink the array
+    if (ist.n_holes != ist.max_hole_states){
+        ist.eval_hole_idxs = realloc(ist.eval_hole_idxs, ist.n_holes * sizeof(long));
+    }
+    if (ist.n_elecs != ist.max_elec_states){
+        ist.eval_elec_idxs = realloc(ist.eval_elec_idxs, ist.n_elecs * sizeof(long));
+    }
+    fprintf(pmem, "alloc ist.eval_hole_idxs %ld B\n", ist.mn_states_tot * sizeof(ist.eval_hole_idxs[0])); mem += ist.mn_states_tot * sizeof(ist.eval_hole_idxs[0]);
+    fprintf(pmem, "alloc ist.eval_elec_idxs %ld B\n", ist.mn_states_tot * sizeof(ist.eval_elec_idxs[0])); mem += ist.mn_states_tot * sizeof(ist.eval_elec_idxs[0]);
+    
+
+    /*************************************************************************/
+    // Allocate memory for the electron and hole wavefunctions
+    if ((psi_hole = (double *) malloc( ist.complex_idx * ist.nspinngrid * ist.n_holes * sizeof(psi_hole[0]))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for psi_hole in main.c\n");
+        exit(EXIT_FAILURE);
+    }
+    if ((psi_elec = (double *) malloc( ist.complex_idx * ist.nspinngrid * ist.n_elecs * sizeof(psi_elec[0]))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for psi_elec in main.c\n");
+        exit(EXIT_FAILURE);
+    }
+    if ((psi_qp = (double *) malloc( ist.complex_idx * ist.nspinngrid * (ist.n_holes + ist.n_elecs) * sizeof(double))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for psi_elec in main.c\n");
+        exit(EXIT_FAILURE);
+    }
+    fprintf(pmem, "alloc psi_hole %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_holes * sizeof(psi_hole[0])); mem += ist.complex_idx*ist.nspinngrid*ist.n_holes*sizeof(psi_hole[0]);
+    fprintf(pmem, "alloc psi_elec %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_elecs * sizeof(psi_elec[0])); mem += ist.complex_idx*ist.nspinngrid*ist.n_elecs*sizeof(psi_elec[0]);
+    fprintf(pmem, "alloc psi_qp %ld B", ist.complex_idx * ist.nspinngrid * (ist.n_holes + ist.n_elecs) * sizeof(double)); mem += ist.complex_idx * ist.nspinngrid * (ist.n_holes + ist.n_elecs) * sizeof(double);
+    write_separation(pmem, top);
+    fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / 1000000 );
+    write_separation(pmem, bottom); fflush(pmem);
+
+    printf("\nTHE HOLES:\n");
+    for (i = 0; i < ist.n_holes; i++){
+        printf("%ld\n", ist.eval_hole_idxs[i]);
+    }
+    printf("\nTHE ELECS:\n");
+    for (i = 0; i < ist.n_elecs; i++){
+        printf("%ld\n", ist.eval_elec_idxs[i]);
+    }
+    
+    // ******
+    // ******
+    get_qp_basis(psi_qp, psitot, psi_hole, psi_elec, eig_vals, sigma_E, &ist, &par, &flag);
+    // ******
+    // ******
+    free(psitot); free(psi_hole); free(psi_elec); free(sigma_E);
+    fprintf(pmem, "free psitot %ld B\n", ist.complex_idx * ist.nspinngrid * ist.mn_states_tot * sizeof(double)); mem -= ist.complex_idx * ist.nspinngrid * ist.mn_states_tot * sizeof(double);
+    fprintf(pmem, "free psi_hole %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_holes * sizeof(psi_hole[0])); mem -= ist.complex_idx*ist.nspinngrid*ist.n_holes*sizeof(psi_hole[0]);
+    fprintf(pmem, "free psi_elec %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_elecs * sizeof(psi_elec[0])); mem -= ist.complex_idx*ist.nspinngrid*ist.n_elecs*sizeof(psi_elec[0]);
+    fprintf(pmem, "free sigma_E %ld B", ist.mn_states_tot * sizeof(double)); mem -= ist.mn_states_tot * sizeof(double);
+    write_separation(pmem, top);
+    fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / 1000000 );
+    write_separation(pmem, bottom); fflush(pmem);
+
+    /*************************************************************************/
+    /*****************************************************************************/
+    // READ IN EQUILIBRIUM AND DISTORTED GEOMETRIES
+    /*************************************************************************/
+    /*****************************************************************************/
 
     /*************************************************************************/
     // Initialize job from input file
@@ -72,33 +240,27 @@ int main(int argc, char *argv[]){
     printf("%s", str);
     read_conf(file_name_equil, R_equil, atom_equil, &ist, &par, &flag);
 
-    /*** initialize parameters for the grid ***/
-    printf("\nInitializing the grid parameters:\n");
-    init_grid_params(&grid_par, R_equil, &ist, &par, &flag);
+    // /*** initialize parameters for the grid ***/
+    // printf("\nInitializing the grid parameters:\n");
+    // init_grid_params(&grid_par, R_equil, &ist, &par, &flag);
 
-    // Allocate memory for the grid in the x, y, and z directions ***/
-    // Allocate memory for the grid in the x, y, and z directions ***/
-    if ((grid = (xyz_st *) calloc(grid_par.ngrid, sizeof(xyz_st))) == NULL){
-        fprintf(stderr, "\nOUT OF MEMORY: grid\n\n"); exit(EXIT_FAILURE);
-    }
-    // the kinetic energy stored on the grid
-    if ((ksqr = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
-        fprintf(stderr, "\nOUT OF MEMORY: ksqr\n\n"); exit(EXIT_FAILURE);
-    }
+    // // Allocate memory for the grid in the x, y, and z directions ***/
+    // // Allocate memory for the grid in the x, y, and z directions ***/
+    // if ((grid = (xyz_st *) calloc(grid_par.ngrid, sizeof(xyz_st))) == NULL){
+    //     fprintf(stderr, "\nOUT OF MEMORY: grid\n\n"); exit(EXIT_FAILURE);
+    // }
+    // // the kinetic energy stored on the grid
+    // if ((ksqr = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
+    //     fprintf(stderr, "\nOUT OF MEMORY: ksqr\n\n"); exit(EXIT_FAILURE);
+    // }
 
-    /*** build the real- and k-space grids ***/
-    printf("\nBuilding the real-space and k-space grids:\n");
-    build_grid_ksqr(ksqr, R_equil, grid, &grid_par, &ist, &par, &flag);
+    // /*** build the real- and k-space grids ***/
+    // printf("\nBuilding the real-space and k-space grids:\n");
+    //build_grid_ksqr(ksqr, R_equil, grid, &grid_par, &ist, &par, &flag);
     
     /*************************************************************************/
     /*** allocating memory for the rest of the program ***/
     printf("\nAllocating memory for FFT, pot, psi, eig_vals...");
-    
-    // FFT
-    fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist.ngrid);
-    /*** initialization for the fast Fourier transform ***/
-    planfw = fftw_plan_dft_3d(grid_par.nz, grid_par.ny, grid_par.nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-    planbw = fftw_plan_dft_3d(grid_par.nz, grid_par.ny, grid_par.nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
     
     // For reading the atomic potentials ***/
     pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
@@ -113,6 +275,7 @@ int main(int argc, char *argv[]){
     }
     pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
     
+     
     // Wavefunction-type objects
     if ((psi = (zomplex *)calloc(ist.nspinngrid, sizeof(zomplex))) == NULL){
         fprintf(stderr, "\nOUT OF MEMORY: psi\n\n"); exit(EXIT_FAILURE);

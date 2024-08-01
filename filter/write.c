@@ -19,8 +19,8 @@ void write_cube_file(double *rho, grid_st *grid, char *fileName) {
   char line[80], atomSymbol[10];
 
   if( access("conf.dat", F_OK) == -1 ){
-        printf("ERROR: no conf.dat file exists in directory\n", file_name);
-        fprintf(stderr, "ERROR: no conf.dat file exists in directory\n", file_name);
+        printf("ERROR: no conf.dat file exists in directory\n");
+        fprintf(stderr, "ERROR: no conf.dat file exists in directory\n");
         exit(EXIT_FAILURE);
   } else{
     pConfFile = fopen("conf.dat", "r");

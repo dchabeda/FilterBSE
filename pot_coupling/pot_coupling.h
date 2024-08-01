@@ -25,11 +25,10 @@ typedef struct flag {
   int retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint, saveOutput;
   int readGrid, useGaussianBasis;
 
-  int SO, NL, LR, useSpinors, isComplex;
   int setSeed;
   int printFPDensity;
   int calcDarkStates, calcSpinAngStat;
-  int timingSpecs, saveCheckpoints, restartFromCheckpoint, saveOutput;
+  int timingSpecs;
 } flag_st;
 
 typedef struct index {
@@ -46,18 +45,14 @@ typedef struct index {
   long nx, ny, nz;
   long nthreads;
 
-  long max_elec_states, max_hole_states, mn_states_tot;
-  long nthreads;
+  long max_elec_states, max_hole_states;
   long n_qp, n_xton;
-  long nx, ny, nz, ngrid, nspinngrid;
-  long n_atom_types, *atom_types;
-  long natoms, homo_idx, lumo_idx, n_holes, n_elecs;
+  long n_holes, n_elecs;
   long *eval_hole_idxs, *eval_elec_idxs;
   double ngrid_1;
   int n_FP_density;
   int printFPDensity; // 0 = False (default) or 1 = True
   int calcDarkStates; // 0 = False (default) or 1 = True
-  int nspin, complex_idx;
 
 } index_st;
 
@@ -76,9 +71,7 @@ typedef struct par {
 
   double dx, dy, dz, dr, dkx, dky, dkz, dv, epsX, epsY, epsZ;
   double xmin, xmax, ymin, ymax, zmin, zmax;
-  double KE_max;
-  double delta_E_elec, delta_E_hole, sigma_E_cut, fermi_E;
-  int checkpoint_id;
+  double delta_E_elec, delta_E_hole;
 } par_st;
 
 typedef struct atom_info {

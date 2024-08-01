@@ -457,7 +457,29 @@ int main(int argc, char *argv[]){
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 
     // // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
-    void calc_pot_mat_elems(psitot,pot_local_equil,nlc_equil,nl_equil,pot_local,nlc,nl,eig_vals,&par,&ist,&flag);
+    calc_pot_mat_elems(psitot,pot_local_equil,nlc_equil,nl_equil,pot_local,nlc,nl,eig_vals,&par,&ist,&flag);
+
+
+    /***********************************************************************/
+    free(psitot); 
+    free(psi); free(phi);
+    free(pot_local); free(pot_local_equil);
+    free(nlc_equil); free(nlc);
+    free(nl_equil); free(nl);
+    free(R_equil); free(R);
+    free(eig_vals); 
+    
+    time_t end_time = time(NULL);
+    time_t end_clock = clock();
+
+    write_separation(stdout, top);
+    printf("\nDONE WITH PROGRAM: POT COUPLING INTEGRALS\n");
+    printf("This calculation ended at: %s\n", ctime(&end_time)); 
+    printf("Total job CPU time (sec) %.4g, wall run time (sec) %.4g",
+            ((double)end_clock - (double)start_clock)/(double)(CLOCKS_PER_SEC), (double)end_time - (double)start_time );fflush(0);
+    write_separation(stdout, bottom);
+    
+    free(top); free(bottom);
 
     return 0;
 }

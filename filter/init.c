@@ -3,7 +3,7 @@
 
 /*****************************************************************************/
 
-void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par){
+void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag_st *flag){
   /*****************************************************************
   * This function initializes the parameters for building the grid *
   * The input geometry size is computed to ensure the number of    *

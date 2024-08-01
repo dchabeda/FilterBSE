@@ -499,7 +499,7 @@ int main(int argc, char *argv[]){
     // ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 
     // // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
-    printf("\n4.CALCULATING <psi_i|dU(r;R)|psi_j> \n");
+    printf("\n4.CALCULATING <psi_i|dU(r;R)|psi_j> \n"); fflush(0);
     calc_pot_mat_elems(psi_qp,pot_local_equil,nlc_equil,nl_equil,pot_local,nlc,nl,eig_vals,&par,&ist,&flag);
 
 

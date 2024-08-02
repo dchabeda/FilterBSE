@@ -276,24 +276,24 @@ int main(int argc, char *argv[]){
         rho = malloc(ist.ngrid * sizeof(rho[0]));
         char str[100];
         //Spin Up Wavefunction
-        sprintf(str,"hole-%ld-Up.cube", i);
+        sprintf(str,"hole-%ld-Up_qp.cube", i);
         for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
             jgrid_real = ist.complex_idx * jgrid;
             jgrid_imag = ist.complex_idx * jgrid + 1;
             
-            rho[jgrid] = sqr(psi_hole[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
-            if (1 == flag.isComplex) rho[jgrid] += sqr(psi_hole[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
+            rho[jgrid] = sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
+            if (1 == flag.isComplex) rho[jgrid] += sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
         }
         write_cube_file(rho, &grid, str);
         //Spin Down Wavefunction
         if (1 == flag.useSpinors){    
-        sprintf(str,"hole-%ld-Dn.cube", i);
+        sprintf(str,"hole-%ld-Dn_qp.cube", i);
         for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
             jgrid_real = ist.complex_idx * jgrid;
             jgrid_imag = ist.complex_idx * jgrid + 1;
             
-            rho[jgrid] = sqr(psi_hole[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
-                + sqr(psi_hole[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);    
+            rho[jgrid] = sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
+                + sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);    
         }
         write_cube_file(rho, &grid, str);
         } 

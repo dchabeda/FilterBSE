@@ -211,12 +211,12 @@ void get_qp_basis(double *psi, double *psitot, double *psi_hole, double *psi_ele
   double tmp1, tmp2;
 
   // Copy the hole states
-  for (i = 0; i < ist->max_hole_states; i++){
+  for (i = 0; i < ist->n_holes; i++){
     state_idx = ist->eval_hole_idxs[i];
     memcpy(&psi_hole[i * ist->nspinngrid * ist->complex_idx], &psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx * sizeof(psitot[0])) ;
   } 
   // Copy the electron states
-  for (i = 0; i < ist->max_elec_states; i++){
+  for (i = 0; i < ist->n_elecs; i++){
     state_idx = ist->eval_elec_idxs[i];
     memcpy(&psi_elec[i * ist->nspinngrid * ist->complex_idx], &psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx * sizeof(psitot[0]));
   } 

@@ -1,6 +1,6 @@
 #include "pot_coupling.h"
 
-void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equil, long *nl_equil, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par, index_st *ist, flag_st *flag){
+void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equil, long *nl_equil, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par, index_st *ist, flag_st *flag, long n_NL_gridpts_equil, long n_NL_gridpts){
   FILE *pf, *pf1; 
   long i, a; 
   zomplex tmp;
@@ -41,7 +41,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
     //printf("populated phi with zeros\n"); fflush(0);
     
     // Compute the potential |phi> = Vloc + Vnonlocal + Vso|psi>
-    potential(phi, psi, pot_local_equil, nlc_equil, nl_equil, ist, par, flag);
+    potential(phi, psi, pot_local_equil, nlc_equil, nl_equil, ist, par, flag, n_NL_gridpts_equil);
     for (a = 0; a < ist->mn_states_tot; a++){
         printf("a = %ld\n", a); fflush(0);
         astate = ist->complex_idx* a *ist->nspinngrid;
@@ -89,7 +89,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
     }
     
     // Compute the potential |phi> = Vloc + Vnonlocal + Vso|psi>
-    potential(phi, psi, pot_local, nlc, nl, ist, par, flag);
+    potential(phi, psi, pot_local, nlc, nl, ist, par, flag, n_NL_gridpts);
     
     for (a = 0; a < ist->mn_states_tot; a++){
         astate = ist->complex_idx* a *ist->nspinngrid;

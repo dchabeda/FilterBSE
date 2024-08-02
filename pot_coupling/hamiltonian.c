@@ -8,7 +8,7 @@
 
 // This calculates the total action of Vloc + Vnonloc + Vso|psi_tmp>
 void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, index_st *ist,
-  par_st *par, flag_st *flag){
+  par_st *par, flag_st *flag, long n_NL_gridpts){
   /*******************************************************************
   * This function calculates |psi_out> = [Vloc+V_SO+V_NL]|psi_tmp>   *
   * inputs:                                                          *
@@ -29,12 +29,12 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
   printf("memcpy successful\n"); fflush(0);
   if(flag->SO==1){
     // Calculate |psi_out> = V_SO|psi_tmp>
-    spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, n_NL_gridpts);
     printf("spin orbit successful\n"); fflush(0);
   }
   if (flag->NL == 1){
     // Calculate |psi_out> += V_NL|psi_tmp>
-    nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, n_NL_gridpts);
     printf("nonlocal successful\n"); fflush(0);
   }
   
@@ -53,7 +53,7 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
 }
 
 
-void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl, index_st *ist, par_st *par){
+void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl, index_st *ist, par_st *par, long n_NL_gridpts){
   /*******************************************************************
   * This function calculates the action of the spin-orbit nonlocal   *
   * potential using separable radial projector functions             *
@@ -110,7 +110,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
     // sprintf(str, "atom_%ld_Vr%ld.dat", jatom, idx);
     // pf = fopen(str, "w");
     // rho = (zomplex *) calloc(ist->nspinngrid, sizeof(rho[0])); // allocate memory and initialize all to zero
-    // r_p_idx = nlc[jatom * ist->n_NL_gridpts + idx].jxyz; // get the idx-th gridpt around atom jatom
+    // r_p_idx = nlc[jatom * n_NL_gridpts + idx].jxyz; // get the idx-th gridpt around atom jatom
     // rho[r_p_idx].re = 1.0 / sqrt(par->dv); // Make wavefunction a delta function at r_p
     // rho[r_p_idx+ist->nspinngrid].re = 1.0 / sqrt(par->dv);
 
@@ -121,7 +121,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
         for ( m_p = 0; m_p < 3; m_p++){
           proj.re = proj.im = 0.00;
           for ( NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
-            index1 = jatom * ist->n_NL_gridpts + NL_gridpt;
+            index1 = jatom * n_NL_gridpts + NL_gridpt;
             r = nlc[index1].jxyz + (ist->ngrid) * spin_p;
             
             //weird signs b/c of Y_{lm}^*
@@ -162,7 +162,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
 
               //TODO: check why signs funky in update psi_out 214, 215, 217, 218;
               for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
-                index2 = jatom * ist->n_NL_gridpts + NL_gridpt;
+                index2 = jatom * n_NL_gridpts + NL_gridpt;
                 r_p = nlc[index2].jxyz + (ist->ngrid)*spin;
 
                 psi_out[r_p].re += nlc[index2].proj[iproj] * nlc[index2].y1[m].re * PLS.re;
@@ -186,7 +186,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
     }
     printf("jatom = %ld ist->nproj = %ld\n", jatom, ist->nproj); fflush(0);
     // for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
-    //   index2 = jatom * ist->n_NL_gridpts + NL_gridpt;
+    //   index2 = jatom * n_NL_gridpts + NL_gridpt;
     //   r_p = nlc[index2].jxyz + (ist->ngrid)*spin;
     //   fprintf(pf, "%ld %ld %lg %lg\n", r_p, idx, psi_out[r_p].re, psi_out[r_p].im);
     // }
@@ -199,7 +199,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
 
 /*****************************************************************************/
 
-void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl, index_st *ist, par_st *par){
+void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl, index_st *ist, par_st *par, long n_NL_gridpts){
   /*******************************************************************
   * This function calculates the action of the angular nonlocal      *
   * potential using separable radial projector functions             *
@@ -223,7 +223,7 @@ void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl
         for ( m = 0; m < 3; m++){
           proj.re = proj.im = 0.00;
           for ( NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
-            index1 = jatom * ist->n_NL_gridpts + NL_gridpt;
+            index1 = jatom * n_NL_gridpts + NL_gridpt;
             r = nlc[index1].jxyz + (ist->ngrid)*spin;
             
             //weird signs b/c of Y_{lm}^*
@@ -243,7 +243,7 @@ void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl
           proj.im *= par->dv;
           
           for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
-            index2 = jatom * ist->n_NL_gridpts + NL_gridpt;
+            index2 = jatom * n_NL_gridpts + NL_gridpt;
             r_p = nlc[index2].jxyz + (ist->ngrid)*spin;
 
             psi_out[r_p].re += nlc[index2].NL_proj[iproj] * nlc[index2].y1[m].re * proj.re;

@@ -350,7 +350,7 @@ int main(int argc, char *argv[]){
     if (1 == flag.NL){
         // Count the max number of grid points within Rnlcut of an atom***/
         printf("\tCount max no. grid points in Rnlcut; equil\n");
-        ist.n_NL_gridpts = 0;
+        ist.n_NL_gridpts_equil = 0;
         for (jatom = 0; jatom < ist.n_NL_atoms; jatom++) {
             for (jtmp = 0, jz = 0; jz < grid.nz; jz++) {
                 for (jy = 0; jy < grid.ny; jy++) {
@@ -364,11 +364,11 @@ int main(int argc, char *argv[]){
                     }
                 }
             }
-            if (jtmp > ist.n_NL_gridpts) ist.n_NL_gridpts = jtmp;
+            if (jtmp > ist.n_NL_gridpts_equil) ist.n_NL_gridpts_equil = jtmp;
         }
-        printf("\tequilibrium n_NL_gridpts = %ld\n", ist.n_NL_gridpts);
+        printf("\tequilibrium n_NL_gridpts = %ld\n", ist.n_NL_gridpts_equil);
 
-        if ((nlc_equil = (nlc_st *) calloc(ist.n_NL_atoms*ist.n_NL_gridpts, sizeof(nlc_st))) == NULL){ 
+        if ((nlc_equil = (nlc_st *) calloc(ist.n_NL_atoms*ist.n_NL_gridpts_equil, sizeof(nlc_st))) == NULL){ 
         fprintf(stderr, "\nOUT OF MEMORY: nlc\n\n"); exit(EXIT_FAILURE);
         }
         if ((nl_equil = (long *) calloc(ist.natoms, sizeof(nl[0]))) == NULL) {
@@ -443,7 +443,7 @@ int main(int argc, char *argv[]){
     /*** initialization for the non-local potential ***/
     if (flag.NL == 1){
     printf("\nEquilibrium non-local pseudopotential:\n"); fflush(0);
-    init_NL_projectors(nlc_equil, nl_equil, SO_projectors_equil, R_equil, atom_equil, &grid, &ist, &par, &flag);
+    init_NL_projectors(nlc_equil, nl_equil, SO_projectors_equil, R_equil, atom_equil, &grid, &ist, &par, &flag, ist->n_NL_gridpts_equil);
     }
     // free memory allocated to SO_projectors
     if ( (flag.SO == 1) || (flag.NL == 1) ){
@@ -489,7 +489,7 @@ int main(int argc, char *argv[]){
     /*** initialization for the non-local potential ***/
     if (flag.NL == 1){
     printf("\nDistorted non-local pseudopotential:\n"); fflush(0);
-    init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag);
+    init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag, ist->n_NL_gridpts);
     }
     // free memory allocated to SO_projectors
     if ( (flag.SO == 1) || (flag.NL == 1) ){
@@ -505,7 +505,7 @@ int main(int argc, char *argv[]){
 
     // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
     printf("\n4.CALCULATING <psi_i|dU(r;R)|psi_j> \n"); fflush(0);
-    calc_pot_mat_elems(psi_qp,pot_local_equil,nlc_equil,nl_equil,pot_local,nlc,nl,eig_vals,&par,&ist,&flag);
+    calc_pot_mat_elems(psi_qp,pot_local_equil,nlc_equil,nl_equil,pot_local,nlc,nl,eig_vals,&par,&ist,&flag,ist.n_NL_gridpts_equil,ist.n_NL_gridpts);
 
 
     /***********************************************************************/

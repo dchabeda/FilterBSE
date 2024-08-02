@@ -36,7 +36,7 @@ typedef struct index {
   long ngrid, nspinngrid, ncheby;
   long natoms, n_atom_types, n_max_atom_types;
   long *atom_types;
-  long max_pot_file_len, n_NL_gridpts, n_NL_atoms, nproj;
+  long max_pot_file_len, n_NL_gridpts_equil, n_NL_gridpts, n_NL_atoms, nproj;
   int nspin, ncubes, ngeoms;
   int complex_idx;
   int crystal_structure_int, outmost_material_int;
@@ -192,7 +192,7 @@ double get_ideal_bond_len(long natyp_1, long natyp_2, int crystalStructureInt);
 void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, grid_st *grid,
     index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par);
-void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
+void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, long n_NL_gridpts);
 double calc_dot_dimension(xyz_st *R, long n, char *dir);
 double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int);
 
@@ -213,12 +213,12 @@ double calc_regular_tetrahedron_volume(double bond_length1, double bond_length2,
 double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,double *pot_LR,long pot_file_len,long n,long j, int scale_LR, double scale_LR_par, double strain_factor, int is_LR);
 
 // potential
-void potential(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, index_st *ist, par_st *par, flag_st *flag);
-void spin_orbit_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, index_st *ist, par_st *par);
-void nonlocal_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, index_st *ist, par_st *par);
+void potential(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, index_st *ist, par_st *par, flag_st *flag, long n_NL_gridpts);
+void spin_orbit_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, index_st *ist, par_st *par, long n_NL_gridpts);
+void nonlocal_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, index_st *ist, par_st *par, long n_NL_gridpts);
 
 //
-void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equil, long *nl_equil, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par,index_st *ist, flag_st *flag);
+void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equil, long *nl_equil, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par,index_st *ist, flag_st *flag, long n_NL_gridpts_equil, long n_NL_gridpts);
 
 // basis
 void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag);

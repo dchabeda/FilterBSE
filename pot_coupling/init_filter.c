@@ -432,7 +432,7 @@ void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_
 
 
 /*****************************************************************************/
-void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,atom_info *atom, grid_st *grid, index_st *ist,par_st *par, flag_st *flag){
+void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,atom_info *atom, grid_st *grid, index_st *ist,par_st *par, flag_st *flag, long n_NL_gridpts){
   /*******************************************************************
   * This function initializes the non local pot projectors.          *
   * inputs:                                                          *
@@ -514,44 +514,44 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
           dxeps = dx + EPSDX;
           dr2 = dx * dx + dy * dy + dz * dz;
           if (dr2 < par->R_NLcut2) {
-            nlc[jatom*ist->n_NL_gridpts + nl[jatom]].jxyz = jxyz;
+            nlc[jatom*n_NL_gridpts + nl[jatom]].jxyz = jxyz;
 
-            nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r  = sqrt(dr2);
+            nlc[jatom*n_NL_gridpts + nl[jatom]].r  = sqrt(dr2);
 
             dr_1 = 1.0 / sqrt(dx * dx + dy * dy + dzeps * dzeps);
-            nlc[jatom*ist->n_NL_gridpts + nl[jatom]].y1[1].re = tmp1 * dzeps * dr_1;
-            nlc[jatom*ist->n_NL_gridpts + nl[jatom]].y1[1].im = 0.0;
+            nlc[jatom*n_NL_gridpts + nl[jatom]].y1[1].re = tmp1 * dzeps * dr_1;
+            nlc[jatom*n_NL_gridpts + nl[jatom]].y1[1].im = 0.0;
 
             dr_1 = 1.0 / sqrt(dxeps * dxeps + dy * dy + dz * dz);
-            nlc[jatom*ist->n_NL_gridpts + nl[jatom]].y1[2].re  = -tmp2 * dxeps * dr_1;
-            nlc[jatom*ist->n_NL_gridpts + nl[jatom]].y1[0].re = tmp2 * dxeps * dr_1;
+            nlc[jatom*n_NL_gridpts + nl[jatom]].y1[2].re  = -tmp2 * dxeps * dr_1;
+            nlc[jatom*n_NL_gridpts + nl[jatom]].y1[0].re = tmp2 * dxeps * dr_1;
 
             dr_1 = 1.0 / sqrt(dx * dx + dyeps * dyeps + dz * dz);
-            nlc[jatom*ist->n_NL_gridpts + nl[jatom]].y1[2].im  = -tmp2 * dyeps * dr_1;
-            nlc[jatom*ist->n_NL_gridpts + nl[jatom]].y1[0].im = -tmp2 * dyeps * dr_1;
+            nlc[jatom*n_NL_gridpts + nl[jatom]].y1[2].im  = -tmp2 * dyeps * dr_1;
+            nlc[jatom*n_NL_gridpts + nl[jatom]].y1[0].im = -tmp2 * dyeps * dr_1;
 
             //write projectors to nlc struct and scale projectors by the SO scaling for this atom
             for (iproj = 0; iproj< ist->nproj; iproj++){ 
-                nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj] = 
+                nlc[jatom*n_NL_gridpts + nl[jatom]].proj[iproj] = 
                   interpolate(sqrt(dr2),dr_proj,vr,NULL, &SO_projectors[N*iproj],NULL,0, N,0,0,1.0, 1.0, 0);
                 //scale projectors by the SO scaling for this atom
-                nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj] *= sqrt(atom[jatom].SO_par);
-                //fprintf(pf, "%li %i %f %f %f\n", jatom, iproj,nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r,nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj], sqrt(atom[jatom].SO_par) );
+                nlc[jatom*n_NL_gridpts + nl[jatom]].proj[iproj] *= sqrt(atom[jatom].SO_par);
+                //fprintf(pf, "%li %i %f %f %f\n", jatom, iproj,nlc[jatom*n_NL_gridpts + nl[jatom]].r,nlc[jatom*n_NL_gridpts + nl[jatom]].proj[iproj], sqrt(atom[jatom].SO_par) );
 
                 if (flag->NL == 1){
-                  nlc[jatom*ist->n_NL_gridpts + nl[jatom]].NL_proj[iproj] =
+                  nlc[jatom*n_NL_gridpts + nl[jatom]].NL_proj[iproj] =
                   interpolate(sqrt(dr2),dr_proj,vr,NULL, &nlcprojectors[N*iproj],NULL,0, N,0,0,1.0,1.0,0);
-                  nlc[jatom*ist->n_NL_gridpts + nl[jatom]].NL_proj_sign[iproj] = sgnProj[iproj];
+                  nlc[jatom*n_NL_gridpts + nl[jatom]].NL_proj_sign[iproj] = sgnProj[iproj];
                 }
             }
 
             if (dr2 > EPSDX) {
-              nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2_1 = sqr(dr_1);
-              nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2 = dr2;
+              nlc[jatom*n_NL_gridpts + nl[jatom]].r2_1 = sqr(dr_1);
+              nlc[jatom*n_NL_gridpts + nl[jatom]].r2 = dr2;
             }
             else {
-              nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2_1 = 0.0;
-              nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2 = 1.0 / EPSDX;
+              nlc[jatom*n_NL_gridpts + nl[jatom]].r2_1 = 0.0;
+              nlc[jatom*n_NL_gridpts + nl[jatom]].r2 = 1.0 / EPSDX;
             }
             nl[jatom]++;
           }

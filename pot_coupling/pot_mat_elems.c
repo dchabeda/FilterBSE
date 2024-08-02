@@ -24,7 +24,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
   // First the hole-hole couplings
   // compute V_ia = <i|Vloc + Vnonlocal + Vso|j> 
 #pragma omp parallel for private(i)
-  for (i = 0; i < ist->mn_states_tot; i++){
+  for (i = 0; i < ist->n_qp; i++){
     long istate, astate, jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
     printf("i = %ld\n", i); fflush(0);
     istate = ist->complex_idx* i *ist->nspinngrid;
@@ -42,7 +42,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
     
     // Compute the potential |phi> = Vloc + Vnonlocal + Vso|psi>
     potential(phi, psi, pot_local_equil, nlc_equil, nl_equil, ist, par, flag, n_NL_gridpts_equil);
-    for (a = 0; a < ist->mn_states_tot; a++){
+    for (a = 0; a < ist->n_qp; a++){
         //printf("a = %ld\n", a); fflush(0);
         astate = ist->complex_idx* a *ist->nspinngrid;
         // Make sure g is zero'd to begin with
@@ -76,7 +76,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
   printf("Starting calculation of distorted geometry matrix elements"); fflush(0);
   // compute V_ab = <a|Vloc + Vnonlocal + Vso|b> 
 #pragma omp parallel for private(i)
-  for (i = 0; i < ist->mn_states_tot; i++){
+  for (i = 0; i < ist->n_qp; i++){
     long istate, astate, jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
     
     istate = ist->complex_idx*i*ist->nspinngrid;
@@ -91,7 +91,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
     // Compute the potential |phi> = Vloc + Vnonlocal + Vso|psi>
     potential(phi, psi, pot_local, nlc, nl, ist, par, flag, n_NL_gridpts);
     
-    for (a = 0; a < ist->mn_states_tot; a++){
+    for (a = 0; a < ist->n_qp; a++){
         astate = ist->complex_idx* a *ist->nspinngrid;
         // Make sure g is zero'd to begin with
         g.re = g.im = 0.0;

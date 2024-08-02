@@ -104,7 +104,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
   // zomplex *rho;
   // long r_p_idx, idx = 1000;
   //
-  printf("Entered spin orbit potential calc\n"); fflush(0);
+  
   for ( jatom = 0; jatom < ist->n_NL_atoms; jatom++){
 
     // sprintf(str, "atom_%ld_Vr%ld.dat", jatom, idx);

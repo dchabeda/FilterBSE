@@ -2,9 +2,9 @@
 
 void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equil, long *nl_equil, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par, index_st *ist, flag_st *flag, long n_NL_gridpts_equil, long n_NL_gridpts){
   FILE *pf, *pf1; 
-  long i, a; 
+  long i; 
   zomplex tmp;
-  zomplex g, *phi, *psi;
+  zomplex *phi, *psi;
   
   // Output will be written to this file
   pf = fopen("pot_overlap_equil.dat" , "w"); 
@@ -25,8 +25,11 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
   // compute V_ia = <i|Vloc + Vnonlocal + Vso|j> 
 #pragma omp parallel for private(i)
   for (i = 0; i < ist->n_qp; i++){
-    long istate, astate, jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
-    printf("i = %ld\n", i); fflush(0);
+    long jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
+    long istate, astate, a;
+    zomplex g;
+
+    // printf("i = %ld\n", i); fflush(0);
     istate = ist->complex_idx* i *ist->nspinngrid;
     // Copy the current hole wavefunction into |psi>
     
@@ -77,8 +80,10 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
   // compute V_ab = <a|Vloc + Vnonlocal + Vso|b> 
 #pragma omp parallel for private(i)
   for (i = 0; i < ist->n_qp; i++){
-    long istate, astate, jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
-    
+    long jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
+    long istate, astate, a;
+    zomplex g;
+
     istate = ist->complex_idx*i*ist->nspinngrid;
     // Copy the current hole wavefunction into |psi>
     memcpy(&psi[0], &psitot[ist->complex_idx*i*ist->nspinngrid], ist->nspinngrid*sizeof(psitot[0]));
@@ -116,7 +121,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
         g.re *= par->dv;
         g.im *= par->dv;
 
-        fprintf(pf1,"%ld %.9f %ld %.9f %.12f %.12f\n", i, eval[i], a, eval[a], g.re, g.im);
+        fprintf(pf1,"%ld % .9f %ld % .9f % .12f % .12f\n", i, eval[i], a, eval[a], g.re, g.im);
     }
   }
   fclose(pf1);

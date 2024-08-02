@@ -184,7 +184,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
         }
       }
     }
-    printf("ist->nproj = %ld\n", ist->nproj); fflush(0);
+    printf("jatom = %ld ist->nproj = %ld\n", jatom, ist->nproj); fflush(0);
     // for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
     //   index2 = jatom * ist->n_NL_gridpts + NL_gridpt;
     //   r_p = nlc[index2].jxyz + (ist->ngrid)*spin;

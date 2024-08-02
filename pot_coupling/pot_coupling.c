@@ -443,7 +443,7 @@ int main(int argc, char *argv[]){
     /*** initialization for the non-local potential ***/
     if (flag.NL == 1){
     printf("\nEquilibrium non-local pseudopotential:\n"); fflush(0);
-    init_NL_projectors(nlc_equil, nl_equil, SO_projectors_equil, R_equil, atom_equil, &grid, &ist, &par, &flag, ist->n_NL_gridpts_equil);
+    init_NL_projectors(nlc_equil, nl_equil, SO_projectors_equil, R_equil, atom_equil, &grid, &ist, &par, &flag, ist.n_NL_gridpts_equil);
     }
     // free memory allocated to SO_projectors
     if ( (flag.SO == 1) || (flag.NL == 1) ){
@@ -489,7 +489,7 @@ int main(int argc, char *argv[]){
     /*** initialization for the non-local potential ***/
     if (flag.NL == 1){
     printf("\nDistorted non-local pseudopotential:\n"); fflush(0);
-    init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag, ist->n_NL_gridpts);
+    init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag, ist.n_NL_gridpts);
     }
     // free memory allocated to SO_projectors
     if ( (flag.SO == 1) || (flag.NL == 1) ){

@@ -23,7 +23,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
   printf("Starting calculation of equilibrium geometry matrix elements\n\n"); fflush(0);
   // First the hole-hole couplings
   // compute V_ia = <i|Vloc + Vnonlocal + Vso|j> 
-//#pragma omp parallel for private(i)
+#pragma omp parallel for private(i)
   for (i = 0; i < ist->mn_states_tot; i++){
     long istate, astate, jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
     printf("i = %ld\n", i); fflush(0);
@@ -43,7 +43,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
     // Compute the potential |phi> = Vloc + Vnonlocal + Vso|psi>
     potential(phi, psi, pot_local_equil, nlc_equil, nl_equil, ist, par, flag, n_NL_gridpts_equil);
     for (a = 0; a < ist->mn_states_tot; a++){
-        printf("a = %ld\n", a); fflush(0);
+        //printf("a = %ld\n", a); fflush(0);
         astate = ist->complex_idx* a *ist->nspinngrid;
         // Make sure g is zero'd to begin with
         g.re = g.im = 0.0;
@@ -53,7 +53,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
             jgriddn = jgridup+ist->ngrid;
             jgriddn_real = ist->complex_idx *(jgridup+ist->ngrid);
             jgriddn_imag = ist->complex_idx *(jgridup+ist->ngrid) + 1;
-            printf("calculate tmp\n"); fflush(0);
+            //printf("calculate tmp\n"); fflush(0);
             tmp.re =  (psitot[astate+jgridup_real] * phi[jgridup].re + psitot[astate+jgridup_imag] * phi[jgridup].im
                         +psitot[astate+jgriddn_real] * phi[jgriddn].re + psitot[astate+jgriddn_imag] * phi[jgriddn].im );
             if (1 == flag->isComplex){

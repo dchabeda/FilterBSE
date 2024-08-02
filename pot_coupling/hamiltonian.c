@@ -24,15 +24,18 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
   ********************************************************************/
 
   long j, jtmp, jspin;
+  printf("Before memcpy in hamiltonian\n"); fflush(0);
   memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid*sizeof(psi_tmp[0]));
-
+  printf("memcpy successful\n"); fflush(0);
   if(flag->SO==1){
     // Calculate |psi_out> = V_SO|psi_tmp>
     spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    printf("spin orbit successful\n"); fflush(0);
   }
   if (flag->NL == 1){
     // Calculate |psi_out> += V_NL|psi_tmp>
     nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    printf("nonlocal successful\n"); fflush(0);
   }
   
   // Calculate the action of the local potential energy part of the Hamiltonian on psi_tmp
@@ -44,6 +47,7 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
       psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
     }
   }
+  printf("local successful\n"); fflush(0);
 
   return;
 }

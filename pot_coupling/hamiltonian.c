@@ -24,18 +24,18 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
   ********************************************************************/
 
   long j, jtmp, jspin;
-  printf("Before memcpy in hamiltonian\n"); fflush(0);
+  // printf("Before memcpy in hamiltonian\n"); fflush(0);
   memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid*sizeof(psi_tmp[0]));
-  printf("memcpy successful\n"); fflush(0);
+  // printf("memcpy successful\n"); fflush(0);
   if(flag->SO==1){
     // Calculate |psi_out> = V_SO|psi_tmp>
     spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, n_NL_gridpts);
-    printf("spin orbit successful\n"); fflush(0);
+    // printf("spin orbit successful\n"); fflush(0);
   }
   if (flag->NL == 1){
     // Calculate |psi_out> += V_NL|psi_tmp>
     nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, n_NL_gridpts);
-    printf("nonlocal successful\n"); fflush(0);
+    // printf("nonlocal successful\n"); fflush(0);
   }
   
   // Calculate the action of the local potential energy part of the Hamiltonian on psi_tmp
@@ -47,7 +47,7 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
       psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
     }
   }
-  printf("local successful\n"); fflush(0);
+  // printf("local successful\n"); fflush(0);
 
   return;
 }
@@ -184,7 +184,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
         }
       }
     }
-    printf("jatom = %ld ist->nproj = %ld\n", jatom, ist->nproj); fflush(0);
+    // printf("jatom = %ld ist->nproj = %ld\n", jatom, ist->nproj); fflush(0);
     // for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
     //   index2 = jatom * n_NL_gridpts + NL_gridpt;
     //   r_p = nlc[index2].jxyz + (ist->ngrid)*spin;
@@ -193,7 +193,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
     // fclose(pf);
   }
 
-  printf("Done inside of spin orbit calc\n"); fflush(0);
+  // printf("Done inside of spin orbit calc\n"); fflush(0);
   return;
 }
 

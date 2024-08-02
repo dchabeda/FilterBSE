@@ -20,13 +20,13 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
 
   // Main computional work of function performed here - must loop over all electron-electrom (a-a)
   // and hole-hole pairs
-  printf("Starting calculation of equilibrium geometry matrix elements"); fflush(0);
+  printf("Starting calculation of equilibrium geometry matrix elements\n\n"); fflush(0);
   // First the hole-hole couplings
   // compute V_ia = <i|Vloc + Vnonlocal + Vso|j> 
 //#pragma omp parallel for private(i)
   for (i = 0; i < ist->mn_states_tot; i++){
     long istate, astate, jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
-    printf("i = %ld", i); fflush(0);
+    printf("i = %ld\n", i); fflush(0);
     istate = ist->complex_idx* i *ist->nspinngrid;
     // Copy the current hole wavefunction into |psi>
     
@@ -38,10 +38,10 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
     for (jgridup = 0; jgridup < ist->nspinngrid; jgridup++){
       phi[jgridup].re = phi[jgridup].im = 0.0;
     }
+    printf("populated phi with zeros\n"); fflush(0);
     
     // Compute the potential |phi> = Vloc + Vnonlocal + Vso|psi>
     potential(phi, psi, pot_local_equil, nlc_equil, nl_equil, ist, par, flag);
-    printf("Starting calculation of equilibrium geometry matrix elements\n"); fflush(0);
     for (a = 0; a < ist->mn_states_tot; a++){
         printf("a = %ld\n", a); fflush(0);
         astate = ist->complex_idx* a *ist->nspinngrid;

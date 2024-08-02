@@ -115,7 +115,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
     // rho[r_p_idx+ist->nspinngrid].re = 1.0 / sqrt(par->dv);
 
     // memcpy(&psi_tmp[0], &rho[0], ist->nspinngrid*sizeof(psi_tmp[0]));
-    printf("ist->nproj = %ld\n", ist->nproj); fflush(0);
+    //printf("ist->nproj = %ld\n", ist->nproj); fflush(0);
     for ( iproj = 0; iproj < ist->nproj; iproj++){
       for ( spin_p = 0; spin_p < 2; spin_p++){
         for ( m_p = 0; m_p < 3; m_p++){
@@ -184,6 +184,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
         }
       }
     }
+    printf("ist->nproj = %ld\n", ist->nproj); fflush(0);
     // for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
     //   index2 = jatom * ist->n_NL_gridpts + NL_gridpt;
     //   r_p = nlc[index2].jxyz + (ist->ngrid)*spin;
@@ -192,6 +193,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
     // fclose(pf);
   }
 
+  printf("Done inside of spin orbit calc\n"); fflush(0);
   return;
 }
 

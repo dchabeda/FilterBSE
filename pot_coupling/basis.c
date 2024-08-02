@@ -228,8 +228,8 @@ void get_qp_basis(double *psi, double *psitot, double *psi_hole, double *psi_ele
         jgrid_real = ist->complex_idx * jgrid;
         jgrid_imag = ist->complex_idx * jgrid + 1;
 
-        psi[a * ist->nspinngrid + jgrid_real] = psi_hole[i * ist->nspinngrid + jgrid_real];
-        psi[a * ist->nspinngrid + jgrid_imag] = psi_hole[i * ist->nspinngrid + jgrid_imag];
+        psi[ist->complex_idx * a * ist->nspinngrid + jgrid_real] = psi_hole[ist->complex_idx * i * ist->nspinngrid + jgrid_real];
+        psi[ist->complex_idx * a * ist->nspinngrid + jgrid_imag] = psi_hole[ist->complex_idx * i * ist->nspinngrid + jgrid_imag];
       }
   }
 
@@ -238,8 +238,8 @@ void get_qp_basis(double *psi, double *psitot, double *psi_hole, double *psi_ele
         jgrid_real = ist->complex_idx * jgrid;
         jgrid_imag = ist->complex_idx * jgrid + 1;
 
-        psi[i * ist->nspinngrid + jgrid_real] = psi_elec[a * ist->nspinngrid + jgrid_real];
-        psi[i * ist->nspinngrid + jgrid_imag] = psi_elec[a * ist->nspinngrid + jgrid_imag];
+        psi[ist->complex_idx * i * ist->nspinngrid + jgrid_real] = psi_elec[ist->complex_idx * a * ist->nspinngrid + jgrid_real];
+        psi[ist->complex_idx * i * ist->nspinngrid + jgrid_imag] = psi_elec[ist->complex_idx * a * ist->nspinngrid + jgrid_imag];
       }
   }
 

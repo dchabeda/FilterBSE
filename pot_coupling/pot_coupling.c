@@ -243,21 +243,22 @@ int main(int argc, char *argv[]){
     fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / 1000000 );
     write_separation(pmem, bottom); fflush(pmem);
 
-    // printf("\nTHE HOLES:\n");
-    // for (i = 0; i < ist.n_holes; i++){
-    //     printf("%ld\n", ist.eval_hole_idxs[i]);
-    // }
-    // printf("\nTHE ELECS:\n");
-    // for (i = 0; i < ist.n_elecs; i++){
-    //     printf("%ld\n", ist.eval_elec_idxs[i]);
-    // }
+    printf("\nTHE HOLES:\n");
+    for (i = 0; i < ist.n_holes; i++){
+        printf("%ld\n", ist.eval_hole_idxs[i]);
+    }
+    printf("\nTHE ELECS:\n");
+    for (i = 0; i < ist.n_elecs; i++){
+        printf("%ld\n", ist.eval_elec_idxs[i]);
+    }
     
     // ******
     // ******
     get_qp_basis(psi_qp, psitot, psi_hole, psi_elec, eig_vals, sigma_E, &ist, &par, &flag);
     // ******
     // ******
-    free(psitot); free(psi_hole); free(psi_elec); free(sigma_E);
+    //free(psi_hole); free(psi_elec);
+    free(psitot); free(sigma_E);
     fprintf(pmem, "free psitot %ld B\n", ist.complex_idx * ist.nspinngrid * ist.mn_states_tot * sizeof(double)); mem -= ist.complex_idx * ist.nspinngrid * ist.mn_states_tot * sizeof(double);
     fprintf(pmem, "free psi_hole %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_holes * sizeof(psi_hole[0])); mem -= ist.complex_idx*ist.nspinngrid*ist.n_holes*sizeof(psi_hole[0]);
     fprintf(pmem, "free psi_elec %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_elecs * sizeof(psi_elec[0])); mem -= ist.complex_idx*ist.nspinngrid*ist.n_elecs*sizeof(psi_elec[0]);
@@ -280,8 +281,8 @@ int main(int argc, char *argv[]){
             jgrid_real = ist.complex_idx * jgrid;
             jgrid_imag = ist.complex_idx * jgrid + 1;
             
-            rho[jgrid] = sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
-            if (1 == flag.isComplex) rho[jgrid] += sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
+            rho[jgrid] = sqr(psi_hole[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
+            if (1 == flag.isComplex) rho[jgrid] += sqr(psi_hole[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
         }
         write_cube_file(rho, &grid, str);
         //Spin Down Wavefunction
@@ -291,8 +292,8 @@ int main(int argc, char *argv[]){
             jgrid_real = ist.complex_idx * jgrid;
             jgrid_imag = ist.complex_idx * jgrid + 1;
             
-            rho[jgrid] = sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
-                + sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);    
+            rho[jgrid] = sqr(psi_hole[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
+                + sqr(psi_hole[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);    
         }
         write_cube_file(rho, &grid, str);
         } 
@@ -301,7 +302,7 @@ int main(int argc, char *argv[]){
     }
 
 #pragma omp parallel for private(i)
-    for (i = ist.lumo_idx ;  i < ist.lumo_idx + ist.n_elecs ; i++){
+    for (i = 0 ;  i < ist.n_elecs ; i++){
         long jgrid, jgrid_real, jgrid_imag;
         rho = malloc(ist.ngrid * sizeof(rho[0]));
         char str[100];
@@ -311,8 +312,8 @@ int main(int argc, char *argv[]){
         jgrid_real = ist.complex_idx * jgrid;
         jgrid_imag = ist.complex_idx * jgrid + 1;
         
-        rho[jgrid] = sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
-        if (1 == flag.isComplex) rho[jgrid] += sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
+        rho[jgrid] = sqr(psi_elec[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
+        if (1 == flag.isComplex) rho[jgrid] += sqr(psi_elec[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
         }
         write_cube_file(rho, &grid, str);
 
@@ -322,8 +323,8 @@ int main(int argc, char *argv[]){
             jgrid_real = ist.complex_idx * jgrid;
             jgrid_imag = ist.complex_idx * jgrid + 1;
         
-            rho[jgrid] = sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
-                + sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);
+            rho[jgrid] = sqr(psi_elec[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
+                + sqr(psi_elec[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);
         }
         write_cube_file(rho, &grid, str);
         }

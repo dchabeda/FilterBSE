@@ -302,7 +302,7 @@ int main(int argc, char *argv[]){
     }
 
 #pragma omp parallel for private(i)
-    for (i = 0 ;  i < ist.n_elecs ; i++){
+    for (i = ist.lumo_idx ;  i < ist.lumo_idx + ist.n_elecs ; i++){
         long jgrid, jgrid_real, jgrid_imag;
         rho = malloc(ist.ngrid * sizeof(rho[0]));
         char str[100];
@@ -312,8 +312,8 @@ int main(int argc, char *argv[]){
         jgrid_real = ist.complex_idx * jgrid;
         jgrid_imag = ist.complex_idx * jgrid + 1;
         
-        rho[jgrid] = sqr(psi_elec[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
-        if (1 == flag.isComplex) rho[jgrid] += sqr(psi_elec[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
+        rho[jgrid] = sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
+        if (1 == flag.isComplex) rho[jgrid] += sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
         }
         write_cube_file(rho, &grid, str);
 
@@ -323,8 +323,8 @@ int main(int argc, char *argv[]){
             jgrid_real = ist.complex_idx * jgrid;
             jgrid_imag = ist.complex_idx * jgrid + 1;
         
-            rho[jgrid] = sqr(psi_elec[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
-                + sqr(psi_elec[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);
+            rho[jgrid] = sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
+                + sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);
         }
         write_cube_file(rho, &grid, str);
         }

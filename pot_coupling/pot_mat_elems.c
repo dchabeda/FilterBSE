@@ -31,7 +31,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
     // Copy the current hole wavefunction into |psi>
     
     //printf("Before memcpy\n"); fflush(0);
-    memcpy(&psi[0], &psitot[ist->complex_idx*i*ist->nspinngrid], ist->complex_idx*ist->nspinngrid*sizeof(psitot[0]));
+    memcpy(&psi[0], &psitot[istate], ist->complex_idx*ist->nspinngrid*sizeof(psitot[0]));
     //printf("memcpy successful\n"); fflush(0);
     // Initialize the vector that will become |phi> = Vloc + Vnonlocal + Vso|psi>, as 0.0s
     // This next line is technically not necessaRy because calloc initializes memory to 0

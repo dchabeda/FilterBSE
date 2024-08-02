@@ -96,27 +96,28 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
         // Make sure g is zero'd to begin with
         g.re = g.im = 0.0;
         for (jgridup = 0; jgridup < ist->ngrid; jgridup++) {
-        jgridup_real = ist->complex_idx * jgridup;
-        jgridup_imag = ist->complex_idx * jgridup + 1;
-        jgriddn = jgridup+ist->ngrid;
-        jgriddn_real = ist->complex_idx * (jgridup+ist->ngrid);
-        jgriddn_imag = ist->complex_idx * (jgridup+ist->ngrid) + 1;
+            jgridup_real = ist->complex_idx * jgridup;
+            jgridup_imag = ist->complex_idx * jgridup + 1;
+            jgriddn = jgridup+ist->ngrid;
+            jgriddn_real = ist->complex_idx * (jgridup+ist->ngrid);
+            jgriddn_imag = ist->complex_idx * (jgridup+ist->ngrid) + 1;
 
-        tmp.re =  (psitot[astate+jgridup_real] * phi[jgridup].re + psitot[astate+jgridup_imag] * phi[jgridup].im
-                    +psitot[astate+jgriddn_real] * phi[jgriddn].re + psitot[astate+jgriddn_imag] * phi[jgriddn].im );
-        if (1 == flag->isComplex){
-        tmp.im =  (-psitot[astate+jgridup_imag] * phi[jgridup].re + psitot[astate+jgridup_real] * phi[jgridup].im
-                    -psitot[astate+jgriddn_imag] * phi[jgriddn].re + psitot[astate+jgriddn_real] * phi[jgriddn].im) ;
-        } else if (0 == flag->isComplex){
-        tmp.im =  0.0 ;
-        }
-        g.re += tmp.re; g.im += tmp.im;
+            tmp.re =  (psitot[astate+jgridup_real] * phi[jgridup].re + psitot[astate+jgridup_imag] * phi[jgridup].im
+                        +psitot[astate+jgriddn_real] * phi[jgriddn].re + psitot[astate+jgriddn_imag] * phi[jgriddn].im );
+            if (1 == flag->isComplex){
+            tmp.im =  (-psitot[astate+jgridup_imag] * phi[jgridup].re + psitot[astate+jgridup_real] * phi[jgridup].im
+                        -psitot[astate+jgriddn_imag] * phi[jgriddn].re + psitot[astate+jgriddn_real] * phi[jgriddn].im) ;
+            } else if (0 == flag->isComplex){
+                tmp.im =  0.0 ;
+            }
+            g.re += tmp.re; 
+            g.im += tmp.im;
         }
         g.re *= par->dv;
         g.im *= par->dv;
 
         fprintf(pf,"%ld %ld %.12f %.12f %.12f\n", i, a, eval[a] - eval[i], g.re, g.im);
-        }
+    }
   }
   fclose(pf1);
   

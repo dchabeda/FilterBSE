@@ -39,7 +39,7 @@ int main(int argc, char *argv[]){
     nlc_st *nlc_equil = NULL; nlc_st *nlc = NULL;  
     parallel_st parallel; 
     // double arrays
-    double *pot_local_equil, *pot_local;
+    double *pot_local_equil, *pot_local, *rho;
     double *SO_projectors_equil; double *SO_projectors; 
     double *gridx = NULL, *gridy = NULL, *gridz = NULL;
     double *psitot = NULL, *psi_hole = NULL, *psi_elec = NULL, *psi_qp;
@@ -265,6 +265,71 @@ int main(int argc, char *argv[]){
     write_separation(pmem, top);
     fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / 1000000 );
     write_separation(pmem, bottom); fflush(pmem);
+
+    // Debug by visualizing wavefunction cube files
+
+    
+#pragma omp parallel for private(i)
+    for (i = 0; i < ist.n_holes ; i++){
+        long jgrid, jgrid_real, jgrid_imag;
+        rho = malloc(ist.ngrid * sizeof(rho[0]));
+        char str[100];
+        //Spin Up Wavefunction
+        sprintf(str,"hole-%ld-Up.cube", i);
+        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+            jgrid_real = ist.complex_idx * jgrid;
+            jgrid_imag = ist.complex_idx * jgrid + 1;
+            
+            rho[jgrid] = sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
+            if (1 == flag.isComplex) rho[jgrid] += sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
+        }
+        write_cube_file(rho, &grid, str);
+        //Spin Down Wavefunction
+        if (1 == flag.useSpinors){    
+        sprintf(str,"hole-%ld-Dn.cube", i);
+        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+            jgrid_real = ist.complex_idx * jgrid;
+            jgrid_imag = ist.complex_idx * jgrid + 1;
+            
+            rho[jgrid] = sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
+                + sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);    
+        }
+        write_cube_file(rho, &grid, str);
+        } 
+        
+        free(rho);
+    }
+
+#pragma omp parallel for private(i)
+    for (i = ist.lumo_idx ;  i < ist.lumo_idx + ist.n_elecs ; i++){
+        long jgrid, jgrid_real, jgrid_imag;
+        rho = malloc(ist.ngrid * sizeof(rho[0]));
+        char str[100];
+
+        sprintf(str,"elec-%ld-Up.cube", i);
+        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+        jgrid_real = ist.complex_idx * jgrid;
+        jgrid_imag = ist.complex_idx * jgrid + 1;
+        
+        rho[jgrid] = sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
+        if (1 == flag.isComplex) rho[jgrid] += sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
+        }
+        write_cube_file(rho, &grid, str);
+
+        if (1 == flag.useSpinors){
+        sprintf(str,"elec-%ld-Dn.cube", i);
+        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+            jgrid_real = ist.complex_idx * jgrid;
+            jgrid_imag = ist.complex_idx * jgrid + 1;
+        
+            rho[jgrid] = sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
+                + sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);
+        }
+        write_cube_file(rho, &grid, str);
+        }
+        free(rho);
+    }
+    
 
     /*************************************************************************/
     /*****************************************************************************/

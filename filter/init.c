@@ -538,7 +538,15 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R, 
 
     //generate the nonlocal part for each atom
     gen_nlc_projectors(grid_par->dx, sqrt(par->R_NLcut2), ist->nproj, nlcprojectors, sgnProj, vr, atom, jatom);
-    // printf("Exited gen_nlc_projectors %ld\n", jatom); fflush(0);
+    
+    // Print the spin-orbit parameters for each atom for use in the coupling code
+    char fileName[50];
+    if (atm[jatom].Vso != 0) {
+        sprintf(&fileName[0], "SO_proj_const_%ld.dat",jatom);
+        pf = fopen(fileName, "w");
+        fprintf(pf, "%.10f", atm[jatom].Vso);
+        fclose(pf);
+    }
 
     nl[jatom] = 0;
     for (jz = 0; jz < grid_par->nz; jz++) {

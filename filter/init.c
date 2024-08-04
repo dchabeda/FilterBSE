@@ -544,7 +544,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R, 
     if (atm[jatom].Vso != 0) {
         sprintf(&fileName[0], "SO_proj_const_%ld.dat",jatom);
         pf = fopen(fileName, "w");
-        fprintf(pf, "%.10f", atm[jatom].Vso);
+        fprintf(pf, "%.10f", atom[jatom].SO_par);
         fclose(pf);
     }
 

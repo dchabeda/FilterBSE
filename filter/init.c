@@ -499,11 +499,8 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R, 
   ********************************************************************/
   
   FILE *pf;
-  long jatom, jx, jy, jz, jyz, jxyz;
-  int rpoint, iproj, *sgnProj;
-  double dx, dy, dz, dxeps, dyeps, dzeps, dr, dr_1, dr2;
-  double *vr, dr_proj; 
-  double *nlcprojectors;
+  long jatom, rpoint;
+  double *vr, dr, dr_proj; 
   long N = PROJ_LEN;
 
   // TODO NOTE: the current method for computing the NL potential relies on the SO_projectors being defined.
@@ -524,9 +521,6 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R, 
 	}
   dr_proj = vr[1];
   // printf("Projector dr = %f\n",dr_proj); fflush(0);
-  //gen projectors on the fly
-  if ((nlcprojectors = (double*) calloc(N * ist->nproj, sizeof(double)))==NULL){nerror("nlc_projector");}
-  if ((sgnProj = (int*) calloc(ist->nproj, sizeof(int)))==NULL){nerror("nlc_sgnProj");}
   
   // Non-local piece
   // Find all the grid points within par->Rnlcut of each atom and calculate
@@ -534,8 +528,19 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R, 
   /*** for the nonlocal potential ***/
 
   // 2. Calculate r, r2, y1[1+m], proj(r), etc. at the grid points
+  // omp_set_dynamic(0);
+  // omp_set_num_threads(parallel->nthreads);
+#pragma omp parallel for private(jatom)
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
+    long jx, jy, jz, jyz, jxyz;
+    int iproj, *sgnProj;
+    double dx, dy, dz, dxeps, dyeps, dzeps, dr_1, dr2;
+    double *nlcprojectors;
 
+    //gen projectors on the fly
+    if ((nlcprojectors = (double*) calloc(N * ist->nproj, sizeof(double)))==NULL){nerror("nlc_projector");}
+    if ((sgnProj = (int*) calloc(ist->nproj, sizeof(int)))==NULL){nerror("nlc_sgnProj");}
+  
     //generate the nonlocal part for each atom
     gen_nlc_projectors(grid_par->dx, sqrt(par->R_NLcut2), ist->nproj, nlcprojectors, sgnProj, vr, atom, jatom);
     

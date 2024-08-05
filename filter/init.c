@@ -613,6 +613,8 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R, 
         }
       }
     }
+    free(nlcprojectors);
+    free(sgnProj);
   }
 
   pf = fopen("list_NL_grid.dat" , "w");
@@ -624,8 +626,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R, 
   printf("\tNL projectors generated.\n");
 
   free(vr);
-  free(nlcprojectors);
-  free(sgnProj);
+  
   return;
 }
 

@@ -65,9 +65,6 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->retryFilter = 0; // When = 1, if no eigstates acquired, then retry the filter job 
   flag->alreadyTried = 0; // gets tripped to 1 after the first time retrying a Filter.
   
-  par->potloc_dv = 0;
-  par->potSO_dv = 1;
-  par->potNL_dv = 1;
   // Parse the input file
   if( access( "input.par", F_OK) != -1 ) {
     pf = fopen("input.par", "r");
@@ -227,14 +224,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "restartFromCheckpoint")) {
           flag->restartFromCheckpoint = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-      } else if (!strcmp(field, "potloc_dv")) {
-          par->potloc_dv = (int) strtol(tmp, &endptr, 10);
-          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-      } else if (!strcmp(field, "potSO_dv")) {
-          par->potSO_dv = (int) strtol(tmp, &endptr, 10);
-          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-      } else if (!strcmp(field, "potNL_dv")) {
-          par->potNL_dv = (int) strtol(tmp, &endptr, 10);
+      } else if (!strcmp(field, "saveOutput")) {
+          par->saveOutput = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
@@ -286,6 +277,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("retryFilter = int, if 1 then if no eigenstates obtained after diag, then filter is restarted.\n");
           printf("saveCheckpoints = int, if 1 then save states will be generated along the job run.\n");
           printf("restartFromCheckpoint = int, value is the ID of the checkpoint that the job should restart from.\n");
+          printf("saveOutput = int, if 0 then output.dat will not be printed after job termination.\n");
           
           fflush(stdout);
           exit(EXIT_FAILURE);
@@ -459,12 +451,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
   pw = fopen("conf.dat" , "w");
   fprintf(pw,"%ld\n", ist->natoms);
   for (i = 0; i < ist->natoms; i++) {
-    if (flag->SO != 1){
-      fprintf(pw, "%s %g %g %g %ld\n", atom[i].atyp, R[i].x, R[i].y, R[i].z, atom[i].idx);
-    } 
-    if (flag->SO == 1){
-      fprintf(pw, "%s %g %g %g %g\n", atom[i].atyp, R[i].x, R[i].y, R[i].z, atom[i].SO_par);
-    }
+    fprintf(pw, "%3s % .16g % .16g % .16g\n", atom[i].atyp, R[i].x, R[i].y, R[i].z); 
   }
   fclose(pw);
   

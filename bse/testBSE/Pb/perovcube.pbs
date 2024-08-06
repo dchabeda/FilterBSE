@@ -1,0 +1,14 @@
+#PBS -N test_BSE_Pb_atom
+#PBS -r n -l nodes=1:ppn=1:compute-0-16 -q batch
+#PBS -m abe
+#PBS -M daniel_chabeda@berkeley.edu
+
+hostname
+
+source /opt/intel/oneapi/setvars.sh
+export I_MPI_FABRICS=shm
+
+cwd=$PBS_O_WORKDIR
+
+bash $cwd/run_filter.sh
+bash $cwd/run_bse.sh

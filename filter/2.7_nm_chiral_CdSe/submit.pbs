@@ -1,0 +1,11 @@
+#PBS -N test_2.7nm_chiral_CdSe
+#PBS -r n -l nodes=1:ppn=1:compute-0-6 -q batch
+
+hostname
+
+source /opt/intel/oneapi/setvars.sh
+export I_MPI_FABRICS=shm
+
+cwd=$PBS_O_WORKDIR
+
+bash $cwd/run_filter.sh

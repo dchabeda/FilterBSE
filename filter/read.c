@@ -451,12 +451,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
   pw = fopen("conf.dat" , "w");
   fprintf(pw,"%ld\n", ist->natoms);
   for (i = 0; i < ist->natoms; i++) {
-    if (flag->SO != 1){
-      fprintf(pw, "%s %g %g %g %ld\n", atom[i].atyp, R[i].x, R[i].y, R[i].z, atom[i].idx);
-    } 
-    if (flag->SO == 1){
-      fprintf(pw, "%s %g %g %g %g\n", atom[i].atyp, R[i].x, R[i].y, R[i].z, atom[i].SO_par);
-    }
+    fprintf(pw, "%3s % .16g % .16g % .16g\n", atom[i].atyp, R[i].x, R[i].y, R[i].z); 
   }
   fclose(pw);
   

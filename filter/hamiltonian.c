@@ -35,8 +35,21 @@ void hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *
       kinetic(&psi_out[jspin*ist->ngrid], ksqr, planfw, planbw, fftwpsi, ist); //spin up/down
   } 
 
+  FILE *pf;
+  long j;
+  pf = fopen("pot_in_ham.dat", "w");
+  for (j = 0; j < ist->ngrid; j++){
+    fprintf(pf, "%ld %lg\n", j, psi_out[j].re);
+  }
+  fclose(pf);
   // Calculate the action of the potential on the wavefunction: |psi_out> = V|psi_tmp>
   potential(psi_out, psi_tmp, pot_local, nlc, nl, ist, par, flag);
+  pf = fopen("pot_out_ham.dat", "w");
+  for (j = 0; j < ist->ngrid; j++){
+    fprintf(pf, "%ld %lg\n", j, psi_out[j].re);
+  }
+  fclose(pf);
+  exit(0);
 
   return;
 }
@@ -63,9 +76,20 @@ void kinetic(zomplex *psi_out, double *ksqr, fftw_plan_loc planfw, fftw_plan_loc
   // Copy inputted psi to fftwpsi
   memcpy(&fftwpsi[0], &psi_out[0], ist->ngrid*sizeof(fftwpsi[0]));
   
+  FILE *pf;
+  pf = fopen("fft_init.dat", "w");
+  for (j = 0; j < ist->ngrid; j++){
+    fprintf(pf, "%ld %lg\n", j, psi_out[j].re);
+  }
+  fclose(pf);
   // FT from r-space to k-space
   fftw_execute(planfw);
   
+  pf = fopen("fft_fw.dat", "w");
+  for (j = 0; j < ist->ngrid; j++){
+    fprintf(pf, "%ld %lg\n", j, psi_out[j].re);
+  }
+  fclose(pf);
   // Kinetic energy is diagonal in k-space, just multiply fftwpsi by k^2
   for (j = 0; j < ist->ngrid; j++) {
     fftwpsi[j][0] *= ksqr[j];

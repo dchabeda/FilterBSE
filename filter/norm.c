@@ -25,8 +25,10 @@ double calc_norm(zomplex *psi, double dv, long ngrid, long nthreads){
   omp_set_dynamic(0);
   omp_set_num_threads(nthreads);
 #pragma omp parallel for reduction(+:norm)
-  for (i = 0; i < ngrid; i++) norm += (sqr(psi[i].re) + sqr(psi[i].im));
-  
+  for (i = 0; i < ngrid; i++){
+    norm += (sqr(psi[i].re) + sqr(psi[i].im));
+  }
+
   return (sqrt(norm * dv));
 }
 
@@ -84,15 +86,17 @@ void normalize_all(double *psitot, double dv, long ms, long ngrid, long nthreads
   // Emin-init.dat. To better ensure convergence of the E_min, decrease the value of the tau
   // parameter in get_energy_range energy.c
 
-  long jgrid, jgrid_real, jgrid_imag, ie, ieg;
-  double norm;
+  long ie;
   //printf("This is dv coming into normalize: %g\n", dv);
   //printf("This is ngrid coming into normalize: %ld\n", ngrid);
   
   omp_set_dynamic(0);
   omp_set_num_threads(nthreads);
-#pragma omp parallel for private(ie, norm, ieg, jgrid)
+#pragma omp parallel for private(ie)
   for (ie = 0; ie < ms; ie++){
+    long ieg;
+    long jgrid, jgrid_real, jgrid_imag;
+    double norm;
     // Loop over all states
     // complex_idx is 2 if psi is complex (1 if real), this accounts for storing real and imag components
     ieg = complex_idx * ie * ngrid; 

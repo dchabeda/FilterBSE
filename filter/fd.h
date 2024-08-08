@@ -52,7 +52,6 @@ typedef struct par {
   char crystal_structure[15], outmost_material[15];
   // Redundnacies
   double dv;
-  int potloc_dv, potSO_dv, potNL_dv;
 } par_st;
 
 typedef struct atom_info {

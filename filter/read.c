@@ -225,7 +225,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           flag->restartFromCheckpoint = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "saveOutput")) {
-          par->saveOutput = (int) strtol(tmp, &endptr, 10);
+          flag->saveOutput = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 

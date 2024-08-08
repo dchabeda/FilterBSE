@@ -62,11 +62,12 @@ void kinetic(zomplex *psi_out, double *ksqr, fftw_plan_loc planfw, fftw_plan_loc
   
 
   // Copy inputted psi to fftwpsi
-  memcpy(&fftwpsi[0], &psi_out[0], ist->ngrid*sizeof(fftw_complex));
+  memcpy(&fftwpsi[0], &psi_out[0], ist->ngrid*sizeof(fftwpsi[0]));
   
+
   // FT from r-space to k-space
   fftw_execute(planfw);
-  
+
   // Kinetic energy is diagonal in k-space, just multiply fftwpsi by k^2
   for (j = 0; j < ist->ngrid; j++) {
     fftwpsi[j][0] *= ksqr[j];
@@ -77,7 +78,7 @@ void kinetic(zomplex *psi_out, double *ksqr, fftw_plan_loc planfw, fftw_plan_loc
   fftw_execute(planbw);
   
   // Copy fftwpsi to psi_out to store T|psi_tmp> into |psi_out>
-  memcpy(&psi_out[0], &fftwpsi[0], ist->ngrid*sizeof(psi_out[0]));
+  memcpy(&psi_out[0], &fftwpsi[0], ist->ngrid*sizeof(fftwpsi[0]));
   
   return;
 }
@@ -120,10 +121,6 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
 
       psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
       psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
-      if (1 == par->potloc_dv){
-        psi_out[jtmp].re *= par->dv;
-        psi_out[jtmp].im *= par->dv;
-      }
     }
   }
 
@@ -213,10 +210,10 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
             proj.im -= psi_tmp[r].re * nlc[index1].y1[m_p].im * nlc[index1].proj[iproj];
             
           }
-          if (1 == par->potSO_dv){
-            proj.re *= par->dv;
-            proj.im *= par->dv;
-          }
+          
+          proj.re *= par->dv;
+          proj.im *= par->dv;
+          
           // proj.re *= par->dv;
           // proj.im *= par->dv;   
           for (spin = 0; spin<2; spin++){
@@ -318,10 +315,10 @@ void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl
           }
           proj.re *= nlc[index1].NL_proj_sign[iproj];
           proj.im *= nlc[index1].NL_proj_sign[iproj];   
-          if (1 == par->potNL_dv){
-            proj.re *= par->dv;
-            proj.im *= par->dv;
-          }
+          
+          proj.re *= par->dv;
+          proj.im *= par->dv;
+          
           for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
             index2 = jatom * ist->n_NL_gridpts + NL_gridpt;
             r_p = nlc[index2].jxyz + (ist->ngrid)*spin;

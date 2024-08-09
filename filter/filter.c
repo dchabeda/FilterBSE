@@ -33,11 +33,11 @@ void run_filter_cycle(double *psims, double *pot_local, nlc_st *nlc, long *nl,
   fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi;
   double *ene_filters;
 
-  fftwpsi = fftw_malloc(sizeof (fftw_complex )*ist->ngrid);
   if ((psi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL)nerror("psi");
   if ((phi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL)nerror("phi");
   if ((ene_filters = (double*)calloc(ist->m_states_per_filter,sizeof(double)))==NULL)nerror("ene_filters");
   
+  fftwpsi = fftw_malloc(sizeof (fftw_complex )*ist->ngrid);
   planfw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_FORWARD,flags);
   planbw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,flags);
   

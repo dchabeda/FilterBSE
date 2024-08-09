@@ -561,6 +561,8 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
         }
       }
     }
+    free(nlcprojectors);
+    free(sgnProj);
   }
 
   pf = fopen("list_NL_grid.dat" , "w");
@@ -572,8 +574,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
   printf("\tNL projectors generated.\n");
 
   free(vr);
-  free(nlcprojectors);
-  free(sgnProj);
+  
   return;
 }
 
@@ -618,19 +619,10 @@ void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, paral
   
   // normalize this wavefunction and set the value of rand_seed to the new
   // seed so the next wavefunction is different.
-  FILE *pf;
-  pf = fopen("psi-init.dat", "w");
-  for (jxyz = 0; jxyz < grid->ngrid; jxyz++){
-    fprintf(pf, "%ld %lg\n", jxyz, psi[jxyz].re);
-  }
-  fclose(pf);
+  
   normalize(psi, grid->dv, grid->ngrid, parallel->nthreads);
   (*rand_seed) = randint;
-  pf = fopen("psi-init-norm.dat", "w");
-  for (jxyz = 0; jxyz < grid->ngrid; jxyz++){
-    fprintf(pf, "%ld %lg\n", jxyz, psi[jxyz].re);
-  }
-  fclose(pf);
+  
   
   return;
 }

@@ -459,7 +459,7 @@ void read_conf(char *file_name, xyz_st *R, atom_info *atom, index_st *ist, par_s
   pw = fopen("conf.dat" , "w");
   fprintf(pw,"%ld\n", ist->natoms);
   for (i = 0; i < ist->natoms; i++) {
-    fprintf(pw, "%s %g %g %g\n", atom[i].atyp, R[i].x, R[i].y, R[i].z);
+    fprintf(pw, "%3s % .16g % .16g % .16g\n", atom[i].atyp, R[i].x, R[i].y, R[i].z);
   }
   fclose(pw);
   

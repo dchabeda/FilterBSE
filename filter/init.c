@@ -479,7 +479,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
   /*** for the nonlocal potential ***/
 
   // 2. Calculate r, r2, y1[1+m], proj(r), etc. at the grid points
-#pragma omp parallel for private(jatom)
+#pragma omp parallel for private(jatom, vr)
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
     long jx, jy, jz, jyz, jxyz;
     int iproj, *sgnProj;

@@ -416,7 +416,7 @@ int main(int argc, char *argv[]){
       printf("\n7. CALCULATING VARIANCE OF EIGENVALUES\n");
       write_separation(stdout, bottom); fflush(stdout);
       
-      calc_sigma_E(psi, phi, psitot, pot_local, nlc, nl, ksqr, sigma_E, &ist, &par, &flag, planfw, planbw, fftwpsi);
+      calc_sigma_E(psi, phi, psitot, pot_local, nlc, nl, ksqr, sigma_E, &ist, &par, &flag);
 
       /*** write the eigenstates/energies to a file ***/
       if (flag.getAllStates == 1) {printf("getAllStates flag on\nWriting all eigenstates to disk\n");}

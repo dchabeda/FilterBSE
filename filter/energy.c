@@ -202,7 +202,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
 /****************************************************************************************/
 
 void calc_sigma_E(zomplex *psi, zomplex *phi, double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
-  double *sigma_E,index_st *ist,par_st *par,flag_st *flag, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
+  double *sigma_E,index_st *ist,par_st *par,flag_st *flag){
   /*******************************************************************
   * This function calculates the quality of the eigenstates by       *
   * evaluating sigma_E^2 = <psi|H^2|psi> - <psi|H|psi>^2             *
@@ -224,10 +224,21 @@ void calc_sigma_E(zomplex *psi, zomplex *phi, double *psitot, double *pot_local,
   * outputs: void                                                    *
   ********************************************************************/
 
-  long jgrid, jgrid_real, jgrid_imag, ims;
-  double eval, eval2;
+  long ims;
+  
   // Loop over all M*N states
+#pragma omp parallel for private(ims)
   for (ims = 0; ims < ist->mn_states_tot; ims++) {
+    long jgrid, jgrid_real, jgrid_imag;
+    double eval, eval2;
+    int fft_flags = 0;
+    fftw_plan_loc planfw, planbw; 
+    fftw_complex *fftwpsi;
+    
+    fftwpsi = fftw_malloc(sizeof (fftw_complex )*ist->ngrid);
+    planfw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_FORWARD,fft_flags);
+    planbw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,fft_flags);
+  
     // select the current state to compute sigma_E for
     for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
       jgrid_real = ist->complex_idx * jgrid;
@@ -274,6 +285,10 @@ void calc_sigma_E(zomplex *psi, zomplex *phi, double *psitot, double *pot_local,
     eval2 -= sqr(eval);
     // sigma_E is the sqrt of the variance
     sigma_E[ims] = sqrt(fabs(eval2));
+
+    fftw_destroy_plan(planfw);
+    fftw_destroy_plan(planbw);
+    fftw_free(fftwpsi);
   }
 
   return;

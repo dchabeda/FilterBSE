@@ -159,7 +159,8 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	
 	pproj = fopen("projectors.dat", "w");
 	fprintf(pproj,"gen_projectors: dsyev exit: %lld\n",INFO );
-	fflush(0);
+	fclose(pproj);
+	//fflush(0);
 	// printf("Checkpoint 4\n"); fflush(0);
 
 	sprintf(&fileName[0], "NL_Proj_Eigs%ld.dat", jatom);

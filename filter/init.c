@@ -485,6 +485,14 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
     int iproj, *sgnProj;
     double dx, dy, dz, dxeps, dyeps, dzeps, dr_1, dr2;
     double *nlcprojectors;
+    
+    //gen projectors on the fly
+    if ((nlcprojectors = (double*) calloc(N * ist->nproj, sizeof(double)))==NULL){nerror("nlc_projector");}
+    if ((sgnProj = (int*) calloc(ist->nproj, sizeof(int)))==NULL){nerror("nlc_sgnProj");}
+  
+    //generate the nonlocal part for each atom
+    gen_nlc_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, nlcprojectors, sgnProj, vr, atom, jatom);
+    // printf("Exited gen_nlc_projectors %ld\n", jatom); fflush(0);
 
     // Print the spin-orbit parameters for each atom for use in the coupling code
     char fileName[50];
@@ -495,14 +503,6 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
         fclose(pf);
     }
     
-    //gen projectors on the fly
-    if ((nlcprojectors = (double*) calloc(N * ist->nproj, sizeof(double)))==NULL){nerror("nlc_projector");}
-    if ((sgnProj = (int*) calloc(ist->nproj, sizeof(int)))==NULL){nerror("nlc_sgnProj");}
-  
-    //generate the nonlocal part for each atom
-    gen_nlc_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, nlcprojectors, sgnProj, vr, atom, jatom);
-    // printf("Exited gen_nlc_projectors %ld\n", jatom); fflush(0);
-
     nl[jatom] = 0;
     for (jz = 0; jz < grid->nz; jz++) {
       dz = grid->z[jz] - R[jatom].z;
@@ -561,6 +561,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
         }
       }
     }
+
     free(nlcprojectors);
     free(sgnProj);
   }

@@ -16,6 +16,10 @@ double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,doubl
   if (0 == is_LR){
     if (i > (n - 2)) return (0.0);
   }
+  // Daniel C: patch fix just to run some jobs for a presentation. The distance in psuedopotential files only goes to 200 Bohr
+  if (r > 199.0){
+    return 0.0;
+  }
   
   a = strain_factor * (pot[j*pot_file_len+i+1] - pot[j*pot_file_len+i]) / (vr[j*pot_file_len+i+1] - vr[j*pot_file_len+i]);
   b = strain_factor * pot[j*pot_file_len+i] - vr[j*pot_file_len+i] * a;

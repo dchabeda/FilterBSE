@@ -279,13 +279,20 @@ int main(int argc, char *argv[]){
       printf("Suggested max span of spectrum for filtering = %.6g a.u.\n", ist.m_states_per_filter * sqrt(1 / (2*par.dt)));
       printf("Requested span of spectrum to filter = %.6g a.u.\n", (ene_targets[par.n_targets_VB-1] - ene_targets[0]) + (ene_targets[par.n_targets_VB+par.n_targets_CB-1] - ene_targets[par.n_targets_VB]));
       fflush(stdout);
-
+      // double *rho, sgn_val;
+      // char fileName[50];
+      // if ((rho = (double *) calloc(ist.ngrid, sizeof(rho[0]))) == NULL){
+      //   fprintf(stderr, "\nOUT OF MEMORY: filter rho\n\n"); exit(EXIT_FAILURE);
+      // }
+      // Create the initial random wavefunctions for each filter state
+      // This is an array of n_filter_cycles * m_states_per_filter states
+      // where every block of length m_states_per_filter has the same random wavefunction
       for (jns = 0; jns < ist.n_filter_cycles; jns++) {
+        
         for (jspin = 0; jspin < ist.nspin; jspin++) {
           fprintf(pseed, "%ld %ld\n", ist.nspin*jns + jspin, rand_seed);
-          init_psi(&psi[jspin*ist.ngrid], &rand_seed, flag.isComplex, &grid, &parallel);
+          init_psi(&psi[jspin*ist.ngrid], &rand_seed, &grid, &ist, &par, &flag, &parallel);
         }
-
         for (jms = 0; jms < ist.m_states_per_filter; jms++) {
           for (jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
             // handle indexing of real and imaginary components if complex
@@ -303,20 +310,37 @@ int main(int argc, char *argv[]){
               // the imaginary components will be stored one double away (16 bytes, or IMAG_IDX) in memory from the real component
             }
           }
+          /*** print cube files for the random states ***/
+          // for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+          //   jgrid_real = ist.complex_idx * jgrid;
+          //   jgrid_imag = ist.complex_idx * jgrid + 1;
+
+          //   // rho[jgrid] = sqr(psitot[jstate + jgrid_real]);
+          //   sgn_val = psitot[jstate + jgrid_real];
+          //   if (1 == flag.isComplex){
+          //     rho[jgrid] += sqr(psitot[jstate + jgrid_imag]);
+          //     if (sgn_val < psitot[jstate + jgrid_imag]) sgn_val = psitot[jstate + jgrid_imag];
+          //   }
+          //   rho[jgrid] *= sign(sgn_val);
+          // }
+          // sprintf(fileName, "init-psi-%ld-%ld.cube", jns, jms);
+          // write_cube_file(rho, &grid, fileName);
+          
         }
       }
       fclose(pseed);
-
+      // free(rho);
       inital_clock_t = (double)clock(); 
       initial_wall_t = (double)time(NULL);
-      omp_set_dynamic(0);
-      omp_set_num_threads(parallel.nthreads);
-    #pragma omp parallel for private(jns, thread_id)
-      for (jns = 0; jns < ist.n_filter_cycles; jns++) {
-        thread_id = omp_get_thread_num();	
-        run_filter_cycle(&psitot[ist.complex_idx*jns*ist.m_states_per_filter*ist.nspinngrid], pot_local, nlc, nl, ksqr, an, zn,\
-        ene_targets, thread_id, jns, &grid, &ist, &par, &flag, &parallel);
-      } 
+      
+      if ((parallel.jns = (long *) calloc(ist.mn_states_tot, sizeof(parallel.jns[0]))) == NULL){ 
+        fprintf(stderr, "\nOUT OF MEMORY: parallel->jns\n\n"); exit(EXIT_FAILURE);
+      }
+      if ((parallel.jms = (long *) calloc(ist.mn_states_tot, sizeof(parallel.jms[0]))) == NULL){ 
+        fprintf(stderr, "\nOUT OF MEMORY: parallel->jns\n\n"); exit(EXIT_FAILURE);
+      }
+      run_filter_cycle(psitot,pot_local,nlc,nl,ksqr,an,zn,ene_targets,&grid,&ist,&par,&flag,&parallel);
+      
       printf("\ndone calculating filter, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
       fflush(stdout);
@@ -368,7 +392,7 @@ int main(int argc, char *argv[]){
       printf("mn_states_tot after ortho = %ld\n", ist.mn_states_tot);
       psitot = (double *) realloc(psitot, ist.mn_states_tot * ist.nspinngrid * ist.complex_idx * sizeof(psitot[0]) );
 
-      normalize_all(&psitot[0],grid.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
+      normalize_all(&psitot[0], &ist, &par, &flag, &parallel);
       
       printf("\ndone calculating ortho, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
@@ -403,7 +427,7 @@ int main(int argc, char *argv[]){
       
       inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
       diag_H(psi,phi,psitot,pot_local,nlc,nl,ksqr,eig_vals,&ist,&par,&flag,planfw,planbw,fftwpsi);
-      normalize_all(&psitot[0],grid.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
+      normalize_all(&psitot[0],&ist,&par,&flag,&parallel);
       jms = ist.mn_states_tot;
       printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t);
@@ -416,7 +440,7 @@ int main(int argc, char *argv[]){
       printf("\n7. CALCULATING VARIANCE OF EIGENVALUES\n");
       write_separation(stdout, bottom); fflush(stdout);
       
-      calc_sigma_E(psi, phi, psitot, pot_local, nlc, nl, ksqr, sigma_E, &ist, &par, &flag);
+      calc_sigma_E(psitot, pot_local, nlc, nl, ksqr, sigma_E, &ist, &par, &flag);
 
       /*** write the eigenstates/energies to a file ***/
       if (flag.getAllStates == 1) {printf("getAllStates flag on\nWriting all eigenstates to disk\n");}
@@ -524,10 +548,10 @@ int main(int argc, char *argv[]){
       }
       fclose(pf);
 
-      nval = i - 1;
+      // nval = i - 1;
       pf = fopen("eval.dat" , "r");
       for (i = 0; i <= ist.homo_idx; i++) fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
-      for (i = ist.homo_idx+1; i < nval; i++) {
+      for (i = ist.homo_idx+1, ieof = 0; ieof != EOF; i++) {
         fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
         if (deloc < par.sigma_E_cut) {
           ist.lumo_idx = i;

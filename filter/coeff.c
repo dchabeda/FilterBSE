@@ -18,12 +18,11 @@ void gen_newton_coeff(zomplex *an, double *samp, double *ene_targets, index_st *
   *  [parallel] holds options for parallelization                    *
   * outputs: void                                                    *
   ********************************************************************/
-
   FILE *pf;
   zomplex *samploc;
-  double scale, res = 1.0, Smin = -2.0, Smax = 2.0, x, rho, sumre, sumim;
-  long i, j, ie;
-  char str[20];
+  double scale, Smin = -2.0, Smax = 2.0, rho;
+  long j, ie;
+  
   
   scale = (Smax - Smin) / par->dE;
 
@@ -41,12 +40,16 @@ void gen_newton_coeff(zomplex *an, double *samp, double *ene_targets, index_st *
   
   omp_set_dynamic(0);
   omp_set_num_threads(parallel->nthreads);
-#pragma omp parallel for private(ie,x,j,i,res,sumre,sumim)
+#pragma omp parallel for private(ie)
   for (ie = 0; ie < ist->m_states_per_filter; ie++){
+    FILE *pf;
+    long i, j;
+    double x, sumre, sumim, res = 1.0;
+    char str[20];
     // open file to print Newton interpolation coefficients for the ie-th energy target
     sprintf(str, "coeff-%ld.dat", ie);
     pf = fopen(str , "w");
-    // Before recursion, need to define term 0
+    // Before  recursion, need to define term 0
     x = (samp[0] + 2.0) / scale + par->Vmin;
     an[ist->ncheby*ie+0].re = filt_func(x - ene_targets[ie], par->dt);
     an[ist->ncheby*ie+0].im = 0.0;

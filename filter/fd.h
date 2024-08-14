@@ -23,6 +23,7 @@ typedef struct flag {
   int printPsiFilt, printOrtho, printNorm, printCubes;
   int calcPotOverlap, getAllStates, timeHamiltonian, calcSpinAngStat;
   int retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint, saveOutput;
+  int approxEnergyRange;
 } flag_st;
 
 typedef struct index {
@@ -104,6 +105,7 @@ typedef fftw_plan fftw_plan_loc;
 
 typedef struct parallel{
   long nthreads;
+  long *jns, *jms;
 } parallel_st;
 
 
@@ -158,7 +160,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
 void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *flag);
 void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par);
 void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag);
-void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, parallel_st *parallel);
+void init_psi(zomplex *psi, long *rand_seed, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 double calc_dot_dimension(xyz_st *R, long n, char *dir);
 double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int);
 
@@ -199,28 +201,28 @@ void hamiltonian(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, lon
 void time_reverse_all(double *psitot, double *dest, index_st *ist, parallel_st *parallel);
 
 //filter.c
-void run_filter_cycle(double *psims, double *pot_local, nlc_st *nlc, long *nl, double *ksqr, zomplex *an, 
-  double *zn, double *ene_targets, long thread_id, long jns, grid_st *grid, index_st *ist, par_st *par,
-  flag_st *flag, parallel_st *parallel);
+void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *ksqr, zomplex *an, 
+  double *zn, double *ene_targets, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void filter(zomplex *psin, zomplex *psim1, double *psims, double *pot_local, nlc_st *nlc, long *nl, 
   double *ksqr, zomplex *an, double *zn, long thread_id, long jn, fftw_plan_loc planfw, fftw_plan_loc planbw,
   fftw_complex *fftwpsis, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-void scale_eigs_for_cheby(zomplex *psim1, zomplex *psin, double *pot_local, nlc_st *nlc, long *nl, double *ksqr, double zm1,
+void scale_eigs_for_cheby(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, double *ksqr, double zm1,
   fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st *ist, par_st *par, flag_st *flag);
+int sign(float x);
 
 //norm.c
 double calc_norm(zomplex *, double,long,long);
-double normalize(zomplex *, double,long,long);
-void normalize_all(double *psi, double dv, long ms, long ngrid, long nthreads, int complex_idx, int printNorm);
+double normalize(zomplex *, long ngrid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
+void normalize_all(double *psitot, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 
 //energy.c
 double energy(zomplex *psi, zomplex *phi, double *pot_local, nlc_st *nlc, long *nl, double *ksqr, index_st *ist,
   par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
-void energy_all(zomplex *psi, zomplex *phi, double *psims, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
-  double *ene, index_st *ist, par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
+void energy_all(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+  double *ene, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void get_energy_range(zomplex *psi, zomplex *phi, double *pot_local, grid_st *grid, nlc_st *nlc, long *nl, double *ksqr,
   index_st *ist, par_st *par, parallel_st *parallel, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
-void calc_sigma_E(zomplex *psi, zomplex *phi, double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+void calc_sigma_E(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
   double *eval2, index_st *ist, par_st *par, flag_st *flag);
 
 

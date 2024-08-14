@@ -58,12 +58,15 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
         fprintf(pf, "\tDefault setting of energy targets will be used.\n");
     } 
 
-    if (flag->setSeed == 1){
-            fscanf(pf, "%ld", &par->rand_seed);
+    if (1 == flag->setSeed){
             fprintf(pf,"\tSetting initial filter random seed to -%ld\n", par->rand_seed);
     } else {fprintf(pf,"\tRandom seed will be generated based on clock at runtime\n");}
     
-    if (flag->printPsiFilt == 1){
+    if (1 == flag->approxEnergyRange){
+            fprintf(pf,"\tEnergy range will be approx'd using only local potential\n");
+    } else {fprintf(pf,"\tFull energy range of Hamiltonian will be calculated\n");}
+    
+    if (1 == flag->printPsiFilt){
         fprintf(pf, "\tprintPsiFilt is on. psi-filt.dat and psi-filt.cube files will be printed\n");
     } else {
         fprintf(pf, "\tIntermediate filter wavefunctions will not be output to disk\n");

@@ -27,11 +27,12 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->n_max_atom_types = N_MAX_ATOM_TYPES;
   flag->centerConf = 1; // this should honestly always be 1
   // Filter algorithm parameters
-  par->KE_max = 10.0; //NOTE: lowered this to 10 for tests
+  par->KE_max = 10.0; // Increasing this value can improve wavefunctions
   flag->setTargets = 0;
   flag->printPsiFilt = 0;
   flag->printOrtho = 0;
   par->checkpoint_id = 0;
+  flag->approxEnergyRange = 0;
   // Pseudopotential parameters
   ist->max_pot_file_len = 8192;
   flag->useStrain = 0; // By default, do not compute strain dependent terms in pseudopotential
@@ -146,7 +147,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "KEmax")) {
           par->KE_max = strtod(tmp, &endptr);
           if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
-      }else if (!strcmp(field, "fermiEnergy")) {
+      } else if (!strcmp(field, "fermiEnergy")) {
           par->fermi_E = strtod(tmp, &endptr);
           if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "setTargets")) {
@@ -155,6 +156,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (flag->setTargets == 1){
             fscanf(pf, "%ld %ld", &par->n_targets_VB, &par->n_targets_CB);
           }
+      } else if (!strcmp(field, "approxEnergyRange")) {
+          flag->approxEnergyRange = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "setSeed")) {
           flag->setSeed = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
@@ -260,6 +264,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("KEmax = double (maximum kinetic energy value considered)\n");
           printf("spinOrbit = int (0 for no spinOrbit, 1 for spinOrbit)\n");
           printf("NonLocal = int (0 for no non-local, 1 for non-local potential)\n");
+          printf("approxEnergyRange = int, if 1 then energy range will be appox'd by local pot\n");
           printf("setTargets = int (0 if half/half split of VB/CB targets suffices for your job)\n");
           printf("If setTargets = 1, the next two entries MUST be \'n_targets_VB n_targets_CB\'\n");
           printf("centerConf = int (if 1, center the NC atoms at the COM)\n");
@@ -274,6 +279,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("setSeed = int (if 1, set the random seed in for filter to generate exactly reproducible wavefunctions)\n");
           printf("If setSeed = 1, the next entry MUST specify the random seed as an integer \'rand_seed\'\n");
           printf("printNorm = int, if 1 then norms of wavefunctions are printed every 100 chebyshev iterations\n");
+          printf("printPsiFilt = int, if 1 then filtered wavefunctions are printed\n");
           printf("retryFilter = int, if 1 then if no eigenstates obtained after diag, then filter is restarted.\n");
           printf("saveCheckpoints = int, if 1 then save states will be generated along the job run.\n");
           printf("restartFromCheckpoint = int, value is the ID of the checkpoint that the job should restart from.\n");

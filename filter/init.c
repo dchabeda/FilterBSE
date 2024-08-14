@@ -33,8 +33,8 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par){
 
   /***initial parameters for the pot reduce mass, etc. in the x direction ***/
   grid->xmin = -xd;
-  grid->xmax = xd;
-  printf("\tThe x_max = %lg and x_min %lg\n", grid->xmax, grid->xmin);
+  grid->xmax = xd - grid->dx; // There is an off-by-one in the grid due to the loop not including the final element. Create odd grid to have same grid points on each side.
+  printf("\tThe x_min = %lg and x_max %lg\n", grid->xmin, grid->xmax);
   ntmp  = (long)((grid->xmax - grid->xmin) / grid->dx);
   if (ntmp > grid->nx){
     printf("\tinput nx insufficient; updating parameter.\n");
@@ -47,8 +47,8 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par){
   
   /***initial parameters for the pot reduce mass, etc. in the y direction ***/
   grid->ymin = -yd;
-  grid->ymax = yd;
-  printf("\tThe y_max = %lg and y_min %lg\n", grid->ymax, grid->ymin);
+  grid->ymax = yd - grid->dy;
+  printf("\tThe y_min = %lg and y_max %lg\n", grid->ymin, grid->ymax);
   ntmp  = (long)((grid->ymax - grid->ymin) / grid->dy);
   if (ntmp > grid->ny){
     printf("\tinput ny insufficient; updating parameter.\n");
@@ -61,9 +61,9 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par){
 
   /***initial parameters for the pot reduce mass, etc. in the z direction ***/
   grid->zmin = -zd;
-  grid->zmax = zd;
+  grid->zmax = zd - grid->dz;
   ntmp  = (long)((grid->zmax - grid->zmin) / grid->dz);
-  printf("\tThe z_max = %lg and z_min %lg\n", grid->zmax, grid->zmin);
+  printf("\tThe z_min = %lg and z_max %lg\n", grid->zmin, grid->zmax);
   if (ntmp > grid->nz){
     printf("\tinput nz insufficient; updating parameter.\n");
     grid->nz = ntmp;
@@ -92,6 +92,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par){
   printf("\tngrid = %ld, nspin = %d, nspinngrid = %ld\n", ist->ngrid, ist->nspin, ist->nspinngrid);
   
 
+  free(X); free(Y); free(Z);
   fflush(stdout);
 
   return;
@@ -114,6 +115,7 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_
   FILE *pf;
   long jx, jy, jz, jyz, jxyz, jtmp, jatom;
   double dx, dy, dz, *ksqrx, *ksqry, *ksqrz;
+  double KE_max;
 
   // ****** ****** ****** ****** ****** ****** 
   // Building the grid 
@@ -146,14 +148,14 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_
 		grid->nz_1 * grid->nx_1 * grid->ny_1);
 
   pf = fopen("ksqr.dat", "w");
-  par->KE_max *= (grid->ny_1 * grid->nx_1 * grid->nz_1);
+  KE_max = par->KE_max * (grid->ny_1 * grid->nx_1 * grid->nz_1);
   for (jz = 0; jz < grid->nz; jz++){
     for (jy = 0; jy < grid->ny; jy++){
       jyz = grid->nx * (grid->ny * jz + jy);
       for (jx = 0; jx < grid->nx; jx++){
         jxyz = jyz + jx;
         ksqr[jxyz] = ksqrx[jx] + ksqry[jy] + ksqrz[jz];
-        if (ksqr[jxyz] > par->KE_max) ksqr[jxyz] = par->KE_max; // KE cutoff at KE_max
+        if (ksqr[jxyz] > KE_max) ksqr[jxyz] = KE_max; // KE cutoff at KE_max
         fprintf(pf, "%ld %lg\n", jxyz, ksqr[jxyz]);
       }
     }
@@ -579,7 +581,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
 
 
 /*****************************************************************************/
-void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, parallel_st *parallel){
+void init_psi(zomplex *psi, long *rand_seed, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function initializes a random, normalized wavefnc on grid   *
   * inputs:                                                          *
@@ -592,7 +594,6 @@ void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, paral
 
   long jx, jy, jz, jzy, jxyz;
   long randint = (*rand_seed);
-
   // Loop over entire grid to set new values at all grid points
   for (jz = 0; jz < grid->nz; jz++){
     for (jy = 0; jy < grid->ny; jy++){
@@ -603,11 +604,11 @@ void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, paral
         // random number between [-1.0,1.0] 
         // ran_nrc generates random between [0.0,1.0] and resets the seed
         psi[jxyz].re = (-1.0 + 2.0 * ran_nrc(&randint));
-
         // If using complex-valued functions, then initialize a random value for imag component
-        if (1 == isComplex){
+        if (1 == flag->isComplex){
           psi[jxyz].im = (-1.0 + 2.0 * ran_nrc(&randint));
-        } else if (0 == isComplex){
+        } else if (0 == flag->isComplex){
+          
           // otherwise set imaginary component to 0.0
           psi[jxyz].im = 0.0;
         }
@@ -618,19 +619,10 @@ void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, paral
   
   // normalize this wavefunction and set the value of rand_seed to the new
   // seed so the next wavefunction is different.
-  FILE *pf;
-  pf = fopen("psi-init.dat", "w");
-  for (jxyz = 0; jxyz < grid->ngrid; jxyz++){
-    fprintf(pf, "%ld %lg\n", jxyz, psi[jxyz].re);
-  }
-  fclose(pf);
-  normalize(psi, grid->dv, grid->ngrid, parallel->nthreads);
+  normalize(psi, ist->ngrid, ist, par, flag, parallel);
+  
   (*rand_seed) = randint;
-  pf = fopen("psi-init-norm.dat", "w");
-  for (jxyz = 0; jxyz < grid->ngrid; jxyz++){
-    fprintf(pf, "%ld %lg\n", jxyz, psi[jxyz].re);
-  }
-  fclose(pf);
+  
   
   return;
 }
@@ -684,6 +676,7 @@ double calc_dot_dimension(xyz_st *R, long n_atoms, char *dir){
     }
   }
 
+  free(X); free(Y); free(Z);
   return sqrt(dr2);
 }
 

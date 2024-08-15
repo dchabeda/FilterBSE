@@ -177,7 +177,7 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     printf("\tgrid from filter...\n"); fflush(stdout);
     fscanf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg", &grid->dx, &grid->dy, &grid->dz, &grid->dr, &grid->dv, &grid->dkx, &grid->dky, &grid->dkz);
     fscanf(pf, "%lg %lg %lg %lg %lg %lg", &grid->xmin, &grid->xmax, &grid->ymin, &grid->ymax, &grid->zmin, &grid->zmax);
-    fscanf(pf, "%ld %ld %ld", &grid->nx, &grid->ny, &grid->nz); printf("%ld %ld %ld\n", &grid->nx, &grid->ny, &grid->nz);fflush(0);
+    fscanf(pf, "%ld %ld %ld", &grid->nx, &grid->ny, &grid->nz); printf("%ld %ld %ld\n", grid->nx, grid->ny, grid->nz);fflush(0);
     fscanf(pf, "%lg %lg %lg", &grid->nx_1, &grid->ny_1, &grid->nz_1);
     fscanf(pf, "%ld", &grid->ngrid); printf("\ngrid->ngrid = %ld\n", grid->ngrid);
 

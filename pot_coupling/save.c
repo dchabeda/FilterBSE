@@ -271,8 +271,8 @@ void read_filter_output_old(char *file_name, double **psitot, double **eig_vals,
     printf("%lg %lg\n", par->KE_max, par->fermi_E); fflush(0);
     // Read flags
     printf("\tflag_st from filter...\n"); fflush(stdout);
-    fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);
-    printf("%d %d %d %d %d\n", flag->SO, flag->NL, flag->LR, flag->useSpinors, flag->isComplex);
+    fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);fflush(0);
+    printf("%d %d %d %d %d\n", flag->SO, flag->NL, flag->LR, flag->useSpinors, flag->isComplex);fflush(0);
     // Read conf
     printf("\tconf from filter...\n"); fflush(stdout);
     if(( *R = malloc(ist->natoms * sizeof(xyz_st))) == NULL){

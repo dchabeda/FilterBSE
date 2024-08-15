@@ -194,12 +194,13 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
         exit(EXIT_FAILURE);
     }
 
+    fseek(pf, 1 , SEEK_CUR);
     fread(*gridx, sizeof(double), grid->nx, pf);
     fread(*gridy, sizeof(double), grid->ny, pf);
     fread(*gridz, sizeof(double), grid->nz, pf);
     printf("gridz\n");
     for (j = 0; j< grid->nx; j++){
-        printf("%lg\n", (*gridz)[j]);
+        printf("%lg\n", *gridz[j]);
     }
     // Read eig_vals and sigma_E
     if ((*eig_vals = malloc(ist->mn_states_tot * sizeof(*eig_vals[0]))) == NULL){

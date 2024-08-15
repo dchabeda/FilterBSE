@@ -179,7 +179,7 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     fscanf(pf, "%lg %lg %lg %lg %lg %lg", &grid->xmin, &grid->xmax, &grid->ymin, &grid->ymax, &grid->zmin, &grid->zmax);
     fscanf(pf, "%ld %ld %ld", &grid->nx, &grid->ny, &grid->nz); printf("%ld %ld %ld\n", grid->nx, grid->ny, grid->nz);fflush(0);
     fscanf(pf, "%lg %lg %lg", &grid->nx_1, &grid->ny_1, &grid->nz_1);
-    fscanf(pf, "%ld", &grid->ngrid); printf("\ngrid->ngrid = %ld\n", grid->ngrid);
+    fscanf(pf, "%7ld", &grid->ngrid); printf("\ngrid->ngrid = %ld\n", grid->ngrid);
 
     if((*gridx = malloc(grid->nx * sizeof(double))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");

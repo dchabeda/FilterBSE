@@ -1,4 +1,5 @@
 #include "fd.h"
+#include <mpi.h>
 
 /*****************************************************************************/
 
@@ -38,7 +39,11 @@ int main(int argc, char *argv[]){
   char *top; top = malloc(2*sizeof(top[0])); 
   char *bottom; bottom = malloc(2*sizeof(bottom[0]));
   strcpy(top, "T\0"); strcpy(bottom, "B\0");
-  
+
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &parallel.head_rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
+
   fprintf(stdout, "******************************************************************************\n");
   printf("\nRUNNING PROGRAM: FILTER DIAGONALIZATION\n");
   printf("This calculation began at: %s", ctime(&start_time)); 
@@ -656,7 +661,7 @@ int main(int argc, char *argv[]){
         printf("\nNo optional output requested.\n");
       }
 
-
+      MPI_Finalize(); // Finalize the MPI tasks and prepare to exit program
       /*************************************************************************/
       /*** free memory ***/
       free(ist.atom_types);

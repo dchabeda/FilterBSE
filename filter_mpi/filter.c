@@ -47,6 +47,16 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
     exit(EXIT_FAILURE);
   }
   
+  // Send necessary arrays to each node
+  if (mpi_rank == 0) {
+  // Fill data array with values
+  for (int i = 1; i < mpi_size; i++) {
+      MPI_Send(data, 100, MPI_INT, i, 0, MPI_COMM_WORLD);
+  }
+  } else {
+      // Other processes receive the data
+      MPI_Recv(data, 100, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  }
   //************************************************************************
   //************************************************************************
   // BEGIN FILTERING HERE
@@ -54,16 +64,16 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
   //************************************************************************
   printf("Starting filtering loop\n\n"); fflush(0);
   //long nthreads = (long) (parallel->nthreads / 2);
-  omp_set_dynamic(0);
-  omp_set_num_threads(parallel->nthreads);
-  #pragma omp parallel for private(jmn) 
-  for (jmn = 0; jmn < ist->mn_states_tot; jmn++) {
+  int chunk_size = ist->mn_states_tot / parallel->mpi_size;
+  int start = mpi_rank * chunk_size;
+  int end = (mpi_rank == parallel->mpi_size - 1) ? ist->mn_states_tot : start + chunk_size;
+  
+  for (jmn = start; jmn < end; jmn++) {
      // Keep track of how many filter iterations have taken place
-    if (0 == omp_get_thread_num()){
+    if (mpi_rank == 0) {
       cntr++;
       printf("\tCurrently working on iteration %ld of filtering cycle\n", cntr); fflush(0);
       printf("\t  (~%ld states)\n", cntr * nthreads); fflush(0);
-      
     }
     // All variables declared within this parallel region are private for each thread
     // thread tracking

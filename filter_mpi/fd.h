@@ -104,7 +104,8 @@ typedef struct st11 {
 typedef fftw_plan fftw_plan_loc;
 
 typedef struct parallel{
-  long nthreads;
+  long nthreads, nranks;
+  int mpi_size, head_rank;
   long *jns, *jms;
 } parallel_st;
 

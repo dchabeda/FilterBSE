@@ -53,9 +53,9 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
   //************************************************************************
   //************************************************************************
   printf("Starting filtering loop\n\n"); fflush(0);
-  long nthreads = (long) (parallel->nthreads / 2);
+  //long nthreads = (long) (parallel->nthreads / 2);
   omp_set_dynamic(0);
-  omp_set_num_threads(nthreads);
+  omp_set_num_threads(parallel->nthreads);
   #pragma omp parallel for private(jmn) 
   for (jmn = 0; jmn < ist->mn_states_tot; jmn++) {
      // Keep track of how many filter iterations have taken place

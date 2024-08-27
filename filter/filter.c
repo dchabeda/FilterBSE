@@ -158,7 +158,7 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
         }
       }
 
-      if (0 == (jc % 1000)) {
+      if (0 == (jc % 1024)) {
         // print the Newton interpolation progress to the prop- files
         fprintf (pf,"%ld %ld %ld\n", jns, jms, jc); fflush(pf);
         // print the filtering progress to the output file
@@ -167,12 +167,16 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
           float percent = (float)jc / ist->ncheby * 100;
           int pos = barWidth * jc / ist->ncheby;
 
+          // Obtain the current time
+          time_t current_time = time(NULL);
+          // Convert to local time format and print
+          char* c_time_string = ctime(&current_time);
           printf("\t  [");
           for (int i = 0; i < barWidth; ++i) {
               if (i < pos) printf("#");
               else printf(" ");
           }
-          printf("] %3.0f%%\n", percent);
+          printf("] %3.0f%% | %s\n", percent, c_time_string);
           fflush(stdout);
         }
       }

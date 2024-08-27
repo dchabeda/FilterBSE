@@ -214,7 +214,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
     }
     fclose(pf);
   } else if (1 == flag->approxEnergyRange){
-    printf("\tApproximating energy range of Hamiltonian as [Vmin, Vmax + KE_max]\n");
+    printf("\nApproximating energy range of Hamiltonian as [Vmin, Vmax + KE_max]\n");
     Emin = par->Vmin + 0.5;
     Emax = par->Vmax + par->KE_max;
     if (1 == flag->NL){

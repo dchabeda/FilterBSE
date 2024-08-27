@@ -209,6 +209,7 @@ void filter(zomplex *psin, zomplex *psim1, double *psims, double *pot_local, nlc
 void scale_eigs_for_cheby(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, double *ksqr, double zm1,
   fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st *ist, par_st *par, flag_st *flag);
 int sign(float x);
+void print_progress_bar(int progress, int total);
 
 //norm.c
 double calc_norm(zomplex *, double,long,long);

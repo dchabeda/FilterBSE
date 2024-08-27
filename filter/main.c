@@ -568,72 +568,84 @@ int main(int argc, char *argv[]){
 
       if (flag.printCubes == 1){
         /*** Write homo and lumo cube files ***/
-        
+        zomplex sgn_val;
+        sgn_val.re = sgn_val.im = 0.0;
+
         write_separation(stdout, top);
         printf("\nWRITING CUBE FILES\n"); 
         write_separation(stdout, bottom); fflush(stdout);
 
         if ((ist.homo_idx == 0) || (ist.lumo_idx == 0)){
           printf("\nDid not converge enough electron or hole states to visualize cube files.\n");
-        } else{
-        if ((rho = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
-          fprintf(stderr, "\nOUT OF MEMORY: rho\n\n"); exit(EXIT_FAILURE);
-        }
-
-        inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
-
-        for (i = 0; (i < ist.total_homo) && (i < ist.ncubes); i++){
-          //Spin Up Wavefunction
-          sprintf(str,"homo-%ld-Up.cube",i);
-          for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-            jgrid_real = ist.complex_idx * jgrid;
-            jgrid_imag = ist.complex_idx * jgrid + 1;
-            
-            rho[jgrid] = sqr(psitot[ist.complex_idx*(ist.homo_idx-i)*ist.nspinngrid + jgrid_real]);
-            if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*(ist.homo_idx-i)*ist.nspinngrid + jgrid_imag]);
+        } 
+        else {
+          if ((rho = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
+            fprintf(stderr, "\nOUT OF MEMORY: rho\n\n"); exit(EXIT_FAILURE);
           }
-          write_cube_file(rho, &grid, str);
-          //Spin Down Wavefunction
-          if (1 == flag.useSpinors){    
-            sprintf(str,"homo-%ld-Dn.cube", i);
+
+          inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
+
+          for (i = 0; (i < ist.total_homo) && (i < ist.ncubes); i++){
+            //Spin Up Wavefunction
+            sprintf(str,"homo-%ld-Up.cube",i);
             for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
               jgrid_real = ist.complex_idx * jgrid;
               jgrid_imag = ist.complex_idx * jgrid + 1;
               
-              rho[jgrid] = sqr(psitot[ist.complex_idx*((ist.homo_idx-i)*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
-                  + sqr(psitot[ist.complex_idx*((ist.homo_idx-i)*ist.nspinngrid+ist.ngrid)+jgrid_imag]);    
+              sgn_val.re = psitot[ist.complex_idx*(ist.homo_idx-i)*ist.nspinngrid + jgrid_real];
+
+              if (1 == flag.isComplex) {
+                sgn_val.im = psitot[ist.complex_idx*(ist.homo_idx-i)*ist.nspinngrid + jgrid_imag];
+              }
+              // rho = sign * |psi|^2
+              rho[jgrid] = sign(sgn_val.re + sgn_val.im) * (sqr(sgn_val.re) + sqr(sgn_val.im));
             }
             write_cube_file(rho, &grid, str);
-          } 
-        }
-
-        for (i = 0;  (i < ist.total_lumo) && (i < ist.ncubes); i++){
-          sprintf(str,"lumo+%ld-Up.cube",i);
-          for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-            jgrid_real = ist.complex_idx * jgrid;
-            jgrid_imag = ist.complex_idx * jgrid + 1;
-            
-            rho[jgrid] = sqr(psitot[ist.complex_idx*(ist.lumo_idx+i)*ist.nspinngrid + jgrid_real]);
-            if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*(ist.lumo_idx+i)*ist.nspinngrid + jgrid_imag]);
+            //Spin Down Wavefunction
+            if (1 == flag.useSpinors){    
+              sprintf(str,"homo-%ld-Dn.cube", i);
+              for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+                jgrid_real = ist.complex_idx * jgrid;
+                jgrid_imag = ist.complex_idx * jgrid + 1;
+                
+                sgn_val.re = psitot[ist.complex_idx*((ist.homo_idx-i)*ist.nspinngrid+ist.ngrid)+jgrid_real];
+                sgn_val.im = psitot[ist.complex_idx*((ist.homo_idx-i)*ist.nspinngrid+ist.ngrid)+jgrid_imag];
+                rho[jgrid] = sign(sgn_val.re + sgn_val.im) * ( sqr(sgn_val.re) + sqr(sgn_val.im) );
+              }
+              write_cube_file(rho, &grid, str);
+            } 
           }
-          write_cube_file(rho, &grid, str);
 
-          if (1 == flag.useSpinors){
-            sprintf(str,"lumo+%ld-Dn.cube",i);
+          for (i = 0;  (i < ist.total_lumo) && (i < ist.ncubes); i++){
+            sprintf(str,"lumo+%ld-Up.cube",i);
             for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
               jgrid_real = ist.complex_idx * jgrid;
               jgrid_imag = ist.complex_idx * jgrid + 1;
-            
-              rho[jgrid] = sqr(psitot[ist.complex_idx*((ist.lumo_idx+i)*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
-                  + sqr(psitot[ist.complex_idx*((ist.lumo_idx+i)*ist.nspinngrid+ist.ngrid)+jgrid_imag]);
+              
+              sgn_val.re = psitot[ist.complex_idx*(ist.lumo_idx+i)*ist.nspinngrid + jgrid_real];
+              if (1 == flag.isComplex) sgn_val.im = psitot[ist.complex_idx*(ist.lumo_idx+i)*ist.nspinngrid + jgrid_imag];
+              rho[jgrid] = sign(sgn_val.re + sgn_val.im) * ( sqr(sgn_val.re) + sqr(sgn_val.im) );
             }
             write_cube_file(rho, &grid, str);
-          }
-        }
-        free(rho);
 
-        printf("\ndone calculating cubes, CPU time (sec) %g, wall run time (sec) %g\n",
+            if (1 == flag.useSpinors){
+              sprintf(str,"lumo+%ld-Dn.cube",i);
+              for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+                jgrid_real = ist.complex_idx * jgrid;
+                jgrid_imag = ist.complex_idx * jgrid + 1;
+
+                sgn_val.re = psitot[ist.complex_idx*((ist.lumo_idx+i)*ist.nspinngrid+ist.ngrid)+jgrid_real];
+                sgn_val.im = psitot[ist.complex_idx*((ist.lumo_idx+i)*ist.nspinngrid+ist.ngrid)+jgrid_imag];
+                rho[jgrid] = sign(sgn_val.re + sgn_val.im) * ( sqr(sgn_val.re) + sqr(sgn_val.im) );
+              }
+              write_cube_file(rho, &grid, str);
+            }
+          }
+          free(rho);
+
+          printf("\ndone calculating cubes, CPU time (sec) %g, wall run time (sec) %g\n",
           ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t);
+          fflush(stdout);
         }
       }
       if (flag.calcPotOverlap == 1){

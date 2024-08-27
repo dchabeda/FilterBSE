@@ -62,7 +62,7 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
     if (0 == omp_get_thread_num()){
       cntr++;
       printf("\tCurrently working on iteration %ld of filtering cycle\n", cntr); fflush(0);
-      printf("\t  (~%ld states)\n", cntr * nthreads); fflush(0);
+      printf("\t  (~%ld states)\n\n", cntr * parallel->nthreads); fflush(0);
       
     }
     // All variables declared within this parallel region are private for each thread
@@ -158,8 +158,23 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
         }
       }
 
-      if (0 == (jc % 100)) {
+      if (0 == (jc % 1000)) {
+        // print the Newton interpolation progress to the prop- files
         fprintf (pf,"%ld %ld %ld\n", jns, jms, jc); fflush(pf);
+        // print the filtering progress to the output file
+        if (0 == omp_get_thread_num()){
+          int barWidth = 10; // Width of the progress bar
+          float percent = (float)jc / ist->ncheby * 100;
+          int pos = barWidth * jc / ist->ncheby;
+
+          printf("\t  [");
+          for (int i = 0; i < barWidth; ++i) {
+              if (i < pos) printf("#");
+              else printf(" ");
+          }
+          printf("] %3.0f%%\n", percent);
+          fflush(stdout);
+        }
       }
 
       // if (jc < 20){
@@ -205,7 +220,7 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
   
   /***********************************************************************/
   /*** normalize the states and get their energies***/
-  printf("Normalizing filtered states\n"); fflush(stdout);
+  printf("\nNormalizing filtered states\n"); fflush(stdout);
   normalize_all(psitot,ist,par,flag,parallel);
   // exit(0);
   // Get the energy of all the filtered states
@@ -234,4 +249,18 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
 /*****************************************************************************/
 int sign(float x) {
     return (int)copysign(1.0, x);  // copysign gives the sign of x
+}
+
+void print_progress_bar(int progress, int total) {
+    int barWidth = 10; // Width of the progress bar
+    float percent = (float)progress / total * 100;
+    int pos = barWidth * progress / total;
+
+    printf("\t  [");
+    for (int i = 0; i < barWidth; ++i) {
+        if (i < pos) printf("#");
+        else printf(" ");
+    }
+    printf("] %3.0f%%\n", percent);
+    fflush(stdout);
 }

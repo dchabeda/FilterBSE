@@ -158,12 +158,12 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
         }
       }
 
-      if (0 == (jc % 1024)) {
+      if ( (0 == (jc % ((long) (ist->ncheby / 4)) )) || (1 == jc) || ( (ist->ncheby - 1) == jc) ) {
         // print the Newton interpolation progress to the prop- files
         fprintf (pf,"%ld %ld %ld\n", jns, jms, jc); fflush(pf);
         // print the filtering progress to the output file
         if (0 == omp_get_thread_num()){
-          int barWidth = 10; // Width of the progress bar
+          int barWidth = 16; // Width of the progress bar
           float percent = (float)jc / ist->ncheby * 100;
           int pos = barWidth * jc / ist->ncheby;
 

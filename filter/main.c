@@ -545,16 +545,30 @@ int main(int argc, char *argv[]){
       for (i = ieof = 0; ieof != EOF; i++){
         ieof = fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
         if (deloc < par.sigma_E_cut && evalloc < par.fermi_E) ist.homo_idx = i;
+        if (i > ist.mn_states_tot){
+          printf("No hole states converged to within %lg a.u.\n", par.sigma_E_cut);
+          break;
+        }
       }
       fclose(pf);
 
       // nval = i - 1;
       pf = fopen("eval.dat" , "r");
-      for (i = 0; i <= ist.homo_idx; i++) fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
+      for (i = 0; i <= ist.homo_idx; i++) {
+        fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
+        if (i > ist.mn_states_tot){
+          printf("No electron states converged to within %lg a.u.\n", par.sigma_E_cut);
+          break;
+        }
+      }
       for (i = ist.homo_idx+1, ieof = 0; ieof != EOF; i++) {
         fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
         if (deloc < par.sigma_E_cut) {
           ist.lumo_idx = i;
+          break;
+        }
+        if (i > ist.mn_states_tot){
+          printf("No electron states converged to within %lg a.u.\n", par.sigma_E_cut);
           break;
         }
       }

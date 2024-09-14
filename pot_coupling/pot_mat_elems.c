@@ -70,7 +70,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
         g.re *= par->dv;
         g.im *= par->dv;
 
-        fprintf(pf,"%2ld % .9f %2ld % .9f % .12f % .12f\n", i, eval[i], a, eval[a], g.re, g.im);
+        fprintf(pf,"%2ld % .9f %2ld % .9f % .12g % .12g\n", i, eval[i], a, eval[a], g.re, g.im);
     }
   }
   fclose(pf);
@@ -121,7 +121,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
         g.re *= par->dv;
         g.im *= par->dv;
 
-        fprintf(pf1,"%2ld % .9f %2ld % .9f % .12f % .12f\n", i, eval[i], a, eval[a], g.re, g.im);
+        fprintf(pf1,"%2ld % .9f %2ld % .9f % .12g % .12g\n", i, eval[i], a, eval[a], g.re, g.im);
     }
   }
   fclose(pf1);

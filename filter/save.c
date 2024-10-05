@@ -147,6 +147,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     else fprintf(pf, "\tNo checkpoint saves requested\n");
     if (flag->restartFromCheckpoint > -1) fprintf(pf, "\tFilter will restart from checkpoint %d\n", flag->restartFromCheckpoint);
     else fprintf(pf, "\tNo checkpoint specified for restart. Job will run in normal sequence.\n");
+    if (flag->restartFromOrtho == 1) fprintf(pf, "\tFilter will restart from orthogonalization step!\n");
     
     return;
 }

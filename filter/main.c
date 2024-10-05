@@ -112,6 +112,30 @@ int main(int argc, char *argv[]){
   
   /*************************************************************************/
   /*** allocating memory for the rest of the program ***/
+  // Open the /proc/meminfo file
+  FILE *file = fopen("/proc/meminfo", "r");
+  if (file == NULL) {
+      perror("Could not open /proc/meminfo");
+      return 1;
+  }
+
+  // Variables to store information
+  char label[256];
+  unsigned long available_ram_kb;
+
+  // Read through the file to find "MemAvailable"
+  while (fscanf(file, "%s %lu", label, &available_ram_kb) != EOF) {
+      if (strcmp(label, "MemAvailable:") == 0) {
+          // Available RAM is found, break out of the loop
+          break;
+      }
+  }
+
+  fclose(file);
+  // Print available RAM in kilobytes and megabytes
+  printf("Available RAM: %lu KB (%.2f GB)\n", available_ram_kb, available_ram_kb / 1024.0 / 1024.0);
+
+
   printf("\nAllocating memory for FFT, pot, psi, eig_vals...");
   
   // FFT
@@ -152,6 +176,8 @@ int main(int argc, char *argv[]){
   // The factor of par.t_rev_factor (2 w spinors, 1 w/o spinors) in the psitot memory allocation
   // is because we time reverse the spinors to get double the orthogonal states
   // Spinor calculations are 8 times more memory intensive than scalar calculations
+  
+
   if ((psitot = (double *) calloc(ist.complex_idx * par.t_rev_factor * ist.nspinngrid * ist.mn_states_tot, sizeof(psitot[0]))) == NULL){
     fprintf(stderr,"\nOUT OF MEMORY: psitot\n\n"); exit(EXIT_FAILURE);
   }
@@ -350,7 +376,91 @@ int main(int argc, char *argv[]){
       }
     // If checkpoint_id is 1, restart job after filtering (+ time reversal) but before orthogonalization
     case 1:
-      if (flag.restartFromCheckpoint == 1){
+      if (1 == flag.restartFromOrtho){
+        write_separation(stdout, top);
+        printf("**** START FROM ORTHO *** START FROM ORTHO ** START FROM ORTHO *** START FROM ORTHO ****");
+        write_separation(stdout, bottom); fflush(stdout);
+        
+        printf("\nLocal pseudopotential:\n");
+        build_local_pot(pot_local, &pot, R, atom, &grid, &ist, &par, &flag, &parallel);
+        
+        free(pot.r); pot.r = NULL; 
+        free(pot.pseudo); pot.pseudo = NULL; 
+        free(pot.dr); pot.dr = NULL; 
+        free(pot.file_lens); pot.file_lens = NULL;
+        if (1.0 != par.scale_surface_Cs){
+          free(pot.r_LR); pot.r_LR = NULL;
+          free(pot.pseudo_LR); pot.pseudo_LR = NULL; 
+        }
+        
+        write_cube_file(pot_local, &grid, "localPot.cube");
+        
+        if(flag.SO==1) {
+          printf("\nSpin-orbit pseudopotential:\n");
+          init_SO_projectors(SO_projectors, R, atom, &grid, &ist, &par);
+        }
+        /*** initialization for the non-local potential ***/
+        if (flag.NL == 1){
+          printf("\nNon-local pseudopotential:\n"); fflush(0);
+          init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag);
+        }
+        // free memory allocated to SO_projectors
+        if ( (flag.SO == 1) || (flag.NL == 1) ){
+          free(SO_projectors); SO_projectors = NULL;
+        }
+        
+        long psitot_size = par.t_rev_factor*ist.complex_idx*ist.nspinngrid*ist.mn_states_tot*sizeof(double);
+        printf("\nNumber of states included for orthogonalization = %ld\n", ist.mn_states_tot); fflush(stdout);
+        printf("Size of psitot array = %.2g GB\n", (double) psitot_size/1024/1024/1024); fflush(stdout);
+        //free(psitot); psitot = NULL;
+        // Reallocate psitot to have space for all the filtered states
+        // if ((psitot = (double*) realloc(psitot, psitot_size)) == NULL){ 
+        //   fprintf(stderr, "\nOUT OF MEMORY: psitot realloc\n\n"); exit(EXIT_FAILURE);
+        // }
+        
+        // Read in the states from psi-filt.dat file
+        ppsi = fopen("psi-filt.dat", "r");
+        if (ppsi != NULL){
+          printf("Reading psi-filt.dat\n"); fflush(stdout);
+          fread(&psitot[0], sizeof(double), ist.complex_idx*ist.nspinngrid*ist.mn_states_tot, ppsi);
+          fclose(ppsi);
+        } else{
+          fprintf(stderr, "ERROR: psi-filt.dat could not be opened\n");
+          exit(EXIT_FAILURE);
+        }
+        printf("psitot[max] = %lg\n", psitot[ist.complex_idx*ist.nspinngrid*ist.mn_states_tot - 1]);
+        
+        long state_idx;
+        double sgn_val;
+        char fileName[50];
+        if ((rho = (double *) calloc(ist.ngrid, sizeof(rho[0]))) == NULL){
+          fprintf(stderr, "\nOUT OF MEMORY: filter rho\n\n"); exit(EXIT_FAILURE);
+        }
+        for (jstate = 0; jstate < 5; jstate++){
+          state_idx = jstate*ist.complex_idx * ist.nspinngrid;
+          for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+            jgrid_real = ist.complex_idx * jgrid;
+            jgrid_imag = ist.complex_idx * jgrid + 1;
+
+            rho[jgrid] = sqr(psitot[state_idx + jgrid_real]);
+            sgn_val = psitot[state_idx + jgrid_real];
+            if (1 == flag.isComplex){
+              rho[jgrid] += sqr(psitot[state_idx + jgrid_imag]);
+              if (sgn_val < psitot[state_idx + jgrid_imag]) sgn_val = psitot[state_idx + jgrid_imag];
+            }
+            rho[jgrid] *= sign(sgn_val);
+          }
+          sprintf(fileName, "ortho-psi-%ld.cube", jstate);
+          write_cube_file(rho, &grid, fileName);
+        }
+
+        printf("\nNormalizing filtered states (for safety)\n"); fflush(stdout);
+        normalize_all(psitot,par.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
+        if (2 == par.t_rev_factor){
+          printf("\nTime-reversing all filtered states (doubles number of orthogonal states)\n"); fflush(stdout);
+          time_reverse_all(&psitot[0], &psitot[ist.complex_idx*ist.nspinngrid*ist.mn_states_tot], &ist, &parallel);
+        }
+      } else if (flag.restartFromCheckpoint == 1){
         par.checkpoint_id = flag.restartFromCheckpoint;
         write_separation(stdout, top);
         printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
@@ -410,7 +520,7 @@ int main(int argc, char *argv[]){
       write_separation(stdout, bottom); fflush(stdout);
       
       inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
-      diag_H(psi,phi,psitot,pot_local,nlc,nl,ksqr,eig_vals,&ist,&par,&flag,planfw,planbw,fftwpsi);
+      diag_H(psitot,pot_local,nlc,nl,ksqr,eig_vals,&ist,&par,&flag,&parallel,planfw,planbw,fftwpsi);
       normalize_all(&psitot[0],grid.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
       jms = ist.mn_states_tot;
       printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",

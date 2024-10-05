@@ -65,6 +65,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->saveCheckpoints = 0; // by default do not save job checkpoints
   flag->restartFromCheckpoint = -1; // by default do not restart from checkpoint
   // Restart job flags
+  flag->restartFromOrtho = 0;// When = 1, filtered states are read from disk and job starts from ortho step 
   flag->retryFilter = 0; // When = 1, if no eigstates acquired, then retry the filter job 
   flag->alreadyTried = 0; // gets tripped to 1 after the first time retrying a Filter.
   
@@ -230,6 +231,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "saveCheckpoints")) {
           flag->saveCheckpoints = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "restartFromOrtho")) {
+          flag->restartFromOrtho = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+          if (flag->restartFromOrtho == 1){fscanf(pf, "%ld", &ist->n_states_for_ortho);}
       } else if (!strcmp(field, "restartFromCheckpoint")) {
           flag->restartFromCheckpoint = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
@@ -283,6 +288,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("If setSeed = 1, the next entry MUST specify the random seed as an integer \'rand_seed\'\n");
           printf("printNorm = int, if 1 then norms of wavefunctions are printed every 100 chebyshev iterations\n");
           printf("retryFilter = int, if 1 then if no eigenstates obtained after diag, then filter is restarted.\n");
+          printf("restartFromOrtho = int, if 1 then \'psi-filt.dat\' is read from disk and job starts from ortho.\n");
+          printf("If restartFromOrtho = 1, the next entry MUST specify the total number of states in \'psi-filt.dat\'\n");
           printf("saveCheckpoints = int, if 1 then save states will be generated along the job run.\n");
           printf("restartFromCheckpoint = int, value is the ID of the checkpoint that the job should restart from.\n");
           
@@ -320,6 +327,12 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->mn_states_tot = ist->n_filter_cycles * ist->m_states_per_filter;
   ist->nthreads = parallel->nthreads;
   ist->complex_idx = flag->isComplex + 1;
+
+  // Handle flags for restarting filter from checkpoints or other retries
+  if (1 == flag->restartFromOrtho){
+    flag->restartFromCheckpoint = 1;
+    ist->mn_states_tot = ist->n_states_for_ortho;
+  }
 
   // Get the number of atoms (needed to initialize the)
   pf = fopen("conf.par" , "r");
@@ -729,7 +742,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
           // get ORTHO pseudopotential
           sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
           strcat(str, "_ortho.par");
-          pf = fopen(tmpstr , "r");
+          pf = fopen(str , "r");
           if (pf != NULL) {
             strcpy(req, "ortho");
             read_pot_file(pf, pot, ngeoms*atyp_idx, ist->max_pot_file_len, req);
@@ -1223,6 +1236,7 @@ void calc_geom_par(xyz_st *R, atom_info *atom, index_st *ist){
           avg_I_par /= 6.0;
           atom[i].geom_par = avg_I_par;
         }
+        break;
       }
 
       // If an unknown atom is encountered that was not caught before

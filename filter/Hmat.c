@@ -2,7 +2,7 @@
 
 /*****************************************************************************/
 
-void diag_H(zomplex *psi,zomplex *phi,double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
+void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,parallel_st *parallel,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
   /*******************************************************************
   * This function calculates eigenvalues and vectors of the real or  *
   * complex valued matrix, H, where H_ij = <psi_i|H|psi_j>           *
@@ -35,6 +35,9 @@ void diag_H(zomplex *psi,zomplex *phi,double *psitot,double *pot_local,nlc_st *n
   double *rwork, sumre, sumim; zomplex *tpsi;
   double *H, *work;
   MKL_Complex16 *H_z, *work_z;
+  time_t current_time;
+  char* c_time_string;
+  zomplex *psi, *phi;
 
   if (0 == flag->isComplex){
     H = (double *) calloc(ist->mn_states_tot*ist->mn_states_tot, sizeof(double));
@@ -49,8 +52,17 @@ void diag_H(zomplex *psi,zomplex *phi,double *psitot,double *pot_local,nlc_st *n
   }
 
   
-  /*omp_set_dynamic(0);
-    omp_set_num_threads(ist->nthreads);*/
+  if ((psi = (zomplex*) calloc(ist->nspinngrid, sizeof(psi[0]))) == NULL){
+    fprintf(stderr, "\nOUT OF MEMORY: psi in diag_H\n\n"); exit(EXIT_FAILURE);
+  }
+  if ((phi = (zomplex*) calloc(ist->nspinngrid, sizeof(phi[0]))) == NULL){
+    fprintf(stderr, "\nOUT OF MEMORY: phi in diag_H\n\n"); exit(EXIT_FAILURE);
+  }
+  
+  printf("Constructing Hamiltonian matrix\n"); fflush(stdout);
+
+  omp_set_dynamic(0);
+  omp_set_num_threads(parallel->nthreads);
 
   /*** calculate H|psi_i> ***/
   pg = fopen("hmat.dat" , "w");
@@ -73,21 +85,58 @@ void diag_H(zomplex *psi,zomplex *phi,double *psitot,double *pot_local,nlc_st *n
     hamiltonian(phi,psi,pot_local,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
 
     /*** calculate <psi_j|H|psi_i> ***/
-    //#pragma omp parallel for private(jms)
-    for (jms = 0; jms < ist->mn_states_tot; jms++){
+    #pragma omp parallel for private(jms, jgrid, jgrid_real, jgrid_imag) shared(H, H_z)
+    for (jms = 0; jms <= ims; jms++){
       if (0 == flag->isComplex){
-        H[ims*ist->mn_states_tot + jms] = dotpreal(phi,psitot,jms,ist->nspinngrid,par->dv);
+        H[ims*ist->mn_states_tot + jms] = H[jms*ist->mn_states_tot + ims] = dotpreal(phi,psitot,jms,ist->nspinngrid,par->dv);
       } 
       if (1 == flag->isComplex){
-        H_z[ims*ist->mn_states_tot + jms] = dotp(phi,psitot,jms,ist->nspinngrid,par->dv);
+        H_z[ims*ist->mn_states_tot + jms] = H_z[jms*ist->mn_states_tot + ims] = dotp(phi,psitot,jms,ist->nspinngrid,par->dv);
+        H_z[jms*ist->mn_states_tot + ims].imag *= -1;
       }
       //fprintf (pg,"%ld %ld %g %g\n",ims,jms,H[ims*ist->mn_states_tot+jms].real,H[ims*ist->mn_states_tot+jms].imag);
     }
-    fprintf (pg,"finshed row %ld\n",ims); fflush(pg);
+    
+    if ( (ims == 0) || (0 == (ims % (ist->mn_states_tot/4))) || (ims == (ist->mn_states_tot - 1))){
+      int barWidth = 16; // Width of the progress bar
+      float percent = (float)ims / ist->mn_states_tot* 100;
+      int pos = barWidth * ims / ist->mn_states_tot;
+      // Obtain the current time
+      time_t current_time = time(NULL);
+      // Convert to local time format and print
+      char* c_time_string = ctime(&current_time);
+      printf("\t  [");
+      for (int i = 0; i < barWidth; ++i) {
+          if (i < pos) printf("#");
+          else printf(" ");
+      }
+      printf("] %3.0f%% | %s\n", percent, c_time_string);
+      fflush(stdout);
+    }
   }
 
+  // free dynamically allocated memory for psi and phi
+  free(psi); free(phi);
+
+  // print out Hmat for debugging purposes
+  pg = fopen("hmat.dat" , "w");
+  for (ims = 0; ims < ist->mn_states_tot; ims++){
+    for (jms = 0; jms < ist->mn_states_tot; jms++){
+      if (0 == flag->isComplex){
+        fprintf(pg, "%lg ", H[ims*ist->mn_states_tot + jms]);
+      }
+      if (1 == flag->isComplex){
+        fprintf(pg, "%lg+i%lg ", H_z[ims*ist->mn_states_tot + jms].real, H_z[ims*ist->mn_states_tot + jms].imag);
+      }
+    }
+    fprintf(pg, "\n");
+  }
+  fclose(pg);
+
   /*** diagonalize the Hamiltonian H ***/
-  fprintf (pg,"diagonalize the new Hamiltonian H\n"); fflush(pg);
+  current_time = time(NULL);
+  c_time_string = ctime(&current_time);
+  printf("Diagonalizing Hamiltonian | %s\n", c_time_string);
   // Use real, symmetric diagonalization routine for real wavefunctions
   if (0 == flag->isComplex){
     dsyev_("V", "U", &mn_states_tot, &H[0], &mn_states_tot, &eval[0], &work[0], &lwk, &info);
@@ -104,14 +153,17 @@ void diag_H(zomplex *psi,zomplex *phi,double *psitot,double *pot_local,nlc_st *n
   }
 
   /*** copy the new function into psitot ***/
-  fprintf (pg, "copy the new function into psitot\n"); fflush(pg);
+  current_time = time(NULL);
+  c_time_string = ctime(&current_time);
+  printf("Diagonalization complete! | %s\n", c_time_string); fflush(stdout);
+  
   // The eigenvectors have been computed in the basis of orthogonalized
   // filtered functions (Phi_filter). In order to obtain them in the grid basis
   // as Psi_grid, we must perform a change of basis.
   // The matrix H is holding the eigenvectors, so we perform
   // (Psi_grid)_a = SUM_i H_ai * (Phi_filter)_i
   // for each grid point
-
+  printf("Writing out eigenvectors in the grid basis\n"); 
   for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
     jgrid_real = ist->complex_idx * jgrid;
     jgrid_imag = ist->complex_idx * jgrid + 1;
@@ -147,10 +199,14 @@ void diag_H(zomplex *psi,zomplex *phi,double *psitot,double *pot_local,nlc_st *n
         psitot[ist->complex_idx*jms*ist->nspinngrid+jgrid_imag] = sumim;
       }
     }
-    if (!(jgrid % 1000)) fprintf (pg,"finished grid point %ld\n",jgrid); fflush(pg);
+
+    if (!(jgrid % (ist->nspinngrid / 4) )) {
+      current_time = time(NULL);
+      c_time_string = ctime(&current_time);
+      printf("\tFinished grid point no. %ld | %s\n",jgrid, c_time_string); fflush(stdout);
+    }
   }
-  fprintf (pg, "free memory\n");
-  fclose(pg);
+  
 
   free(tpsi); 
   if (0 == flag->isComplex){

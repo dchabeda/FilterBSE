@@ -457,7 +457,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
   // TODO NOTE: the current method for computing the NL potential relies on the SO_projectors being defined.
   // If there is no spin-orbit coupling used in the calculation, then the SO_projectors should be set to
   // the identity.
-
+  printf("Inside init_NL\n"); fflush(stdout);
   // Useful constants
   double tmp1 = 0.5 * sqrt(3.0 / PIE);
   double tmp2 = 0.5 * sqrt(3.0 / TWOPI);
@@ -479,6 +479,8 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
   /*** for the nonlocal potential ***/
 
   // 2. Calculate r, r2, y1[1+m], proj(r), etc. at the grid points
+  omp_set_dynamic(0);
+  omp_set_num_threads(ist->nthreads);
 #pragma omp parallel for private(jatom, vr)
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
     long jx, jy, jz, jyz, jxyz;
@@ -490,10 +492,11 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
     if ((nlcprojectors = (double*) calloc(N * ist->nproj, sizeof(double)))==NULL){nerror("nlc_projector");}
     if ((sgnProj = (int*) calloc(ist->nproj, sizeof(int)))==NULL){nerror("nlc_sgnProj");}
   
+    printf("About to gen projectors\n"); fflush(stdout);
     //generate the nonlocal part for each atom
     gen_nlc_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, nlcprojectors, sgnProj, vr, atom, jatom);
-    // printf("Exited gen_nlc_projectors %ld\n", jatom); fflush(0);
-
+    printf("Exited gen_nlc_projectors %ld\n", jatom); fflush(0);
+    printf("Done generating projectors\n"); fflush(stdout);
     // Print the spin-orbit parameters for each atom for use in the coupling code
     char fileName[50];
     if (atom[jatom].SO_par != 0) {
@@ -502,7 +505,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
         fprintf(pf, "%.10f", atom[jatom].SO_par);
         fclose(pf);
     }
-    
+    printf("printed SO_proj\n"); fflush(stdout);
     nl[jatom] = 0;
     for (jz = 0; jz < grid->nz; jz++) {
       dz = grid->z[jz] - R[jatom].z;
@@ -516,6 +519,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
           dx = grid->x[jx] - R[jatom].x;
           dxeps = dx + EPSDX;
           dr2 = dx * dx + dy * dy + dz * dz;
+          // printf("dr2 = %lg\n", dr2); fflush(0);
           if (dr2 < par->R_NLcut2) {
             nlc[jatom*ist->n_NL_gridpts + nl[jatom]].jxyz = jxyz;
 
@@ -535,9 +539,11 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
 
             //write projectors to nlc struct and scale projectors by the SO scaling for this atom
             for (iproj = 0; iproj< ist->nproj; iproj++){ 
+                printf("about to interpolate\n"); fflush(stdout);
                 nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj] = 
                   interpolate(sqrt(dr2),dr_proj,vr,NULL, &SO_projectors[N*iproj],NULL,0, N,0,0,1.0, 1.0, 0);
                 //scale projectors by the SO scaling for this atom
+                
                 nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj] *= sqrt(atom[jatom].SO_par);
                 //fprintf(pf, "%li %i %f %f %f\n", jatom, iproj,nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r,nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj], sqrt(atom[jatom].SO_par) );
 
@@ -547,7 +553,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
                   nlc[jatom*ist->n_NL_gridpts + nl[jatom]].NL_proj_sign[iproj] = sgnProj[iproj];
                 }
             }
-
+            printf("EPS conditional\n"); fflush(stdout);
             if (dr2 > EPSDX) {
               nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2_1 = sqr(dr_1);
               nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2 = dr2;
@@ -556,12 +562,13 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
               nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2_1 = 0.0;
               nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2 = 1.0 / EPSDX;
             }
+            printf("past conditional\n"); fflush(stdout);
             nl[jatom]++;
           }
         }
       }
     }
-
+    printf("about to free\n"); fflush(stdout);
     free(nlcprojectors);
     free(sgnProj);
   }

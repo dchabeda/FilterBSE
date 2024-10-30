@@ -21,6 +21,18 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     } else if (flag->centerConf == 0){
         fprintf(pf, "\tNanocrystal configuration will not be centered.\n");
     } else {fprintf(stderr, "\tInvalid centerConf parameter!\n"); exit(EXIT_FAILURE);}
+    
+    if (flag->readGrid == 1){
+        fprintf(pf, "\tGrid configuration will be read from grid.par\n");
+    } else if (flag->readGrid == 0){
+        fprintf(pf, "\tDefault cartesian grid will be generated\n");
+    } else {fprintf(stderr, "\tInvalid readGrid parameter!\n"); exit(EXIT_FAILURE);}
+
+    if (flag->useGaussianBasis == 1){
+        fprintf(pf, "\tAtom-centered Gaussian basis functions will be used\n");
+    } else if (flag->useGaussianBasis == 0){
+        fprintf(pf, "\tAtom-centered Gaussian basis functions will be used\n");
+    } else {fprintf(stderr, "\tInvalid useGaussianBasis parameter!\n"); exit(EXIT_FAILURE);}
     // ****** ****** ****** ****** ****** ****** 
     // Set options for pseudopotential
     // ****** ****** ****** ****** ****** ****** 
@@ -183,6 +195,7 @@ void save_job_state(char *file_name, int checkpoint_id, double *psitot, double *
     fprintf(pf, "%d %d %d %d %d\n", flag->SO, flag->NL, flag->LR, flag->useSpinors, flag->isComplex);
     fprintf(pf, "%d %d %d %d\n", flag->calcPotOverlap, flag->getAllStates, flag->timeHamiltonian, flag->calcSpinAngStat);
     fprintf(pf, "%d %d %d %d %d\n", flag->retryFilter, flag->alreadyTried, flag->saveCheckpoints, flag->restartFromCheckpoint, flag->saveOutput);
+    fprintf(pf, "%d %d\n", flag->readGrid, flag->useGaussianBasis);
     
     fprintf(pf, "%ld\n", parallel->nthreads);
 
@@ -278,7 +291,8 @@ void restart_from_save(char *file_name, int checkpoint_id, double *psitot, doubl
     fscanf(pf, "%d %d %d %d %d", &flag->centerConf, &flag->setTargets, &flag->setSeed, &flag->interpolatePot, &flag->useStrain);
     fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);
     fscanf(pf, "%d %d %d %d", &flag->calcPotOverlap, &flag->getAllStates, &flag->timeHamiltonian, &flag->calcSpinAngStat);
-    fscanf(pf, "%d %d %d", &flag->retryFilter, &flag->alreadyTried, &flag->saveCheckpoints);
+    fscanf(pf, "%d %d %d %d %d", &flag->retryFilter, &flag->alreadyTried, &flag->saveCheckpoints, &flag->restartFromCheckpoint, &flag->saveOutput);
+    fscanf(pf, "%d %d", &flag->readGrid, &flag->useGaussianBasis);
     
     fscanf(pf, "%ld", &parallel->nthreads);
 

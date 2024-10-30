@@ -9,6 +9,9 @@ void init_size(long argc, char *argv[],par_st *par,long_st *ist) {
   long ieof, i, a, nval; 
   double evalloc, deloc, *eval, *de;
   char field[100], tmp[100];
+  
+  par->Ekinmax = 10.0; // kinetic energy maximum
+
   FILE *pf = fopen("input.par" , "r");
   if (pf ==NULL) {
     printf("no input in cwd\n");
@@ -25,10 +28,10 @@ void init_size(long argc, char *argv[],par_st *par,long_st *ist) {
   fscanf (pf,"%lg %lg %lg",&par->deltae,&par->deltah,&par->deps);  /*** energy windows for h+ and e- states allowed and sige check ***/
   fscanf (pf,"%ld %ld", &ist->maxElecStates, &ist->maxHoleStates);  /*** maximum number of single-particle states used ***/
   fscanf (pf,"%ld",&ist->nthreads);  /*** number of grid polong in z ***/
+  fscanf (pf,"%lg",&par->Ekinmax);  /*** number of grid polong in z ***/
   fclose(pf);
 
   // Set Defaults
-  par->Ekinmax = 10.0; // kinetic energy maximum 
   par->fermiEnergy = -0.19;
   ist->npot = 8192;    // length of pseudopotential files
   ist->natomtype = 12;

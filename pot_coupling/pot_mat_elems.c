@@ -18,11 +18,14 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
     fprintf(stderr, "\nOUT OF MEMORY: psi in calc_pot_overlap\n\n"); exit(EXIT_FAILURE);
   }
 
-  // Main computional work of function performed here - must loop over all electron-electrom (a-a)
-  // and hole-hole pairs
+  // Main computional work of function performed here -
+  // Technically, we only need to loop over all electron-electrom (a-b)
+  // and hole-hole (i-j) pairs, but for verification purposes all quasiparticles are included
+
+
   printf("Starting calculation of equilibrium geometry matrix elements\n\n"); fflush(0);
-  // First the hole-hole couplings
-  // compute V_ia = <i|Vloc + Vnonlocal + Vso|j> 
+  // First compute matrix elements of the equilibrium geometry potential
+  // compute V_ia = <a|Vloc_equil + Vnonlocal_equil + Vso_equil|i> 
 #pragma omp parallel for private(i)
   for (i = 0; i < ist->n_qp; i++){
     long jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
@@ -36,8 +39,8 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
     //printf("Before memcpy\n"); fflush(0);
     memcpy(&psi[0], &psitot[istate], ist->complex_idx*ist->nspinngrid*sizeof(psitot[0]));
     //printf("memcpy successful\n"); fflush(0);
-    // Initialize the vector that will become |phi> = Vloc + Vnonlocal + Vso|psi>, as 0.0s
-    // This next line is technically not necessaRy because calloc initializes memory to 0
+    // Initialize the vector that will become |phi> = (Vloc + Vnonlocal + Vso)|psi>, as 0.0s
+    // This next line is technically not necessary because calloc initializes memory to 0
     for (jgridup = 0; jgridup < ist->nspinngrid; jgridup++){
       phi[jgridup].re = phi[jgridup].im = 0.0;
     }
@@ -69,15 +72,16 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
         }
         g.re *= par->dv;
         g.im *= par->dv;
-
+        // Print out the potential matrix elements at the equilibrium geometry
         fprintf(pf,"%2ld % .9f %2ld % .9f % .12g % .12g\n", i, eval[i], a, eval[a], g.re, g.im);
     }
   }
   fclose(pf);
 
-  // Now the electron-electron couplings
+  // Next compute matrix elements of the distorted geometry potential
+  // (Note: all wavefunctions were computed at the equilibrium geometry)
   printf("Starting calculation of distorted geometry matrix elements"); fflush(0);
-  // compute V_ab = <a|Vloc + Vnonlocal + Vso|b> 
+  // compute V_ia = <a|Vloc_dist + Vnonlocal_dist + Vso_dist|i> 
 #pragma omp parallel for private(i)
   for (i = 0; i < ist->n_qp; i++){
     long jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
@@ -120,7 +124,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
         }
         g.re *= par->dv;
         g.im *= par->dv;
-
+        // Print out the potential matrix elements at the distorted geometry
         fprintf(pf1,"%2ld % .9f %2ld % .9f % .12g % .12g\n", i, eval[i], a, eval[a], g.re, g.im);
     }
   }

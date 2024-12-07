@@ -1,0 +1,12 @@
+sigmaECut = 0.0001
+epsX = 6.1
+epsY = 6.1
+epsZ = 6.1
+nThreads = 16
+spinOrbit = 1
+NonLocal = 1
+calcDarkStates = 0
+timingSpecs = 0
+fermiEnergy = -0.16
+deltaEhole = 0.02
+deltaEelec = 0.02

@@ -150,12 +150,12 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
   long i, ispn, jgrid; 
   long rand_seed = -874917403;
   double ene_old; 
-  double norma, Emin, Emax, tau = 0.05; //tau = 0.025
+  double norma, Emin, Emax, tau = 0.025; //tau = 0.025
   long max_iter = 500;
   
   
   if (0 == flag->approxEnergyRange) {
-    printf("\tIteratively determining range of Hamiltonian\n");
+    printf("Iteratively determining range of Hamiltonian\n");
     // Find E_min
     pf = fopen("Emin-init.dat" , "w");
     // Initialize random state to begin propagation
@@ -163,7 +163,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
       init_psi(&phi[ispn*ist->ngrid], &rand_seed, grid, ist, par, flag, parallel);
     }
     
-    Emin = (ene_old = 0.0) + 10.0; // 
+    Emin = (ene_old = 0.0) + 0.1; // 
     for (i = 0; (fabs((Emin - ene_old) / Emin) > 1.0e-6) && (i < max_iter) ; i++){
       // Apply the Hamiltonian, shift orig by |phi>, and normalize (equivalent to forward imag. time propagation step)
       memcpy(&psi[0], &phi[0], ist->nspinngrid*sizeof(phi[0]));
@@ -218,7 +218,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
     Emin = par->Vmin + 0.5;
     Emax = par->Vmax + par->KE_max;
     if (1 == flag->NL){
-      Emax += 3.0;
+      Emax += 3.5;
     }
   } else {fprintf(stderr, "ERROR: invalid Hamiltonian energy range strategy selected\n"); exit(EXIT_FAILURE);}
 

@@ -23,11 +23,12 @@ typedef struct flag {
   int printPsiFilt, printOrtho, printNorm, printCubes;
   int calcPotOverlap, getAllStates, timeHamiltonian, calcSpinAngStat;
   int retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint, saveOutput;
-  int approxEnergyRange;
+  int approxEnergyRange, calcFilterOnly, restartFromOrtho;
 } flag_st;
 
 typedef struct index {
   long m_states_per_filter, n_filter_cycles, mn_states_tot;
+  long n_states_for_ortho;
   long homo_idx, lumo_idx, total_homo, total_lumo;
   long ngrid, nspinngrid, ncheby;
   long natoms, n_atom_types, n_max_atom_types;
@@ -235,7 +236,7 @@ void check_function(zomplex *an,zomplex *samp,index_st *ist,par_st *par, double 
 
 
 //Hmat.c
-void diag_H(zomplex *psi,zomplex *phi, double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
+void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag, parallel_st *parallel,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 MKL_Complex16 dotp(zomplex *psi, double *phi,long m,long ngrid,double dv);
 double dotpreal(zomplex *psi,double *phi,long m,long ngrid,double dv);
 

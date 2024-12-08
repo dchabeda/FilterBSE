@@ -161,7 +161,7 @@ void apply_J_op( zomplex* Jxpsi, zomplex* Jypsi, zomplex* Jzpsi,zomplex* psi,
 	}
 	/*
 	center.x = x*par->dv; center.y=y*par->dv;center.z=z*par->dv;
-	printf("Center: <%f, %f, %f>\n", center.x, center.y , center.z);
+	mpi_print("Center: <%f, %f, %f>\n", center.x, center.y , center.z);
 	*/
 	
 	//spin up part

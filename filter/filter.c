@@ -81,10 +81,10 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
     fftw_plan_loc planfw, planbw;
     fftw_complex *fftwpsi;
     // visualization
-    // double *rho, sgn_val;
-    // if ((rho = (double *) calloc(ist->ngrid, sizeof(rho[0]))) == NULL){
-    //   fprintf(stderr, "\nOUT OF MEMORY: filter rho\n\n"); exit(EXIT_FAILURE);
-    // }
+    double *rho, sgn_val;
+    if ((rho = (double *) calloc(ist->ngrid, sizeof(rho[0]))) == NULL){
+      fprintf(stderr, "\nOUT OF MEMORY: filter rho\n\n"); exit(EXIT_FAILURE);
+    }
 
     thread_id = omp_get_thread_num();	
     // Allocate memory for arrays
@@ -137,8 +137,8 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
     }
     
     // Calculate the subsequent terms of the expansion
-    sprintf (str, "prop-%ld-%ld-%ld.dat", thread_id, jns, jms); // for debugging parallelized loops
-    pf = fopen(str , "w");
+    //sprintf (str, "prop-%ld-%ld-%ld.dat", thread_id, jns, jms); // for debugging parallelized loops
+    //pf = fopen(str , "w");
 
     for (jc = 1; jc < ist->ncheby; jc++){
 
@@ -158,11 +158,11 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
         }
       }
 
-      if ( (0 == (jc % ((long) (ist->ncheby / 4)) )) || (1 == jc) || ( (ist->ncheby - 1) == jc) ) {
-        // print the Newton interpolation progress to the prop- files
-        fprintf (pf,"%ld %ld %ld\n", jns, jms, jc); fflush(pf);
-        // print the filtering progress to the output file
-        if (0 == omp_get_thread_num()){
+      if (0 == omp_get_thread_num()){
+        if ( (0 == (jc % ((long) (ist->ncheby / 4)) )) || (1 == jc) || ( (ist->ncheby - 1) == jc) ) {
+          // print the Newton interpolation progress to the prop- files
+          //fprintf (pf,"%ld %ld %ld\n", jns, jms, jc); fflush(pf);
+          // print the filtering progress to the output file
           int barWidth = 16; // Width of the progress bar
           float percent = (float)jc / ist->ncheby * 100;
           int pos = barWidth * jc / ist->ncheby;
@@ -181,17 +181,17 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
         }
       }
 
-      // if (jc < 20){
+      // if (jc <= 100){
       //   // Print out the evolution of the filter states through the cheby iterations
       //   for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
-      //     jgrid_real = ist->complex_idx * jgrid;
-      //     jgrid_imag = ist->complex_idx * jgrid + 1;
+      //     // jgrid_real = ist->complex_idx * jgrid;
+      //     // jgrid_imag = ist->complex_idx * jgrid + 1;
 
-      //     rho[jgrid] = sqr(psitot[jns_ms + jgrid_real]);
-      //     sgn_val = psitot[jns_ms + jgrid_real];
+      //     rho[jgrid] = sqr(psi_out[jgrid].re);
+      //     sgn_val = psi_out[jgrid].re;
       //     if (1 == flag->isComplex){
-      //       rho[jgrid] += sqr(psitot[jns_ms + jgrid_imag]);
-      //       if (sgn_val < psitot[jns_ms + jgrid_imag]) sgn_val = psitot[jns_ms + jgrid_imag];
+      //       rho[jgrid] += sqr(psi_out[jgrid].im);
+      //       if (sgn_val < psi_out[jgrid].im) sgn_val = psi_out[jgrid].im;
       //     }
       //     rho[jgrid] *= sign(sgn_val);
       //   }
@@ -200,7 +200,7 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
       // }
     }
     
-    fclose(pf);
+    // fclose(pf);
     
     /*****************************************************************************/
     // Copy the filtered wavefunctions back into psitot
@@ -216,6 +216,13 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
       }
     }
     
+    if (1 == flag->printPsiFilt){
+      // Print the normalized filtered states to disk
+      sprintf(str, "psi-filt-%ld.dat", jmn);
+      pf = fopen(str, "w");
+      fwrite(&psitot[jmn*ist->complex_idx*ist->nspinngrid], sizeof(double), ist->complex_idx*ist->nspinngrid, pf);
+    }
+    
     free(psi); free(phi); free(psi_out);
     fftw_destroy_plan(planfw);
     fftw_destroy_plan(planbw);
@@ -226,7 +233,18 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
   /*** normalize the states and get their energies***/
   printf("\nNormalizing filtered states\n"); fflush(stdout);
   normalize_all(psitot,ist,par,flag,parallel);
-  // exit(0);
+  
+  if (1 == flag->printPsiFilt){
+    // Print the normalized filtered states to disk
+    #pragma omp parallel for private(jmn)
+    for (jmn = 0; jmn < ist->mn_states_tot; jmn++){
+      char str[50];
+      FILE *pf;
+      sprintf(str, "psi-filt-%ld.dat", jmn);
+      pf = fopen(str, "w");
+      fwrite(&psitot[jmn*ist->complex_idx*ist->nspinngrid], sizeof(double), ist->complex_idx*ist->nspinngrid, pf);
+    }
+  }
   // Get the energy of all the filtered states
   if ((ene_filters = (double*)calloc(ist->mn_states_tot,sizeof(double)))==NULL)nerror("ene_filters");
   

@@ -142,9 +142,11 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
   * outputs: void                                                    *
   ********************************************************************/
 
-  zomplex proj;
-  long jatom, NL_gridpt, index1, r, index2, r_p;
+  long jatom;
+  long NL_gridpt, index1, r, index2, r_p;
   int iproj, spin_p, m_p, spin, m;
+  zomplex proj;
+  
   //TODO: Find way to get the L and S to be not stack'd for mem reasons???
   zomplex Lx[3][3], Ly[3][3], Lz[3][3];
   zomplex Sx[2][2], Sy[2][2], Sz[2][2];
@@ -173,24 +175,9 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
   Sz[0][0].re=0.50; Sz[0][0].im=0.00;     Sz[0][1].re=0.00;  Sz[0][1].im=0.00;
   Sz[1][0].re=0.00; Sz[1][0].im=0.00;     Sz[1][1].re=-0.50; Sz[1][1].im=0.00;
 
-  // Added by Daniel C to test matrix elements of pseudopotential
-  // FILE *pf;
-  // char str[40];
-  // zomplex *rho;
-  // long r_p_idx, idx = 1000;
-  //
-
+  
   for ( jatom = 0; jatom < ist->n_NL_atoms; jatom++){
-
-    // sprintf(str, "atom_%ld_Vr%ld.dat", jatom, idx);
-    // pf = fopen(str, "w");
-    // rho = (zomplex *) calloc(ist->nspinngrid, sizeof(rho[0])); // allocate memory and initialize all to zero
-    // r_p_idx = nlc[jatom * ist->n_NL_gridpts + idx].jxyz; // get the idx-th gridpt around atom jatom
-    // rho[r_p_idx].re = 1.0 / sqrt(par->dv); // Make wavefunction a delta function at r_p
-    // rho[r_p_idx+ist->nspinngrid].re = 1.0 / sqrt(par->dv);
-
-    // memcpy(&psi_tmp[0], &rho[0], ist->nspinngrid*sizeof(psi_tmp[0]));
-
+    
     for ( iproj = 0; iproj < ist->nproj; iproj++){
       for ( spin_p = 0; spin_p < 2; spin_p++){
         for ( m_p = 0; m_p < 3; m_p++){
@@ -213,9 +200,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
           
           proj.re *= par->dv;
           proj.im *= par->dv;
-          
-          // proj.re *= par->dv;
-          // proj.im *= par->dv;   
+            
           for (spin = 0; spin<2; spin++){
             for (m = 0; m < 3; m++){
               //get L_{m,m'}\cdot S_{s,s'}*P_{n,m,s} = PLS_{n,m,m',s,s'}
@@ -233,7 +218,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
 
               LS.re += (  Lz[m][m_p].re * Sz[spin][spin_p].re - Lz[m][m_p].im * Sz[spin][spin_p].im);
               LS.im += (  Lz[m][m_p].re * Sz[spin][spin_p].im + Lz[m][m_p].im * Sz[spin][spin_p].re);              
-              //printf("m:%i m':%i s:%i s':%i  LS: %f+i*%f\n", m, m_p, spin, spin_p, LS.re, LS.im);
+              //if (parallel->mpi_rank == 0) printf("m:%i m':%i s:%i s':%i  LS: %f+i*%f\n", m, m_p, spin, spin_p, LS.re, LS.im);
 
               PLS.re = LS.re * proj.re - LS.im * proj.im;
               PLS.im = LS.re * proj.im + LS.im * proj.re;
@@ -289,10 +274,11 @@ void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl
   * outputs: void                                                    *
   ********************************************************************/
 
-  zomplex proj;
-  long jatom, NL_gridpt, index1, r, index2, r_p;
+  long jatom;
+  long NL_gridpt, index1, r, index2, r_p;
   int iproj, spin, m;
-
+  zomplex proj;
+  
   for ( jatom =0; jatom < ist->n_NL_atoms; jatom++){
     for ( iproj = 0; iproj < ist->nproj; iproj++){
       for ( spin = 0; spin < 2; spin++){
@@ -339,6 +325,9 @@ void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl
   return;
 }
 
+/*****************************************************************************/
+
+
 void time_reverse_all(double *psitot, double *dest, index_st *ist, parallel_st *parallel){
   /*******************************************************************
   * This function applies the real-space time reversal operator to   *
@@ -374,5 +363,82 @@ void time_reverse_all(double *psitot, double *dest, index_st *ist, parallel_st *
     }
   } 
 
+  return;
+}
+
+/*****************************************************************************/
+
+void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi){
+  /*******************************************************************
+  * This function applies the Hamiltonian onto a state               *
+  * inputs:                                                          *
+  *  [psi_tmp] nspinngrid-long arr of orig. wavefnc                  *
+  *  [psi_out] nspinngrid-long arr to hold |psi_out> = H|psi_tmp>    *
+  *  [pot_local] ngrid-long arr holding the value of the local pot   *
+  *  [nlc] nlc struct holding values for computing SO and NL pots    *
+  *  [nl] natom-long arr holding the number of NL gridpts per atom   *
+  *  [ksqr] ngrid-long arr holding the values of k^2 for KE calc     *
+  *  [ist] ptr to counters, indices, and lengths                     *
+  *  [par] ptr to par_st holding VBmin, VBmax... params              *
+  *  [flag] ptr to flag_st holding job flags                         *
+  *  [planfw] FFTW3 plan for executing 3D forward DFT                *
+  *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+  *  [fftwpsi] location to store outcome of Fourier transform        *
+  * outputs: void                                                    *
+  ********************************************************************/
+
+  int jspin, j, jtmp; 
+  // Copy psi_out into psi_tmp
+  memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid*sizeof(psi_tmp[0]));
+  
+  // Calculate the action of the kinetic energy part of the Hamiltonian on psi_tmp: |psi_out> = T|psi_tmp>
+  time_t start_time = time(NULL);
+  for (jspin = 0; jspin < ist->nspin; jspin++){
+      kinetic(&psi_out[jspin*ist->ngrid], ksqr, planfw, planbw, fftwpsi, ist); //spin up/down
+  } 
+  time_t end_time = time(NULL);
+  double elapsed_seconds = difftime(end_time, start_time);
+  if (parallel->mpi_rank == 0) printf("\tKinetic energy: %.4g (msec)\n", elapsed_seconds*1000);
+  
+  
+  // Calculate the action of the potential operator on the wavefunction: |psi_out> = V|psi_tmp>
+  
+  if(flag->SO==1){
+    // Calculate |psi_out> = V_SO|psi_tmp>
+    start_time = time(NULL);
+    spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    end_time = time(NULL);
+    elapsed_seconds = difftime(end_time, start_time);
+    if (parallel->mpi_rank == 0) printf("\tSpin-Orbit potential: %.4g (msec)\n", elapsed_seconds*1000);
+  }
+
+  if (flag->NL == 1){
+    // Calculate |psi_out> += V_NL|psi_tmp>
+    start_time = time(NULL);
+    nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    
+    end_time = time(NULL);
+    elapsed_seconds = difftime(end_time, start_time);
+    if (parallel->mpi_rank == 0) printf("\tNon-local potential: %.4g (msec)\n", elapsed_seconds*1000);
+    
+  }
+  
+  // Calculate the action of the local potential energy part of the Hamiltonian on psi_tmp
+  start_time = time(NULL);
+  for (jspin = 0; jspin < ist->nspin; jspin++){
+    for (j = 0; j < ist->ngrid; j++) {
+      jtmp = ist->ngrid * jspin + j ; // generalized indexing to handle spinors or spinless wavefuncs
+
+      psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
+      psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
+    }
+  }
+  
+  end_time = time(NULL);
+  elapsed_seconds = difftime(end_time, start_time);
+  if (parallel->mpi_rank == 0) printf("\tLocal potential: %.4g (msec)\n", elapsed_seconds*1000);
+
+  
   return;
 }

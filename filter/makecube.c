@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 
   //command line input parsing
   if (argc!=3){
-    printf("Usage: makecube start end");
+    printf("Usage: makecube start end\n");
     exit(EXIT_FAILURE);
   }
 
@@ -67,8 +67,8 @@ int main(int argc, char *argv[])
 
 
   //count number of states found
-  jms = countlines("eval.dat");
-  printf("%ld total states in psi.dat\n", jms); fflush(0);
+  //jms = countlines("eval.dat");
+  //printf("%ld total states in psi.dat\n", jms); fflush(0);
   
   //allocate memory for psi
   if ((psi = (zomplex *) calloc(ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
     fread (&psi[0],sizeof(zomplex),ist.nspinngrid,ppsi);
 
     for (i = 0;i<ist.ngrid; i++){
-      rho[i] = sqr(psi[i].re)+sqr(psi[i].im);
+      rho[i] = sqrt(sqr(psi[i].re)+sqr(psi[i].im));
               
     }
     sprintf(filename, "rhoUp%i.cube", j);

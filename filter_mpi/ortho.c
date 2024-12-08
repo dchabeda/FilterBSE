@@ -2,7 +2,7 @@
 
 /*****************************************************************************/
 
-long ortho(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag){
+long ortho(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function computes the singular value decomposition of a     *
   * real or complex M x N matrix, A. For us, A is the matrix of all  *
@@ -31,11 +31,11 @@ long ortho(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag)
   S = (double*) malloc(mn_states_tot * sizeof(S[0]));
   
   if (0 == flag->isComplex) {
-    printf("Scalar wavefunctions used. Allocating \"work\" for real SVD\n"); fflush(0);
+    if (parallel->mpi_rank == 0) printf("Scalar wavefunctions used. Allocating \"work\" for real SVD\n"); fflush(0);
     if ((work = (double*) malloc(lwork * sizeof(work[0]))) == NULL){
       fprintf(stderr, "\nOUT OF MEMORY: ortho work\n\n"); exit(EXIT_FAILURE);
     }
-    printf("Computing real-valued SVD...\n"); fflush(0);
+    if (parallel->mpi_rank == 0) printf("Computing real-valued SVD...\n"); fflush(0);
     // Do real-valued SVD
     dgesvd_("O","N",&(ngrid),&(mn_states_tot),&(psitot[0]),&(ngrid),&(S[0]),
 	    NULL,&one,NULL,&one,&(work[0]),&(lwork),&info);
@@ -43,10 +43,10 @@ long ortho(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag)
       fprintf(stderr, "error in dgesvd(2) %lld, exiting\n",info); fflush(stderr); 
       exit(EXIT_FAILURE);
     }
-    printf("Done with SVD!\n"); fflush(0);
+    if (parallel->mpi_rank == 0) printf("Done with SVD!\n"); fflush(0);
   }
   if (1 == flag->isComplex) {
-    printf("Complex wavefunctions used. Allocating \"rwork & work_z\" for complex SVD\n"); fflush(0);
+    if (parallel->mpi_rank == 0) printf("Complex wavefunctions used. Allocating \"rwork & work_z\" for complex SVD\n"); fflush(0);
     if ((work_z = (MKL_Complex16*) malloc(lwork * sizeof(MKL_Complex16))) == NULL){
       fprintf(stderr, "\nOUT OF MEMORY: ortho work_z\n\n"); exit(EXIT_FAILURE);
     }
@@ -54,7 +54,7 @@ long ortho(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag)
       fprintf(stderr, "\nOUT OF MEMORY: ortho rwork\n\n"); exit(EXIT_FAILURE);
     }
     
-    printf("Doing complex-valued SVD...\n"); fflush(0);
+    if (parallel->mpi_rank == 0) printf("Doing complex-valued SVD...\n"); fflush(0);
     // Do complex-valued SVD
     zgesvd_("O","N",&(ngrid),&(mn_states_tot),&(psitot[0]),&(ngrid),&(S[0]),
 	      NULL,&one,NULL,&one,&(work_z[0]),&(lwork),&(rwork[0]),&info);
@@ -63,7 +63,7 @@ long ortho(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag)
       fprintf(stderr, "error in zgesvd(1) %lld, exiting\n", info); fflush(stderr); 
       exit(EXIT_FAILURE);
     }
-    printf("Done with SVD\n"); fflush(0);
+    if (parallel->mpi_rank == 0) printf("Done with SVD\n"); fflush(0);
   }
   /*
   if (ngrid*mn_states_tot<2147483647){
@@ -83,16 +83,16 @@ long ortho(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag)
       break;
     }
   }
-  printf("\nSVD cutoff (no. orthogonal vectors) is %lld\n",cutoff); fflush(0);
+  if (parallel->mpi_rank == 0) printf("\nSVD cutoff (no. orthogonal vectors) is %lld\n",cutoff); fflush(0);
   
   // Free memory
   free(S);
   if (0 == flag->isComplex){
-    printf("Scalar wavefunctions used. Freeing work\n"); fflush(0);
+    if (parallel->mpi_rank == 0) printf("Scalar wavefunctions used. Freeing work\n"); fflush(0);
     free(work); 
   }
   if (1 == flag->isComplex) {
-    printf("Spinor wavefunctions used. Freeing rwork and work_z\n"); fflush(0);
+    if (parallel->mpi_rank == 0) printf("Spinor wavefunctions used. Freeing rwork and work_z\n"); fflush(0);
     free(rwork);
     free(work_z); 
   }

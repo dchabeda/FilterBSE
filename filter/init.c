@@ -332,6 +332,13 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
   // ****** ****** ****** ****** ****** ******
   printf("\tConstructing total pseudopotential on the grid...\n");
 
+  FILE *pf;
+  pf = fopen("geomPar.dat", "w");
+  for (jatom = 0; jatom < ist->natoms; jatom++){
+    fprintf(pf, "%ld %lg\n", jatom, atom[jatom].geom_par);
+  }
+  fclose(pf);
+
   omp_set_dynamic(0);
   omp_set_num_threads(parallel->nthreads);
 #pragma omp parallel for private(dx,dy,dz,del,jy,jx,jyz,jxyz,sum,jatom)

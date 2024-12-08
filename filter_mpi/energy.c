@@ -40,7 +40,7 @@ double energy(zomplex *psi, zomplex *phi, double *pot_local, nlc_st *nlc, long *
 
 /***************************************************************************/
 
-void energy_all(double *psitot, double *pot_local, nlc_st *nlc, long *nl,double *ksqr,
+void energy_all(double *psitot, long n_states, double *pot_local, nlc_st *nlc, long *nl,double *ksqr,
   double *ene_filters, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function calculates Exp[E] of all filtered states           *
@@ -64,7 +64,7 @@ void energy_all(double *psitot, double *pot_local, nlc_st *nlc, long *nl,double 
   long jmn;
   
 #pragma omp parallel for private(jmn)
-  for (jmn = 0; jmn < ist->mn_states_tot; jmn++) {
+  for (jmn = 0; jmn < n_states; jmn++) {
     // Indexes for arrays
     long jgrid, jgrid_real, jgrid_imag, j_state;
     // Arrays for hamiltonian evaluation
@@ -87,11 +87,11 @@ void energy_all(double *psitot, double *pot_local, nlc_st *nlc, long *nl,double 
   
     j_state = jmn * ist->complex_idx * ist->nspinngrid;
 
+    // copy the wavefunction for state jmn into psi
     for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
       jgrid_real = ist->complex_idx * jgrid;
       jgrid_imag = ist->complex_idx * jgrid + 1;
 
-      // copy the wavefunction for state jmn into psi
       psi[jgrid].re = psitot[j_state + jgrid_real];
       if (1 == flag->isComplex){
         psi[jgrid].im = psitot[j_state + jgrid_imag];
@@ -155,7 +155,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
   
   
   if (0 == flag->approxEnergyRange) {
-    printf("\tIteratively determining range of Hamiltonian\n");
+    if (parallel->mpi_rank == 0) printf("Iteratively determining range of Hamiltonian\n");
     // Find E_min
     pf = fopen("Emin-init.dat" , "w");
     // Initialize random state to begin propagation
@@ -185,7 +185,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
       fprintf(pf, "%ld %.16g %.16g %.16g\n", i, ene_old, Emin, fabs((Emin - ene_old) / Emin)); fflush(pf);
 
       if ((i > 5) && (Emin - ene_old) > 0){
-        printf("\nWarning: positive step in energy minimization. Check Emin-init.dat\n");
+        if (parallel->mpi_rank == 0) printf("\nWarning: positive step in energy minimization. Check Emin-init.dat\n");
         fprintf(pf, "Warning: positive step in energy minimization\n");
         tau -= 0.025;
       }
@@ -214,7 +214,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
     }
     fclose(pf);
   } else if (1 == flag->approxEnergyRange){
-    printf("\tApproximating energy range of Hamiltonian as [Vmin, Vmax + KE_max]\n");
+    if (parallel->mpi_rank == 0) printf("Approximating energy range of Hamiltonian as [Vmin, Vmax + KE_max]\n");
     Emin = par->Vmin + 0.5;
     Emax = par->Vmax + par->KE_max;
     if (1 == flag->NL){
@@ -232,7 +232,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
   par->dE = (Emax - Emin);
   par->dE_1 = 4.0 / par->dE;
 
-  printf("Emin = %lg, Emax = %lg, dE = %lg\n", Emin, Emax, par->dE);
+  if (parallel->mpi_rank == 0) printf("Emin = %lg, Emax = %lg, dE = %lg\n", Emin, Emax, par->dE);
   fflush(stdout);
 
   return;

@@ -146,11 +146,11 @@ void read_nearest_neighbors(vector *atom_neighbors, double *tetrahedron_vol_ref,
             // Default path!
           bond_lengths[jneighbor] = ret_ideal_bond_len(ctr_atom_natyp, neighbors_natyp[jneighbor], crystal_structure); 
           }
-          // printf("ctr_atom_natyp = %d, jneighbor = %d, neighbors_natyp[jneighbor] = %d, bond_lengths[jneighbor]=%g \n", ctr_atom_natyp, jneighbor, neighbors_natyp[jneighbor], bond_lengths[jneighbor]); 
+          // mpi_print("ctr_atom_natyp = %d, jneighbor = %d, neighbors_natyp[jneighbor] = %d, bond_lengths[jneighbor]=%g \n", ctr_atom_natyp, jneighbor, neighbors_natyp[jneighbor], bond_lengths[jneighbor]); 
 	      }
         
         tetrahedron_vol_ref[jatom] = calc_regular_tetrahedron_volume(bond_lengths[0], bond_lengths[1], bond_lengths[2], bond_lengths[3]);
-        // printf("The reference tetrahedron volume is %.7f \n", tetrahedron_vol_ref[jatom]);  
+        // mpi_print("The reference tetrahedron volume is %.7f \n", tetrahedron_vol_ref[jatom]);  
 			}
 		}
 		fclose(pf);
@@ -182,7 +182,7 @@ void calc_strain_scale(double *strain_scale, vector *atom_neighbors, double *tet
 
 	if ( access("strain.par", F_OK) != -1 ) {
 	
-		printf("Reading strain scale from strain.par...\n");    
+		//printf("Reading strain scale from strain.par...\n");    
 		pf = fopen("strain.par", "r");
 		for (jatom = 0; jatom < natoms; jatom++) {
 			fscanf(pf, "%i %s %lg %lg %lg %lg %lg", &tmp1, ctr_atom, &tmp2, &tmp3, 

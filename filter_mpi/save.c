@@ -42,8 +42,10 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     // ****** ****** ****** ****** ****** ****** 
     fprintf(pf, "\n\tParameters & counters for filter algorithm:\n");
     fprintf(pf, "\t-------------------------------------------\n");
-    fprintf(pf, "\tstatesPerFilter (# energy targets) = %ld\n", ist->m_states_per_filter);
     fprintf(pf, "\tnFilterCycles (# random initial states) = %ld\n", ist->n_filter_cycles);
+    fprintf(pf, "\tmStatesPerFilter (# energy targets) = %ld\n", ist->m_states_per_filter);
+    fprintf(pf, "\tFilters per rank (# rand states per node) = %ld\n", ist->n_filters_per_rank);
+    fprintf(pf, "\tStates per rank (# states on node) = %ld\n", ist->n_states_per_rank);
     fprintf(pf, "\tnCheby = %ld\n", ist->ncheby);
     fprintf(pf, "\tVBmin = %lg, ", par->VBmin);
     fprintf(pf, "VBmax = %lg\n", par->VBmax);
@@ -77,13 +79,17 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     } else {
         fprintf(pf, "\tOrthogonalized wavefunctions will not be output to disk\n");
     }
+    
+    // FFT wisdom
+    fprintf(pf, "\tFFT wisdom stored in directory: %s\n", par->fft_wisdom_dir);
+    
     // ****** ****** ****** ****** ****** ****** 
     // Set options for parallelization
     // ****** ****** ****** ****** ****** ****** 
     fprintf(pf, "\n\tParameters for parallelization:\n");
     fprintf(pf, "\t-------------------------------\n");
-
-    fprintf(pf, "\tnThreads (# OMP threads) = %ld\n", parallel->nthreads);
+    fprintf(pf, "\tMPI_SIZE (# MPI ranks) = %d\n", parallel->mpi_size);
+    fprintf(pf, "\tnThreads (# OMP threads/rank) = %ld\n", parallel->nthreads);
     
     // ****** ****** ****** ****** ****** ****** 
     // Set options for spin-orbit calculation
@@ -138,6 +144,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     else fprintf(pf, "\tNo checkpoint saves requested\n");
     if (flag->restartFromCheckpoint > -1) fprintf(pf, "\tFilter will restart from checkpoint %d\n", flag->restartFromCheckpoint);
     else fprintf(pf, "\tNo checkpoint specified for restart. Job will run in normal sequence.\n");
+    if (flag->restartFromOrtho == 1) fprintf(pf, "\tFilter will restart from orthogonalization step!\n");
     
     return;
 }
@@ -329,7 +336,7 @@ void restart_from_save(char *file_name, int checkpoint_id, double *psitot, doubl
 
 /*****************************************************************************/
 
-void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, xyz_st *R, grid_st *grid, index_st *ist, par_st *par, flag_st *flag){
+void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, xyz_st *R, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
     
     FILE *pf;
     long j;

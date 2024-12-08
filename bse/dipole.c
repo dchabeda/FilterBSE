@@ -27,7 +27,7 @@ void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals
   
   // Output will be written to these files
   pf = fopen("OS0.dat" , "w"); 
-  fprintf(pf, " i   a   sqrt(mu2)       Ea-Ei 	  f_osc       mu_x.re     mu_y.re     mu_z.re");
+  fprintf(pf, "i  a   sqrt(mu2)     Ea-Ei 	  f_osc       mu_x.re     mu_y.re     mu_z.re");
   if (flag->useSpinors){
     fprintf(pf, "     mu_x.im     mu_y.im     mu_z.im");
   }
@@ -53,36 +53,36 @@ void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals
             // If the wavefunctions are scalar, only one of these indices is necessary (jgridup_real)
             // If psi_qp are spinors, then all four indices are necessary
             jgridup_real = ist->complex_idx * (jyz + jx);
-            i_up_real = i*ist->nspinngrid+jgridup_real;
-            a_up_real = a*ist->nspinngrid+jgridup_real;
+            i_up_real = i*ist->nspinngrid*ist->complex_idx+jgridup_real;
+            a_up_real = a*ist->nspinngrid*ist->complex_idx+jgridup_real;
             
             // compute matrix element with real, scalar wavefuntions
       	    tmp.re = psi_qp[a_up_real] * psi_qp[i_up_real];
-            sumX.re += tmp.re * x; sumY.re += tmp.re * y; sumZ.re += tmp.re * z;
+            // sumX.re += tmp.re * x; sumY.re += tmp.re * y; sumZ.re += tmp.re * z;
 
             // If using spinors, add the down component of the integral (and the remaining imaginary piece from the up spin)
             if (1 == flag->useSpinors){
               // get indices for computing matrix elem with spinor
               jgridup_imag = ist->complex_idx * (jyz + jx) + 1;
-              jgriddn_real = jgridup_real + ist->ngrid;
-              jgriddn_imag = jgridup_imag + ist->ngrid;
-              i_up_imag = i*ist->nspinngrid+jgridup_imag; a_up_imag = a*ist->nspinngrid+jgridup_imag;
-              i_dn_real = i*ist->nspinngrid+jgriddn_real; a_dn_real = a*ist->nspinngrid+jgriddn_real;
-              i_dn_imag = i*ist->nspinngrid+jgriddn_imag; a_dn_imag = a*ist->nspinngrid+jgriddn_imag;
+              jgriddn_real = jgridup_real + ist->ngrid*ist->complex_idx;
+              jgriddn_imag = jgridup_imag + ist->ngrid*ist->complex_idx;
+              i_up_imag = i*ist->nspinngrid*ist->complex_idx+jgridup_imag; a_up_imag = a*ist->nspinngrid*ist->complex_idx+jgridup_imag;
+              i_dn_real = i*ist->nspinngrid*ist->complex_idx+jgriddn_real; a_dn_real = a*ist->nspinngrid*ist->complex_idx+jgriddn_real;
+              i_dn_imag = i*ist->nspinngrid*ist->complex_idx+jgriddn_imag; a_dn_imag = a*ist->nspinngrid*ist->complex_idx+jgriddn_imag;
 
               // REAL PART OF MATRIX ELEM CONTINUED
-              // imaginary component of up spin and down spin contribution
+              // imaginary component of up spin contribution
               tmp.re += psi_qp[a_up_imag] * psi_qp[i_up_imag];
               // and down spin contribution
-              tmp.re += + psi_qp[a_dn_real] * psi_qp[i_dn_real]  + psi_qp[a_dn_imag] * psi_qp[i_dn_imag];
+              tmp.re += psi_qp[a_dn_real] * psi_qp[i_dn_real]  + psi_qp[a_dn_imag] * psi_qp[i_dn_imag];
 
               // IMAG PART OF MATRIX ELEM
-              tmp.im = (- psi_qp[a_up_imag]) * psi_qp[i_up_real] + psi_qp[a_up_real] * psi_qp[i_up_imag];
-              tmp.im += (- psi_qp[a_dn_imag]) * psi_qp[i_dn_real] + psi_qp[a_dn_real] * psi_qp[i_dn_imag];
+              tmp.im = psi_qp[a_up_real] * psi_qp[i_up_imag] + psi_qp[a_dn_real] * psi_qp[i_dn_imag]
+                  - psi_qp[a_up_imag] * psi_qp[i_up_real] - psi_qp[a_dn_imag] * psi_qp[i_dn_real] ;
             
-              sumX.re += tmp.re * x; sumY.re += tmp.re * y; sumZ.re += tmp.re * z;
               sumX.im +=  tmp.im * x; sumY.im +=  tmp.im * y; sumZ.im +=  tmp.im * z;
             }
+            sumX.re += tmp.re * x; sumY.re += tmp.re * y; sumZ.re += tmp.re * z;
           }
         }
       }
@@ -102,7 +102,7 @@ void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals
       // fprintf (pf3,"%ld %ld %g %g\n",i,a,muz[i*ist->n_elecs+(a-ist->lumo_idx)].re, muz[i*ist->n_elecs+(a-ist->lumo_idx)].im);
 
       bohr_freq = eig_vals[a] - eig_vals[i];
-      fprintf(pf,"\n%3ld %3ld %.8f %.12f % .8f % .8f % .8f % .8f", i, a, sqrt(osc_strength), bohr_freq, (2.0/3.0)*bohr_freq*osc_strength, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re,
+      fprintf(pf,"\n%ld % ld  %.8f %.12f % .8f % .8f % .8f % .8f", i, a, sqrt(osc_strength), bohr_freq, (2.0/3.0)*bohr_freq*osc_strength, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re,
         trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_re, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_re);
 
       if (1 == flag->useSpinors){

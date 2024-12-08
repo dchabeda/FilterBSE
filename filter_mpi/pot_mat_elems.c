@@ -30,8 +30,8 @@ int main(int argc, char *argv[]){
     strcpy(top, "T\0"); strcpy(bottom, "B\0");
     
     fprintf(stdout, "******************************************************************************\n");
-    printf("\nRUNNING PROGRAM: FILTER DIAGONALIZATION\n");
-    printf("This calculation began at: %s", ctime(&start_time)); 
+    mpi_print("\nRUNNING PROGRAM: FILTER DIAGONALIZATION\n");
+    mpi_print("This calculation began at: %s", ctime(&start_time)); 
     write_separation(stdout, bottom);
     fflush(stdout);
 
@@ -39,11 +39,11 @@ int main(int argc, char *argv[]){
     // Initialize job from input file
     
     write_separation(stdout, top);
-    printf("\n1.\tINITIALIZING JOB\n");
+    mpi_print("\n1.\tINITIALIZING JOB\n");
     write_separation(stdout, bottom); fflush(stdout);
 
     /*** read initial setup from input.par ***/
-    printf("\nReading job specifications from input.par:\n");
+    mpi_print("\nReading job specifications from input.par:\n");
     read_input(&flag, &grid, &ist, &par, &parallel);
 
     /*** allocating memory ***/
@@ -57,11 +57,11 @@ int main(int argc, char *argv[]){
     }
     
     /*** read the nanocrystal configuration ***/
-    printf("\nReading atomic configuration from conf.par:\n");
+    mpi_print("\nReading atomic configuration from conf.par:\n");
     read_conf(R, atom, &ist, &par, &flag);
 
     /*** initialize parameters for the grid ***/
-    printf("\nInitializing the grid parameters:\n");
+    mpi_print("\nInitializing the grid parameters:\n");
     init_grid_params(&grid, R, &ist, &par);
 
     // Allocate memory for the grid in the x, y, and z directions ***/
@@ -80,12 +80,12 @@ int main(int argc, char *argv[]){
     }
 
     /*** build the real- and k-space grids ***/
-    printf("\nBuilding the real-space and k-space grids:\n");
+    mpi_print("\nBuilding the real-space and k-space grids:\n");
     build_grid_ksqr(ksqr, R, &grid, &ist, &par);
     
     /*************************************************************************/
     /*** allocating memory for the rest of the program ***/
-    printf("\nAllocating memory for FFT, pot, psi, eig_vals...");
+    mpi_print("\nAllocating memory for FFT, pot, psi, eig_vals...");
     
     // FFT
     fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist.ngrid);
@@ -131,15 +131,15 @@ int main(int argc, char *argv[]){
         }
     }
     
-    printf("\tdone allocating memory.\n"); fflush(stdout);
+    mpi_print("\tdone allocating memory.\n"); fflush(stdout);
 
     // The filter code supports restarting the job from a saved state. See save.c for formatting
     // of checkpoint files. See read_input in read.c for specifying the checkpoint restart
 
     /**************************************************************************/
-    printf("\nInitializing potentials...\n");
+    mpi_print("\nInitializing potentials...\n");
     
-    printf("\nLocal pseudopotential:\n");
+    mpi_print("\nLocal pseudopotential:\n");
     build_local_pot(pot_local, &pot, R, ksqr, atom, &grid, &ist, &par, &flag, &parallel);
     
     free(pot.r); pot.r = NULL; 
@@ -154,12 +154,12 @@ int main(int argc, char *argv[]){
     write_cube_file(pot_local, &grid, "localPot.cube");
     
     if(flag.SO==1) {
-    printf("\nSpin-orbit pseudopotential:\n");
+    mpi_print("\nSpin-orbit pseudopotential:\n");
     init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par);
     }
     /*** initialization for the non-local potential ***/
     if (flag.NL == 1){
-    printf("\nNon-local pseudopotential:\n"); fflush(0);
+    mpi_print("\nNon-local pseudopotential:\n"); fflush(0);
     init_NL_projectors(nlc, nl, SO_projectors, &grid, R, atom, &ist, &par, &flag);
     }
     // free memory allocated to SO_projectors
@@ -179,7 +179,7 @@ int main(int argc, char *argv[]){
     int n_r_pts = 50;
     long select_atom = atol(argv[1]);
     zomplex up_val, dn_val;
-    printf("The coupling will be calculated on grid points around atom %s %ld\n", atom->atyp[select_atom], select_atom);
+    mpi_print("The coupling will be calculated on grid points around atom %s %ld\n", atom->atyp[select_atom], select_atom);
     
     
     pseed = fopen("seed.dat", "w");
@@ -189,7 +189,7 @@ int main(int argc, char *argv[]){
     Randomize();  rand_seed = -random();
     }
     
-    printf("\nGrid points of coupling elements <r'|V|r>\n");
+    mpi_print("\nGrid points of coupling elements <r'|V|r>\n");
     pr = fopen("r_grpts.dat", "w");
     pf = fopen("pot_mat_elems.dat", "w");
 

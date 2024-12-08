@@ -51,7 +51,7 @@ double normalize(zomplex *psi, long ngrid, index_st *ist, par_st *par, flag_st *
   long k;
   double N = calc_norm(psi,par->dv,ngrid,parallel->nthreads);
 
-  // printf("norm in normalize = %g\n", N);
+  // if (parallel->mpi_rank == 0) printf("norm in normalize = %g\n", N);
   // if (flag->printNorm == 1) {
   //     FILE *pf;
   //     char str[30];
@@ -75,7 +75,7 @@ double normalize(zomplex *psi, long ngrid, index_st *ist, par_st *par, flag_st *
 // Normalizes to 1 all numStates states in psi each of which is of length ngrid 
 // with a grid volume of dv works with a complex wavefunctions (complex spinors as well)
 
-void normalize_all(double *psitot, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+void normalize_all(double *psitot, long n_states, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function normalizes to 1.0 all states in psitot             *
   * inputs:                                                          *
@@ -94,24 +94,26 @@ void normalize_all(double *psitot, index_st *ist, par_st *par, flag_st *flag, pa
   // found by the algorithm. You can track the iterative convergence of E_min in the file
   // Emin-init.dat. To better ensure convergence of the E_min, decrease the value of the tau
   // parameter in get_energy_range energy.c
-
-  long jmn;
-  //printf("This is dv coming into normalize: %g\n", dv);
-  //printf("This is ngrid coming into normalize: %ld\n", ngrid);
+  // if (parallel->mpi_rank == 0) printf("Entered normalize_all on node %d\n", parallel->mpi_rank);
+  // if (parallel->mpi_rank == 0) printf("n_states = %ld node %d\n", n_states, parallel->mpi_rank); fflush(0);
+  long jns;
+  //if (parallel->mpi_rank == 0) printf("This is dv coming into normalize: %g\n", dv);
+  //if (parallel->mpi_rank == 0) printf("This is ngrid coming into normalize: %ld\n", ngrid);
   // FILE *pf;
   //     char str[30];
   //     sprintf(str, "norm-all-%ld.dat", thread_id);
   //     pf = fopen(str, "w");
   omp_set_dynamic(0);
   omp_set_num_threads(parallel->nthreads);
-#pragma omp parallel for private(jmn)
-  for (jmn = 0; jmn < ist->mn_states_tot; jmn++){
+#pragma omp parallel for private(jns)
+  for (jns = 0; jns < n_states; jns++){
+    // if (parallel->mpi_rank == 0) printf("jns = %ld on node %d\n", jns, parallel->mpi_rank); fflush(0);
     long j_state;
     long jgrid, jgrid_real, jgrid_imag;
     double norm;
     // Loop over all states
     // complex_idx is 2 if psi is complex (1 if real), this accounts for storing real and imag components
-    j_state = jmn * ist->complex_idx * ist->nspinngrid; 
+    j_state = jns * ist->complex_idx * ist->nspinngrid; 
     
     // Calculate the norm integral for each state
     norm = 0.0;
@@ -128,7 +130,7 @@ void normalize_all(double *psitot, index_st *ist, par_st *par, flag_st *flag, pa
     norm *= par->dv;
     
     if (flag->printNorm == 1) {
-      printf("state %ld norm = %g\n", jmn, norm); fflush(0);
+      if (parallel->mpi_rank == 0) printf("state %ld norm = %g\n", jns, norm); fflush(0);
     }
     
     // Handle exception behavior. If norm is zero or nan, something failed

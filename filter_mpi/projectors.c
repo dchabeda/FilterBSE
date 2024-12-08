@@ -54,7 +54,7 @@ void gen_SO_projectors(double dx, double rcut, long nproj, double*  projectors, 
 	long long INFO = 0;
 	//diagonalize the matrix
 	dsyev_(&JOBZ, &UPLO, &N, &A[0], &LDA, &W[0], &WORK[0], &LWORK, &INFO);
-	//printf("gen_SO_projectors: dsyev exit: %lld\n",INFO );
+	//mpi_print("gen_SO_projectors: dsyev exit: %lld\n",INFO );
 	fflush(0);
 
 
@@ -110,19 +110,19 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	pproj = fopen("projectors.dat", "w");
 	fprintf(pproj, "For atom %ld with Zval %d we have l1=%g l2=%f\n", jatom, atm[jatom].Zval, lam1, lam2);
 	fclose(pproj);
-	// printf("Checkpoint 1\n"); fflush(0);
+	// mpi_print("Checkpoint 1\n"); fflush(0);
 	if (lam1==0 && lam2==0){
-		// printf("inside loop\n"); fflush(0);
+		// mpi_print("inside loop\n"); fflush(0);
 		for ( projector = 0; projector <nproj; projector++){
 			
 			for(rpoint=0;rpoint<N;rpoint++){
-				// printf("%d\n", rpoint); fflush(0);
-				// printf("Checkpoint 2\n"); fflush(0);
-				// printf("%d %ld %lld\n", N * projector + rpoint, N * projector + rpoint, N * projector + rpoint); fflush(0);
+				// mpi_print("%d\n", rpoint); fflush(0);
+				// mpi_print("Checkpoint 2\n"); fflush(0);
+				// mpi_print("%d %ld %lld\n", N * projector + rpoint, N * projector + rpoint, N * projector + rpoint); fflush(0);
 				projectors[ N * projector + rpoint] = 0.0;
-				// printf("Checkpoint 3\n"); fflush(0);
+				// mpi_print("Checkpoint 3\n"); fflush(0);
 				sgnProj[projector] = 0.0;
-				// printf("Checkpoint 4\n"); fflush(0);
+				// mpi_print("Checkpoint 4\n"); fflush(0);
 			}
 
 		}
@@ -147,7 +147,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 		  A[j*N+i] = sum;
 		}
 	}
-	// printf("Checkpoint 3\n"); fflush(0);
+	// mpi_print("Checkpoint 3\n"); fflush(0);
 	//setup call to lapack
 	char JOBZ = 'V';
 	char UPLO = 'U';
@@ -159,7 +159,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	pproj = fopen("projectors.dat", "w");
 	fprintf(pproj, "gen_projectors: dsyev exit: %lld\n", INFO);
 	fflush(0);
-	// printf("Checkpoint 4\n"); fflush(0);
+	// mpi_print("Checkpoint 4\n"); fflush(0);
 
 	sprintf(&fileName[0], "NL_Proj_Eigs%ld.dat", jatom);
 	pf  = fopen(fileName, "w");
@@ -192,7 +192,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 			} 
 		}
 	}
-	// printf("Checkpoint 5\n"); fflush(0);
+	// mpi_print("Checkpoint 5\n"); fflush(0);
 	sprintf(&fileName[0], "NL_Proj_Eigs%ld-sorted.dat", jatom);
 	pf  = fopen(fileName, "w");
 	for (i=0;i<nproj;i++){
@@ -228,7 +228,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 		}
 		fclose(pf);
 	}
-	// printf("Checkpoint 6\n"); fflush(0);
+	// mpi_print("Checkpoint 6\n"); fflush(0);
 
 	free(W); free(WORK); free(A);
 	return;

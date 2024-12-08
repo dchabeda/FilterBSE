@@ -1,5 +1,6 @@
 *.o
 *.x
 Makefile
+psi.dat
 *.e*
 *.o*

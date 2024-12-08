@@ -1,7 +1,6 @@
 *.o
 *.x
-Makefile
-filter/2.2nm_CdSe/psi.dat
-*/*/psi.dat
+filter/EXAMPLES/*/psi.dat
+filter/EXAMPLES/*/output.dat
 *.e*
 *.o*

@@ -157,7 +157,7 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     // Read par
     printf("\tpar_st from filter...\n"); fflush(stdout);
     fscanf(pf, "%lg %lg", &par->KE_max, &par->fermi_E);
-    printf("%lg %lg\n", par->KE_max, par->fermi_E); fflush(0);
+    
     // Read flags
     printf("\tflag_st from filter...\n"); fflush(stdout);
     fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);fflush(0);
@@ -199,7 +199,7 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     fread(*gridx, sizeof(double), grid->nx, pf);
     fread(*gridy, sizeof(double), grid->ny, pf);
     fread(*gridz, sizeof(double), grid->nz, pf);
-    printf("gridz\n");
+    //printf("gridz\n");
     //for (j = 0; j< grid->nx; j++){
         //printf("%lg\n", *(gridz)[j]);
     //}
@@ -217,9 +217,9 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     
     printf("\tsigma_E from filter...\n"); fflush(stdout);
     fread(*sigma_E, sizeof(*sigma_E[0]), ist->mn_states_tot, pf);
-    for (j = 0; j< ist->mn_states_tot; j++){
-        printf("%lg %lg\n", (*eig_vals)[j], (*sigma_E)[j]);
-    }
+    // for (j = 0; j< ist->mn_states_tot; j++){
+    //     printf("%lg %lg\n", (*eig_vals)[j], (*sigma_E)[j]);
+    // }
     // Read psitot
     if ((*psitot = malloc(ist->complex_idx * ist->mn_states_tot * ist->nspinngrid * sizeof(psitot[0]))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for psitot in read_filter_output\n");

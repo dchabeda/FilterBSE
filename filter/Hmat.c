@@ -130,9 +130,6 @@ void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,d
   }
   fclose(pg);
 
-  // free dynamically allocated memory for psi and phi
-  free(psi); free(phi);
-
   // print out Hmat for debugging purposes
   pg = fopen("hmat.dat" , "w");
   for (ims = 0; ims < ist->mn_states_tot; ims++){

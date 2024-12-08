@@ -224,16 +224,8 @@ int main(int argc, char *argv[]){
 
     /*************************************************************************/
     // Allocate memory for the electron and hole wavefunctions
-    if ((psi_hole = (double *) malloc( ist.complex_idx * ist.nspinngrid * ist.n_holes * sizeof(psi_hole[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for psi_hole in main.c\n");
-        exit(EXIT_FAILURE);
-    }
-    if ((psi_elec = (double *) malloc( ist.complex_idx * ist.nspinngrid * ist.n_elecs * sizeof(psi_elec[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for psi_elec in main.c\n");
-        exit(EXIT_FAILURE);
-    }
-    if ((psi_qp = (double *) malloc( ist.complex_idx * ist.nspinngrid * (ist.n_holes + ist.n_elecs) * sizeof(double))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for psi_elec in main.c\n");
+    if ((psi_qp = (double *) malloc( ist.complex_idx * ist.nspinngrid * ist.n_qp * sizeof(double))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for psi_qp in main.c\n");
         exit(EXIT_FAILURE);
     }
     fprintf(pmem, "alloc psi_hole %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_holes * sizeof(psi_hole[0])); mem += ist.complex_idx*ist.nspinngrid*ist.n_holes*sizeof(psi_hole[0]);
@@ -254,14 +246,12 @@ int main(int argc, char *argv[]){
     
     // ******
     // ******
-    get_qp_basis(psi_qp, psitot, psi_hole, psi_elec, eig_vals, sigma_E, &ist, &par, &flag);
+    get_qp_basis(psi_qp, psitot, eig_vals, sigma_E, &ist, &par, &flag);
     // ******
     // ******
     //free(psi_hole); free(psi_elec);
     free(psitot); free(sigma_E);
     fprintf(pmem, "free psitot %ld B\n", ist.complex_idx * ist.nspinngrid * ist.mn_states_tot * sizeof(double)); mem -= ist.complex_idx * ist.nspinngrid * ist.mn_states_tot * sizeof(double);
-    fprintf(pmem, "free psi_hole %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_holes * sizeof(psi_hole[0])); mem -= ist.complex_idx*ist.nspinngrid*ist.n_holes*sizeof(psi_hole[0]);
-    fprintf(pmem, "free psi_elec %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_elecs * sizeof(psi_elec[0])); mem -= ist.complex_idx*ist.nspinngrid*ist.n_elecs*sizeof(psi_elec[0]);
     fprintf(pmem, "free sigma_E %ld B", ist.mn_states_tot * sizeof(double)); mem -= ist.mn_states_tot * sizeof(double);
     write_separation(pmem, top);
     fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / 1000000 );
@@ -307,7 +297,7 @@ int main(int argc, char *argv[]){
         rho = malloc(ist.ngrid * sizeof(rho[0]));
         char str[100];
 
-        sprintf(str,"elec-%ld-Up.cube", i);
+        sprintf(str,"elec-%ld-Up_qp.cube", i);
         for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
         jgrid_real = ist.complex_idx * jgrid;
         jgrid_imag = ist.complex_idx * jgrid + 1;
@@ -318,7 +308,7 @@ int main(int argc, char *argv[]){
         write_cube_file(rho, &grid, str);
 
         if (1 == flag.useSpinors){
-        sprintf(str,"elec-%ld-Dn.cube", i);
+        sprintf(str,"elec-%ld-Dn_qp.cube", i);
         for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
             jgrid_real = ist.complex_idx * jgrid;
             jgrid_imag = ist.complex_idx * jgrid + 1;

@@ -268,10 +268,6 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
 }
 
 
-/*****************************************************************************/
-int sign(float x) {
-    return (int)copysign(1.0, x);  // copysign gives the sign of x
-}
 
 void print_progress_bar(int progress, int total) {
     int barWidth = 10; // Width of the progress bar

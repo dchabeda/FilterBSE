@@ -23,20 +23,13 @@ typedef struct flag {
   int printPsiFilt, printOrtho, printNorm, printCubes;
   int calcPotOverlap, getAllStates, timeHamiltonian, calcSpinAngStat;
   int retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint, saveOutput;
-<<<<<<< HEAD
   int approxEnergyRange, calcFilterOnly, restartFromOrtho;
+  int readGrid, useGaussianBasis;
 } flag_st;
 
 typedef struct index {
   long m_states_per_filter, n_filter_cycles, mn_states_tot;
   long n_states_for_ortho;
-=======
-  int readGrid, useGaussianBasis, restartFromOrtho;
-} flag_st;
-
-typedef struct index {
-  long m_states_per_filter, n_filter_cycles, mn_states_tot, n_states_for_ortho;
->>>>>>> af90e349f537cafdae35886c46a69901aa8ad337
   long homo_idx, lumo_idx, total_homo, total_lumo;
   long ngrid, nspinngrid, ncheby;
   long natoms, n_atom_types, n_max_atom_types;
@@ -167,15 +160,9 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_
 void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, grid_st *grid,
     index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *flag);
-<<<<<<< HEAD
 void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par);
 void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag);
 void init_psi(zomplex *psi, long *rand_seed, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-=======
-void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par);
-void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
-void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, parallel_st *parallel);
->>>>>>> af90e349f537cafdae35886c46a69901aa8ad337
 double calc_dot_dimension(xyz_st *R, long n, char *dir);
 double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int);
 
@@ -250,11 +237,7 @@ void check_function(zomplex *an,zomplex *samp,index_st *ist,par_st *par, double 
 
 
 //Hmat.c
-<<<<<<< HEAD
 void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag, parallel_st *parallel,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
-=======
-void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,parallel_st *parallel,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
->>>>>>> af90e349f537cafdae35886c46a69901aa8ad337
 MKL_Complex16 dotp(zomplex *psi, double *phi,long m,long ngrid,double dv);
 double dotpreal(zomplex *psi,double *phi,long m,long ngrid,double dv);
 

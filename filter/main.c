@@ -233,12 +233,12 @@ int main(int argc, char *argv[]){
       
       if(flag.SO==1) {
         printf("\nSpin-orbit pseudopotential:\n");
-        init_SO_projectors(SO_projectors, R, atom, &grid, &ist, &par);
+        init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par);
       }
       /*** initialization for the non-local potential ***/
       if (flag.NL == 1){
         printf("\nNon-local pseudopotential:\n"); fflush(0);
-        init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag);
+        init_NL_projectors(nlc, nl, SO_projectors, &grid, R, atom, &ist, &par, &flag);
       }
       // free memory allocated to SO_projectors
       if ( (flag.SO == 1) || (flag.NL == 1) ){
@@ -423,7 +423,7 @@ int main(int argc, char *argv[]){
         write_separation(stdout, bottom); fflush(stdout);
         
         printf("\nLocal pseudopotential:\n");
-        build_local_pot(pot_local, &pot, R, ksqr, atom, &grid, &ist, &par, &flag, &parallel);
+        build_local_pot(pot_local, &pot, R, atom, &grid, &ist, &par, &flag, &parallel);
         
         free(pot.r); pot.r = NULL; 
         free(pot.pseudo); pot.pseudo = NULL; 

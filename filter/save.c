@@ -54,8 +54,8 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     // ****** ****** ****** ****** ****** ****** 
     fprintf(pf, "\n\tParameters & counters for filter algorithm:\n");
     fprintf(pf, "\t-------------------------------------------\n");
-    fprintf(pf, "\tstatesPerFilter (# energy targets) = %ld\n", ist->m_states_per_filter);
     fprintf(pf, "\tnFilterCycles (# random initial states) = %ld\n", ist->n_filter_cycles);
+    fprintf(pf, "\tstatesPerFilter (# energy targets) = %ld\n", ist->m_states_per_filter);
     fprintf(pf, "\tnCheby = %ld\n", ist->ncheby);
     fprintf(pf, "\tVBmin = %lg, ", par->VBmin);
     fprintf(pf, "VBmax = %lg\n", par->VBmax);
@@ -70,12 +70,19 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
         fprintf(pf, "\tDefault setting of energy targets will be used.\n");
     } 
 
-    if (flag->setSeed == 1){
-            fscanf(pf, "%ld", &par->rand_seed);
+    if (1 == flag->setSeed){
             fprintf(pf,"\tSetting initial filter random seed to -%ld\n", par->rand_seed);
     } else {fprintf(pf,"\tRandom seed will be generated based on clock at runtime\n");}
     
-    if (flag->printPsiFilt == 1){
+    if (1 == flag->approxEnergyRange){
+            fprintf(pf,"\tEnergy range will be approx'd using only local potential\n");
+    } else {fprintf(pf,"\tFull energy range of Hamiltonian will be calculated\n");}
+    
+    if (1 == flag->calcFilterOnly){
+            fprintf(pf,"\tcalcFilterOnly requested: Job will terminate after Filtering step!\n");
+    } else {fprintf(pf,"\tJob will perform Ortho. and Diag. steps after Filtering.\n");}
+    
+    if (1 == flag->printPsiFilt){
         fprintf(pf, "\tprintPsiFilt is on. psi-filt.dat and psi-filt.cube files will be printed\n");
     } else {
         fprintf(pf, "\tIntermediate filter wavefunctions will not be output to disk\n");
@@ -147,6 +154,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     else fprintf(pf, "\tNo checkpoint saves requested\n");
     if (flag->restartFromCheckpoint > -1) fprintf(pf, "\tFilter will restart from checkpoint %d\n", flag->restartFromCheckpoint);
     else fprintf(pf, "\tNo checkpoint specified for restart. Job will run in normal sequence.\n");
+    if (flag->restartFromOrtho == 1) fprintf(pf, "\tFilter will restart from orthogonalization step!\n");
     
     return;
 }

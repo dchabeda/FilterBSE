@@ -60,24 +60,26 @@ void kinetic(zomplex *psi_out, double *ksqr, fftw_plan_loc planfw, fftw_plan_loc
 
   long j;
   
+
   // Copy inputted psi to fftwpsi
   memcpy(&fftwpsi[0], &psi_out[0], ist->ngrid*sizeof(fftwpsi[0]));
   
+
   // FT from r-space to k-space
   fftw_execute(planfw);
-  
+
   // Kinetic energy is diagonal in k-space, just multiply fftwpsi by k^2
   for (j = 0; j < ist->ngrid; j++) {
     fftwpsi[j][0] *= ksqr[j];
     fftwpsi[j][1] *= ksqr[j];
   }
-  
+
   // Inverse FT back to r-space
   fftw_execute(planbw);
   
   // Copy fftwpsi to psi_out to store T|psi_tmp> into |psi_out>
-  memcpy(&psi_out[0], &fftwpsi[0], ist->ngrid*sizeof(psi_out[0]));
-
+  memcpy(&psi_out[0], &fftwpsi[0], ist->ngrid*sizeof(fftwpsi[0]));
+  
   return;
 }
 
@@ -208,9 +210,18 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
             proj.im -= psi_tmp[r].re * nlc[index1].y1[m_p].im * nlc[index1].proj[iproj];
             
           }
+<<<<<<< HEAD
           proj.re *= par->dv;
           proj.im *= par->dv;
            
+=======
+          
+          proj.re *= par->dv;
+          proj.im *= par->dv;
+          
+          // proj.re *= par->dv;
+          // proj.im *= par->dv;   
+>>>>>>> a6b49ab81dbc3be9ab911d62e80ad892131d9a05
           for (spin = 0; spin<2; spin++){
             for (m = 0; m < 3; m++){
               //get L_{m,m'}\cdot S_{s,s'}*P_{n,m,s} = PLS_{n,m,m',s,s'}
@@ -309,7 +320,12 @@ void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl
             
           }
           proj.re *= nlc[index1].NL_proj_sign[iproj];
+<<<<<<< HEAD
           proj.im *= nlc[index1].NL_proj_sign[iproj];
+=======
+          proj.im *= nlc[index1].NL_proj_sign[iproj];   
+          
+>>>>>>> a6b49ab81dbc3be9ab911d62e80ad892131d9a05
           proj.re *= par->dv;
           proj.im *= par->dv;
           

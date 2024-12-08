@@ -37,6 +37,8 @@ int main(int argc, char *argv[]){
   // Clock/Wall time output and stdout formatting
   time_t start_time = time(NULL); // Get the actual time for total wall runtime
   time_t start_clock = clock(); // Get the starting CPU clock time for total CPU runtime
+  time_t current_time;
+  char* c_time_string;
   char *top; top = malloc(2*sizeof(top[0])); 
   char *bottom; bottom = malloc(2*sizeof(bottom[0]));
   strcpy(top, "T\0"); strcpy(bottom, "B\0");
@@ -51,7 +53,9 @@ int main(int argc, char *argv[]){
   // Initialize job from input file
   
   write_separation(stdout, top);
-  printf("\n1.\tINITIALIZING JOB\n");
+  current_time = time(NULL);
+  c_time_string = ctime(&current_time);
+  printf("\n1.\tINITIALIZING JOB | %s\n", c_time_string);
   write_separation(stdout, bottom); fflush(stdout);
 
   /*** read initial setup from input.par ***/
@@ -219,7 +223,9 @@ int main(int argc, char *argv[]){
       /**************************************************************************/
       /*** calculate the energy range of the hamitonian ***/
       write_separation(stdout, top);
-      printf("\n2. CALCULATING HAMILTONIAN ENERGY RANGE...\n");
+      current_time = time(NULL);
+      c_time_string = ctime(&current_time);
+      printf("\n2. CALCULATING HAMILTONIAN ENERGY RANGE | %s\n", c_time_string);
       write_separation(stdout, bottom); fflush(stdout);
 
       inital_clock_t = (double)clock(); 
@@ -235,7 +241,9 @@ int main(int argc, char *argv[]){
       // FILTER ALGORITHM
       /**************************************************************************/
       write_separation(stdout, top);
-      printf("\n3. GENERATING COEFFICIENTS\n");
+      current_time = time(NULL);
+      c_time_string = ctime(&current_time);
+      printf("\n3. GENERATING COEFFICIENTS | %s\n", c_time_string);
       write_separation(stdout, bottom); fflush(stdout);
       
       /*** set parameters for the newton interpolation ***/
@@ -280,20 +288,29 @@ int main(int argc, char *argv[]){
       /*** start filtering loop.  we run over n_filter_cycles cycles and calculate ***/
       /*** m_states_per_filter filtered states at each cycle ***/
       write_separation(stdout, top);
-      printf("\n4. STARTING FILTERING\n");
+      current_time = time(NULL);
+      c_time_string = ctime(&current_time);
+      printf("\n4. STARTING FILTERING | %s\n", c_time_string);
       write_separation(stdout, bottom); 
 
       printf("\nEnergy width, sigma, of filter function = %.6g a.u.\n", sqrt(1 / (2*par.dt)));
       printf("Suggested max span of spectrum for filtering = %.6g a.u.\n", ist.m_states_per_filter * sqrt(1 / (2*par.dt)));
       printf("Requested span of spectrum to filter = %.6g a.u.\n", (ene_targets[par.n_targets_VB-1] - ene_targets[0]) + (ene_targets[par.n_targets_VB+par.n_targets_CB-1] - ene_targets[par.n_targets_VB]));
       fflush(stdout);
-
+      // double *rho, sgn_val;
+      // char fileName[50];
+      // if ((rho = (double *) calloc(ist.ngrid, sizeof(rho[0]))) == NULL){
+      //   fprintf(stderr, "\nOUT OF MEMORY: filter rho\n\n"); exit(EXIT_FAILURE);
+      // }
+      // Create the initial random wavefunctions for each filter state
+      // This is an array of n_filter_cycles * m_states_per_filter states
+      // where every block of length m_states_per_filter has the same random wavefunction
       for (jns = 0; jns < ist.n_filter_cycles; jns++) {
+        
         for (jspin = 0; jspin < ist.nspin; jspin++) {
           fprintf(pseed, "%ld %ld\n", ist.nspin*jns + jspin, rand_seed);
-          init_psi(&psi[jspin*ist.ngrid], &rand_seed, flag.isComplex, &grid, &parallel);
+          init_psi(&psi[jspin*ist.ngrid], &rand_seed, &grid, &ist, &par, &flag, &parallel);
         }
-
         for (jms = 0; jms < ist.m_states_per_filter; jms++) {
           for (jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
             // handle indexing of real and imaginary components if complex
@@ -311,24 +328,48 @@ int main(int argc, char *argv[]){
               // the imaginary components will be stored one double away (16 bytes, or IMAG_IDX) in memory from the real component
             }
           }
+          /*** print cube files for the random states ***/
+          // for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+          //   jgrid_real = ist.complex_idx * jgrid;
+          //   jgrid_imag = ist.complex_idx * jgrid + 1;
+
+          //   // rho[jgrid] = sqr(psitot[jstate + jgrid_real]);
+          //   sgn_val = psitot[jstate + jgrid_real];
+          //   if (1 == flag.isComplex){
+          //     rho[jgrid] += sqr(psitot[jstate + jgrid_imag]);
+          //     if (sgn_val < psitot[jstate + jgrid_imag]) sgn_val = psitot[jstate + jgrid_imag];
+          //   }
+          //   rho[jgrid] *= sign(sgn_val);
+          // }
+          // sprintf(fileName, "init-psi-%ld-%ld.cube", jns, jms);
+          // write_cube_file(rho, &grid, fileName);
+          
         }
       }
       fclose(pseed);
-
+      // free(rho);
       inital_clock_t = (double)clock(); 
       initial_wall_t = (double)time(NULL);
-      omp_set_dynamic(0);
-      omp_set_num_threads(parallel.nthreads);
-    #pragma omp parallel for private(jns, thread_id)
-      for (jns = 0; jns < ist.n_filter_cycles; jns++) {
-        thread_id = omp_get_thread_num();	
-        run_filter_cycle(&psitot[ist.complex_idx*jns*ist.m_states_per_filter*ist.nspinngrid], pot_local, nlc, nl, ksqr, an, zn,\
-        ene_targets, thread_id, jns, &grid, &ist, &par, &flag, &parallel);
-      } 
+      
+      if ((parallel.jns = (long *) calloc(ist.mn_states_tot, sizeof(parallel.jns[0]))) == NULL){ 
+        fprintf(stderr, "\nOUT OF MEMORY: parallel->jns\n\n"); exit(EXIT_FAILURE);
+      }
+      if ((parallel.jms = (long *) calloc(ist.mn_states_tot, sizeof(parallel.jms[0]))) == NULL){ 
+        fprintf(stderr, "\nOUT OF MEMORY: parallel->jns\n\n"); exit(EXIT_FAILURE);
+      }
+      run_filter_cycle(psitot,pot_local,nlc,nl,ksqr,an,zn,ene_targets,&grid,&ist,&par,&flag,&parallel);
+      
       printf("\ndone calculating filter, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
       fflush(stdout);
 
+      if (1 == flag.calcFilterOnly){
+        printf("Job was requested to terminate after completing Filtering. Exiting.\n");
+        current_time = time(NULL);
+        c_time_string = ctime(&current_time);
+        printf("%s\n", c_time_string);
+        exit(0);
+      }
       /*************************************************************************/
       /*** read all filtered states ***/
       /*ppsi = fopen("psi-filt.dat" , "r");
@@ -350,7 +391,91 @@ int main(int argc, char *argv[]){
       }
     // If checkpoint_id is 1, restart job after filtering (+ time reversal) but before orthogonalization
     case 1:
-      if (flag.restartFromCheckpoint == 1){
+      if (1 == flag.restartFromOrtho){
+        write_separation(stdout, top);
+        printf("**** START FROM ORTHO *** START FROM ORTHO ** START FROM ORTHO *** START FROM ORTHO ****");
+        write_separation(stdout, bottom); fflush(stdout);
+        
+        printf("\nLocal pseudopotential:\n");
+        build_local_pot(pot_local, &pot, R, ksqr, atom, &grid, &ist, &par, &flag, &parallel);
+        
+        free(pot.r); pot.r = NULL; 
+        free(pot.pseudo); pot.pseudo = NULL; 
+        free(pot.dr); pot.dr = NULL; 
+        free(pot.file_lens); pot.file_lens = NULL;
+        if (1.0 != par.scale_surface_Cs){
+          free(pot.r_LR); pot.r_LR = NULL;
+          free(pot.pseudo_LR); pot.pseudo_LR = NULL; 
+        }
+        
+        write_cube_file(pot_local, &grid, "localPot.cube");
+        
+        if(flag.SO==1) {
+          printf("\nSpin-orbit pseudopotential:\n");
+          init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par);
+        }
+        /*** initialization for the non-local potential ***/
+        if (flag.NL == 1){
+          printf("\nNon-local pseudopotential:\n"); fflush(0);
+          init_NL_projectors(nlc, nl, SO_projectors, &grid, R, atom, &ist, &par, &flag);
+        }
+        // free memory allocated to SO_projectors
+        if ( (flag.SO == 1) || (flag.NL == 1) ){
+          free(SO_projectors); SO_projectors = NULL;
+        }
+        
+        long psitot_size = par.t_rev_factor*ist.complex_idx*ist.nspinngrid*ist.mn_states_tot*sizeof(double);
+        printf("\nNumber of states included for orthogonalization = %ld\n", ist.mn_states_tot); fflush(stdout);
+        printf("Size of psitot array = %.2g GB\n", (double) psitot_size/1024/1024/1024); fflush(stdout);
+        //free(psitot); psitot = NULL;
+        // Reallocate psitot to have space for all the filtered states
+        // if ((psitot = (double*) realloc(psitot, psitot_size)) == NULL){ 
+        //   fprintf(stderr, "\nOUT OF MEMORY: psitot realloc\n\n"); exit(EXIT_FAILURE);
+        // }
+        
+        // Read in the states from psi-filt.dat file
+        ppsi = fopen("psi-filt.dat", "r");
+        if (ppsi != NULL){
+          printf("Reading psi-filt.dat\n"); fflush(stdout);
+          fread(&psitot[0], sizeof(double), ist.complex_idx*ist.nspinngrid*ist.mn_states_tot, ppsi);
+          fclose(ppsi);
+        } else{
+          fprintf(stderr, "ERROR: psi-filt.dat could not be opened\n");
+          exit(EXIT_FAILURE);
+        }
+        printf("psitot[max] = %lg\n", psitot[ist.complex_idx*ist.nspinngrid*ist.mn_states_tot - 1]);
+        
+        long state_idx;
+        double sgn_val;
+        char fileName[50];
+        if ((rho = (double *) calloc(ist.ngrid, sizeof(rho[0]))) == NULL){
+          fprintf(stderr, "\nOUT OF MEMORY: filter rho\n\n"); exit(EXIT_FAILURE);
+        }
+        for (jstate = 0; jstate < 5; jstate++){
+          state_idx = jstate*ist.complex_idx * ist.nspinngrid;
+          for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+            jgrid_real = ist.complex_idx * jgrid;
+            jgrid_imag = ist.complex_idx * jgrid + 1;
+
+            rho[jgrid] = sqr(psitot[state_idx + jgrid_real]);
+            sgn_val = psitot[state_idx + jgrid_real];
+            if (1 == flag.isComplex){
+              rho[jgrid] += sqr(psitot[state_idx + jgrid_imag]);
+              if (sgn_val < psitot[state_idx + jgrid_imag]) sgn_val = psitot[state_idx + jgrid_imag];
+            }
+            rho[jgrid] *= sign(sgn_val);
+          }
+          sprintf(fileName, "ortho-psi-%ld.cube", jstate);
+          write_cube_file(rho, &grid, fileName);
+        }
+
+        printf("\nNormalizing filtered states (for safety)\n"); fflush(stdout);
+        normalize_all(psitot,&ist,&par,&flag,&parallel);
+        if (2 == par.t_rev_factor){
+          printf("\nTime-reversing all filtered states (doubles number of orthogonal states)\n"); fflush(stdout);
+          time_reverse_all(&psitot[0], &psitot[ist.complex_idx*ist.nspinngrid*ist.mn_states_tot], &ist, &parallel);
+        }
+      } else if (flag.restartFromCheckpoint == 1){
         par.checkpoint_id = flag.restartFromCheckpoint;
         write_separation(stdout, top);
         printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par.checkpoint_id, par.checkpoint_id, par.checkpoint_id, par.checkpoint_id);
@@ -359,11 +484,15 @@ int main(int argc, char *argv[]){
         restart_from_save("checkpoint_1.dat",par.checkpoint_id,psitot,pot_local,ksqr,an,zn,ene_targets,nl,nlc,&grid,&ist,&par,&flag,&parallel);
       }
       par.checkpoint_id++;
+
+      
       /*************************************************************************/
       /*** orthogonalize and normalize the filtered states using an svd routine ***/
       
       write_separation(stdout, top);
-      printf("\n5. ORTHOGONALIZATING FILTERED STATES\n"); 
+      current_time = time(NULL);
+      c_time_string = ctime(&current_time);
+      printf("\n5. ORTHOGONALIZATING FILTERED STATES | %s\n", c_time_string); 
       write_separation(stdout, bottom); fflush(stdout);
 
       inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
@@ -376,7 +505,7 @@ int main(int argc, char *argv[]){
       printf("mn_states_tot after ortho = %ld\n", ist.mn_states_tot);
       psitot = (double *) realloc(psitot, ist.mn_states_tot * ist.nspinngrid * ist.complex_idx * sizeof(psitot[0]) );
 
-      normalize_all(&psitot[0],grid.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
+      normalize_all(&psitot[0], &ist, &par, &flag, &parallel);
       
       printf("\ndone calculating ortho, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
@@ -406,12 +535,14 @@ int main(int argc, char *argv[]){
       /*** orthogonal filtered states, generating the eigenstates of the ***/
       /*** hamiltonian within the desired energy range ***/
       write_separation(stdout, top);
-      printf("\n6. DIAGONALIZING HAMILTONIAN\n"); 
+      current_time = time(NULL);
+      c_time_string = ctime(&current_time);
+      printf("\n6. DIAGONALIZING HAMILTONIAN | %s\n", c_time_string); 
       write_separation(stdout, bottom); fflush(stdout);
       
       inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
-      diag_H(psi,phi,psitot,pot_local,nlc,nl,ksqr,eig_vals,&ist,&par,&flag,planfw,planbw,fftwpsi);
-      normalize_all(&psitot[0],grid.dv,ist.mn_states_tot,ist.nspinngrid,parallel.nthreads,ist.complex_idx,flag.printNorm);
+      diag_H(psitot,pot_local,nlc,nl,ksqr,eig_vals,&ist,&par,&flag,&parallel,planfw,planbw,fftwpsi);
+      normalize_all(&psitot[0],&ist,&par,&flag,&parallel);
       jms = ist.mn_states_tot;
       printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t);
@@ -421,14 +552,16 @@ int main(int argc, char *argv[]){
       /*** calculate the standard deviation of these states ***/
       /*** this is used to check if there are ghost states ***/
       write_separation(stdout, top);
-      printf("\n7. CALCULATING VARIANCE OF EIGENVALUES\n");
+      current_time = time(NULL);
+      c_time_string = ctime(&current_time);
+      printf("\n7. CALCULATING VARIANCE OF EIGENVALUES | %s\n", c_time_string);
       write_separation(stdout, bottom); fflush(stdout);
       
-      calc_sigma_E(psi, phi, psitot, pot_local, nlc, nl, ksqr, sigma_E, &ist, &par, &flag, planfw, planbw, fftwpsi);
-
+      calc_sigma_E(psitot, pot_local, nlc, nl, ksqr, sigma_E, &ist, &par, &flag);
+      
       /*** write the eigenstates/energies to a file ***/
       if (flag.getAllStates == 1) {printf("getAllStates flag on\nWriting all eigenstates to disk\n");}
-      else{ printf("getAllStates flag off\nWriting eigenstates with sigE < 0.1 to disk\n");}
+      else{ printf("getAllStates flag off\nWriting eigenstates with sigE < 0.1 to disk\n"); fflush(stdout);}
       
       if (flag.getAllStates == 1){
           /*** write all eigenvalues and their standard deviation to a file ***/
@@ -516,7 +649,9 @@ int main(int argc, char *argv[]){
       /**************************************************************************************************************/
 
       write_separation(stdout, top);
-      printf("\nCALCULATING OPTIONAL OUTPUT\n"); 
+      current_time = time(NULL);
+      c_time_string = ctime(&current_time);
+      printf("\nCALCULATING OPTIONAL OUTPUT | %s\n", c_time_string); 
       write_separation(stdout, bottom); fflush(stdout);
 
       long i, a, ieof, nval;
@@ -529,16 +664,30 @@ int main(int argc, char *argv[]){
       for (i = ieof = 0; ieof != EOF; i++){
         ieof = fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
         if (deloc < par.sigma_E_cut && evalloc < par.fermi_E) ist.homo_idx = i;
+        if (i > ist.mn_states_tot){
+          printf("No hole states converged to within %lg a.u.\n", par.sigma_E_cut);
+          break;
+        }
       }
       fclose(pf);
 
-      nval = i - 1;
+      // nval = i - 1;
       pf = fopen("eval.dat" , "r");
-      for (i = 0; i <= ist.homo_idx; i++) fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
-      for (i = ist.homo_idx+1; i < nval; i++) {
+      for (i = 0; i <= ist.homo_idx; i++) {
+        fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
+        if (i > ist.mn_states_tot){
+          printf("No electron states converged to within %lg a.u.\n", par.sigma_E_cut);
+          break;
+        }
+      }
+      for (i = ist.homo_idx+1, ieof = 0; ieof != EOF; i++) {
         fscanf(pf, "%ld %lg %lg", &a, &evalloc, &deloc);
         if (deloc < par.sigma_E_cut) {
           ist.lumo_idx = i;
+          break;
+        }
+        if (i > ist.mn_states_tot){
+          printf("No electron states converged to within %lg a.u.\n", par.sigma_E_cut);
           break;
         }
       }
@@ -552,85 +701,101 @@ int main(int argc, char *argv[]){
 
       if (flag.printCubes == 1){
         /*** Write homo and lumo cube files ***/
-        
+        zomplex sgn_val;
+        sgn_val.re = sgn_val.im = 0.0;
+
         write_separation(stdout, top);
         printf("\nWRITING CUBE FILES\n"); 
         write_separation(stdout, bottom); fflush(stdout);
 
         if ((ist.homo_idx == 0) || (ist.lumo_idx == 0)){
           printf("\nDid not converge enough electron or hole states to visualize cube files.\n");
-        } else{
-        if ((rho = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
-          fprintf(stderr, "\nOUT OF MEMORY: rho\n\n"); exit(EXIT_FAILURE);
-        }
-
-        inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
-
-        for (i = 0; (i < ist.total_homo) && (i < ist.ncubes); i++){
-          //Spin Up Wavefunction
-          sprintf(str,"homo-%ld-Up.cube",i);
-          for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-            jgrid_real = ist.complex_idx * jgrid;
-            jgrid_imag = ist.complex_idx * jgrid + 1;
-            
-            rho[jgrid] = sqr(psitot[ist.complex_idx*(ist.homo_idx-i)*ist.nspinngrid + jgrid_real]);
-            if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*(ist.homo_idx-i)*ist.nspinngrid + jgrid_imag]);
+        } 
+        else {
+          if ((rho = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
+            fprintf(stderr, "\nOUT OF MEMORY: rho\n\n"); exit(EXIT_FAILURE);
           }
-          write_cube_file(rho, &grid, str);
-          //Spin Down Wavefunction
-          if (1 == flag.useSpinors){    
-            sprintf(str,"homo-%ld-Dn.cube", i);
+
+          inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
+
+          for (i = 0; (i < ist.total_homo) && (i < ist.ncubes); i++){
+            //Spin Up Wavefunction
+            sprintf(str,"homo-%ld-Up.cube",i);
             for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
               jgrid_real = ist.complex_idx * jgrid;
               jgrid_imag = ist.complex_idx * jgrid + 1;
               
-              rho[jgrid] = sqr(psitot[ist.complex_idx*((ist.homo_idx-i)*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
-                  + sqr(psitot[ist.complex_idx*((ist.homo_idx-i)*ist.nspinngrid+ist.ngrid)+jgrid_imag]);    
+              sgn_val.re = psitot[ist.complex_idx*(ist.homo_idx-i)*ist.nspinngrid + jgrid_real];
+
+              if (1 == flag.isComplex) {
+                sgn_val.im = psitot[ist.complex_idx*(ist.homo_idx-i)*ist.nspinngrid + jgrid_imag];
+              }
+              // rho = sign * |psi|^2
+              rho[jgrid] = sign(sgn_val.re + sgn_val.im) * (sqr(sgn_val.re) + sqr(sgn_val.im));
             }
             write_cube_file(rho, &grid, str);
-          } 
-        }
-
-        for (i = 0;  (i < ist.total_lumo) && (i < ist.ncubes); i++){
-          sprintf(str,"lumo+%ld-Up.cube",i);
-          for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-            jgrid_real = ist.complex_idx * jgrid;
-            jgrid_imag = ist.complex_idx * jgrid + 1;
-            
-            rho[jgrid] = sqr(psitot[ist.complex_idx*(ist.lumo_idx+i)*ist.nspinngrid + jgrid_real]);
-            if (1 == flag.isComplex) rho[jgrid] += sqr(psitot[ist.complex_idx*(ist.lumo_idx+i)*ist.nspinngrid + jgrid_imag]);
+            //Spin Down Wavefunction
+            if (1 == flag.useSpinors){    
+              sprintf(str,"homo-%ld-Dn.cube", i);
+              for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+                jgrid_real = ist.complex_idx * jgrid;
+                jgrid_imag = ist.complex_idx * jgrid + 1;
+                
+                sgn_val.re = psitot[ist.complex_idx*((ist.homo_idx-i)*ist.nspinngrid+ist.ngrid)+jgrid_real];
+                sgn_val.im = psitot[ist.complex_idx*((ist.homo_idx-i)*ist.nspinngrid+ist.ngrid)+jgrid_imag];
+                rho[jgrid] = sign(sgn_val.re + sgn_val.im) * ( sqr(sgn_val.re) + sqr(sgn_val.im) );
+              }
+              write_cube_file(rho, &grid, str);
+            } 
           }
-          write_cube_file(rho, &grid, str);
 
-          if (1 == flag.useSpinors){
-            sprintf(str,"lumo+%ld-Dn.cube",i);
+          for (i = 0;  (i < ist.total_lumo) && (i < ist.ncubes); i++){
+            sprintf(str,"lumo+%ld-Up.cube",i);
             for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
               jgrid_real = ist.complex_idx * jgrid;
               jgrid_imag = ist.complex_idx * jgrid + 1;
-            
-              rho[jgrid] = sqr(psitot[ist.complex_idx*((ist.lumo_idx+i)*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
-                  + sqr(psitot[ist.complex_idx*((ist.lumo_idx+i)*ist.nspinngrid+ist.ngrid)+jgrid_imag]);
+              
+              sgn_val.re = psitot[ist.complex_idx*(ist.lumo_idx+i)*ist.nspinngrid + jgrid_real];
+              if (1 == flag.isComplex) sgn_val.im = psitot[ist.complex_idx*(ist.lumo_idx+i)*ist.nspinngrid + jgrid_imag];
+              rho[jgrid] = sign(sgn_val.re + sgn_val.im) * ( sqr(sgn_val.re) + sqr(sgn_val.im) );
             }
             write_cube_file(rho, &grid, str);
-          }
-        }
-        free(rho);
 
-        printf("\ndone calculating cubes, CPU time (sec) %g, wall run time (sec) %g\n",
+            if (1 == flag.useSpinors){
+              sprintf(str,"lumo+%ld-Dn.cube",i);
+              for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+                jgrid_real = ist.complex_idx * jgrid;
+                jgrid_imag = ist.complex_idx * jgrid + 1;
+
+                sgn_val.re = psitot[ist.complex_idx*((ist.lumo_idx+i)*ist.nspinngrid+ist.ngrid)+jgrid_real];
+                sgn_val.im = psitot[ist.complex_idx*((ist.lumo_idx+i)*ist.nspinngrid+ist.ngrid)+jgrid_imag];
+                rho[jgrid] = sign(sgn_val.re + sgn_val.im) * ( sqr(sgn_val.re) + sqr(sgn_val.im) );
+              }
+              write_cube_file(rho, &grid, str);
+            }
+          }
+          free(rho);
+
+          printf("\ndone calculating cubes, CPU time (sec) %g, wall run time (sec) %g\n",
           ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t);
+          fflush(stdout);
         }
       }
       if (flag.calcPotOverlap == 1){
 
         write_separation(stdout, top);
-        printf("\nCALCULATING POTENTIAL MATRIX ELEMENTS\n"); fflush(0);
+        current_time = time(NULL);
+        c_time_string = ctime(&current_time);
+        printf("\nCALCULATING POTENTIAL MATRIX ELEMENTS | %s\n", c_time_string); fflush(0);
         write_separation(stdout, bottom); fflush(stdout);
 
         calc_pot_overlap(&psitot[0], pot_local, nlc, nl, eig_vals, &par, &ist, &flag);
       } 
       if (flag.calcSpinAngStat == 1) {
         write_separation(stdout, top);
-        printf("\nCALCULATING SPIN & ANG. MOM. STATISTICS\n"); 
+        current_time = time(NULL);
+        c_time_string = ctime(&current_time);
+        printf("\nCALCULATING SPIN & ANG. MOM. STATISTICS | %s\n", c_time_string); 
         write_separation(stdout, bottom); fflush(stdout);
 
         calc_angular_exp(psitot, &grid,0, ist.mn_states_tot, &ist, &par, &flag, &parallel, planfw, planbw, fftwpsi);

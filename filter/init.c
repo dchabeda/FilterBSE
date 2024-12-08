@@ -33,8 +33,8 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
 
   /***initial parameters for the pot reduce mass, etc. in the x direction ***/
   grid->xmin = -xd;
-  grid->xmax = xd;
-  printf("\tThe x_max = %lg and x_min %lg\n", grid->xmax, grid->xmin);
+  grid->xmax = xd - grid->dx; // There is an off-by-one in the grid due to the loop not including the final element. Create odd grid to have same grid points on each side.
+  printf("\tThe x_min = %lg and x_max %lg\n", grid->xmin, grid->xmax);
   ntmp  = (long)((grid->xmax - grid->xmin) / grid->dx);
   if (ntmp > grid->nx){
     printf("\tinput nx insufficient; updating parameter.\n");
@@ -47,8 +47,8 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
   
   /***initial parameters for the pot reduce mass, etc. in the y direction ***/
   grid->ymin = -yd;
-  grid->ymax = yd;
-  printf("\tThe y_max = %lg and y_min %lg\n", grid->ymax, grid->ymin);
+  grid->ymax = yd - grid->dy;
+  printf("\tThe y_min = %lg and y_max %lg\n", grid->ymin, grid->ymax);
   ntmp  = (long)((grid->ymax - grid->ymin) / grid->dy);
   if (ntmp > grid->ny){
     printf("\tinput ny insufficient; updating parameter.\n");
@@ -61,9 +61,9 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
 
   /***initial parameters for the pot reduce mass, etc. in the z direction ***/
   grid->zmin = -zd;
-  grid->zmax = zd;
+  grid->zmax = zd - grid->dz;
   ntmp  = (long)((grid->zmax - grid->zmin) / grid->dz);
-  printf("\tThe z_max = %lg and z_min %lg\n", grid->zmax, grid->zmin);
+  printf("\tThe z_min = %lg and z_max %lg\n", grid->zmin, grid->zmax);
   if (ntmp > grid->nz){
     printf("\tinput nz insufficient; updating parameter.\n");
     grid->nz = ntmp;
@@ -92,6 +92,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
   printf("\tngrid = %ld, nspin = %d, nspinngrid = %ld\n", ist->ngrid, ist->nspin, ist->nspinngrid);
   
 
+  free(X); free(Y); free(Z);
   fflush(stdout);
 
   return;
@@ -114,6 +115,7 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_
   FILE *pf;
   long jx, jy, jz, jyz, jxyz, jtmp, jatom;
   double dx, dy, dz, *ksqrx, *ksqry, *ksqrz;
+  double KE_max;
 
   // ****** ****** ****** ****** ****** ****** 
   // Building the grid 
@@ -146,14 +148,14 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_
 		grid->nz_1 * grid->nx_1 * grid->ny_1);
 
   pf = fopen("ksqr.dat", "w");
-  par->KE_max *= (grid->ny_1 * grid->nx_1 * grid->nz_1);
+  KE_max = par->KE_max * (grid->ny_1 * grid->nx_1 * grid->nz_1);
   for (jz = 0; jz < grid->nz; jz++){
     for (jy = 0; jy < grid->ny; jy++){
       jyz = grid->nx * (grid->ny * jz + jy);
       for (jx = 0; jx < grid->nx; jx++){
         jxyz = jyz + jx;
         ksqr[jxyz] = ksqrx[jx] + ksqry[jy] + ksqrz[jz];
-        if (ksqr[jxyz] > par->KE_max) ksqr[jxyz] = par->KE_max; // KE cutoff at KE_max
+        if (ksqr[jxyz] > KE_max) ksqr[jxyz] = KE_max; // KE cutoff at KE_max
         fprintf(pf, "%ld %lg\n", jxyz, ksqr[jxyz]);
       }
     }
@@ -207,14 +209,12 @@ void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *f
   long jx;
   
   /*** setting the energy targets ***/
-  
+  // check that nVB + nCB is equal to the total number of energy targets (states per filter)
+  if (par->n_targets_VB + par->n_targets_CB != ist->m_states_per_filter){
+    fprintf(stderr, "ERROR: n_targets_VB + n_targets_CB not equal to total m_states_per_filter!\n");
+    exit(EXIT_FAILURE);
+  }
   if (flag->setTargets != 1){
-    // If the energy targets were set for VB and CB separately,
-    // check that nVB + nCB is equal to the total number of energy targets (states per filter)
-    if (par->n_targets_VB + par->n_targets_CB != ist->m_states_per_filter){
-      fprintf(stderr, "ERROR: n_targets_VB + n_targets_CB not equal to total m_states_per_filter!\n");
-      exit(EXIT_FAILURE);
-    }
     // If the ene targets were not set in input, place half in VB/CB
     par->n_targets_CB = (long)(ist->m_states_per_filter / 2);
     par->n_targets_VB = ist->m_states_per_filter - par->n_targets_CB;
@@ -331,6 +331,13 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
   // Construct pseudopotential on grid
   // ****** ****** ****** ****** ****** ******
   printf("\tConstructing total pseudopotential on the grid...\n");
+
+  FILE *pf;
+  pf = fopen("geomPar.dat", "w");
+  for (jatom = 0; jatom < ist->natoms; jatom++){
+    fprintf(pf, "%ld %lg\n", jatom, atom[jatom].geom_par);
+  }
+  fclose(pf);
 
   omp_set_dynamic(0);
   omp_set_num_threads(parallel->nthreads);
@@ -449,10 +456,15 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
   
   FILE *pf;
   long jatom;
+<<<<<<< HEAD
   long rpoint;
   double dr; 
   double *vr, dr_proj; 
   long N = PROJ_LEN;
+=======
+  double dr, *vr, dr_proj; 
+  long rpoint, N = PROJ_LEN;
+>>>>>>> a6b49ab81dbc3be9ab911d62e80ad892131d9a05
 
   // TODO NOTE: the current method for computing the NL potential relies on the SO_projectors being defined.
   // If there is no spin-orbit coupling used in the calculation, then the SO_projectors should be set to
@@ -471,7 +483,10 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
 		vr[rpoint] = (double) rpoint * dr ;
 	}
   dr_proj = vr[1];
+<<<<<<< HEAD
   // printf("Projector dr = %f\n",dr_proj); fflush(0);
+=======
+>>>>>>> a6b49ab81dbc3be9ab911d62e80ad892131d9a05
   
   // Non-local piece
   // Find all the grid points within par->Rnlcut of each atom and calculate
@@ -479,20 +494,19 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
   /*** for the nonlocal potential ***/
 
   // 2. Calculate r, r2, y1[1+m], proj(r), etc. at the grid points
+<<<<<<< HEAD
 #pragma omp parallel for private(jatom, vr)
+=======
+#pragma omp parallel for private(jatom)
+>>>>>>> a6b49ab81dbc3be9ab911d62e80ad892131d9a05
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
     long jx, jy, jz, jyz, jxyz;
     int iproj, *sgnProj;
     double dx, dy, dz, dxeps, dyeps, dzeps, dr_1, dr2;
     double *nlcprojectors;
+<<<<<<< HEAD
     
-    //gen projectors on the fly
-    if ((nlcprojectors = (double*) calloc(N * ist->nproj, sizeof(double)))==NULL){nerror("nlc_projector");}
-    if ((sgnProj = (int*) calloc(ist->nproj, sizeof(int)))==NULL){nerror("nlc_sgnProj");}
-  
-    //generate the nonlocal part for each atom
-    gen_nlc_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, nlcprojectors, sgnProj, vr, atom, jatom);
-    // printf("Exited gen_nlc_projectors %ld\n", jatom); fflush(0);
+=======
 
     // Print the spin-orbit parameters for each atom for use in the coupling code
     char fileName[50];
@@ -502,6 +516,27 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
         fprintf(pf, "%.10f", atom[jatom].SO_par);
         fclose(pf);
     }
+
+>>>>>>> a6b49ab81dbc3be9ab911d62e80ad892131d9a05
+    //gen projectors on the fly
+    if ((nlcprojectors = (double*) calloc(N * ist->nproj, sizeof(double)))==NULL){nerror("nlc_projector");}
+    if ((sgnProj = (int*) calloc(ist->nproj, sizeof(int)))==NULL){nerror("nlc_sgnProj");}
+  
+    //generate the nonlocal part for each atom
+    gen_nlc_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, nlcprojectors, sgnProj, vr, atom, jatom);
+    // printf("Exited gen_nlc_projectors %ld\n", jatom); fflush(0);
+
+<<<<<<< HEAD
+    // Print the spin-orbit parameters for each atom for use in the coupling code
+    char fileName[50];
+    if (atom[jatom].SO_par != 0) {
+        sprintf(&fileName[0], "SO_proj_const_%ld.dat",jatom);
+        pf = fopen(fileName, "w");
+        fprintf(pf, "%.10f", atom[jatom].SO_par);
+        fclose(pf);
+    }
+=======
+>>>>>>> a6b49ab81dbc3be9ab911d62e80ad892131d9a05
     
     nl[jatom] = 0;
     for (jz = 0; jz < grid->nz; jz++) {
@@ -561,7 +596,10 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
         }
       }
     }
+<<<<<<< HEAD
 
+=======
+>>>>>>> a6b49ab81dbc3be9ab911d62e80ad892131d9a05
     free(nlcprojectors);
     free(sgnProj);
   }
@@ -581,7 +619,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,a
 
 
 /*****************************************************************************/
-void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, parallel_st *parallel){
+void init_psi(zomplex *psi, long *rand_seed, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function initializes a random, normalized wavefnc on grid   *
   * inputs:                                                          *
@@ -594,7 +632,6 @@ void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, paral
 
   long jx, jy, jz, jzy, jxyz;
   long randint = (*rand_seed);
-
   // Loop over entire grid to set new values at all grid points
   for (jz = 0; jz < grid->nz; jz++){
     for (jy = 0; jy < grid->ny; jy++){
@@ -605,11 +642,11 @@ void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, paral
         // random number between [-1.0,1.0] 
         // ran_nrc generates random between [0.0,1.0] and resets the seed
         psi[jxyz].re = (-1.0 + 2.0 * ran_nrc(&randint));
-
         // If using complex-valued functions, then initialize a random value for imag component
-        if (1 == isComplex){
+        if (1 == flag->isComplex){
           psi[jxyz].im = (-1.0 + 2.0 * ran_nrc(&randint));
-        } else if (0 == isComplex){
+        } else if (0 == flag->isComplex){
+          
           // otherwise set imaginary component to 0.0
           psi[jxyz].im = 0.0;
         }
@@ -620,8 +657,13 @@ void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, paral
   
   // normalize this wavefunction and set the value of rand_seed to the new
   // seed so the next wavefunction is different.
+<<<<<<< HEAD
   
   normalize(psi, grid->dv, grid->ngrid, parallel->nthreads);
+=======
+  normalize(psi, ist->ngrid, ist, par, flag, parallel);
+  
+>>>>>>> a6b49ab81dbc3be9ab911d62e80ad892131d9a05
   (*rand_seed) = randint;
   
   
@@ -679,6 +721,7 @@ double calc_dot_dimension(xyz_st *R, long n_atoms, char *dir){
     }
   }
 
+  free(X); free(Y); free(Z);
   return sqrt(dr2);
 }
 

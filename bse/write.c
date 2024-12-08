@@ -74,7 +74,7 @@ void write_cube_file(double *rho, grid_st *grid, char *fileName) {
       for (iZ = 0; iZ < grid->nz; iZ++) {
         iYZ = grid->nx * (grid->ny * iZ + iY);
         jgrid = iYZ + iX;
-        fprintf(pf, "%12.5f ", rho[jgrid]);
+        fprintf(pf, "%12.5g ", rho[jgrid]);
         if (iZ % 6 == 5) {
           fprintf(pf, "\n");
         }

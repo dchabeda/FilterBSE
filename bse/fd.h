@@ -117,7 +117,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
 
 // basis.c
 void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag);
-void get_qp_basis(double *psi, double *psitot, double *psi_hole, double *psi_elec, double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag);
+void get_qp_basis(double *psi_qp, double *psitot, double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag);
 
 // init.c
 void init_elec_hole_kernel(zomplex *potq, zomplex *potqx, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
@@ -132,24 +132,39 @@ void norm_vector(double *vector, double dV, long length);
 void scalar_product(zomplex *,zomplex *,zomplex *,double,long,long);
 
 // hartree.c
-void hartree(zomplex *rho,zomplex *potq,zomplex *poth,index_st ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
+void hartree(zomplex *rho,zomplex *potq,zomplex *poth,index_st *ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 
-void single_coulomb_openmp(zomplex       *psi, 
-                           zomplex       *potq,
-                           zomplex       *potqx,
-                           zomplex       *poth,
-                           double        *eval,
-                           index_st        ist,
-                           par_st        par,
-                           fftw_plan_loc *planfw,
-                           fftw_plan_loc *planbw,
-                           fftw_complex  *fftwpsi,
-                           zomplex       *bsmat,
-                           zomplex       *direct,
-                           zomplex       *exchange,
-                           double       *h0mat);
+void calc_eh_kernel_cplx(zomplex       *psi_qp, 
+                        zomplex       *pot_bare,
+                        zomplex       *pot_screened,
+                        zomplex       *pot_htree,
+                        zomplex       *bsmat,
+                        zomplex       *direct,
+                        zomplex       *exchange,
+                        double        *h0mat,
+                        double        *eval,
+                        index_st      *ist,
+                        par_st        *par,
+                        flag_st       *flag,
+                        fftw_plan_loc *planfw,
+                        fftw_plan_loc *planbw,
+                        fftw_complex  *fftwpsi);
 
-
+void calc_eh_kernel_real(double       *psi_qp, 
+                        zomplex       *pot_bare,
+                        zomplex       *pot_screened,
+                        zomplex       *pot_htree,
+                        zomplex       *bsmat,
+                        zomplex       *direct,
+                        zomplex       *exchange,
+                        double        *h0mat,
+                        double        *eval,
+                        index_st      *ist,
+                        par_st        *par,
+                        flag_st       *flag,
+                        fftw_plan_loc *planfw,
+                        fftw_plan_loc *planbw,
+                        fftw_complex  *fftwpsi);
 
 void diag(const int n, int nthreads, zomplex *mat, double *eval);
 void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchage, double *h0mat, zomplex *psi, double *vz, xyz_st *trans_dipole,

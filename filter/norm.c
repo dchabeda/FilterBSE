@@ -21,11 +21,13 @@ double calc_norm(zomplex *psi, double dv, long ngrid, long nthreads){
 
   long i;
   double norm = 0.0;
-
+  
   omp_set_dynamic(0);
   omp_set_num_threads(nthreads);
 #pragma omp parallel for reduction(+:norm)
-  for (i = 0; i < ngrid; i++) norm += (sqr(psi[i].re) + sqr(psi[i].im));
+  for (i = 0; i < ngrid; i++){
+    norm += (sqr(psi[i].re) + sqr(psi[i].im));
+  }
   
   return (sqrt(norm * dv));
 }
@@ -34,7 +36,7 @@ double calc_norm(zomplex *psi, double dv, long ngrid, long nthreads){
 // Normalizes a single state of length ngrid and grid volume of dv
 // works with complex a wavefunction (complex spinors as well)
 
-double normalize(zomplex *psi,double dv,long ngrid,long nthreads){
+double normalize(zomplex *psi, long ngrid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function integrates the square mod of the wavefunc          *
   *     N = sum^{ngrid}_{0} |Psi(gridpt)|^2 * dv                     *
@@ -47,16 +49,25 @@ double normalize(zomplex *psi,double dv,long ngrid,long nthreads){
   ********************************************************************/
 
   long k;
-  double N = calc_norm(psi,dv,ngrid,nthreads);
-  //printf("norm in normalize = %g\n", N);
+  double N = calc_norm(psi,par->dv,ngrid,parallel->nthreads);
+
+  // printf("norm in normalize = %g\n", N);
+  // if (flag->printNorm == 1) {
+  //     FILE *pf;
+  //     char str[30];
+  //     sprintf(str, "norm-%ld.dat", thread_id);
+  //     pf = fopen(str, "w");
+  //     fprintf(pf, "norm = %g\n", N); fflush(pf);
+  //     fclose(pf);
+  //   }
   omp_set_dynamic(0);
-  omp_set_num_threads(nthreads);
-#pragma omp parallel for 
+  omp_set_num_threads(parallel->nthreads);
+#pragma omp parallel for private(k)
   for (k = 0; k < ngrid; k++){
     psi[k].re /= N;
     psi[k].im /= N;
   }
-
+  
   return (N);
 }
 
@@ -64,7 +75,7 @@ double normalize(zomplex *psi,double dv,long ngrid,long nthreads){
 // Normalizes to 1 all numStates states in psi each of which is of length ngrid 
 // with a grid volume of dv works with a complex wavefunctions (complex spinors as well)
 
-void normalize_all(double *psitot, double dv, long ms, long ngrid, long nthreads, int complex_idx, int printNorm){
+void normalize_all(double *psitot, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function normalizes to 1.0 all states in psitot             *
   * inputs:                                                          *
@@ -84,57 +95,62 @@ void normalize_all(double *psitot, double dv, long ms, long ngrid, long nthreads
   // Emin-init.dat. To better ensure convergence of the E_min, decrease the value of the tau
   // parameter in get_energy_range energy.c
 
-  long jgrid, jgrid_real, jgrid_imag, ie, ieg;
-  double norm;
+  long jmn;
   //printf("This is dv coming into normalize: %g\n", dv);
   //printf("This is ngrid coming into normalize: %ld\n", ngrid);
-  
+  // FILE *pf;
+  //     char str[30];
+  //     sprintf(str, "norm-all-%ld.dat", thread_id);
+  //     pf = fopen(str, "w");
   omp_set_dynamic(0);
-  omp_set_num_threads(nthreads);
-#pragma omp parallel for private(ie, norm, ieg, jgrid)
-  for (ie = 0; ie < ms; ie++){
+  omp_set_num_threads(parallel->nthreads);
+#pragma omp parallel for private(jmn)
+  for (jmn = 0; jmn < ist->mn_states_tot; jmn++){
+    long j_state;
+    long jgrid, jgrid_real, jgrid_imag;
+    double norm;
     // Loop over all states
     // complex_idx is 2 if psi is complex (1 if real), this accounts for storing real and imag components
-    ieg = complex_idx * ie * ngrid; 
+    j_state = jmn * ist->complex_idx * ist->nspinngrid; 
     
     // Calculate the norm integral for each state
     norm = 0.0;
-    for (jgrid = 0; jgrid < ngrid; jgrid++){
-      jgrid_real = complex_idx * jgrid; // indexes the real valued wavefunc OR real component of complex val func
-      jgrid_imag = complex_idx * jgrid + 1; // indexes complex component
+    for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
+      jgrid_real = ist->complex_idx * jgrid; // indexes the real valued wavefunc OR real component of complex val func
+      jgrid_imag = ist->complex_idx * jgrid + 1; // indexes complex component
 
-      norm += sqr(psitot[ieg+jgrid_real]) ;
+      norm += sqr(psitot[j_state+jgrid_real]) ;
       // only add imag part to norm if psi is complex
-      if (2 == complex_idx){ 
-        norm += sqr(psitot[ieg+jgrid_imag]); 
+      if (1 == flag->isComplex){ 
+        norm += sqr(psitot[j_state+jgrid_imag]); 
       }
     }
-    norm *= dv;
+    norm *= par->dv;
     
-    if (printNorm == 1) {
-      printf("state %ld norm = %g\n", ie, norm); fflush(0);
+    if (flag->printNorm == 1) {
+      printf("state %ld norm = %g\n", jmn, norm); fflush(0);
     }
     
     // Handle exception behavior. If norm is zero or nan, something failed
     if (norm != 0.0) {
-      norm = 1.0 / sqrt(norm);
+      norm = 1.0 / sqrt(norm); // 1/srt(N)
     } else if (isnan(norm)) {
       fprintf(stderr, "Norm is NAN! exiting!\n"); exit(EXIT_FAILURE); 
     } else {
       fprintf(stderr, "Norm is %.2g! exiting!\n", norm); exit(EXIT_FAILURE); 
     }
+    // Rescale the wavefunctions by the normalization constant to normalize them
+    for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+      jgrid_real = ist->complex_idx * jgrid;
+      jgrid_imag = ist->complex_idx * jgrid + 1;
 
-    for (jgrid = 0; jgrid < ngrid; jgrid++) {
-      jgrid_real = complex_idx * jgrid;
-      jgrid_imag = complex_idx * jgrid + 1;
-
-      psitot[ieg+jgrid_real] *= norm;
-      if (2 == complex_idx){
-        psitot[ieg+jgrid_imag] *= norm;
+      psitot[j_state+jgrid_real] *= norm;
+      if (1 == flag->isComplex){
+        psitot[j_state+jgrid_imag] *= norm;
       }
     }
   }
-
+  // fclose(pf);
   return;
 }
 

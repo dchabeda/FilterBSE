@@ -1,75 +1,37 @@
 SHELL = /bin/sh
 
-MKLROOT = /opt/intel/compilers_and_libraries/linux/mkl
-INTELLINK = ${MKLROOT}/lib/intel64/libmkl_scalapack_ilp64.a -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a ${MKLROOT}/lib/intel64/libmkl_blacs_intelmpi_ilp64.a -Wl,--end-group -liomp5 -lpthread -lm -ldl
+OS=Linux
 
-#Linux_LIB = -shared-intel -Wl,--start-group /opt/intel/compilers_and_libraries_2018/linux/mkl/lib/intel64/libmkl_intel_lp64.a /opt/intel/compilers_and_libraries_2018/linux/mkl/lib/intel64/libmkl_sequential.a /opt/intel/compilers_and_libraries_2018/linux/mkl/lib/intel64/libmkl_core.a -lfftw3 -fopenmp
-#Linux_LIB = -shared-intel -Wl,--start-group /opt/intel/compilers_and_libraries_2018/linux/mkl/lib/intel64/libmkl_intel_ilp64.a /opt/intel/compilers_and_libraries_2018/linux/mkl/lib/intel64/libmkl_lapack95_ilp64.a /opt/intel/compilers_and_libraries_2018/linux/mkl/lib/intel64/libmkl_blas95_ilp64.a /opt/intel/compilers_and_libraries_2018/linux/mkl/lib/intel64/libmkl_intel_thread.a /opt/intel/compilers_and_libraries_2018/linux/mkl/lib/intel64/libmkl_core.a -qopenmp -lpthread -lfftw3 
+# libraries ...
+Linux_LIB = -qmkl -qopenmp -lpthread -lfftw3 -lfftw3_threads -lfftw3_omp
+Linux_DYLIB = -lmkl_intel_ilp64 -lmkl_lapack95_ilp64 -lmkl_blas95_ilp64 -lmkl_intel_thread -lmkl_core -lm
 
-Linux_LIB =  -lfftw3 ${INTELLINK}
-Linux_MYLIB = 
-Linux_CLIB = -lm 
-Linux_FCLIB = 	
-
-CYGWIN_NT-6.3_LIB = -llapack -lblas -lfftw3_threads -lfftw3 -lpthread
-CYGWIN_NT-6.3_MYLIB = 
-CYGWIN_NT-6.3_CLIB =  -lm
-CYGWIN_NT-6.3_FCLIB = 	
-
-Windows_NT_LIB = -llapack -lblas -lfftw3_threads -lfftw3 -lpthread
-Windows_NT_MYLIB = 
-Windows_NT_CLIB =  -lm
-Windows_NT_FCLIB = 	
-
-LIB = $(${OS}_LIB) $(${OS}_CLIB) $(${OS}_FCLIB) $(${OS}_MYLIB)
+LIB = $(Linux_DYLIB) $(Linux_LIB)
 
 # flags ...
-#Linux_OPTFLAGS = -DMKL_ILP64 -O3 -xSSE3 -fp-model=fast -qopenmp -static 
-Linux_OPTFLAGS = -O0 -g
-Linux_CFLAGS = $(${OS}_OPTFLAGS) -DFFT_FFTW
-Linux_FFLAGS = $(${OS}_OPTFLAGS)
-
-CYGWIN_NT-6.3_OPTFLAGS = -O3 -ffast-math
-CYGWIN_NT-6.3_CFLAGS = $(${OS}_OPTFLAGS) -DFFT_FFTW
-CYGWIN_NT-6.3_FFLAGS = $(${OS}_OPTFLAGS) 
-
-Windows_NT_OPTFLAGS = -O3 -ffast-math
-Windows_NT_CFLAGS = $(${OS}_OPTFLAGS) -DFFT_FFTW
-Windows_NT_FFLAGS = $(${OS}_OPTFLAGS) 
-
+Linux_OPTFLAGS = -DMKL_ILP64
+#Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp
+#Linux_CFLAGS = -g -qopenmp -O0
+Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
 
 MAINNAM = BSE
 
-#compiler ...
-Linux_CC = icx
-Linux_FF = ifx
-Linux_LD = icx
+# compiler ...
+Linux_CC = cc
 
-CYGWIN_NT-6.3_CC = gcc
-CYGWIN_NT-6.3_FF = gfortran
-CYGWIN_NT-6.3_LD = gcc
-
-Windows_NT_CC = gcc
-Windows_NT_FF = gfortran
-Windows_NT_LD = gcc
-
+# obhect files
 OBJECTS = \
-	main.o write.o save.o read.o basis.o init.o dipole.o
-
-#init.o size.o norm.o nerror.o read.o hartree.o single.o interpolate.o \
-#	bethe-salpeter.o diag.o rand.o dipole.o write.o angular.o
-
-
+	main.o write.o save.o read.o basis.o init.o dipole.o coulomb.o hartree.o
 
 # compilation ...
-
-.f.o:
-	$(${OS}_FF) $(${OS}_FFLAGS) -c  $*.f
+# compilation rule for all .c files
 .c.o:
-	$(${OS}_CC) $(${OS}_CFLAGS) -c  $*.c  
+	$(Linux_CC) -DOS_$(OS) $(Linux_CFLAGS) -c $*.c 
 
+
+# Compile the main executable BSE.x and link libraries
 $(MAINNAM): $(OBJECTS) 
-	$(${OS}_LD) -o $(MAINNAM).x $(${OS}_CFLAGS) $(OBJECTS) $(LIB)
+	$(Linux_CC) -o $(MAINNAM).x $(OBJECTS) $(LIB)
 
 clean:
 	/bin/rm *.o *.x

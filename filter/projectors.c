@@ -94,7 +94,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	double sum, preFactor;
 	int i,j,rpoint,kpoint,projector;
 	double lam1, lam2;
-	FILE* pf, *pproj;
+	FILE *pf, *pproj;
 	char fileName[100];
 
 	// Width of the gaussian fucntion used for the SO potential. 

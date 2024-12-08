@@ -53,7 +53,7 @@ void calc_angular_exp(double *psitot, grid_st *grid, int start, int stop, index_
 			low_pass_filter(&psi[ist->ngrid],grid,planfw,planbw,fftwpsi,ist,par,parallel);
 		}
 
-		normalize(psi,par->dv,ist->nspinngrid,parallel->nthreads);
+		normalize(psi, ist->nspinngrid, ist, par, flag, parallel);
 
 		char filename[20];
 		double *rho = calloc(ist->ngrid, sizeof(double));

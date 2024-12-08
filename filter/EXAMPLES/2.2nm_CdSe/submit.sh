@@ -14,8 +14,8 @@
 
 jobname="2.2nm_CdSe_test_Filter"
 
-module load PrgEnv-intel/8.3.3
-module load cray-fftw/3.3.10.3
+module load PrgEnv-intel/8.5.0
+module load cray-fftw/3.3.10.6
 
 bash run_filter.sh $jobname
 

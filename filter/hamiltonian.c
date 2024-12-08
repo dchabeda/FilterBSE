@@ -210,12 +210,9 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
             proj.im -= psi_tmp[r].re * nlc[index1].y1[m_p].im * nlc[index1].proj[iproj];
             
           }
-          
           proj.re *= par->dv;
           proj.im *= par->dv;
-          
-          // proj.re *= par->dv;
-          // proj.im *= par->dv;   
+           
           for (spin = 0; spin<2; spin++){
             for (m = 0; m < 3; m++){
               //get L_{m,m'}\cdot S_{s,s'}*P_{n,m,s} = PLS_{n,m,m',s,s'}

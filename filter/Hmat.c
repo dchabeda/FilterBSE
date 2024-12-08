@@ -95,7 +95,6 @@ void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,d
       }
     }
     
-    // fprintf (pg, "%ld th row finshed\n", ims); fflush(pg);
     if ( (ims == 0) || (0 == (ims % (ist->mn_states_tot/4))) || (ims == (ist->mn_states_tot - 1))){
       int barWidth = 16; // Width of the progress bar
       float percent = (float)ims / ist->mn_states_tot* 100;
@@ -113,6 +112,24 @@ void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,d
       fflush(stdout);
     }
   }
+  // free dynamically allocated memory for psi and phi
+  free(psi); free(phi);
+
+  // print out Hmat for debugging purposes
+  pg = fopen("hmat.dat" , "w");
+  for (ims = 0; ims < ist->mn_states_tot; ims++){
+    for (jms = 0; jms < ist->mn_states_tot; jms++){
+      if (0 == flag->isComplex){
+        fprintf(pg, "%lg ", H[ims*ist->mn_states_tot + jms]);
+      }
+      if (1 == flag->isComplex){
+        fprintf(pg, "%lg+i%lg ", H_z[ims*ist->mn_states_tot + jms].real, H_z[ims*ist->mn_states_tot + jms].imag);
+      }
+    }
+    fprintf(pg, "\n");
+  }
+  fclose(pg);
+
   // free dynamically allocated memory for psi and phi
   free(psi); free(phi);
 
@@ -154,13 +171,13 @@ void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,d
   current_time = time(NULL);
   c_time_string = ctime(&current_time);
   printf("Diagonalization complete! | %s\n", c_time_string); fflush(stdout);
+  
   // The eigenvectors have been computed in the basis of orthogonalized
   // filtered functions (Phi_filter). In order to obtain them in the grid basis
   // as Psi_grid, we must perform a change of basis.
   // The matrix H is holding the eigenvectors, so we perform
   // (Psi_grid)_a = SUM_i H_ai * (Phi_filter)_i
   // for each grid point
-
   printf("Writing out eigenvectors in the grid basis\n"); 
   for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
     jgrid_real = ist->complex_idx * jgrid;

@@ -57,11 +57,13 @@ int main(int argc, char *argv[])
   
   /*** read the nanocrystal configuration ***/
   printf("\nReading atomic configuration from conf.par:\n"); fflush(0);
-  read_conf(R, atom, &ist, &par, &flag);
+  char *file_name; file_name = malloc(9*sizeof(file_name[0]));
+  strcpy(file_name, "conf.par");
+  read_conf(file_name, R, atom, &ist, &par, &flag);
   
   /*** initialize the grid ***/
   printf("\nInitializing the grid parameters:\n"); fflush(0);
-  init_grid_params(&grid, R, &ist, &par);
+  init_grid_params(&grid, R, &ist, &par, &flag);
 
   if ((rho = (double *)calloc(ist.ngrid, sizeof(double)))==NULL) nerror("rho");
 

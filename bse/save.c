@@ -114,9 +114,123 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     return;
 }
 
+void read_filter_output(char *file_name, double **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag){
+
+    FILE *pf;
+    long j;
+    long output_tag;
+    char *end_buffer, *eof; 
+    eof = malloc(4*sizeof(eof[0])); end_buffer = malloc(4*sizeof(end_buffer[0]));
+
+    strcpy(eof, "EOF");
+
+    if( access(file_name, F_OK) == -1 ){
+        printf("ERROR: no checkpoint file %s exists in directory\n", file_name);
+        fprintf(stderr, "ERROR: no checkpoint file %s exists in directory\n", file_name);
+        exit(EXIT_FAILURE);
+    }
+
+    pf = fopen(file_name, "r");
+    // Read the output tag to confirm that the output.dat file is from the intended filter run
+    // This is not enforced, but you can check that this was the intended run by looking at the 
+    // number printed at the bottom of the filter "run.dat"
+    fscanf(pf, "%ld\n", &output_tag);
+    printf("\n\tOutput tag = %ld\n", output_tag);
+    printf("\tCheck that this output tag matches your filter run.dat!\n");
+
+    // Read ist
+    printf("\n\tindex_st from filter...\n"); fflush(stdout);
+    fscanf(pf, "%ld %ld", &ist->ngrid, &ist->nspinngrid);
+    fscanf(pf, "%ld", &ist->mn_states_tot);
+    fscanf(pf, "%ld %ld", &ist->natoms, &ist->n_atom_types);
+    for (j = 0; j < ist->n_atom_types; j++){ fscanf(pf, "%ld ", &ist->atom_types[j]);}
+    fscanf(pf, "%d", &ist->nspin);
+    fscanf(pf, "%d", &ist->complex_idx);
+    
+    // Read par
+    printf("\tpar_st from filter...\n"); fflush(stdout);
+    fscanf(pf, "%lg %lg", &par->KE_max, &par->fermi_E);
+    
+    // Read flags
+    printf("\tflag_st from filter...\n"); fflush(stdout);
+    fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);
+    
+    // Read conf
+    printf("\tconf from filter...\n"); fflush(stdout);
+    if(( *R = malloc(ist->natoms * sizeof(xyz_st))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for R in read_filter_output\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    for (j = 0; j < ist->natoms; j++){
+        fscanf(pf, "%lg %lg %lg", &((*R)[j].x), &((*R)[j].y), &((*R)[j].z));
+    }
+
+    // Read grid
+    printf("\tgrid from filter...\n"); fflush(stdout);
+    fscanf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg", &grid->dx, &grid->dy, &grid->dz, &grid->dr, &grid->dv, &grid->dkx, &grid->dky, &grid->dkz);
+    fscanf(pf, "%lg %lg %lg %lg %lg %lg", &grid->xmin, &grid->xmax, &grid->ymin, &grid->ymax, &grid->zmin, &grid->zmax);
+    fscanf(pf, "%ld %ld %ld", &grid->nx, &grid->ny, &grid->nz);
+    fscanf(pf, "%lg %lg %lg", &grid->nx_1, &grid->ny_1, &grid->nz_1);
+    fscanf(pf, "%ld", &grid->ngrid);
+
+    if((*gridx = malloc(grid->nx * sizeof(double))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");
+        exit(EXIT_FAILURE);
+    }
+    if((*gridy = malloc(grid->ny * sizeof(double))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for grid.y in read_filter_output\n");
+        exit(EXIT_FAILURE);
+    }
+    if((*gridz = malloc(grid->nz * sizeof(double))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fread(*gridx, sizeof(double), grid->nx, pf);
+    fread(*gridy, sizeof(double), grid->ny, pf);
+    fread(*gridz, sizeof(double), grid->nz, pf);
+
+    // Read eig_vals and sigma_E
+    if ((*eig_vals = malloc(ist->mn_states_tot * sizeof(*eig_vals[0]))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
+        exit(EXIT_FAILURE);
+    }
+    if ((*sigma_E = malloc(ist->mn_states_tot * sizeof(*sigma_E[0]))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
+        exit(EXIT_FAILURE);
+    }
+    printf("\teig_vals from filter...\n"); fflush(stdout);
+    fread(*eig_vals, sizeof(*eig_vals[0]), ist->mn_states_tot, pf);
+    printf("\tsigma_E from filter...\n"); fflush(stdout);
+    fread(*sigma_E, sizeof(*sigma_E[0]), ist->mn_states_tot, pf);
+
+    // Read psitot
+    if ((*psitot = malloc(ist->complex_idx * ist->mn_states_tot * ist->nspinngrid * sizeof(psitot[0]))) == NULL){
+        fprintf(stderr, "ERROR: allocating memory for psitot in read_filter_output\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("\tpsitot from filter...\n"); fflush(stdout);
+    fread(*psitot, sizeof(psitot[0]), ist->mn_states_tot * ist->nspinngrid * ist->complex_idx, pf);
+    // The psitot will not be read in yet because there is no allocated memory for it.
+    fseek(pf, 1 , SEEK_CUR);
+    fscanf(pf, "%3s", end_buffer); 
+    fclose(pf);
+
+    // printf(" The %s end buffer: %s\n", file_name, end_buffer); 
+    if (strcmp((const char *) end_buffer, (const char *) eof) != 0){
+        fprintf(stderr, "ERROR: restarting from %s failed. Bad END.\n", file_name);
+        exit(EXIT_FAILURE);
+    }
+
+    return;
+}
+
 /*****************************************************************************/
 
-void read_filter_output(char *file_name, double **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag){
+
+void read_filter_output_old(char *file_name, double **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag){
 
     FILE *pf;
     long j;

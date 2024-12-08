@@ -122,3 +122,8 @@ void write_separation(FILE *pf, char *top_bttm) {
   
   return;
 }
+
+//*****************************************************************
+int sign(float x) {
+    return (int)copysign(1.0, x);  // copysign gives the sign of x
+}

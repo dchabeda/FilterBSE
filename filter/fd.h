@@ -23,12 +23,20 @@ typedef struct flag {
   int printPsiFilt, printOrtho, printNorm, printCubes;
   int calcPotOverlap, getAllStates, timeHamiltonian, calcSpinAngStat;
   int retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint, saveOutput;
+<<<<<<< HEAD
   int approxEnergyRange, calcFilterOnly, restartFromOrtho;
 } flag_st;
 
 typedef struct index {
   long m_states_per_filter, n_filter_cycles, mn_states_tot;
   long n_states_for_ortho;
+=======
+  int readGrid, useGaussianBasis, restartFromOrtho;
+} flag_st;
+
+typedef struct index {
+  long m_states_per_filter, n_filter_cycles, mn_states_tot, n_states_for_ortho;
+>>>>>>> af90e349f537cafdae35886c46a69901aa8ad337
   long homo_idx, lumo_idx, total_homo, total_lumo;
   long ngrid, nspinngrid, ncheby;
   long natoms, n_atom_types, n_max_atom_types;
@@ -154,20 +162,26 @@ typedef struct parallel{
 // Function declarations
 
 //init.c
-void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par);
+void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag_st *flag);
 void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
-void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, atom_info *atom, grid_st *grid,
+void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, grid_st *grid,
     index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *flag);
+<<<<<<< HEAD
 void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par);
 void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag);
 void init_psi(zomplex *psi, long *rand_seed, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
+=======
+void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par);
+void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
+void init_psi(zomplex *psi, long *rand_seed, int isComplex, grid_st *grid, parallel_st *parallel);
+>>>>>>> af90e349f537cafdae35886c46a69901aa8ad337
 double calc_dot_dimension(xyz_st *R, long n, char *dir);
 double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int);
 
 //read.c
 void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);
-void read_conf(xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag);
+void read_conf(char *file_name, xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag);
 void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag);
 void read_pot_file(FILE *pf, pot_st *pot, long j, long n, char *req);
 void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par);
@@ -236,7 +250,11 @@ void check_function(zomplex *an,zomplex *samp,index_st *ist,par_st *par, double 
 
 
 //Hmat.c
+<<<<<<< HEAD
 void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag, parallel_st *parallel,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
+=======
+void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,parallel_st *parallel,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
+>>>>>>> af90e349f537cafdae35886c46a69901aa8ad337
 MKL_Complex16 dotp(zomplex *psi, double *phi,long m,long ngrid,double dv);
 double dotpreal(zomplex *psi,double *phi,long m,long ngrid,double dv);
 
@@ -252,6 +270,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double*  projectors,
 
 // pseudopotential.c
 void calc_pot_overlap(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par,index_st *ist, flag_st *flag);
+int countlines(char *filename);
 
 //angular.c
 void calc_angular_exp(double *psitot, grid_st *grid, int start, int stop, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
@@ -273,4 +292,9 @@ void save_job_state(char *file_name, int checkpoint_id, double *psitot, double *
 void restart_from_save(char *file_name, int checkpoint_id, double *psitot, double *pot_local, double *ksqr, zomplex *an, double *zn, double *ene_targets, long *nl,\
     nlc_st *nlc, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, xyz_st *R, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
+
+// auxiliary
+int sign(float x);
+
+
 /*****************************************************************************/

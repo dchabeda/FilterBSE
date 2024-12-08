@@ -26,6 +26,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // NC configuration parameters
   ist->n_max_atom_types = N_MAX_ATOM_TYPES;
   flag->centerConf = 1; // this should honestly always be 1
+  // Basis set configuration
+  flag->readGrid = 0; // Read the grid points from an input file
+  flag->useGaussianBasis = 0; // Use atom-centered Gaussian basis set
   // Filter algorithm parameters
   par->KE_max = 10.0; // Increasing this value can improve wavefunctions
   flag->setTargets = 0;
@@ -69,7 +72,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->alreadyTried = 0; // gets tripped to 1 after the first time retrying a Filter.
   
   // Parse the input file
-  if( access( "input.par", F_OK) != -1 ) {
+  if (access( "input.par", F_OK) != -1 ) {
     pf = fopen("input.par", "r");
 
     while (fscanf(pf, "%s = %s", field, tmp) != EOF && i < 100) {
@@ -101,6 +104,12 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "centerConf")) {
           flag->centerConf = strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "readGrid")) {
+          flag->readGrid = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "useGaussianBasis")) {
+          flag->useGaussianBasis = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
@@ -230,6 +239,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "saveCheckpoints")) {
           flag->saveCheckpoints = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "restartFromOrtho")) {
+          flag->restartFromOrtho = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+          if (flag->restartFromOrtho == 1){fscanf(pf, "%ld", &ist->n_states_for_ortho);}
       } else if (!strcmp(field, "restartFromCheckpoint")) {
           flag->restartFromCheckpoint = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
@@ -255,6 +268,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("dy = double (grid spacing in y direction, units of Bohr)\n");
           printf("dz = double (grid spacing in z direction, units of Bohr)\n");
           printf("dGrid = double (grid spacing; sets the values of dx, dy, and dz equal)\n");
+          printf("centerConf = int (if 1, center the NC atoms at the COM)\n");
+          printf("readGrid = int (if 1, read grid from input file grid.par)\n");
+          printf("useGaussianBasis = int (if 1, use atom-centered Gaussian basis set)\n");
           printf("mStatesPerFilter = int (number of total energy targets for each filter cycle)\n");
           printf("nFilterCycles = int (number of filter cycles/number random initial wavefunctions)\n");
           printf("nCheby = int (number of terms in the Chebyshev expansion)\n");
@@ -277,7 +293,6 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("calcFilterOnly = int, if 1 then the job will terminate after Filtering\n");
           printf("setTargets = int (0 if half/half split of VB/CB targets suffices for your job)\n");
           printf("If setTargets = 1, the next two entries MUST be \'n_targets_VB n_targets_CB\'\n");
-          printf("centerConf = int (if 1, center the NC atoms at the COM)\n");
           printf("calcPotOverlap = int (calculate matrix overlaps of pseudopotential)\n");
           printf("sigmaECut = double, the cutoff std. dev allowed for printed eigenstates/cubes\n");
           printf("getAllStates = int (0 to only save states with small variance, 1 to save all)\n");
@@ -291,6 +306,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("printNorm = int, if 1 then norms of wavefunctions are printed every 100 chebyshev iterations\n");
           printf("printPsiFilt = int, if 1 then filtered wavefunctions are printed\n");
           printf("retryFilter = int, if 1 then if no eigenstates obtained after diag, then filter is restarted.\n");
+          printf("restartFromOrtho = int, if 1 then \'psi-filt.dat\' is read from disk and job starts from ortho.\n");
+          printf("If restartFromOrtho = 1, the next entry MUST specify the total number of states in \'psi-filt.dat\'\n");
           printf("saveCheckpoints = int, if 1 then save states will be generated along the job run.\n");
           printf("restartFromCheckpoint = int, value is the ID of the checkpoint that the job should restart from.\n");
           printf("restartFromOrtho = int, if 1 then \'psi-filt.dat\' is read from disk and job starts from ortho.\n");
@@ -356,7 +373,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
 
 
 
-void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag){
+void read_conf(char *file_name, xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag){
   /*******************************************************************
   * This function reads the conf.par file and initializes the NC     *
   * Also, atom-specific parameters (SO/NL, local geom, etc) are set  *
@@ -402,7 +419,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
   ist->n_NL_atoms = 0;
   xd = yd = zd = 0.0;
 
-  pf = fopen("conf.par" , "r");
+  pf = fopen(file_name , "r");
   // This has already been set, but there should be no harm in overwriting it again... famous last words
   fscanf(pf, "%ld", &ist->natoms); // reading first line so that the file pointer moves to the line with coordinates
 
@@ -410,9 +427,10 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
   for (i = 0; i < ist->natoms; i++){
     // Read each line of the conf.par file
     fscanf (pf, "%s %lf %lf %lf\n", atom[i].atyp, &R[i].x, &R[i].y, &R[i].z);
+    
     // Get the atomic number of each atom
     atom[i].Zval = assign_atom_number(atom[i].atyp);
-    
+    //printf ("%s %lf %lf %lf %d\n", atom[i].atyp, R[i].x, R[i].y, R[i].z, atom[i].Zval);
     // update list of unique atoms in ist->atom_types
     for (j = 0; j <= ist->n_atom_types; j++){
       //if atomtype already in list, add its index to the list and break

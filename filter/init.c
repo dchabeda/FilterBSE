@@ -3,7 +3,7 @@
 
 /*****************************************************************************/
 
-void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par){
+void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag_st *flag){
   /*****************************************************************
   * This function initializes the parameters for building the grid *
   * The input geometry size is computed to ensure the number of    *
@@ -256,7 +256,7 @@ void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *f
 
 
 /*****************************************************************************/
-void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, atom_info *atom,
+void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
     grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function calculates the local potential at all gridpoints.  *
@@ -398,7 +398,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
 }
 
 /*****************************************************************************/
-void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atom, index_st *ist, par_st *par){
+void init_SO_projectors(double *SO_projectors, xyz_st *R, atom_info *atom, grid_st *grid, index_st *ist, par_st *par){
   /*******************************************************************
   * This function initializes the spin-orbit pot projectors.         *
   * It also calculates the number of grid points within R_NL_cut2    *
@@ -439,7 +439,7 @@ void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_in
 
 
 /*****************************************************************************/
-void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *grid, xyz_st *R,atom_info *atom, index_st *ist,par_st *par, flag_st *flag){
+void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, xyz_st *R,atom_info *atom, grid_st *grid, index_st *ist,par_st *par, flag_st *flag){
   /*******************************************************************
   * This function initializes the non local pot projectors.          *
   * inputs:                                                          *
@@ -462,7 +462,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
   // TODO NOTE: the current method for computing the NL potential relies on the SO_projectors being defined.
   // If there is no spin-orbit coupling used in the calculation, then the SO_projectors should be set to
   // the identity.
-
+  printf("Inside init_NL\n"); fflush(stdout);
   // Useful constants
   double tmp1 = 0.5 * sqrt(3.0 / PIE);
   double tmp2 = 0.5 * sqrt(3.0 / TWOPI);
@@ -521,6 +521,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
           dx = grid->x[jx] - R[jatom].x;
           dxeps = dx + EPSDX;
           dr2 = dx * dx + dy * dy + dz * dz;
+          // printf("dr2 = %lg\n", dr2); fflush(0);
           if (dr2 < par->R_NLcut2) {
             nlc[jatom*ist->n_NL_gridpts + nl[jatom]].jxyz = jxyz;
 
@@ -540,9 +541,11 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
 
             //write projectors to nlc struct and scale projectors by the SO scaling for this atom
             for (iproj = 0; iproj< ist->nproj; iproj++){ 
+                printf("about to interpolate\n"); fflush(stdout);
                 nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj] = 
                   interpolate(sqrt(dr2),dr_proj,vr,NULL, &SO_projectors[N*iproj],NULL,0, N,0,0,1.0, 1.0, 0);
                 //scale projectors by the SO scaling for this atom
+                
                 nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj] *= sqrt(atom[jatom].SO_par);
                 //fprintf(pf, "%li %i %f %f %f\n", jatom, iproj,nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r,nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj], sqrt(atom[jatom].SO_par) );
 
@@ -552,7 +555,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
                   nlc[jatom*ist->n_NL_gridpts + nl[jatom]].NL_proj_sign[iproj] = sgnProj[iproj];
                 }
             }
-
+            printf("EPS conditional\n"); fflush(stdout);
             if (dr2 > EPSDX) {
               nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2_1 = sqr(dr_1);
               nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2 = dr2;
@@ -561,6 +564,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
               nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2_1 = 0.0;
               nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2 = 1.0 / EPSDX;
             }
+            printf("past conditional\n"); fflush(stdout);
             nl[jatom]++;
           }
         }
@@ -582,7 +586,6 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
   
   return;
 }
-
 
 
 /*****************************************************************************/
@@ -631,6 +634,8 @@ void init_psi(zomplex *psi, long *rand_seed, grid_st *grid, index_st *ist, par_s
   
   return;
 }
+
+/***************************************************************************/
 
 /***************************************************************************/
 

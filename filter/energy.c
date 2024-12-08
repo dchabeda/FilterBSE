@@ -263,7 +263,10 @@ void calc_sigma_E(double *psitot, double *pot_local, nlc_st *nlc, long *nl, doub
   *  [fftwpsi] location to store outcome of Fourier transform        *
   * outputs: void                                                    *
   ********************************************************************/
+  
+  long ims;
 
+<<<<<<< HEAD
   long ims;
   
   // Loop over all M*N states
@@ -283,6 +286,16 @@ void calc_sigma_E(double *psitot, double *pot_local, nlc_st *nlc, long *nl, doub
     if ((phi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
       fprintf(stderr, "\nOUT OF MEMORY: phi in calc_sigma_E\n\n"); exit(EXIT_FAILURE);
     }
+=======
+  // Loop over all M*N states
+#pragma omp parallel for private(ims)
+  for (ims = 0; ims < ist->mn_states_tot; ims++) {
+    long jgrid, jgrid_real, jgrid_imag, fft_flags = 0;
+    double eval, eval2;
+    fftw_plan_loc planfw, planbw;
+    fftw_complex *fftwpsi;
+
+>>>>>>> af90e349f537cafdae35886c46a69901aa8ad337
     fftwpsi = fftw_malloc(sizeof (fftw_complex )*ist->ngrid);
     planfw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_FORWARD,fft_flags);
     planbw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,fft_flags);
@@ -333,9 +346,13 @@ void calc_sigma_E(double *psitot, double *pot_local, nlc_st *nlc, long *nl, doub
     eval2 -= sqr(eval);
     // sigma_E is the sqrt of the variance
     sigma_E[ims] = sqrt(fabs(eval2));
+<<<<<<< HEAD
 
     // Free dynamically allocated memory
     free(psi); free(phi);
+=======
+    
+>>>>>>> af90e349f537cafdae35886c46a69901aa8ad337
     fftw_destroy_plan(planfw);
     fftw_destroy_plan(planbw);
     fftw_free(fftwpsi);

@@ -21,7 +21,9 @@ int main(int argc, char *argv[]){
   long fft_flags=0;
   // custom structs 
   flag_st flag; index_st ist; par_st par; atom_info *atom; 
-  pot_st pot; grid_st grid; xyz_st *R; nlc_st *nlc = NULL; 
+  pot_st pot; grid_st grid; 
+  xyz_st *R; 
+  nlc_st *nlc = NULL; 
   parallel_st parallel; 
   // double arrays
   double *psitot;
@@ -76,22 +78,28 @@ int main(int argc, char *argv[]){
   
   /*** read the nanocrystal configuration ***/
   printf("\nReading atomic configuration from conf.par:\n");
-  read_conf(R, atom, &ist, &par, &flag);
+  char *file_name; file_name = malloc(9*sizeof(file_name[0]));
+  strcpy(file_name, "conf.par");
+  read_conf(file_name, R, atom, &ist, &par, &flag);
 
   /*** initialize parameters for the grid ***/
   printf("\nInitializing the grid parameters:\n");
-  init_grid_params(&grid, R, &ist, &par);
+  init_grid_params(&grid, R, &ist, &par, &flag);
 
   // Allocate memory for the grid in the x, y, and z directions ***/
-  if ((grid.x = (double *) calloc(grid.nx, sizeof(double))) == NULL){
-    fprintf(stderr, "\nOUT OF MEMORY: grid.x\n\n"); exit(EXIT_FAILURE);
+  if ((grid.x = malloc( grid.nx * sizeof(grid.x[0]))) == NULL ){
+    fprintf(stderr, "ERROR: allocating memory for grid.x in main\n");
+    exit(EXIT_FAILURE);
   }
-  if ((grid.y = (double *) calloc(grid.ny, sizeof(double))) == NULL){
-    fprintf(stderr, "\nOUT OF MEMORY: grid.y\n\n"); exit(EXIT_FAILURE);
+  if ((grid.y = malloc(grid.ny * sizeof(grid.y[0]))) == NULL ){
+    fprintf(stderr, "ERROR: allocating memory for grid.y in main\n");
+    exit(EXIT_FAILURE);
   }
-  if ((grid.z = (double *) calloc(grid.nz, sizeof(double))) == NULL){
-    fprintf(stderr, "\nOUT OF MEMORY: grid.z\n\n"); exit(EXIT_FAILURE);
+  if ((grid.z = malloc( grid.nz * sizeof(grid.z[0]))) == NULL ){
+    fprintf(stderr, "ERROR: allocating memory for grid.z in main\n");
+    exit(EXIT_FAILURE);
   }
+  
   // the kinetic energy stored on the grid
   if ((ksqr = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
     fprintf(stderr, "\nOUT OF MEMORY: ksqr\n\n"); exit(EXIT_FAILURE);
@@ -108,6 +116,30 @@ int main(int argc, char *argv[]){
   
   /*************************************************************************/
   /*** allocating memory for the rest of the program ***/
+  // Open the /proc/meminfo file
+  FILE *file = fopen("/proc/meminfo", "r");
+  if (file == NULL) {
+      perror("Could not open /proc/meminfo");
+      return 1;
+  }
+
+  // Variables to store information
+  char label[256];
+  unsigned long available_ram_kb;
+
+  // Read through the file to find "MemAvailable"
+  while (fscanf(file, "%s %lu", label, &available_ram_kb) != EOF) {
+      if (strcmp(label, "MemAvailable:") == 0) {
+          // Available RAM is found, break out of the loop
+          break;
+      }
+  }
+
+  fclose(file);
+  // Print available RAM in kilobytes and megabytes
+  printf("Available RAM: %lu KB (%.2f GB)\n", available_ram_kb, available_ram_kb / 1024.0 / 1024.0);
+
+
   printf("\nAllocating memory for FFT, pot, psi, eig_vals...");
   
   // FFT
@@ -148,6 +180,8 @@ int main(int argc, char *argv[]){
   // The factor of par.t_rev_factor (2 w spinors, 1 w/o spinors) in the psitot memory allocation
   // is because we time reverse the spinors to get double the orthogonal states
   // Spinor calculations are 8 times more memory intensive than scalar calculations
+  
+
   if ((psitot = (double *) calloc(ist.complex_idx * par.t_rev_factor * ist.nspinngrid * ist.mn_states_tot, sizeof(psitot[0]))) == NULL){
     fprintf(stderr,"\nOUT OF MEMORY: psitot\n\n"); exit(EXIT_FAILURE);
   }
@@ -183,7 +217,7 @@ int main(int argc, char *argv[]){
       printf("\nInitializing potentials...\n");
       
       printf("\nLocal pseudopotential:\n");
-      build_local_pot(pot_local, &pot, R, ksqr, atom, &grid, &ist, &par, &flag, &parallel);
+      build_local_pot(pot_local, &pot, R, atom, &grid, &ist, &par, &flag, &parallel);
       
       free(pot.r); pot.r = NULL; 
       free(pot.pseudo); pot.pseudo = NULL; 
@@ -199,12 +233,12 @@ int main(int argc, char *argv[]){
       
       if(flag.SO==1) {
         printf("\nSpin-orbit pseudopotential:\n");
-        init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par);
+        init_SO_projectors(SO_projectors, R, atom, &grid, &ist, &par);
       }
       /*** initialization for the non-local potential ***/
       if (flag.NL == 1){
         printf("\nNon-local pseudopotential:\n"); fflush(0);
-        init_NL_projectors(nlc, nl, SO_projectors, &grid, R, atom, &ist, &par, &flag);
+        init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag);
       }
       // free memory allocated to SO_projectors
       if ( (flag.SO == 1) || (flag.NL == 1) ){
@@ -800,8 +834,7 @@ int main(int argc, char *argv[]){
 
       /*************************************************************************/
       /*** free memory ***/
-      free(ist.atom_types);
-      free(grid.x); free(grid.y); free(grid.z); 
+      free(ist.atom_types); 
       free(R); free(atom);
       free(psitot); free(psi); free(phi); 
       free(pot_local); free(ksqr);

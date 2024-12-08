@@ -5,7 +5,7 @@ long rand_interval(long min, long max, long *seed);
 int main(int argc, char *argv[]){
     // DECLARE VARIABLES AND STRUCTS
     // file pointers
-    FILE *pf, *pseed, *pr; 
+    FILE *pf, *pseed, *pr, *ppsi; 
     // zomplex types
     zomplex *psi, *phi; 
     // FFT
@@ -30,7 +30,7 @@ int main(int argc, char *argv[]){
     strcpy(top, "T\0"); strcpy(bottom, "B\0");
     
     fprintf(stdout, "******************************************************************************\n");
-    printf("\nRUNNING PROGRAM: FILTER DIAGONALIZATION\n");
+    printf("\nRUNNING PROGRAM: POT MATRIX ELEMS\n");
     printf("This calculation began at: %s", ctime(&start_time)); 
     write_separation(stdout, bottom);
     fflush(stdout);

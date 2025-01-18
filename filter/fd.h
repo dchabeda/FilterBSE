@@ -267,6 +267,7 @@ void low_pass_filter(zomplex* psi, grid_st *grid, fftw_plan_loc planfw, fftw_pla
 //write.c
 void write_cube_file(double *rho, grid_st *grid, char *fileName);
 void write_separation(FILE *pf, char *top_bttm);
+void write_state_dat(zomplex *psi, long n_elems, char* fileName);
 
 //save.c
 void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel);

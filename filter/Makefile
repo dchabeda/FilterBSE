@@ -27,6 +27,9 @@ OBJECTS = \
 CUBEOBJECTS = \
 	makecube.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o vector.o strain.o
 
+GENBSEOBJECTS = \
+	gen_bse_psi.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o vector.o strain.o
+
 # compilation ...
 # compilation rule for all .c files
 .c.o:
@@ -39,6 +42,9 @@ $(MAINNAM): $(OBJECTS)
 # If desired, run make cube to build the makecube.x executable
 cube: $(CUBEOBJECTS)
 	$(Linux_CC) -o makecube.x $(CUBEOBJECTS) $(LIB)
+
+genbse: $(GENBSEOBJECTS)
+	$(Linux_CC) -o gen_bse_psi.x $(GENBSEOBJECTS) $(LIB)
 
 clean:
 	/bin/rm *.o *.x

@@ -32,17 +32,9 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   FILE *pf; char fileName[100];
   // energy of the filtered states
   double *ene_filters;
+  FILE *ptime; char str[100];
+  ptime = fopen("time.dat", "w");
   
-  // FFT
-  fftw_init_threads();
-  fftw_plan_with_nthreads(parallel->n_inner_threads);
-  fftw_complex *fftwpsi;
-  long fft_flags = FFTW_MEASURE;
-  fftw_plan_loc planfw, planbw;
-  // Create FFT structs and plans for Fourier transform
-  fftwpsi = fftw_malloc(sizeof (fftw_complex) * ist->ngrid);
-  planfw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_FORWARD,fft_flags);
-  planbw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,fft_flags);
   
   //************************************************************************
   //************************************************************************
@@ -54,13 +46,8 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   //************************************************************************
   //************************************************************************
   if (parallel->mpi_rank == 0) printf("Starting filtering loop\n\n"); fflush(0);
-  //long nthreads = (long) (parallel->nthreads / 2);
-  // int chunk_size = ist->n_filter_cycles / parallel->mpi_size;
-  // int start = parallel->mpi_rank * ist->n_filters_per_rank;
-  // int end = (parallel->mpi_rank == parallel->mpi_size - 1) ? ist->n_filter_cycles : start + ist->n_filters_per_rank;
   
   if (1 == parallel->nestedOMP){
-    omp_set_nested(1);
     omp_set_max_active_levels(2);
     if (parallel->mpi_rank == 0) printf("Nested OMP parallel region enabled\n");
     
@@ -75,6 +62,32 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     n_inner_threads = parallel->n_inner_threads;
   }
 
+  // Allocate thread-local memory for the outer loop
+  zomplex *psi, *phi;
+  if ((psi = (zomplex*)calloc(n_outer_threads * ist->nspinngrid,sizeof(zomplex)))==NULL){ 
+    fprintf(stderr, "\nOUT OF MEMORY: psi in run_filter_cycle\n\n"); exit(EXIT_FAILURE);
+  }
+  if ((phi = (zomplex*)calloc(n_outer_threads * ist->nspinngrid,sizeof(zomplex)))==NULL){ 
+    fprintf(stderr, "\nOUT OF MEMORY: phi in run_filter_cycle\n\n"); exit(EXIT_FAILURE);
+  }
+  
+  // // FFT
+  fftw_init_threads();
+  // fftw_init_threads();
+  // fftw_plan_with_nthreads(parallel->n_inner_threads);
+  // fftw_complex *fftwpsi;
+  // long fft_flags = FFTW_MEASURE;
+  // fftw_plan_loc *planfw, *planbw;
+  // // Create FFT structs and plans for Fourier transform
+  // fftwpsi = fftw_malloc(n_outer_threads * ist->ngrid * sizeof (fftw_complex));
+  // planfw = (fftw_plan_loc*) calloc(n_outer_threads, sizeof(planfw[0]));
+  // planbw = (fftw_plan_loc*) calloc(n_outer_threads, sizeof(planfw[0]));
+
+  // for (i = 0; i < n_outer_threads; i++){
+  //   planfw[i] = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_FORWARD,fft_flags);
+  //   planbw[i] = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,fft_flags);
+  // }
+  long t_nsng;
   // *
   // *
   // Loop over all of the random states handled by this mpi-rank
@@ -89,36 +102,39 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
       if (parallel->mpi_rank == 0) printf("  Random psi %ld of %ld on node %d | %s\n", cntr, ist->n_filters_per_rank, parallel->mpi_rank, c_time_string); fflush(0);
     }
 
-    // All variables declared within this parallel region are private for each thread
-    // File I/O
-    FILE *pf; char str[100];
-    // Arrays for hamiltonian evaluation
-    zomplex *psi, *phi;  
-    // Array indexing
-    long jstate, ns_block; // across states
-    long jgrid, jgrid_real, jgrid_imag; // within a single state
-    long jc, ncjms; // chebyshev coefficients
-    
-    #pragma omp parallel for num_threads(n_outer_threads) private(jns, jms, psi, phi, jstate, ns_block, jgrid, jgrid_real, jgrid_imag, jc, ncjms)
+     
+    #pragma omp parallel for num_threads(n_outer_threads) private(jns, jms, t_nsng)
     for (jms = 0; jms < ist->m_states_per_filter; jms++){
       if (parallel->mpi_rank == 0) {
         if (parallel->mpi_rank == 0) printf("\tEnergy target %ld centered at %.3lg a.u.\n", jms, ene_targets[jms]); fflush(0);
       }
+      // Arrays for hamiltonian evaluation
       
-      
-      if (parallel->mpi_rank == 0) printf("Outer thread %d\n", omp_get_thread_num());
-      // Allocate memory for arrays
-      if ((psi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
-        fprintf(stderr, "\nOUT OF MEMORY: psi in run_filter_cycle\n\n"); exit(EXIT_FAILURE);
-      }
-      if ((phi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
-        fprintf(stderr, "\nOUT OF MEMORY: phi in run_filter_cycle\n\n"); exit(EXIT_FAILURE);
-      }
-      
+      struct timespec start, end;
+      clock_gettime(CLOCK_MONOTONIC, &start);
+
+      int t_id = omp_get_thread_num();
+      // Array indexing
+      long jstate, ns_block; // across states
+      long jgrid, jgrid_real, jgrid_imag; // within a single state
+      long jc, ncjms; // chebyshev coefficients
+      t_nsng = t_id * ist->nspinngrid;
+
       // Set index values for this iteration of the loop
       ns_block = (jns * ist->m_states_per_filter * ist->complex_idx * ist->nspinngrid); 
       jstate = ns_block + jms*ist->nspinngrid*ist->complex_idx;
       ncjms = ist->ncheby * jms;
+      
+      // FFT
+      
+      fftw_plan_with_nthreads(parallel->n_inner_threads);
+      fftw_complex *fftwpsi;
+      long fft_flags = FFTW_MEASURE;
+      fftw_plan_loc planfw, planbw;
+      // Create FFT structs and plans for Fourier transform
+      fftwpsi = fftw_malloc(ist->ngrid * sizeof (fftw_complex));
+      planfw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_FORWARD,fft_flags);
+      planbw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,fft_flags);
       
       
       // Populate psi with the random initial wavefunction corresponding to filter cycle jns
@@ -126,9 +142,9 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
         jgrid_real = ist->complex_idx * jgrid;
         jgrid_imag = ist->complex_idx * jgrid + 1;
 
-        psi[jgrid].re = psi_rank[ns_block + jgrid_real];
+        psi[t_nsng + jgrid].re = psi_rank[ns_block + jgrid_real];
         if (1 == flag->isComplex){
-          psi[jgrid].im = psi_rank[ns_block + jgrid_imag];
+          psi[t_nsng + jgrid].im = psi_rank[ns_block + jgrid_imag];
         }
       }
       
@@ -140,33 +156,32 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
         jgrid_real = ist->complex_idx * jgrid;
         jgrid_imag = ist->complex_idx * jgrid + 1;
 
-        psi_rank[jstate + jgrid_real] = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
+        psi_rank[jstate + jgrid_real] = an[ncjms+0].re * psi[t_nsng + jgrid].re - an[ncjms+0].im * psi[t_nsng + jgrid].im;
         if (1 == flag->isComplex){
-          psi_rank[jstate + jgrid_imag] = an[ncjms+0].re * psi[jgrid].im + an[ncjms+0].im * psi[jgrid].re;
+          psi_rank[jstate + jgrid_imag] = an[ncjms+0].re * psi[t_nsng + jgrid].im + an[ncjms+0].im * psi[t_nsng + jgrid].re;
         }
       }
       
       // Calculate the subsequent terms of the expansion
       for (jc = 1; jc < ist->ncheby; jc++){
 
-        memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
+        memcpy(&phi[t_nsng], &psi[t_nsng], ist->nspinngrid * sizeof(phi[0]));
         // write_state_dat(phi, ist->nspinngrid, "phi_filter.dat");
-        zomplex *psi_scratch;
-        p_hamiltonian(psi_scratch, psi,phi,pot_local,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi,n_inner_threads);
+        p_hamiltonian(&psi[t_nsng],&phi[t_nsng],pot_local,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi,n_inner_threads);
         //exit(0);
         for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
           /*** par->dE_1 = 4.0 / par->dE and therefore I don't multiply by 4 ***/
-          psi[jgrid].re = par->dE_1 * psi[jgrid].re - (2.0 + zn[jc-1] + par->Vmin * par->dE_1) * phi[jgrid].re;
-          psi[jgrid].im = par->dE_1 * psi[jgrid].im - (2.0 + zn[jc-1] + par->Vmin * par->dE_1) * phi[jgrid].im;
+          psi[t_nsng + jgrid].re = par->dE_1 * psi[t_nsng + jgrid].re - (2.0 + zn[jc-1] + par->Vmin * par->dE_1) * phi[t_nsng + jgrid].re;
+          psi[t_nsng + jgrid].im = par->dE_1 * psi[t_nsng + jgrid].im - (2.0 + zn[jc-1] + par->Vmin * par->dE_1) * phi[t_nsng + jgrid].im;
         }
 
         for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
           jgrid_real = ist->complex_idx * jgrid;
           jgrid_imag = ist->complex_idx * jgrid + 1;
 
-          psi_rank[jstate + jgrid_real] += (an[ncjms+jc].re * psi[jgrid].re - an[ncjms+jc].im * psi[jgrid].im);
+          psi_rank[jstate + jgrid_real] += (an[ncjms+jc].re * psi[t_nsng + jgrid].re - an[ncjms+jc].im * psi[t_nsng + jgrid].im);
           if (1 == flag->isComplex){
-            psi_rank[jstate + jgrid_imag] += (an[ncjms+jc].re * psi[jgrid].im + an[ncjms+jc].im * psi[jgrid].re);
+            psi_rank[jstate + jgrid_imag] += (an[ncjms+jc].re * psi[t_nsng + jgrid].im + an[ncjms+jc].im * psi[t_nsng + jgrid].re);
           }
         }
       }
@@ -192,15 +207,34 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
       //   fwrite(&psi_rank[jstate], sizeof(psi_rank[0]), ist->nspinngrid*ist->complex_idx, pf);
       //   fclose(pf);
       // }
-      
-      
-      free(psi); free(phi);
+
+      // for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
+      //   jgrid_real = ist->complex_idx * jgrid;
+      //   jgrid_imag = ist->complex_idx * jgrid + 1;
+      //   psi_rank[jstate + jgrid_real] = psi_loc[t_id * ist->nspinngrid + jgrid].re;
+      //   if (1 == flag->isComplex){
+      //     psi_rank[jstate + jgrid_imag] = psi_loc[t_id * ist->nspinngrid + jgrid].im;
+      //   }
+      // }
+      fftw_destroy_plan(planfw);
+      fftw_destroy_plan(planbw);
+      fftw_free(fftwpsi);
+
+      clock_gettime(CLOCK_MONOTONIC, &end);
+      double elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+      if (parallel->mpi_rank == 0) fprintf(ptime, "\tOuter loop %ld time ham_threads (): %.4g (msec)\n", jms, (elapsed_seconds*1000.0)/10 );
       
     }
+    fclose(ptime);
   }
-  fftw_destroy_plan(planfw);
-  fftw_destroy_plan(planbw);
-  fftw_free(fftwpsi);
+
+  free(psi); free(phi);
+  // for (i = 0; i < n_outer_threads; i++){
+  //   fftw_destroy_plan(planfw[i]);
+  //   fftw_destroy_plan(planbw[i]);
+  // }
+  // fftw_free(fftwpsi);
+  
   
   /***********************************************************************/
   /*** normalize the states and get their energies***/
@@ -288,10 +322,7 @@ void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc
   int jspin, j, jtmp; 
   // Copy psi_out into psi_tmp
   memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid*sizeof(psi_tmp[0]));
-  zomplex *psi_scratch;
-  if ((psi_scratch = (zomplex *)calloc(parallel->nthreads*ist->nspinngrid, sizeof(zomplex))) == NULL){
-    if (parallel->mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: psi_scratch\n\n"); exit(EXIT_FAILURE);
-  }
+  
   // Calculate the action of the kinetic energy part of the Hamiltonian on psi_tmp: |psi_out> = T|psi_tmp>
   // Warmup runs to avoid including caching time, optimizations, innitial overhead etc.
   for (j = 0; j < 10; j++){
@@ -316,30 +347,25 @@ void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc
     // Calculate |psi_out> = V_SO|psi_tmp>
     // Warmup runs
     for (j = 0; j < 3; j++){
-      p_spin_orbit_proj_pot(psi_scratch, psi_out, psi_tmp, nlc, nl, ist, par, parallel->n_inner_threads);
+      p_spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, parallel->n_inner_threads);
     }
     clock_gettime(CLOCK_MONOTONIC, &start); 
     for (j = 0; j < 10; j++){
-      p_spin_orbit_proj_pot(psi_scratch, psi_out, psi_tmp, nlc, nl, ist, par, parallel->n_inner_threads);
+      p_spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, parallel->n_inner_threads);
     }
     clock_gettime(CLOCK_MONOTONIC, &end); 
     double elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
     if (parallel->mpi_rank == 0) printf("\tSpin-Orbit potential: %.4g (msec)\n", (elapsed_seconds*1000.0)/10.0 );
   }
 
-  free(psi_scratch);
-  
-  double *psi_out_re = (double *) calloc(ist->n_NL_gridpts, sizeof(double));
-  double *psi_out_im = (double *) calloc(ist->n_NL_gridpts, sizeof(double));
-
   if (flag->NL == 1){
     // Calculate |psi_out> += V_NL|psi_tmp>
     for (j = 0; j < 3; j++){
-      p_nonlocal_proj_pot(psi_out,psi_tmp,psi_out_re,psi_out_im, nlc, nl, ist, par, parallel->n_inner_threads);
+      p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, parallel->n_inner_threads);
     }
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (j = 0; j < 10; j++){
-      p_nonlocal_proj_pot(psi_out,psi_tmp,psi_out_re,psi_out_im, nlc, nl, ist, par, parallel->n_inner_threads);
+      p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, parallel->n_inner_threads);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
     elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
@@ -363,7 +389,6 @@ void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc
   elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
   if (parallel->mpi_rank == 0) printf("\tLocal potential: %.4g (msec)\n", (elapsed_seconds*1000.0)/10.0 );
 
-  free(psi_scratch); free(psi_out_re); free(psi_out_im);
   
   return;
 }

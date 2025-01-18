@@ -14,7 +14,8 @@
 #include <omp.h>
 #include <mkl.h>
 #include "vector.h"
-
+#include <limits.h>
+#include <complex.h>
 /*****************************************************************************/
 // Application specific structures
 
@@ -24,7 +25,7 @@ typedef struct flag {
   int printPsiFilt, printOrtho, printNorm, printCubes;
   int calcPotOverlap, getAllStates, timeHamiltonian, calcSpinAngStat;
   int restartFromOrtho, retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint, saveOutput;
-  int approxEnergyRange;
+  int approxEnergyRange, readProj;
 } flag_st;
 
 typedef struct index {
@@ -38,6 +39,7 @@ typedef struct index {
   int nspin, ncubes, ngeoms;
   int complex_idx;
   int crystal_structure_int, outmost_material_int;
+  int n_s_ang_mom, n_l_ang_mom, n_j_ang_mom;
   // Redundancies
   long nx, ny, nz;
   long nthreads;
@@ -54,6 +56,8 @@ typedef struct par {
   int checkpoint_id;
   char crystal_structure[15], outmost_material[15];
   char fft_wisdom_dir[200], fftw_wisdom[250];
+  double psi_zero_cut;
+  int ham_threads;
   // Redundnacies
   double dv;
 } par_st;
@@ -108,7 +112,8 @@ typedef fftw_plan fftw_plan_loc;
 
 typedef struct parallel{
   long nthreads, nranks;
-  int mpi_size, mpi_rank;
+  int mpi_size, mpi_rank, mpi_root;
+  int nestedOMP, n_outer_threads, n_inner_threads;
   long *jns, *jms;
 } parallel_st;
 
@@ -198,18 +203,21 @@ void Randomize();
 //hamiltonian.c
 void kinetic(zomplex *psi, double *ksqr, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st *ist);
 void potential(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, index_st *ist, par_st *par, flag_st *flag);
-void p_potential(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, index_st *ist, par_st *par, flag_st *flag);
+void p_potential(zomplex *psi_scratch, zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, index_st *ist, par_st *par, flag_st *flag, int ham_threads);
 void spin_orbit_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, index_st *ist, par_st *par);
-void p_spin_orbit_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, index_st *ist, par_st *par);
+void p_spin_orbit_proj_pot(zomplex *psi_scratch, zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, index_st *ist, par_st *par, int ham_threads);
 void nonlocal_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, index_st *ist, par_st *par);
-void p_nonlocal_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, index_st *ist, par_st *par);
+void p_nonlocal_proj_pot(zomplex *phi, zomplex *psi, double *, double *, nlc_st *nlc, long* nl, index_st *ist, par_st *par, int ham_threads);
+void def_LS(zomplex *LS, index_st *ist, par_st *par);
 void hamiltonian(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
   index_st *ist, par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
-void p_hamiltonian(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
-  index_st *ist, par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
+void p_hamiltonian(zomplex *psi_scratch, zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+  index_st *ist, par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, int ham_threads);
 void time_reverse_all(double *psitot, double *dest, index_st *ist, parallel_st *parallel);
 void time_hamiltonian(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
   index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
+
+
 //filter.c
 void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *ksqr, zomplex *an, 
   double *zn, double *ene_targets, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
@@ -244,7 +252,7 @@ void check_function(zomplex *an,zomplex *samp,index_st *ist,par_st *par, double 
 
 
 //Hmat.c
-void diag_H(zomplex *psi,zomplex *phi, double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
+void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,parallel_st *parallel, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 MKL_Complex16 dotp(zomplex *psi, double *phi,long m,long ngrid,double dv);
 double dotpreal(zomplex *psi,double *phi,long m,long ngrid,double dv);
 
@@ -273,6 +281,7 @@ void low_pass_filter(zomplex* psi, grid_st *grid, fftw_plan_loc planfw, fftw_pla
 //write.c
 void write_cube_file(double *rho, grid_st *grid, char *fileName);
 void write_separation(FILE *pf, char *top_bttm);
+void write_state_dat(zomplex *psi, long n_elems, char* fileName);
 
 //save.c
 void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel);

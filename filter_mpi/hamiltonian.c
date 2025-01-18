@@ -34,7 +34,7 @@ void hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *
   for (jspin = 0; jspin < ist->nspin; jspin++){
       kinetic(&psi_out[jspin*ist->ngrid], ksqr, planfw, planbw, fftwpsi, ist); //spin up/down
   } 
-
+  // write_state_dat(psi_out, ist->nspinngrid, "psi_out_kinetic.dat");
   // Calculate the action of the potential on the wavefunction: |psi_out> = V|psi_tmp>
   potential(psi_out, psi_tmp, pot_local, nlc, nl, ist, par, flag);
 
@@ -108,10 +108,12 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
   if(flag->SO==1){
     // Calculate |psi_out> = V_SO|psi_tmp>
     spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    // write_state_dat(psi_out, ist->nspinngrid, "psi_out_SO.dat");
   }
   if (flag->NL == 1){
     // Calculate |psi_out> += V_NL|psi_tmp>
     nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    // write_state_dat(psi_out, ist->nspinngrid, "psi_out_NL.dat");
   }
   
   // Calculate the action of the local potential energy part of the Hamiltonian on psi_tmp
@@ -123,7 +125,7 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
       psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
     }
   }
-
+  // write_state_dat(psi_out, ist->nspinngrid, "psi_out_loc.dat");
   return;
 }
 
@@ -144,14 +146,110 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
 
   long jatom;
   long NL_gridpt, index1, r, index2, r_p;
-  int iproj, spin_p, m_p, spin, m;
-  zomplex proj;
+  int iproj, s, s_p, m, m_p;
+  int spin_arr[ist->n_j_ang_mom], m_arr[ist->n_j_ang_mom];
+  int j, j_p, jtot;
+  zomplex proj, *LS;
+
+  for (s = 0; s < ist->n_s_ang_mom; s++){
+    for (m = 0; m < ist->n_l_ang_mom; m++){
+      j = s*3 + m;
+      spin_arr[j] = s;
+      m_arr[j] = m; 
+    }
+  }
   
-  //TODO: Find way to get the L and S to be not stack'd for mem reasons???
+  double psi_re, psi_im;
+  double y1_re, y1_im;
+  double nlcproj;
+
+  LS = (zomplex*) calloc(ist->n_j_ang_mom * ist->n_j_ang_mom, sizeof(zomplex));
+  def_LS(LS, ist, par);
+
+  for ( jatom = 0; jatom < ist->n_NL_atoms; jatom++){
+    // Compute equation 2.81 of Daniel Weinberg dissertation
+    // Action of spin-orbit operator on a real space wavefunctions
+    for ( iproj = 0; iproj < ist->nproj; iproj++){
+      for ( j_p = 0; j_p < ist->n_j_ang_mom; j_p++){
+        s_p = spin_arr[j_p];
+        m_p = m_arr[j_p];
+        proj.re = proj.im = 0.00;
+        // Compute the projection of the real space wavefunction onto the basis of |lmr\sigma> 
+        // where the radial variable, r, is not computed on a grid but actually are smooth radial 
+        // functions 
+        for ( NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
+          index1 = jatom * ist->n_NL_gridpts + NL_gridpt;
+          r = nlc[index1].jxyz + (ist->ngrid) * s_p;
+          psi_re = psi_tmp[r].re;
+          psi_im = psi_tmp[r].im;
+          y1_re = nlc[index1].y1[m_p].re;
+          y1_im = nlc[index1].y1[m_p].im;
+          nlcproj = nlc[index1].proj[iproj];
+          //weird signs b/c of Y_{lm}^*
+          // Calculate the integral in eq 2.81
+          proj.re += psi_re * y1_re * nlcproj + psi_im * y1_im * nlcproj;
+          proj.im += psi_im * y1_re * nlcproj - psi_re * y1_im * nlcproj;
+          
+        }
+        
+        proj.re *= par->dv;
+        proj.im *= par->dv;
+          
+        for (j = 0; j < ist->n_j_ang_mom; j++){
+          //get L_{m,m'}\cdot S_{s,s'}*P_{n,m,s} = PLS_{n,m,m',s,s'}
+          jtot = j_p * ist->n_j_ang_mom + j;
+          if ( LS[jtot].re == 0.0 ){
+            continue;
+          }
+          s = spin_arr[j];
+          m = m_arr[j];
+          
+          zomplex PLS, LS_loc, LS_test;
+
+          PLS.re = PLS.im = 0.00;
+          LS_loc = LS[jtot];
+          
+          PLS.re = LS_loc.re * proj.re - LS_loc.im * proj.im;
+          PLS.im = LS_loc.re * proj.im + LS_loc.im * proj.re;
+          // fprintf(pf, "LS.re %lg LS.im %lg PLS.re %lg PLS.im %lg\n", LS.re, LS.im, PLS.re, PLS.im);
+          
+          for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
+            index2 = jatom * ist->n_NL_gridpts + NL_gridpt;
+            r_p = nlc[index2].jxyz + (ist->ngrid)*s;
+            nlcproj = nlc[index2].proj[iproj];
+            y1_re = nlc[index2].y1[m].re;
+            y1_im = nlc[index2].y1[m].im;
+
+            psi_out[r_p].re += nlcproj * y1_re * PLS.re - nlcproj * y1_im * PLS.im;
+            psi_out[r_p].im += nlcproj * y1_re * PLS.im + nlcproj * y1_im * PLS.re;
+          }
+        
+        }
+      }
+    }
+  }
+  
+  return;
+}
+
+/*****************************************************************************/
+
+void def_LS(zomplex *LS, index_st *ist, par_st *par){
+  int spin_arr[6], m_arr[6];
+  int j, j_p, jtot, s, s_p, m, m_p;
   zomplex Lx[3][3], Ly[3][3], Lz[3][3];
   zomplex Sx[2][2], Sy[2][2], Sz[2][2];
   double sq2 = sqrt(0.5);
   
+  // Create an indexing array for flattened s, m loops
+  for (s = 0; s < ist->n_s_ang_mom; s++){
+    for (m = 0; m < ist->n_l_ang_mom; m++){
+      j = s*ist->n_l_ang_mom + m;
+      spin_arr[j] = s;
+      m_arr[j] = m; 
+    }
+  }
+
   // Define Lx
   Lx[0][0].re=0.00; Lx[0][0].im=0.00;     Lx[0][1].re=sq2;  Lx[0][1].im=0.00;     Lx[0][2].re=0.00; Lx[0][2].im=0.00;
   Lx[1][0].re=sq2;  Lx[1][0].im=0.00;     Lx[1][1].re=0.00; Lx[1][1].im=0.00;     Lx[1][2].re=sq2;  Lx[1][2].im=0.00;
@@ -175,86 +273,29 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
   Sz[0][0].re=0.50; Sz[0][0].im=0.00;     Sz[0][1].re=0.00;  Sz[0][1].im=0.00;
   Sz[1][0].re=0.00; Sz[1][0].im=0.00;     Sz[1][1].re=-0.50; Sz[1][1].im=0.00;
 
-  
-  for ( jatom = 0; jatom < ist->n_NL_atoms; jatom++){
-    
-    for ( iproj = 0; iproj < ist->nproj; iproj++){
-      for ( spin_p = 0; spin_p < 2; spin_p++){
-        for ( m_p = 0; m_p < 3; m_p++){
-          proj.re = proj.im = 0.00;
-          for ( NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
-            index1 = jatom * ist->n_NL_gridpts + NL_gridpt;
-            r = nlc[index1].jxyz + (ist->ngrid) * spin_p;
-            
-            //weird signs b/c of Y_{lm}^*
-            //TODO: I've checked these iprojs against the plane wave way to generate iprojs and they match..
-            //When I use these iprojs with the LdotS I've checked then i get the same as the RS energy. 
-            
-            proj.re += psi_tmp[r].re * nlc[index1].y1[m_p].re * nlc[index1].proj[iproj];
-            proj.re += psi_tmp[r].im * nlc[index1].y1[m_p].im * nlc[index1].proj[iproj];
-           
-            proj.im += psi_tmp[r].im * nlc[index1].y1[m_p].re * nlc[index1].proj[iproj];
-            proj.im -= psi_tmp[r].re * nlc[index1].y1[m_p].im * nlc[index1].proj[iproj];
-            
-          }
-          
-          proj.re *= par->dv;
-          proj.im *= par->dv;
-            
-          for (spin = 0; spin<2; spin++){
-            for (m = 0; m < 3; m++){
-              //get L_{m,m'}\cdot S_{s,s'}*P_{n,m,s} = PLS_{n,m,m',s,s'}
-              zomplex LS, PLS;
+  // Calculate the elements of L.S in the s,m,s_p,m_p basis, but flattened over j
+  // These are not int the total ang_mom basis, the loops have just been flattened for
+  // computational efficiency
+  for (j_p = 0; j_p < ist->n_j_ang_mom; j_p++){
+    s_p = spin_arr[j_p];
+    m_p = m_arr[j_p];
+    for (j = 0; j < ist->n_j_ang_mom; j++){
+      s = spin_arr[j];
+      m = m_arr[j];
+      jtot = j_p*ist->n_j_ang_mom + j;
 
-              LS.re = LS.im = 0.00;
-              PLS.re = PLS.im = 0.00;
-              //TODO: could already have LS 6x6 (real?) matrix loaded... 
-              //checked ordering of m and m_p, printed LdotS and checked against ref. 
-              LS.re += (  Lx[m][m_p].re * Sx[spin][spin_p].re - Lx[m][m_p].im * Sx[spin][spin_p].im);
-              LS.im += (  Lx[m][m_p].re * Sx[spin][spin_p].im + Lx[m][m_p].im * Sx[spin][spin_p].re);
+      LS[jtot].re += (  Lx[m][m_p].re * Sx[s][s_p].re - Lx[m][m_p].im * Sx[s][s_p].im);
+      LS[jtot].im += (  Lx[m][m_p].re * Sx[s][s_p].im + Lx[m][m_p].im * Sx[s][s_p].re);
 
-              LS.re += (  Ly[m][m_p].re * Sy[spin][spin_p].re - Ly[m][m_p].im * Sy[spin][spin_p].im);
-              LS.im += (  Ly[m][m_p].re * Sy[spin][spin_p].im + Ly[m][m_p].im * Sy[spin][spin_p].re);
+      LS[jtot].re += (  Ly[m][m_p].re * Sy[s][s_p].re - Ly[m][m_p].im * Sy[s][s_p].im);
+      LS[jtot].im += (  Ly[m][m_p].re * Sy[s][s_p].im + Ly[m][m_p].im * Sy[s][s_p].re);
 
-              LS.re += (  Lz[m][m_p].re * Sz[spin][spin_p].re - Lz[m][m_p].im * Sz[spin][spin_p].im);
-              LS.im += (  Lz[m][m_p].re * Sz[spin][spin_p].im + Lz[m][m_p].im * Sz[spin][spin_p].re);              
-              //if (parallel->mpi_rank == 0) printf("m:%i m':%i s:%i s':%i  LS: %f+i*%f\n", m, m_p, spin, spin_p, LS.re, LS.im);
-
-              PLS.re = LS.re * proj.re - LS.im * proj.im;
-              PLS.im = LS.re * proj.im + LS.im * proj.re;
-
-              //TODO: check why signs funky in update psi_out 214, 215, 217, 218;
-              for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
-                index2 = jatom * ist->n_NL_gridpts + NL_gridpt;
-                r_p = nlc[index2].jxyz + (ist->ngrid)*spin;
-
-                psi_out[r_p].re += nlc[index2].proj[iproj] * nlc[index2].y1[m].re * PLS.re;
-                psi_out[r_p].re -= nlc[index2].proj[iproj] * nlc[index2].y1[m].im * PLS.im;
-
-                psi_out[r_p].im += nlc[index2].proj[iproj] * nlc[index2].y1[m].re * PLS.im;
-                psi_out[r_p].im += nlc[index2].proj[iproj] * nlc[index2].y1[m].im * PLS.re;
-                
-                
-                /*
-                soPE+= psi_tmp[r].re *((nlc[index1].rsProj[iproj] * nlc[index1].y1[m].re * PLS.re)
-                                              -(nlc[index1].rsProj[iproj] * nlc[index1].y1[m].im * PLS.im))*rsParams.dV;
-                soPE+= psi_tmp[r].im * ((nlc[index1].rsProj[iproj] * nlc[index1].y1[m].re * PLS.im)
-                                              +(nlc[index1].rsProj[iproj] * nlc[index1].y1[m].im * PLS.re))*rsParams.dV;
-                */
-              }
-            } 
-          }
-        }
-      }
+      LS[jtot].re += (  Lz[m][m_p].re * Sz[s][s_p].re - Lz[m][m_p].im * Sz[s][s_p].im);
+      LS[jtot].im += (  Lz[m][m_p].re * Sz[s][s_p].im + Lz[m][m_p].im * Sz[s][s_p].re);
     }
-    // for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
-    //   index2 = jatom * ist->n_NL_gridpts + NL_gridpt;
-    //   r_p = nlc[index2].jxyz + (ist->ngrid)*spin;
-    //   fprintf(pf, "%ld %ld %lg %lg\n", r_p, idx, psi_out[r_p].re, psi_out[r_p].im);
-    // }
-    // fclose(pf);
   }
 
+  
   return;
 }
 
@@ -366,79 +407,3 @@ void time_reverse_all(double *psitot, double *dest, index_st *ist, parallel_st *
   return;
 }
 
-/*****************************************************************************/
-
-void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
-  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi){
-  /*******************************************************************
-  * This function applies the Hamiltonian onto a state               *
-  * inputs:                                                          *
-  *  [psi_tmp] nspinngrid-long arr of orig. wavefnc                  *
-  *  [psi_out] nspinngrid-long arr to hold |psi_out> = H|psi_tmp>    *
-  *  [pot_local] ngrid-long arr holding the value of the local pot   *
-  *  [nlc] nlc struct holding values for computing SO and NL pots    *
-  *  [nl] natom-long arr holding the number of NL gridpts per atom   *
-  *  [ksqr] ngrid-long arr holding the values of k^2 for KE calc     *
-  *  [ist] ptr to counters, indices, and lengths                     *
-  *  [par] ptr to par_st holding VBmin, VBmax... params              *
-  *  [flag] ptr to flag_st holding job flags                         *
-  *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-  *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
-  *  [fftwpsi] location to store outcome of Fourier transform        *
-  * outputs: void                                                    *
-  ********************************************************************/
-
-  int jspin, j, jtmp; 
-  // Copy psi_out into psi_tmp
-  memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid*sizeof(psi_tmp[0]));
-  
-  // Calculate the action of the kinetic energy part of the Hamiltonian on psi_tmp: |psi_out> = T|psi_tmp>
-  time_t start_time = time(NULL);
-  for (jspin = 0; jspin < ist->nspin; jspin++){
-      kinetic(&psi_out[jspin*ist->ngrid], ksqr, planfw, planbw, fftwpsi, ist); //spin up/down
-  } 
-  time_t end_time = time(NULL);
-  double elapsed_seconds = difftime(end_time, start_time);
-  if (parallel->mpi_rank == 0) printf("\tKinetic energy: %.4g (msec)\n", elapsed_seconds*1000);
-  
-  
-  // Calculate the action of the potential operator on the wavefunction: |psi_out> = V|psi_tmp>
-  
-  if(flag->SO==1){
-    // Calculate |psi_out> = V_SO|psi_tmp>
-    start_time = time(NULL);
-    spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
-    end_time = time(NULL);
-    elapsed_seconds = difftime(end_time, start_time);
-    if (parallel->mpi_rank == 0) printf("\tSpin-Orbit potential: %.4g (msec)\n", elapsed_seconds*1000);
-  }
-
-  if (flag->NL == 1){
-    // Calculate |psi_out> += V_NL|psi_tmp>
-    start_time = time(NULL);
-    nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
-    
-    end_time = time(NULL);
-    elapsed_seconds = difftime(end_time, start_time);
-    if (parallel->mpi_rank == 0) printf("\tNon-local potential: %.4g (msec)\n", elapsed_seconds*1000);
-    
-  }
-  
-  // Calculate the action of the local potential energy part of the Hamiltonian on psi_tmp
-  start_time = time(NULL);
-  for (jspin = 0; jspin < ist->nspin; jspin++){
-    for (j = 0; j < ist->ngrid; j++) {
-      jtmp = ist->ngrid * jspin + j ; // generalized indexing to handle spinors or spinless wavefuncs
-
-      psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
-      psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
-    }
-  }
-  
-  end_time = time(NULL);
-  elapsed_seconds = difftime(end_time, start_time);
-  if (parallel->mpi_rank == 0) printf("\tLocal potential: %.4g (msec)\n", elapsed_seconds*1000);
-
-  
-  return;
-}

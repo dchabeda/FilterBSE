@@ -130,21 +130,6 @@ void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,d
   }
   fclose(pg);
 
-  // print out Hmat for debugging purposes
-  pg = fopen("hmat.dat" , "w");
-  for (ims = 0; ims < ist->mn_states_tot; ims++){
-    for (jms = 0; jms < ist->mn_states_tot; jms++){
-      if (0 == flag->isComplex){
-        fprintf(pg, "%lg ", H[ims*ist->mn_states_tot + jms]);
-      }
-      if (1 == flag->isComplex){
-        fprintf(pg, "%lg+i%lg ", H_z[ims*ist->mn_states_tot + jms].real, H_z[ims*ist->mn_states_tot + jms].imag);
-      }
-    }
-    fprintf(pg, "\n");
-  }
-  fclose(pg);
-
   /*** diagonalize the Hamiltonian H ***/
   current_time = time(NULL);
   c_time_string = ctime(&current_time);

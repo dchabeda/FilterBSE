@@ -108,10 +108,12 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
   if(flag->SO==1){
     // Calculate |psi_out> = V_SO|psi_tmp>
     spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    // write_state_dat(psi_out, ist->nspinngrid, "psi_out_SO_ref.dat");
   }
   if (flag->NL == 1){
     // Calculate |psi_out> += V_NL|psi_tmp>
     nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    // write_state_dat(psi_out, ist->nspinngrid, "psi_out_NL_ref.dat");
   }
   
   // Calculate the action of the local potential energy part of the Hamiltonian on psi_tmp

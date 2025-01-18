@@ -18,7 +18,9 @@ char* format_duration(double elapsed_seconds) {
     return result;
 }
 
+
 /*****************************************************************************/
+
 // void mpi_print(const char *message) {
 //     int rank;
 //     MPI_Comm_rank(MPI_COMM_WORLD, &rank);

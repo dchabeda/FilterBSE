@@ -14,14 +14,14 @@ Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp
 #Linux_CFLAGS = -g -qopenmp -O0
 #Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
 
-MAINNAM = Filter
+MAINNAM = Filter_mpi
 
 # compiler ...
 Linux_CC = cc
 
 OBJECTS = \
 	main.o read.o init.o save.o projectors.o norm.o rand.o interpolate.o strain.o \
-	energy.o coeff.o hamiltonian.o filter_old.o ortho.o Hmat.o write.o nerror.o \
+	energy.o coeff.o hamiltonian.o filter.o ortho.o Hmat.o write.o nerror.o \
 	vector.o dipole.o angular.o pseudopotential.o aux.o phamiltonian.o
 
 CUBEOBJECTS = \

@@ -462,7 +462,6 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
   // TODO NOTE: the current method for computing the NL potential relies on the SO_projectors being defined.
   // If there is no spin-orbit coupling used in the calculation, then the SO_projectors should be set to
   // the identity.
-  printf("Inside init_NL\n"); fflush(stdout);
   // Useful constants
   double tmp1 = 0.5 * sqrt(3.0 / PIE);
   double tmp2 = 0.5 * sqrt(3.0 / TWOPI);
@@ -541,7 +540,6 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
 
             //write projectors to nlc struct and scale projectors by the SO scaling for this atom
             for (iproj = 0; iproj< ist->nproj; iproj++){ 
-                printf("about to interpolate\n"); fflush(stdout);
                 nlc[jatom*ist->n_NL_gridpts + nl[jatom]].proj[iproj] = 
                   interpolate(sqrt(dr2),dr_proj,vr,NULL, &SO_projectors[N*iproj],NULL,0, N,0,0,1.0, 1.0, 0);
                 //scale projectors by the SO scaling for this atom
@@ -555,7 +553,6 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
                   nlc[jatom*ist->n_NL_gridpts + nl[jatom]].NL_proj_sign[iproj] = sgnProj[iproj];
                 }
             }
-            printf("EPS conditional\n"); fflush(stdout);
             if (dr2 > EPSDX) {
               nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2_1 = sqr(dr_1);
               nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2 = dr2;
@@ -564,7 +561,6 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
               nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2_1 = 0.0;
               nlc[jatom*ist->n_NL_gridpts + nl[jatom]].r2 = 1.0 / EPSDX;
             }
-            printf("past conditional\n"); fflush(stdout);
             nl[jatom]++;
           }
         }

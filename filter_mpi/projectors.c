@@ -161,14 +161,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	fflush(0);
 	// mpi_print("Checkpoint 4\n"); fflush(0);
 
-	sprintf(&fileName[0], "NL_Proj_Eigs%ld.dat", jatom);
-	pf  = fopen(fileName, "w");
-	for (i=0;i<N;i++){
-		fprintf(pf,"%lf\n",W[i]);
-	}
-	fclose(pf);
-
-
+	
 	double eigs[nproj];
 	int i_eigs[nproj];
 	for (i=0;i<nproj;i++){

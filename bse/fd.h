@@ -98,6 +98,7 @@ typedef struct parallel{
 #define EPSCHI    1.0e-8
 #define DENE      1.0e-10
 #define N_MAX_ATOM_TYPES 20
+#define PR_LEN 6
 /*****************************************************************************/
 
 /*#define DEPS  0.02
@@ -111,6 +112,7 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
 void write_cube_file(double *rho, grid_st *grid, char *fileName);
 void write_current_time(FILE *pf);
 void write_separation(FILE *pf, char *top_bttm);
+void write_state_dat(zomplex *psi, long n_elems, char* fileName);
 
 // read.c
 void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);
@@ -167,16 +169,16 @@ void calc_eh_kernel_real(double       *psi_qp,
                         fftw_complex  *fftwpsi);
 
 void diag(const int n, int nthreads, zomplex *mat, double *eval);
-void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchage, double *h0mat, zomplex *psi, double *vz, xyz_st *trans_dipole,
-          xyz_st *mag_dipole, xyz_st *S_mom, xyz_st *L_mom, xyz_st *L_mom2, zomplex *LdotS, index_st *ist, par_st *par);
+void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchage, zomplex *bs_coeff, double *h0mat, double *xton_ene, zomplex *psi, 
+          xyz_st *s_mom, xyz_st *l_mom, zomplex *l2_mom, zomplex *LdotS, grid_st *grid, index_st *ist, par_st *par);
 
 double findmaxabsre(zomplex *dwmat,long n);
 double findmaxabsim(zomplex *dwmat,long n);
 
 // dipole.c
-void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
-void magnetic_dipole(double *psi, xyz_st *mag_dipole, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc *planfw,fftw_plan_loc *planbw,fftw_complex *fftwpsi);
-void rotational_strength(xyz_st *rot_strength, xyz_st *trans_dipole, xyz_st *mag_dipole, double *eig_vals, index_st *ist, par_st *par);
+void calc_elec_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
+void calc_mag_dipole(xyz_st *mag_dipole, double *psi_qp, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
+void calc_rot_strength(xyz_st *rot_strength, xyz_st *trans_dipole, xyz_st *mag_dipole, double *eig_vals, index_st *ist, par_st *par);
 
 
 void print_pz_one(double *psi,double *vz,par_st par,index_st ist,char *str);
@@ -186,11 +188,12 @@ void print_cube(double *pgrid,index_st ist,par_st par,char *fName);
 void print_fixed_qp_density(double *psi, double *Cbs, double *vz, index_st ist, par_st par);
 
 //angular.c
-void spins(zomplex *sx, zomplex *sy, zomplex *sz,zomplex *psi,index_st ist,par_st par);
-void angular(zomplex* lx, zomplex* ly, zomplex* lz, zomplex* lsqr, zomplex* ls, zomplex *psi, grid_st *grid, index_st *ist, par_st *par,
-  fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
-void lOpp(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi, 
-  double* vx, double* vy, double* vz,
-  fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi,index_st ist, par_st par);
+void calc_spin_mtrx(xyz_st *s_mom, double *psi_qp, grid_st *grid, index_st *ist, par_st *par);
+void calc_ang_mom_mtrx(xyz_st* l_mom, zomplex *L2, zomplex *LdotS, double *psi_qp, grid_st *grid, index_st *ist, par_st *par);
+void l_operator(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi_qp, grid_st *grid, index_st *ist, par_st *par);
+void init_k_vecs(double *kindex, double *kx, double *ky, double *kz, grid_st *grid, index_st *ist, par_st *par);
+void p_operator(char* direc, double *kindex, zomplex *psi, zomplex *Lpsi, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
 
+// optical.c
+void calc_optical_exc(zomplex *bs_coeff, double *eval, xyz_st *mu, xyz_st *m, index_st *ist, par_st *par);
 /*****************************************************************************/

@@ -44,6 +44,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->outmost_material_int = -1;
   ist->ngeoms = 1; // number of different psuedopotential geometries (eg. cubic/ortho) for interpolating psuedopotentials
   par->scale_surface_Cs = 1.0; // By default, do not charge balance the surface Cs atoms
+  flag->readProj = 0;
+  par->psi_zero_cut = 1e-16;
+  // Hamiltonian parameters
+  par->ham_threads = 1;
   // Spin-orbit and non-local terms
   flag->useSpinors = 0; // default is to use non-spinor wavefunctions
   flag->isComplex = 0;
@@ -67,7 +71,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->restartFromOrtho = 0; // When = 1, filtered states are read from disk and job starts from ortho step 
   flag->retryFilter = 0; // When = 1, if no eigstates acquired, then retry the filter job 
   flag->alreadyTried = 0; // gets tripped to 1 after the first time retrying a Filter.
-  
+  // Parallelization options
+  parallel->nestedOMP = 0;
+  parallel->n_inner_threads = 1;
+
   // Parse the input file
   if( access( "input.par", F_OK) != -1 ) {
     pf = fopen("input.par", "r");
@@ -122,6 +129,12 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           strcpy(par->crystal_structure, tmp);
       } else if (0 == strcmp(field, "outmostMaterial")) {
           strcpy(par->outmost_material, tmp);
+      } else if (!strcmp(field, "readProj")) {
+          flag->readProj = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "psiZeroCut")) {
+          par->psi_zero_cut = strtod(tmp, &endptr);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Set parameters&counters for filter algorithm
@@ -180,11 +193,17 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
         else if (!strcmp(field, "nThreads")) {
           parallel->nthreads = strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nestedOMP")) {
+          parallel->nestedOMP = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } 
       // ****** ****** ****** ****** ****** ****** 
       // Set options for spin-orbit calculation
       // ****** ****** ****** ****** ****** ****** 
-      else if (!strcmp(field, "useSpinors")) {
+      else if (!strcmp(field, "hamThreads")) {
+          par->ham_threads = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "useSpinors")) {
           flag->useSpinors = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "spinOrbit")) {
@@ -266,8 +285,11 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (parallel->mpi_rank == 0) printf("longRange = int (if 1, the pseudopots have long range terms; no truncate)\n");
           if (parallel->mpi_rank == 0) printf("crystalStructure = string (name of crystal structure e.g. wurtzite)\n");
           if (parallel->mpi_rank == 0) printf("outmostMaterial = string (name of outmost layer if core-shell e.g. CdS)\n");
+          if (parallel->mpi_rank == 0) printf("readProj = int (if 1, read projector data from files)\n");
           if (parallel->mpi_rank == 0) printf("scaleSurfaceCs = double (fractional scaling factor of surface Cs to balance charge)\n");
-          if (parallel->mpi_rank == 0) printf("nThreads = 1-16 (number of compute threads to parallelize over)\n");
+          if (parallel->mpi_rank == 0) printf("nThreads = 1-128 (number of total OMP threads)\n");
+          if (parallel->mpi_rank == 0) printf("nestedOMP = int (0 for no nested parallelism, 1 to parallelize Ham)\n");
+          if (parallel->mpi_rank == 0) printf("hamThreads = 1-16 (nestedOMP=1;number of OMP threads to parallelize Ham over)\n");
           if (parallel->mpi_rank == 0) printf("fermiEnergy = double (fermi_E of the system)\n");
           if (parallel->mpi_rank == 0) printf("KEmax = double (maximum kinetic energy value considered)\n");
           if (parallel->mpi_rank == 0) printf("spinOrbit = int (0 for no spinOrbit, 1 for spinOrbit)\n");
@@ -316,6 +338,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
     flag->NL = 1; // SO automatically switches on NL
     par->R_NLcut2 = 1.5 +  6.0 * log(10.0) + 3.0 * grid->dx;
     //par->R_NLcut2 = 0.49 * 6.0 * log(10.0); // radius of grid points around atom for which to compute NL terms
+    ist->n_s_ang_mom = 2;
+    ist->n_l_ang_mom = 3;
+    ist->n_j_ang_mom = ist->n_s_ang_mom * ist->n_l_ang_mom;
   }
   if (flag->useSpinors == 1) {
     flag->isComplex = 1;
@@ -339,6 +364,25 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
     ist->mn_states_tot = ist->n_states_for_ortho;
   }
   
+  // Handle nested parallelism
+  parallel->n_outer_threads = parallel->nthreads;
+  if (1 == parallel->nestedOMP){
+    // Check to make sure that ham_threads was also given a >1 value
+    if (par->ham_threads > 1){
+      parallel->n_inner_threads = par->ham_threads;
+      parallel->n_outer_threads = (int) (parallel->nthreads / parallel->n_inner_threads);
+      
+      if ( (parallel->n_outer_threads % ist->m_states_per_filter) != 0){
+        if (parallel->mpi_rank == 0) printf("WARNING: Nested parallel req'd but m_states %ld not factor of n_outer = %d\n", ist->m_states_per_filter, parallel->n_outer_threads);
+        if (parallel->mpi_rank == 0) fprintf(stderr, "WARNING: Nested parallel req'd but m_states %ld not factor of n_outer = %d\n", ist->m_states_per_filter, parallel->n_outer_threads);
+      }
+    }
+    else {
+      if (parallel->mpi_rank == 0) printf("WARNING: Nested parallelism requested but ham_threads = %d\n", par->ham_threads);
+      if (parallel->mpi_rank == 0) fprintf(stderr, "WARNING: Nested parallelism requested but ham_threads = %d\n", par->ham_threads);
+    }
+  }
+
   // Get the number of atoms (needed to initialize the atom list)
   pf = fopen("conf.par" , "r");
   if (pf) {
@@ -452,7 +496,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
   char atyp[3];
     for (int k = 0; k<ist->n_atom_types; k++){
       assign_atom_type(atyp, ist->atom_types[k]);
-      if (parallel->mpi_rank == 0) printf("%s ", atyp);
+      if (parallel->mpi_rank == 0) printf("%c%c%c ", atyp[0], atyp[1], atyp[2]);
     }
   if (parallel->mpi_rank == 0) printf("]\n");
   if (1 == flag->NL) if (parallel->mpi_rank == 0) printf("\tn_NL_atoms = %ld\n", ist->n_NL_atoms);
@@ -589,7 +633,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
     if ( (0 == strcmp(atype, "P1")) || (0 == strcmp(atype, "P2")) ||
          (0 == strcmp(atype, "P3")) || (0 == strcmp(atype, "P4")) ||
          (0 == strcmp(atype, "PC5"))|| (0 == strcmp(atype, "PC6"))||
-         (0 == strcmp(atype, "P7"))|| (0 == strcmp(atype, "P8"))||(0 == strcmp(atype, "P9"))){
+         (0 == strcmp(atype, "PA1")) || (0 == strcmp(atype, "PR1"))||
+         (0 == strcmp(atype, "PA2")) || (0 == strcmp(atype, "PR2"))||
+         (0 == strcmp(atype, "PA3")) || (0 == strcmp(atype, "PR3"))){
       // Get the name of the ligand potential (stored in atype)
       sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
       strcat(str, ".par");
@@ -748,7 +794,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
           // get ORTHO pseudopotential
           sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
           strcat(str, "_ortho.par");
-          pf = fopen(tmpstr , "r");
+          pf = fopen(str , "r");
           if (pf != NULL) {
             strcpy(req, "ortho");
             read_pot_file(pf, pot, ngeoms*atyp_idx, ist->max_pot_file_len, req);
@@ -756,7 +802,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
             if (parallel->mpi_rank == 0) printf("%s ",str); // print the potential that finished reading
           }
           else {
-            fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", tmpstr); fflush(0); 
+            fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
             exit(EXIT_FAILURE);
           }
         }
@@ -940,10 +986,12 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
       if ( (0 == strcmp(atom[i].atyp, "P1")) || (0 == strcmp(atom[i].atyp, "P2")) ||
          (0 == strcmp(atom[i].atyp, "P3")) || (0 == strcmp(atom[i].atyp, "P4")) ||
          (0 == strcmp(atom[i].atyp, "PC5"))|| (0 == strcmp(atom[i].atyp, "PC6"))||
-         (0 == strcmp(atom[i].atyp, "P7")) || (0 == strcmp(atom[i].atyp, "P8"))||(0 == strcmp(atype, "P9"))){
-          printf("\tLigand potential %s will not be assigned SO param.\n", atom[i].atyp);
+         (0 == strcmp(atom[i].atyp, "PA1")) || (0 == strcmp(atom[i].atyp, "PR1"))||
+         (0 == strcmp(atom[i].atyp, "PA2")) || (0 == strcmp(atom[i].atyp, "PR2"))||
+         (0 == strcmp(atom[i].atyp, "PA3")) || (0 == strcmp(atom[i].atyp, "PR3"))){
+          if (parallel->mpi_rank == 0) printf("\tLigand potential %s will not be assigned SO param.\n", atom[i].atyp);
           continue;
-         }
+      }
 
       if (1 != flag->interpolatePot){
         // This is a job that uses spin-orbit and NL, but does not interpolate the potentials
@@ -1105,8 +1153,8 @@ void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, par
       fscanf(pw,"%lg %*g", &coeff[atm_id].NL2[1]);
       fclose(pw);
     } else{
-      if (parallel->mpi_rank == 0) printf("\nNo SO(+NL) pot found in: %s\n", str);
-      fprintf(stderr, "No SO(+NL) pot found in: %s\n", str);
+      if (parallel->mpi_rank == 0) printf("\nNo SO(+NL) pot found in: %s\n", tmpstr);
+      fprintf(stderr, "No SO(+NL) pot found in: %s\n", tmpstr);
       exit(EXIT_FAILURE);
     }
   }
@@ -1176,7 +1224,7 @@ void calc_geom_par(xyz_st *R, atom_info *atom, index_st *ist, parallel_st *paral
           if (bond_angle < orthoBondAngle) {
             atom[i].geom_par=1.0;
           }
-          if (bond_angle > minCubicBondAngle){
+          else if (bond_angle > minCubicBondAngle){
             atom[i].geom_par = 0.0;
           }
           else{
@@ -1200,8 +1248,9 @@ void calc_geom_par(xyz_st *R, atom_info *atom, index_st *ist, parallel_st *paral
       // ****** ****** ****** ****** ****** ****** ****** ****** 
       // Handle Pb atoms later after all geom_pars are set for I
       case 82:
+      {
         break;
-
+      }
       default:
       {
         fprintf(stderr, "Unknown atom with Zval %d!\nExiting...", atom[i].Zval);
@@ -1251,14 +1300,17 @@ void calc_geom_par(xyz_st *R, atom_info *atom, index_st *ist, parallel_st *paral
           avg_I_par /= 6.0;
           atom[i].geom_par = avg_I_par;
         }
+        break;
       }
 
       // If an unknown atom is encountered that was not caught before
       default:
+      {
         fprintf(stderr, "Unknown atom with Zval %d!\nExiting...", atom[i].Zval);
         fflush(0);
         exit(EXIT_FAILURE);
-    
+      }
+
     }
   }
 
@@ -1317,9 +1369,12 @@ long assign_atom_number(char atyp[4]){
   else if ((atyp[0] == 'P') && (atyp[1] == '4')  && (atyp[2] == '\0')) return 5;
   else if ((atyp[0] == 'P') && (atyp[1] == 'C')  && (atyp[2] == '5'))  return 6;
   else if ((atyp[0] == 'P') && (atyp[1] == 'C')  && (atyp[2] == '6'))  return 7;
-  else if ((atyp[0] == 'P') && (atyp[1] == '7')  && (atyp[2] == '\0')) return 8;
-  else if ((atyp[0] == 'P') && (atyp[1] == '8')  && (atyp[2] == '\0')) return 9;
-  else if ((atyp[0] == 'P') && (atyp[1] == '9')  && (atyp[2] == '\0')) return 10;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'R')  && (atyp[2] == '1')) return 8;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'R')  && (atyp[2] == '2')) return 9;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'R')  && (atyp[2] == '3')) return 10;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'A')  && (atyp[2] == '1')) return 11;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'A')  && (atyp[2] == '2')) return 12;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'A')  && (atyp[2] == '3')) return 13;
   else if ((atyp[0] == 'S') && (atyp[1] == 'i')  && (atyp[2] == '\0')) return 14;
   else if ((atyp[0] == 'P') && (atyp[1] == '\0')  && (atyp[2] == '\0')) return 15;
   else if ((atyp[0] == 'S') && (atyp[1] == '\0')  && (atyp[2] == '\0')) return 16;
@@ -1357,11 +1412,14 @@ void assign_atom_type(char *atyp, long j){
   else if (j == 3) {atyp[0] = 'P'; atyp[1] = '2'; atyp[2] = '\0';}
   else if (j == 4) {atyp[0] = 'P'; atyp[1] = '3'; atyp[2] = '\0';}
   else if (j == 5) {atyp[0] = 'P'; atyp[1] = '4'; atyp[2] = '\0';}
-  else if (j == 6) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '5'; atyp[3] = '\0';}
-  else if (j == 7) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '6'; atyp[3] = '\0';}
-  else if (j == 8) {atyp[0] = 'P'; atyp[1] = '7'; atyp[2] = '\0';}
-  else if (j == 9) {atyp[0] = 'P'; atyp[1] = '8'; atyp[2] = '\0';}
-  else if (j == 10) {atyp[0] = 'P'; atyp[1] = '9'; atyp[2] = '\0';}
+  else if (j == 6) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '5';}
+  else if (j == 7) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '6';}
+  else if (j == 8) {atyp[0] = 'P'; atyp[1] = 'R'; atyp[2] = '1';}
+  else if (j == 9) {atyp[0] = 'P'; atyp[1] = 'R'; atyp[2] = '2';}
+  else if (j == 10) {atyp[0] = 'P'; atyp[1] = 'R'; atyp[2] = '3';}
+  else if (j == 11) {atyp[0] = 'P'; atyp[1] = 'A'; atyp[2] = '1';}
+  else if (j == 12) {atyp[0] = 'P'; atyp[1] = 'A'; atyp[2] = '2';}
+  else if (j == 13) {atyp[0] = 'P'; atyp[1] = 'A'; atyp[2] = '3';}
   else if (j == 14) {atyp[0] = 'S'; atyp[1] = 'i'; atyp[2] = '\0';}
   else if (j == 15) {atyp[0] = 'P'; atyp[1] = '\0'; atyp[2] = '\0';}
   else if (j == 16) {atyp[0] = 'S'; atyp[1] = '\0'; atyp[2] = '\0';}

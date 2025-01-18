@@ -94,6 +94,8 @@ void write_cube_file(double *rho, grid_st *grid, char *fileName) {
   return;
 }
 
+/****************************************************************************/
+
 void write_separation(FILE *pf, char *top_bttm) {
   /*****************************************************************
   * This function prints asterisk separation lines in stdout       *
@@ -121,4 +123,18 @@ void write_separation(FILE *pf, char *top_bttm) {
   free(top_key); free(bttm_key);
   
   return;
+}
+
+/****************************************************************************/
+
+void write_state_dat(zomplex *psi, long n_elems, char* fileName){
+  FILE *pf;
+  long i;
+
+  pf = fopen(fileName, "w");
+  for (i = 0; i < n_elems; i++){
+    fprintf(pf, "%lg %lg\n", psi[i].re, psi[i].im);
+  }
+  fclose(pf);
+  
 }

@@ -132,3 +132,17 @@ void write_separation(FILE *pf, char *top_bttm) {
 }
 
 /****************************************************************************/
+
+void write_state_dat(zomplex *psi, long n_elems, char* fileName){
+  FILE *pf;
+  long i;
+
+  pf = fopen(fileName, "w");
+  for (i = 0; i < n_elems; i++){
+    fprintf(pf, "%lg %lg\n", psi[i].re, psi[i].im);
+  }
+  fclose(pf);
+  
+}
+
+/****************************************************************************/

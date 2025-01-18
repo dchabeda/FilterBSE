@@ -96,7 +96,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	double lam1, lam2;
 	FILE *pf, *pproj;
 	char fileName[100];
-	printf("Inside gen projectors\n"); fflush(stdout);
+	
 	// Width of the gaussian fucntion used for the SO potential. 
 	double width = 1.0;
 	double shift = 1.5;
@@ -110,9 +110,9 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	pproj = fopen("projectors.dat", "w");
 	fprintf(pproj, "For atom %ld with Zval %d we have l1=%g l2=%f\n", jatom, atm[jatom].Zval, lam1, lam2);
 	fclose(pproj);
-	printf("Checkpoint 1\n"); fflush(0);
+	// printf("Checkpoint 1\n"); fflush(0);
 	if (lam1==0 && lam2==0){
-		printf("inside loop\n"); fflush(0);
+		// printf("inside loop\n"); fflush(0);
 		for ( projector = 0; projector <nproj; projector++){
 			
 			for(rpoint=0;rpoint<N;rpoint++){
@@ -147,7 +147,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 		  A[j*N+i] = sum;
 		}
 	}
-	printf("Checkpoint 3\n"); fflush(0);
+	// printf("Checkpoint 3\n"); fflush(0);
 	//setup call to lapack
 	char JOBZ = 'V';
 	char UPLO = 'U';
@@ -161,7 +161,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	fprintf(pproj,"gen_projectors: dsyev exit: %lld\n",INFO );
 	fclose(pproj);
 	//fflush(0);
-	printf("Checkpoint 4\n"); fflush(0);
+	// printf("Checkpoint 4\n"); fflush(0);
 
 	sprintf(&fileName[0], "NL_Proj_Eigs%ld.dat", jatom);
 	pf  = fopen(fileName, "w");
@@ -194,7 +194,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 			} 
 		}
 	}
-	printf("Checkpoint 5\n"); fflush(0);
+	// printf("Checkpoint 5\n"); fflush(0);
 	sprintf(&fileName[0], "NL_Proj_Eigs%ld-sorted.dat", jatom);
 	pf  = fopen(fileName, "w");
 	for (i=0;i<nproj;i++){
@@ -230,7 +230,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 		}
 		fclose(pf);
 	}
-	printf("Checkpoint 6\n"); fflush(0);
+	// printf("Checkpoint 6\n"); fflush(0);
 
 	free(W); free(WORK); free(A);
 	return;

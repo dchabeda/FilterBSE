@@ -144,7 +144,7 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
 
       memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
       hamiltonian(psi,phi,pot_local,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
-
+      
       for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
         /*** par->dE_1 = 4.0 / par->dE and therefore I don't multiply by 4 ***/
         psi[jgrid].re = par->dE_1 * psi[jgrid].re - (2.0 + zn[jc-1] + par->Vmin * par->dE_1) * phi[jgrid].re;

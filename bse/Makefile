@@ -10,9 +10,9 @@ LIB = $(Linux_DYLIB) $(Linux_LIB)
 
 # flags ...
 Linux_OPTFLAGS = -DMKL_ILP64
-#Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp
+Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp
 #Linux_CFLAGS = -g -qopenmp -O0
-Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
+#Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
 
 MAINNAM = BSE
 
@@ -21,7 +21,7 @@ Linux_CC = cc
 
 # obhect files
 OBJECTS = \
-	main.o write.o save.o read.o basis.o init.o dipole.o coulomb.o hartree.o
+	main.o write.o save.o read.o basis.o init.o dipole.o coulomb.o hartree.o angular.o bethe-salpeter.o diag.o optical.o
 
 # compilation ...
 # compilation rule for all .c files

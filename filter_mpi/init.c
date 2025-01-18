@@ -424,8 +424,19 @@ void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_in
   //gen projectors on the fly
   gen_SO_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, SO_projectors, vr); 
   
-  //if (parallel->mpi_rank == 0) printf("Projector dr = %f\n",dr_proj); fflush(0);
-
+  // Print the spin-orbit parameters for each atom for use in the coupling code
+  FILE *pf;
+  long jatom;
+  char fileName[50];
+  for (jatom = 0; jatom < ist->n_NL_atoms; jatom++){
+    if (atom[jatom].SO_par != 0) {
+      sprintf(&fileName[0], "SO_proj_const_%ld.dat", jatom);
+      pf = fopen(fileName, "w");
+      fprintf(pf, "%.10f", atom[jatom].SO_par);
+      fclose(pf);
+    }
+  }
+  
   free(vr);
   return;
 }
@@ -476,30 +487,58 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
   /*** for the nonlocal potential ***/
 
   // 2. Calculate r, r2, y1[1+m], proj(r), etc. at the grid points
+  omp_set_dynamic(0);
+  omp_set_num_threads(parallel->nthreads);
 #pragma omp parallel for private(jatom)
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
     long jx, jy, jz, jyz, jxyz;
-    int iproj, *sgnProj;
+    int iproj, rpoint, *sgnProj;
     double dx, dy, dz, dxeps, dyeps, dzeps, dr_1, dr2;
     double *nlcprojectors;
 
-    // Print the spin-orbit parameters for each atom for use in the coupling code
-    char fileName[50];
-    if (atom[jatom].SO_par != 0) {
-        sprintf(&fileName[0], "SO_proj_const_%ld.dat",jatom);
-        pf = fopen(fileName, "w");
-        fprintf(pf, "%.10f", atom[jatom].SO_par);
-        fclose(pf);
-    }
-
-    //gen projectors on the fly
     if ((nlcprojectors = (double*) calloc(N * ist->nproj, sizeof(double)))==NULL){nerror("nlc_projector");}
     if ((sgnProj = (int*) calloc(ist->nproj, sizeof(int)))==NULL){nerror("nlc_sgnProj");}
-  
-    //generate the nonlocal part for each atom
-    gen_nlc_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, nlcprojectors, sgnProj, vr, atom, jatom);
-    // if (parallel->mpi_rank == 0) printf("Exited gen_nlc_projectors %ld\n", jatom); fflush(0);
+    
+    if (0 == flag->readProj){
+      //gen projectors on the fly
+      
+      //generate the nonlocal part for each atom
+      gen_nlc_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, nlcprojectors, sgnProj, vr, atom, jatom);
+      
+    } else if (1 == flag->readProj){
+      char projNL_file[50], projSO_file[50], sgnNL_file[50];
+      FILE *pNL, *pSO, *pSgn;
+      double eig, scratch;
+      int tmp;
 
+      // Read projector info from files
+      // NL projectors
+      for (iproj = 0; iproj < ist->nproj; iproj++){
+        sprintf(projNL_file, "projectorNL_%ld_%d.dat", jatom, iproj);
+        pNL = fopen(projNL_file, "r");
+        if (pNL != NULL){
+          for (rpoint = 0; rpoint < PROJ_LEN; rpoint++){
+            fscanf(pNL, "%lf %lf\n", &scratch, &nlcprojectors[PROJ_LEN * iproj + rpoint]);
+          }
+        } //else {fprintf(stderr, "Cannot open file %s\n", projNL_file);}
+      }
+
+      // NL_projector signs
+      sprintf(sgnNL_file, "NL_Proj_Eigs%ld-sorted.dat", jatom);
+      pSgn = fopen(sgnNL_file, "r");
+      if (pSgn != NULL){
+        for (iproj = 0; iproj < ist->nproj; iproj++){
+          fscanf(pSgn, "%d %lf %lf\n", &tmp, &scratch, &eig);
+          if(eig < 0.0){
+            sgnProj[iproj] = -1;
+          }
+          else{
+            sgnProj[iproj] = 1;
+          }
+        }
+      } // else {fprintf(stderr,"Cannot open file %s\n", sgnNL_file);}
+    }
+    
     
     nl[jatom] = 0;
     for (jz = 0; jz < grid->nz; jz++) {

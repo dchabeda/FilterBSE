@@ -93,10 +93,10 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     fftw_plan_loc planfw, planbw;
     fftw_complex *fftwpsi;
     // visualization
-    double *rho, sgn_val;
-    if ((rho = (double *) calloc(ist->ngrid, sizeof(rho[0]))) == NULL){
-      fprintf(stderr, "\nOUT OF MEMORY: filter rho\n\n"); exit(EXIT_FAILURE);
-    }
+    // double *rho, sgn_val;
+    // if ((rho = (double *) calloc(ist->ngrid, sizeof(rho[0]))) == NULL){
+    //   fprintf(stderr, "\nOUT OF MEMORY: filter rho\n\n"); exit(EXIT_FAILURE);
+    // }
 
     thread_id = omp_get_thread_num();	
     // Allocate memory for arrays
@@ -127,7 +127,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     exit(EXIT_FAILURE);
     }
     
-    // Populate psi with the random initial wavefunction corresponding to filter cycle jns
+    // Populate psi with the random initial wavefunction of filter cycle jns
     for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
       jgrid_real = ist->complex_idx * jgrid;
       jgrid_imag = ist->complex_idx * jgrid + 1;
@@ -154,10 +154,10 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     //pf = fopen(str , "w");
 
     for (jc = 1; jc < ist->ncheby; jc++){
-
+      
       memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
       hamiltonian(psi,phi,pot_local,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
-
+      // printf("Finished Hamiltonian\n"); fflush(0);
       for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
         /*** par->dE_1 = 4.0 / par->dE and therefore I don't multiply by 4 ***/
         psi[jgrid].re = par->dE_1 * psi[jgrid].re - (2.0 + zn[jc-1] + par->Vmin * par->dE_1) * phi[jgrid].re;
@@ -173,8 +173,6 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
 
       if ((0 == omp_get_thread_num()) && (parallel->mpi_rank == 0)){
         if ( (0 == (jc % ((long) (ist->ncheby / 4)) )) || (1 == jc) || ( (ist->ncheby - 1) == jc) ) {
-          // print the Newton interpolation progress to the prop- files
-          //fprintf (pf,"%ld %ld %ld\n", jns, jms, jc); fflush(pf);
           // print the filtering progress to the output file
           int barWidth = 16; // Width of the progress bar
           float percent = (float)jc / ist->ncheby * 100;
@@ -201,7 +199,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     // Copy the filtered wavefunctions back into psi_rank
     /*****************************************************************************/
 
-
+    // printf("Copying data\n"); fflush(0);
     for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
       jgrid_real = ist->complex_idx * jgrid;
       jgrid_imag = ist->complex_idx * jgrid + 1;
@@ -283,3 +281,100 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
 int sign(float x) {
     return (int)copysign(1.0, x);  // copysign gives the sign of x
 }
+
+/*****************************************************************************/
+
+void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi){
+  /*******************************************************************
+  * This function applies the Hamiltonian onto a state               *
+  * inputs:                                                          *
+  *  [psi_tmp] nspinngrid-long arr of orig. wavefnc                  *
+  *  [psi_out] nspinngrid-long arr to hold |psi_out> = H|psi_tmp>    *
+  *  [pot_local] ngrid-long arr holding the value of the local pot   *
+  *  [nlc] nlc struct holding values for computing SO and NL pots    *
+  *  [nl] natom-long arr holding the number of NL gridpts per atom   *
+  *  [ksqr] ngrid-long arr holding the values of k^2 for KE calc     *
+  *  [ist] ptr to counters, indices, and lengths                     *
+  *  [par] ptr to par_st holding VBmin, VBmax... params              *
+  *  [flag] ptr to flag_st holding job flags                         *
+  *  [planfw] FFTW3 plan for executing 3D forward DFT                *
+  *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+  *  [fftwpsi] location to store outcome of Fourier transform        *
+  * outputs: void                                                    *
+  ********************************************************************/
+  struct timespec start, end;
+  int jspin, j, jtmp; 
+  // Copy psi_out into psi_tmp
+  memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid*sizeof(psi_tmp[0]));
+  
+  // Calculate the action of the kinetic energy part of the Hamiltonian on psi_tmp: |psi_out> = T|psi_tmp>
+  // Warmup runs to avoid including caching time, optimizations, innitial overhead etc.
+  for (j = 0; j < 10; j++){
+    for (jspin = 0; jspin < ist->nspin; jspin++){
+      kinetic(&psi_out[jspin*ist->ngrid], ksqr, planfw, planbw, fftwpsi, ist); //spin up/down
+    } 
+  }
+  clock_gettime(CLOCK_MONOTONIC, &start); 
+  for (j = 0; j < 10; j++){
+    for (jspin = 0; jspin < ist->nspin; jspin++){
+      kinetic(&psi_out[jspin*ist->ngrid], ksqr, planfw, planbw, fftwpsi, ist); //spin up/down
+    } 
+  }
+  clock_gettime(CLOCK_MONOTONIC, &end);
+  double elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+  if (parallel->mpi_rank == 0) printf("\tKinetic energy: %.4g (msec)\n", (elapsed_seconds*1000.0)/10 );
+  
+  
+  // Calculate the action of the potential operator on the wavefunction: |psi_out> = V|psi_tmp>
+  
+  if(flag->SO==1){
+    // Calculate |psi_out> = V_SO|psi_tmp>
+    // Warmup runs
+    for (j = 0; j < 3; j++){
+      spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    }
+    clock_gettime(CLOCK_MONOTONIC, &start); 
+    for (j = 0; j < 10; j++){
+      spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    }
+    clock_gettime(CLOCK_MONOTONIC, &end); 
+    double elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+    if (parallel->mpi_rank == 0) printf("\tSpin-Orbit potential: %.4g (msec)\n", (elapsed_seconds*1000.0)/10.0 );
+  }
+
+  if (flag->NL == 1){
+    // Calculate |psi_out> += V_NL|psi_tmp>
+    for (j = 0; j < 3; j++){
+      nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    }
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    for (j = 0; j < 10; j++){
+      nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    }
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+    if (parallel->mpi_rank == 0) printf("\tNon-local potential: %.4g (msec)\n", (elapsed_seconds*1000.0)/10.0 );
+    
+  }
+  
+  // Calculate the action of the local potential energy part of the Hamiltonian on psi_tmp
+  clock_gettime(CLOCK_MONOTONIC, &start);
+  for (int i = 0; i < 10; i++){
+    for (jspin = 0; jspin < ist->nspin; jspin++){
+      for (j = 0; j < ist->ngrid; j++) {
+        jtmp = ist->ngrid * jspin + j ; // generalized indexing to handle spinors or spinless wavefuncs
+
+        psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
+        psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
+      }
+    }
+  }
+  clock_gettime(CLOCK_MONOTONIC, &end);
+  elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+  if (parallel->mpi_rank == 0) printf("\tLocal potential: %.4g (msec)\n", (elapsed_seconds*1000.0)/10.0 );
+
+  
+  return;
+}
+

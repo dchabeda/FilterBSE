@@ -1,5 +1,3 @@
-/*****************************************************************************/
-// Main file for cube printing utility.
 #include "fd.h"
 
 /*****************************************************************************/
@@ -9,35 +7,39 @@ int countlines(char *filename);
 /*****************************************************************************/
 int main(int argc, char *argv[])
 {
-  FILE *ppsi;  zomplex *psi;
+  FILE *ppsi, *pout;  zomplex *psi;
   // custom structs 
   grid_st grid; par_st par; index_st ist; parallel_st parallel; flag_st flag;
   xyz_st *R; atom_info *atom;
-  // double arrays
-  double *rho; 
+  
   // long int arrays and counters
   long i, jms;
-  long j, start, end;
-  long long offset;
+  int j, start_h, end_h, start_e, end_e;
   ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
   time_t currentTime = time(NULL);
 
 
   //command line input parsing
-  if (argc!=3){
-    printf("Usage: makecube start end\n");
+  if (argc!=5){
+    printf("Usage: makecube start_h end_h start_e end_e");
     exit(EXIT_FAILURE);
   }
 
-  start = atoi(argv[1]);
-  end = atoi(argv[2]);
+  start_h = atoi(argv[1]);
+  end_h = atoi(argv[2]);
+  start_e = atoi(argv[3]);
+  end_e = atoi(argv[4]);
 
-  if (start > end){
-    printf("Invaid start (%ld), end(%ld): start > end\n", start, end);
+  if (start_h > end_h){
+    printf("Invaid start_h (%d), end_h (%d): start > end\n", start_h, end_h);
     exit(EXIT_FAILURE);
   }
-  if (start < 0){
-    printf("Invaid start (%ld): start < 0\n", start);
+  if (start_e > end_e){
+    printf("Invaid start_e (%d), end_e (%d): start > end\n", start_e, end_e);
+    exit(EXIT_FAILURE);
+  }
+  if (start_h < 0 || start_e < 0){
+    printf("Invaid start_h (%d) or start_e (%d): start < 0\n", start_h, start_e);
     exit(EXIT_FAILURE);
   }
 
@@ -66,65 +68,45 @@ int main(int argc, char *argv[])
   printf("\nInitializing the grid parameters:\n"); fflush(0);
   init_grid_params(&grid, R, &ist, &par, &flag);
 
-  if ((rho = (double *)calloc(ist.ngrid, sizeof(double)))==NULL) nerror("rho");
-
-
-  //count number of states found
-  //jms = countlines("eval.dat");
-  //printf("%ld total states in psi.dat\n", jms); fflush(0);
-  
   //allocate memory for psi
   if ((psi = (zomplex *) calloc(ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");
 
 
   //read psi from file
-	ppsi = fopen("psi.dat" , "r");
-
+  ppsi = fopen("psi.dat" , "r");
+  pout = fopen("bse_psi.par", "w");
 	
   char filename[20];
-  // long file_ptr_loc;
-  for (j = start; j <= end; j++){ 
-    printf("Reading state %ld from psi.dat\n", j);
-    offset = j*ist.nspinngrid*sizeof(zomplex);
-    // printf("File offset = %lld\n", offset);
-    if(fseek(ppsi, offset, SEEK_SET) != 0){
+  for (j = start_h; j <= end_h; j++){ 
+    printf("Reading hole state %d from psi.dat\n", j);
+
+    if(fseek(ppsi,j*ist.nspinngrid*sizeof(zomplex),SEEK_SET)!=0){
       printf("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
     }
-   
-    // file_ptr_loc = ftell(ppsi);
-    // printf("The file pointer is at %ld\n", file_ptr_loc);
+
     if (fread(&psi[0], sizeof(zomplex), ist.nspinngrid, ppsi) == 0){
       printf("Error in fread reading from psi.dat!\n"); exit(EXIT_FAILURE);
     }
-    
-    // file_ptr_loc = ftell(ppsi);
-    // printf("After reading the file pointer is at %ld\n", file_ptr_loc);
-    
-    for (i = 0;i < ist.ngrid; i++){
-      rho[i] = sqrt(sqr(psi[i].re) + sqr(psi[i].im));
-              
-    }
-    sprintf(filename, "rhoUp%ld.cube", j);
-    write_cube_file(rho, &grid, filename);
-    
-    if (1 == flag.useSpinors){
-      for (i = 0;i < ist.ngrid; i++){
-        rho[i]=sqrt(sqr(psi[ist.ngrid+i].re)+sqr(psi[ist.ngrid+i].im));
-      }
-      sprintf(filename, "rhoDn%ld.cube", j);
-      write_cube_file(rho, &grid, filename);
-    }
-    // for (i = 0;i<ist.ngrid; i++){
-    //   rho[i]= sqr(psi[i].re)+sqr(psi[i].im)+
-    //           sqr(psi[ist.ngrid+i].re)+sqr(psi[ist.ngrid+i].im);
-    // }
-    // sprintf(filename, "rhoTot%i.cube", j);
-    // write_cube_file(rho, &grid, filename);
 
+    fwrite(psi, sizeof(zomplex), ist.nspinngrid, pout);
   }
-  fclose(ppsi);  
 
-  printf("Done with makecube.x\n\n");
+  for (j = start_e; j <= end_e; j++){ 
+    printf("Reading elec state %d from psi.dat\n", j);
+
+    if(fseek(ppsi,j*ist.nspinngrid*sizeof(zomplex),SEEK_SET)!=0){
+      printf("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
+    }
+
+    if (fread(&psi[0], sizeof(zomplex), ist.nspinngrid, ppsi) == 0){
+      printf("Error in fread reading from psi.dat!\n"); exit(EXIT_FAILURE);
+    }
+
+    fwrite(psi, sizeof(zomplex), ist.nspinngrid, pout);
+  }
+  fclose(ppsi); 
+  fclose(pout); 
+
   return 0;
 
 

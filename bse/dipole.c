@@ -4,7 +4,7 @@
 
 /****************************************************************************/
 
-void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, flag_st *flag){
+void calc_elec_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, flag_st *flag){
   /*******************************************************************
   * This function computes the electric transition dipole matrix     *
   * matrix elements.                                                 *
@@ -77,8 +77,8 @@ void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals
               tmp.re += psi_qp[a_dn_real] * psi_qp[i_dn_real]  + psi_qp[a_dn_imag] * psi_qp[i_dn_imag];
 
               // IMAG PART OF MATRIX ELEM
-              tmp.im = psi_qp[a_up_real] * psi_qp[i_up_imag] + psi_qp[a_dn_real] * psi_qp[i_dn_imag]
-                  - psi_qp[a_up_imag] * psi_qp[i_up_real] - psi_qp[a_dn_imag] * psi_qp[i_dn_real] ;
+              tmp.im = psi_qp[a_up_imag] * psi_qp[i_up_real] + psi_qp[a_dn_imag] * psi_qp[i_dn_real]
+                     - psi_qp[a_up_real] * psi_qp[i_up_imag] - psi_qp[a_dn_real] * psi_qp[i_dn_imag];
             
               sumX.im +=  tmp.im * x; sumY.im +=  tmp.im * y; sumZ.im +=  tmp.im * z;
             }
@@ -121,17 +121,25 @@ void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals
 // where m = -1/2*L = -1/2*r x p where x is the cross product.
 
 
-// void mag_dipole(double *grid->x, double *grid->y, double *grid->z, double *psi_qp, double *mx, double *my, double *mz, 
-//   double *eig_vals, fftw_plan_loc *planfw,fftw_plan_loc *planbw,fftw_complex *fftwpsi, index_st ist, par_st par)
+// void calc_mag_dipole(xyz_st *mag_dipole, double *psi_qp, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, flag_st *flag)
 // {
 //   FILE *pf1, *pf2, *pf3, *pf; 
-//   long a, i, jx, jy, jz, jgrid, jyz; 
-//   double sumX, sumY, sumZ;
-//   double z, x, y, bohr_freq, ms, tmp;
+//   long a, i, jx, jy, jz, jyz; 
+//   long jgrid,jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
+//   long i_up_real, i_up_imag, i_dn_real, i_dn_imag, a_up_real, a_up_imag, a_dn_real, a_dn_imag;
+//   zomplex sumX, sumY, sumZ, tmp;
+//   double z, y, x, bohr_freq, osc_strength;
 //   double *kx, *ky, *kz;
 //   double *kindex;
-//   double *psidx, *psidy, *psidz;
+//   zomplex *psidx, *psidy, psidz;
 //   zomplex *cpsi;
+//   // Output will be written to these files
+//   pf = fopen("M0.dat" , "w"); 
+//   fprintf(pf, "i  a     Ea-Ei       m_x.re     m_y.re     m_z.re");
+//   if (flag->useSpinors){
+//     fprintf(pf, "     m_x.im     m_y.im     m_z.im");
+//   }
+  
   
 //   // Output will be written to these files
 //   pf = fopen("M0.dat" , "w"); 
@@ -140,16 +148,16 @@ void calc_electric_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals
 //   pf3 = fopen("mz.dat", "w");
 
 //   // Make sure mx, my and mz are zero to begin with
-//   for (i = 0; i < ist->n_elecs*ist->n_holes; i++) mx[i] = my[i] = mz[i] = 0.0;
+//   for (i = 0; i < ist->n_xton; i++) mag_dipole.x[i] = mag_dipole.y[i] = mag_dipole.z[i] = 0.0;
 
 //   // Allocate memory 
 //   if ((kx = (double *) calloc(ist->nx, sizeof(double)))==NULL) nerror("kx");
 //   if ((ky = (double *) calloc(ist->ny, sizeof(double)))==NULL) nerror("ky");
 //   if ((kz = (double *) calloc(ist->nz, sizeof(double)))==NULL) nerror("kz");
 //   if ((kindex = (double *) calloc(3*ist->ngrid, sizeof(double)))==NULL) nerror("kindex");
-//   if ((psidx = (double *) calloc(ist->ngrid, sizeof(double)))==NULL) nerror("psidx");
-//   if ((psidy = (double *) calloc(ist->ngrid, sizeof(double)))==NULL) nerror("psidy");
-//   if ((psidz = (double *) calloc(ist->ngrid, sizeof(double)))==NULL) nerror("psidz");
+//   if ((psidx = (zomplex *) calloc(ist->ngrid, sizeof(zomplex)))==NULL) nerror("psidx");
+//   if ((psidy = (zomplex *) calloc(ist->ngrid, sizeof(zomplex)))==NULL) nerror("psidy");
+//   if ((psidz = (zomplex *) calloc(ist->ngrid, sizeof(zomplex)))==NULL) nerror("psidz");
 
 //   // Calculate kx 
 //   for (jx = 1; jx <= ist->nx / 2; jx++) {

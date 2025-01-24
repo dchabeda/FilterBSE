@@ -46,7 +46,6 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\t-------------------------------------------\n");
     fprintf(pf, "\tnFilterCycles (# random initial states) = %ld\n", ist->n_filter_cycles);
     fprintf(pf, "\tmStatesPerFilter (# energy targets) = %ld\n", ist->m_states_per_filter);
-    fprintf(pf, "\tFilters per rank (# rand states per node) = %ld\n", ist->n_filters_per_rank);
     fprintf(pf, "\tStates per rank (# states on node) = %ld\n", ist->n_states_per_rank);
     fprintf(pf, "\tnCheby = %ld\n", ist->ncheby);
     fprintf(pf, "\tVBmin = %lg, ", par->VBmin);
@@ -93,7 +92,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\tMPI_SIZE (# MPI ranks) = %d\n", parallel->mpi_size);
     fprintf(pf, "\tnThreads (# OMP threads/rank) = %ld\n", parallel->nthreads);
     fprintf(pf, "\tnestedOMP = %d\n", parallel->nestedOMP);
-    fprintf(pf, "\tham_hreads = %d\n", par->ham_threads);
+    fprintf(pf, "\tham_threads = %d\n", par->ham_threads);
     fprintf(pf, "\tn_outer_threads = %d\n", parallel->n_outer_threads);
 
     // ****** ****** ****** ****** ****** ****** 

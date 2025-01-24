@@ -8,7 +8,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, para
   * This function initializes the parameters for building the grid *
   * The input geometry size is computed to ensure the number of    *
   * requested grid points is sufficient. Final grid parameters are *
-  * updated and stored in *grid and redundantly in *ist. The k^2   *
+  * updated and stored in *grid and redundantly in *ist-> The k^2   *
   * grid is also initialized.                                      *
   * inputs:                                                        *
   *   [grid_st *grid] pointer to grid struct, holds the grid       *
@@ -209,14 +209,14 @@ void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *f
   long jx;
   
   /*** setting the energy targets ***/
+  // If the energy targets were set for VB and CB separately,
+  // check that nVB + nCB is equal to the total number of energy targets (states per filter)
+  if ( (par->n_targets_VB + par->n_targets_CB) != ist->m_states_per_filter){
+    fprintf(stderr, "ERROR: n_targets_VB + n_targets_CB not equal to total m_states_per_filter!\n");
+    exit(EXIT_FAILURE);
+  }
   
   if (flag->setTargets != 1){
-    // If the energy targets were set for VB and CB separately,
-    // check that nVB + nCB is equal to the total number of energy targets (states per filter)
-    if (par->n_targets_VB + par->n_targets_CB != ist->m_states_per_filter){
-      fprintf(stderr, "ERROR: n_targets_VB + n_targets_CB not equal to total m_states_per_filter!\n");
-      exit(EXIT_FAILURE);
-    }
     // If the ene targets were not set in input, place half in VB/CB
     par->n_targets_CB = (long)(ist->m_states_per_filter / 2);
     par->n_targets_VB = ist->m_states_per_filter - par->n_targets_CB;
@@ -613,7 +613,58 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
   return;
 }
 
+/***************************************************************************/
+void init_filter_states(double *psi_rank, zomplex *psi, grid_st *grid, long *rand_seed, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+  FILE *pseed;
+  char str[20];
+  int cntr;
+  long jmn, jgrid, jgrid_real, jgrid_imag, jstate;
+  int jspin;
+  int start = parallel->mpi_rank * ist->n_states_per_rank;
+  int end = (parallel->mpi_rank == parallel->mpi_size - 1) ? ist->mn_states_tot : start + ist->n_states_per_rank;
+  
+  // Print out the random seeds for debugging purposes
+  sprintf(str, "seed-%d.dat", parallel->mpi_rank);
+  pseed = fopen(str, "w");
+  fprintf(pseed, "idx  seed\n");
+  
+  cntr = 0;
+  // Initialize n_states_per_rank random states on each mpi rank
+  for (jmn = start; jmn < end; jmn++) {
+    // Initialize a random wavefunction for filtering
+    for (jspin = 0; jspin < ist->nspin; jspin++) {
+      fprintf(pseed, "%ld %ld\n", ist->nspin*jmn + jspin, *rand_seed);
+      init_psi(&psi[jspin*ist->ngrid], rand_seed, grid, ist, par, flag, parallel);
+    }
+    
+    if (1 == flag->isComplex){
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        // handle indexing of real and imaginary components if complex
+        // ist->complex_idx = (flag->isComplex + 1) = 2 when complex valued functions are in use, 1 if real
+        jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = ist->complex_idx * jgrid + 1;
+        jstate = cntr * ist->complex_idx *ist->nspinngrid;
+        
+        psi_rank[jstate + jgrid_real] = psi[jgrid].re;
+        psi_rank[jstate + jgrid_imag] = psi[jgrid].im;
+        // the imaginary components will be stored one double away (16 bytes, or IMAG_IDX) in memory from the real component
+      } 
+    }
+    else{
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        jstate = cntr * ist->nspinngrid;
+        // if the wavefunction is real-valued, then only the real component is stored
+        psi_rank[jstate + jgrid] = psi[jgrid].re;
+      }
+    }
 
+    cntr++;
+  }
+
+  fclose(pseed);
+
+  return;
+}
 
 /*****************************************************************************/
 void init_psi(zomplex *psi, long *rand_seed, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){

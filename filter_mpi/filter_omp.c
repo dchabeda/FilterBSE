@@ -83,7 +83,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     // File I/O
     FILE *pf; char str[100];
     // Arrays for hamiltonian evaluation
-    zomplex *psi, *phi, *psi_out;  
+    zomplex *psi, *phi;  
     // Array indexing
     long jns, jms, jns_ms, ns_block; // across states
     long jgrid, jgrid_real, jgrid_imag; // within a single state
@@ -106,9 +106,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     if ((phi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
       fprintf(stderr, "\nOUT OF MEMORY: phi in run_filter_cycle\n\n"); exit(EXIT_FAILURE);
     }
-    if ((psi_out = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
-      fprintf(stderr, "\nOUT OF MEMORY: psi_out in run_filter_cycle\n\n"); exit(EXIT_FAILURE);
-    }
+  
     // Create FFT structs and plans for Fourier transform
     fftwpsi = fftw_malloc(sizeof (fftw_complex) * ist->ngrid);
     planfw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_FORWARD,fft_flags);
@@ -142,10 +140,15 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     // into a state with energy close to the target energy
     
     // Calculate term 0 of the expansion
-    for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
-      psi_out[jgrid].re = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
-      if (1 == flag->isComplex){
-        psi_out[jgrid].im = an[ncjms+0].re * psi[jgrid].im + an[ncjms+0].im * psi[jgrid].re;
+    if (1 == flag->isComplex){
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
+        psi[jgrid].re = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
+        psi[jgrid].im = an[ncjms+0].re * psi[jgrid].im + an[ncjms+0].im * psi[jgrid].re;
+      }
+    } 
+    else {
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
+        psi[jgrid].re = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
       }
     }
     
@@ -164,10 +167,21 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
         psi[jgrid].im = par->dE_1 * psi[jgrid].im - (2.0 + zn[jc-1] + par->Vmin * par->dE_1) * phi[jgrid].im;
       }
 
-      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
-        psi_out[jgrid].re += (an[ncjms+jc].re * psi[jgrid].re - an[ncjms+jc].im * psi[jgrid].im);
-        if (1 == flag->isComplex){
-          psi_out[jgrid].im += (an[ncjms+jc].re * psi[jgrid].im + an[ncjms+jc].im * psi[jgrid].re);
+      if (1 == flag->isComplex){
+        for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
+          jgrid_real = ist->complex_idx * jgrid;
+          jgrid_imag = ist->complex_idx * jgrid + 1;
+
+          #pragma omp atomic
+          psi_rank[jns_ms + jgrid_real] += (an[ncjms+jc].re * psi[jgrid].re - an[ncjms+jc].im * psi[jgrid].im);
+          #pragma omp atomic
+          psi_rank[jns_ms + jgrid_imag] += (an[ncjms+jc].re * psi[jgrid].im + an[ncjms+jc].im * psi[jgrid].re);
+        } 
+      }
+      else{
+        for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
+          #pragma omp atomic
+          psi_rank[jns_ms + jgrid] += (an[ncjms+jc].re * psi[jgrid].re);
         }
       }
 
@@ -200,14 +214,14 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     /*****************************************************************************/
 
     // printf("Copying data\n"); fflush(0);
-    for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-      jgrid_real = ist->complex_idx * jgrid;
-      jgrid_imag = ist->complex_idx * jgrid + 1;
-      psi_rank[jns_ms + jgrid_real] = psi_out[jgrid].re;
-      if (1 == flag->isComplex){
-        psi_rank[jns_ms + jgrid_imag] = psi_out[jgrid].im;
-      }
-    }
+    // for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+    //   jgrid_real = ist->complex_idx * jgrid;
+    //   jgrid_imag = ist->complex_idx * jgrid + 1;
+    //   psi_rank[jns_ms + jgrid_real] = psi_out[jgrid].re;
+    //   if (1 == flag->isComplex){
+    //     psi_rank[jns_ms + jgrid_imag] = psi_out[jgrid].im;
+    //   }
+    // }
     
     if (1 == flag->printPsiFilt){
       // Print the normalized filtered states to disk
@@ -216,7 +230,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
       fwrite(&psi_rank[jmn*ist->complex_idx*ist->nspinngrid], sizeof(double), ist->complex_idx*ist->nspinngrid, pf);
     }
     
-    free(psi); free(phi); free(psi_out);
+    free(psi); free(phi);
     fftw_destroy_plan(planfw);
     fftw_destroy_plan(planbw);
     fftw_free(fftwpsi);
@@ -285,7 +299,7 @@ int sign(float x) {
 /*****************************************************************************/
 
 void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
-  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi){
+  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function applies the Hamiltonian onto a state               *
   * inputs:                                                          *
@@ -305,6 +319,17 @@ void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc
   ********************************************************************/
   struct timespec start, end;
   int jspin, j, jtmp; 
+
+  fftw_init_threads();
+  fftw_plan_with_nthreads(par->ham_threads);
+  fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi; 
+  long fft_flags=0;
+
+  fftwpsi = fftw_malloc(sizeof(fftw_complex)*ist->ngrid);
+  /*** initialization for the fast Fourier transform ***/
+  planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
+  planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+  
   // Copy psi_out into psi_tmp
   memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid*sizeof(psi_tmp[0]));
   

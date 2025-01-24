@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 
   //command line input parsing
   if (argc!=3){
-    mpi_print("Usage: makecube start end");
+    printf("Usage: makecube start end");
     exit(EXIT_FAILURE);
   }
 
@@ -32,21 +32,21 @@ int main(int argc, char *argv[])
   end = atoi(argv[2]);
 
   if (start > end){
-    mpi_print("Invaid start (%d), end(%d): start > end\n", start,end);
+    printf("Invaid start (%d), end(%d): start > end\n", start,end);
     exit(EXIT_FAILURE);
   }
   if (start < 0){
-    mpi_print("Invaid start (%d): start < 0\n", start);
+    printf("Invaid start (%d): start < 0\n", start);
     exit(EXIT_FAILURE);
   }
 
-  mpi_print("This calculation began at: %s", ctime(&currentTime)); 
+  printf("This calculation began at: %s", ctime(&currentTime)); 
   fflush(stdout);
 
 
 
   /*** read initial setup from input.par ***/
-  mpi_print("\nReading job specifications from input.par:\n");
+  printf("\nReading job specifications from input.par:\n");
   read_input(&flag, &grid, &ist, &par, &parallel);
 
   /*** allocating memory ***/
@@ -56,19 +56,19 @@ int main(int argc, char *argv[])
   if ((atom = (atom_info *) calloc(ist.natoms, sizeof(atom_info))) == NULL) nerror("atom");
   
   /*** read the nanocrystal configuration ***/
-  mpi_print("\nReading atomic configuration from conf.par:\n"); fflush(0);
-  read_conf(R, atom, &ist, &par, &flag);
+  printf("\nReading atomic configuration from conf.par:\n"); fflush(0);
+  read_conf(R, atom, &ist, &par, &flag, &parallel);
   
   /*** initialize the grid ***/
-  mpi_print("\nInitializing the grid parameters:\n"); fflush(0);
-  init_grid_params(&grid, R, &ist, &par);
+  printf("\nInitializing the grid parameters:\n"); fflush(0);
+  init_grid_params(&grid, R, &ist, &par, &parallel);
 
   if ((rho = (double *)calloc(ist.ngrid, sizeof(double)))==NULL) nerror("rho");
 
 
   //count number of states found
   jms = countlines("eval.dat");
-  mpi_print("%ld total states in psi.dat\n", jms); fflush(0);
+  printf("%ld total states in psi.dat\n", jms); fflush(0);
   
   //allocate memory for psi
   if ((psi = (zomplex *) calloc(ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");
@@ -80,10 +80,10 @@ int main(int argc, char *argv[])
 	
   char filename[20];
   for (j = start; j <= end; j++){ 
-    mpi_print("Reading state %d from psi.dat\n", j);
+    printf("Reading state %d from psi.dat\n", j);
 
     if(fseek(ppsi,j*ist.nspinngrid*sizeof(zomplex),SEEK_SET)!=0){
-      mpi_print("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
+      printf("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
     }
     fread (&psi[0],sizeof(zomplex),ist.nspinngrid,ppsi);
 
@@ -94,12 +94,13 @@ int main(int argc, char *argv[])
     sprintf(filename, "rhoUp%i.cube", j);
     write_cube_file(rho, &grid, filename);
     
-    // for (i = 0;i<ist.ngrid; i++){
-    //   rho[i]=sqr(psi[ist.ngrid+i].re)+sqr(psi[ist.ngrid+i].im);
-    // }
-    // sprintf(filename, "rhoDn%i.cube", j);
-    // write_cube_file(rho, &grid, filename);
-
+    if (flag.useSpinors == 1){
+      for (i = 0;i<ist.ngrid; i++){
+        rho[i]=sqr(psi[ist.ngrid+i].re)+sqr(psi[ist.ngrid+i].im);
+      }
+      sprintf(filename, "rhoDn%i.cube", j);
+      write_cube_file(rho, &grid, filename);
+    }
     // for (i = 0;i<ist.ngrid; i++){
     //   rho[i]= sqr(psi[i].re)+sqr(psi[i].im)+
     //           sqr(psi[ist.ngrid+i].re)+sqr(psi[ist.ngrid+i].im);

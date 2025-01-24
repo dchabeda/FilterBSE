@@ -47,7 +47,6 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->readProj = 0;
   par->psi_zero_cut = 1e-16;
   // Hamiltonian parameters
-  par->ham_threads = 1;
   // Spin-orbit and non-local terms
   flag->useSpinors = 0; // default is to use non-spinor wavefunctions
   flag->isComplex = 0;
@@ -74,6 +73,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // Parallelization options
   parallel->nestedOMP = 0;
   parallel->n_inner_threads = 1;
+  flag->useFastHam = 0;
+  flag->useMPIOMP = 0;
+  par->ham_threads = 1;
 
   // Parse the input file
   if( access( "input.par", F_OK) != -1 ) {
@@ -196,14 +198,20 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "nestedOMP")) {
           parallel->nestedOMP = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-      } 
+      } else if (!strcmp(field, "hamThreads")) {
+          par->ham_threads = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "useFastHam")) {
+          flag->useFastHam = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "useMPIOMP")) {
+          flag->useMPIOMP = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for spin-orbit calculation
       // ****** ****** ****** ****** ****** ****** 
-      else if (!strcmp(field, "hamThreads")) {
-          par->ham_threads = (int) strtol(tmp, &endptr, 10);
-          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-      } else if (!strcmp(field, "useSpinors")) {
+      else if (!strcmp(field, "useSpinors")) {
           flag->useSpinors = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "spinOrbit")) {
@@ -288,8 +296,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (parallel->mpi_rank == 0) printf("readProj = int (if 1, read projector data from files)\n");
           if (parallel->mpi_rank == 0) printf("scaleSurfaceCs = double (fractional scaling factor of surface Cs to balance charge)\n");
           if (parallel->mpi_rank == 0) printf("nThreads = 1-128 (number of total OMP threads)\n");
-          if (parallel->mpi_rank == 0) printf("nestedOMP = int (0 for no nested parallelism, 1 to parallelize Ham)\n");
-          if (parallel->mpi_rank == 0) printf("hamThreads = 1-16 (nestedOMP=1;number of OMP threads to parallelize Ham over)\n");
+          if (parallel->mpi_rank == 0) printf("nestedOMP = int (0 for no nested parallelism, 1 for nested)\n");
+          if (parallel->mpi_rank == 0) printf("hamThreads = 1-16 (number of OMP threads to parallelize Ham over)\n");
           if (parallel->mpi_rank == 0) printf("fermiEnergy = double (fermi_E of the system)\n");
           if (parallel->mpi_rank == 0) printf("KEmax = double (maximum kinetic energy value considered)\n");
           if (parallel->mpi_rank == 0) printf("spinOrbit = int (0 for no spinOrbit, 1 for spinOrbit)\n");
@@ -353,8 +361,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->ngrid = grid->ngrid = grid->nx * grid->ny * grid->nz;
   ist->nspinngrid = ist->nspin * ist->ngrid;
   ist->mn_states_tot = ist->n_filter_cycles * ist->m_states_per_filter;
+  ist->n_states_per_rank = ist->mn_states_tot / parallel->mpi_size;
+  // used only for "filter_fast.c" scheme
   ist->n_filters_per_rank = ist->n_filter_cycles / parallel->mpi_size;
-  ist->n_states_per_rank = ist->n_filters_per_rank * ist->m_states_per_filter;
+  // 
   ist->nthreads = parallel->nthreads;
   ist->complex_idx = flag->isComplex + 1;
 
@@ -397,6 +407,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   if (parallel->mpi_rank == 0){
     print_input_state(stdout, flag, grid, par, ist, parallel);
   }
+
   return;
 }
 

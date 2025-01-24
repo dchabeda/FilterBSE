@@ -300,7 +300,7 @@ int sign(float x) {
 /*****************************************************************************/
 
 void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
-  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi){
+  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function applies the Hamiltonian onto a state               *
   * inputs:                                                          *
@@ -320,6 +320,17 @@ void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc
   ********************************************************************/
   struct timespec start, end;
   int jspin, j, jtmp; 
+
+  fftw_init_threads();
+  fftw_plan_with_nthreads(parallel->n_inner_threads);
+  fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi; 
+  long fft_flags=0;
+
+  fftwpsi = fftw_malloc(sizeof(fftw_complex)*ist->ngrid);
+  /*** initialization for the fast Fourier transform ***/
+  planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
+  planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+  
   // Copy psi_out into psi_tmp
   memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid*sizeof(psi_tmp[0]));
   

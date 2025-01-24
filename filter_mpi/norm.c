@@ -103,9 +103,9 @@ void normalize_all(double *psitot, long n_states, index_st *ist, par_st *par, fl
   //     char str[30];
   //     sprintf(str, "norm-all-%ld.dat", thread_id);
   //     pf = fopen(str, "w");
-  omp_set_dynamic(0);
-  omp_set_num_threads(parallel->nthreads);
-#pragma omp parallel for private(jns)
+  // omp_set_dynamic(0);
+  // omp_set_num_threads(parallel->nthreads);
+// #pragma omp parallel for private(jns)
   for (jns = 0; jns < n_states; jns++){
     // if (parallel->mpi_rank == 0) printf("jns = %ld on node %d\n", jns, parallel->mpi_rank); fflush(0);
     long j_state;
@@ -114,7 +114,6 @@ void normalize_all(double *psitot, long n_states, index_st *ist, par_st *par, fl
     // Loop over all states
     // complex_idx is 2 if psi is complex (1 if real), this accounts for storing real and imag components
     j_state = jns * ist->complex_idx * ist->nspinngrid; 
-    
     // Calculate the norm integral for each state
     norm = 0.0;
     for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){

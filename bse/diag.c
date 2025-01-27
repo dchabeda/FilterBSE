@@ -39,7 +39,7 @@ void diag(const int n, int nthreads, zomplex *mat, double *eval) {
 
   // Error handling
   if (info < 0) {
-    printf("Argument %d of zysev_ in diag.c had an illegal argument\n", (-info));
+    printf("Argument %lld of zysev_ in diag.c had an illegal argument\n", (-info));
     printf("The program is exiting due to this error!!!\n");
     exit(EXIT_FAILURE);
   } else if (info > 0) {

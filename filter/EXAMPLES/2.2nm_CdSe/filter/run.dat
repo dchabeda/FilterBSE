@@ -1,0 +1,198 @@
+******************************************************************************
+
+RUNNING PROGRAM: FILTER DIAGONALIZATION
+This calculation began at: Thu Jul 18 12:45:13 2024
+
+******************************************************************************
+
+
+******************************************************************************
+
+1.	INITIALIZING JOB
+
+******************************************************************************
+
+Reading job specifications from input.par:
+
+	Grid parameters (preliminary):
+	------------------------------
+	nx = 40, ny = 40, nz = 40
+	dx = 0.8, dy = 0.8, dz = 0.8
+	ngrid = 64000 nspin = 1
+	Nanocrystal COM will be centered at the origin
+
+	Pseudopotential options:
+	--------------------------
+	Strain dependent pseudopotential will NOT be calculated
+	Pseudopotential parameters will not be interpolated
+	Pseudopotentials are short ranged.
+	Crystal structure: wurzite
+	Outmost material: CdSe
+	Surface Cs atoms NOT rescaled for charge balancing
+
+	Parameters & counters for filter algorithm:
+	-------------------------------------------
+	statesPerFilter (# energy targets) = 16
+	nFilterCycles (# random initial states) = 16
+	nCheby = 2048
+	VBmin = -0.31, VBmax = -0.24
+	CBmin = -0.15, CBmax = -0.06
+	KEmax = 10 a.u.
+	fermiEnergy = -0.18 a.u.
+	setNumEnergyTargets flag on: n_targets_VB = 10 n_targets_CB = 6
+	Random seed will be generated based on clock at runtime
+	Intermediate filter wavefunctions will not be output to disk
+	Orthogonalized wavefunctions will not be output to disk
+
+	Parameters for parallelization:
+	-------------------------------
+	nThreads (# OMP threads) = 16
+
+	Parameters for spin-orbit and non-local:
+	----------------------------------------
+	Spinor wavefunctions turned OFF!
+	Spin-orbit coupling is OFF!
+	Non-local potential is OFF!
+	Wavefunctions are REAL valued!
+	  complex_idx = 1
+
+	Flags for optional output:
+	--------------------------
+	Matrix elements of the potential will not be calculated
+	All eigenstates will be saved to disk regardless of variance
+	Hamiltonian timing specs will not be printed
+	Cube files of top 4 states (sigma_E_cut < 0.001) in VB & CB will be printed
+	Spin and Ang. Mom. statistics will not be computed
+
+	Flags for restarting computation:
+	---------------------------------
+	Filter will NOT restart if no eigenstates obtained after diag.
+	No checkpoint saves requested
+	No checkpoint specified for restart. Job will run in normal sequence.
+
+Reading atomic configuration from conf.par:
+	natoms = 150
+	n_atom_types = 4
+	the atoms are [ Cd Se P1 P2 ]
+
+Initializing the grid parameters:
+	Min. required box dimension for each direction (Bohr):
+	-----------------------------------------------------
+	xd = 46 yd = 42 zd = 36
+	The x_max = 23 and x_min -23
+	input nx insufficient; updating parameter.
+	The y_max = 21 and y_min -21
+	input ny insufficient; updating parameter.
+	The z_max = 18 and z_min -18
+	input nz insufficient; updating parameter.
+
+	Final grid parameters:
+	----------------------
+	xd = 45.6 yd = 41.6 zd = 36.0
+	dx = 0.8 dy = 0.8 dz = 0.8 dv = 0.512 dr = 1.38564
+	nx = 57  ny = 52  nz = 45
+	ngrid = 133380, nspin = 1, nspinngrid = 133380
+
+Building the real-space and k-space grids:
+	Building the grid...
+
+Setting the filter energy targets:
+	Spacing between states in VB: 0.007 a.u.
+	Spacing between states in CB: 0.015 a.u.
+
+	Energy target list:
+	-------------------
+	-0.303
+	-0.296
+	-0.289
+	-0.282
+	-0.275
+	-0.268
+	-0.261
+	-0.254
+	-0.247
+	-0.24
+	-0.15
+	-0.135
+	-0.12
+	-0.105
+	-0.09
+	-0.075
+
+Allocating memory for FFT, pot, psi, eig_vals...	done allocating memory.
+
+Initializing potentials...
+
+Local pseudopotential:
+	Reading atomic pseudopotentials...
+	potCd.par potSe.par potP1.par potP2.par 
+	Constructing total pseudopotential on the grid...
+	Computing potential without interpolating over cubic/ortho parameters
+
+	Vmin = -1.95091 Vmax = 0.366802 dV = 2.31771 
+
+
+******************************************************************************
+
+2. CALCULATING HAMILTONIAN ENERGY RANGE...
+
+******************************************************************************
+Emin = -1.13271, Emax = 12.3281, dE = 13.4608
+
+done calculate energy range, CPU time (sec) 175.258, wall run time (sec) 11
+
+
+******************************************************************************
+
+3. GENERATING COEFFICIENTS
+
+******************************************************************************
+
+Calculating Newton interpolation coefficients for filter functions.
+ncheby = 2048 dt = 3703.7 dE = 13.4608
+
+
+******************************************************************************
+
+4. STARTING FILTERING
+
+******************************************************************************
+
+Energy width, sigma, of filter function = 0.011619 a.u.
+Suggested max span of spectrum for filtering = 0.185903 a.u.
+Requested span of spectrum to filter = 0.138 a.u.
+
+done calculating filter, CPU time (sec) 1118.54, wall run time (sec) 70
+
+
+******************************************************************************
+
+5. ORTHOGONALIZATING FILTERED STATES
+
+******************************************************************************
+mn_states_tot before ortho = 256
+Scalar wavefunctions used. Allocating "work" for real SVD
+Computing real-valued SVD...
+Done with SVD!
+
+SVD cutoff (no. orthogonal vectors) is 175
+Scalar wavefunctions used. Freeing work
+mn_states_tot after ortho = 175
+
+done calculating ortho, CPU time (sec) 9.47821, wall run time (sec) 1
+
+
+******************************************************************************
+
+6. DIAGONALIZING HAMILTONIAN
+
+******************************************************************************
+
+done calculating Hmat, CPU time (sec) 15.2114, wall run time (sec) 3
+
+
+******************************************************************************
+
+7. CALCULATING VARIANCE OF EIGENVALUES
+
+******************************************************************************

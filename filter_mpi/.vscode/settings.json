@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "fd.h": "c",
+        "cstdlib": "c"
+    }
+}

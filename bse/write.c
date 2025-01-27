@@ -74,7 +74,7 @@ void write_cube_file(double *rho, grid_st *grid, char *fileName) {
       for (iZ = 0; iZ < grid->nz; iZ++) {
         iYZ = grid->nx * (grid->ny * iZ + iY);
         jgrid = iYZ + iX;
-        fprintf(pf, "%12.5f ", rho[jgrid]);
+        fprintf(pf, "%12.5g ", rho[jgrid]);
         if (iZ % 6 == 5) {
           fprintf(pf, "\n");
         }
@@ -129,6 +129,20 @@ void write_separation(FILE *pf, char *top_bttm) {
   free(top_key); free(bttm_key);
   
   return;
+}
+
+/****************************************************************************/
+
+void write_state_dat(zomplex *psi, long n_elems, char* fileName){
+  FILE *pf;
+  long i;
+
+  pf = fopen(fileName, "w");
+  for (i = 0; i < n_elems; i++){
+    fprintf(pf, "%lg %lg\n", psi[i].re, psi[i].im);
+  }
+  fclose(pf);
+  
 }
 
 /****************************************************************************/

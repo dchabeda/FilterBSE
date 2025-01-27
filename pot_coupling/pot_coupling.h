@@ -222,7 +222,7 @@ void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equ
 
 // basis
 void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag);
-void get_qp_basis(double *psi, double *psitot, double *psi_hole, double *psi_elec, double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag);
+void get_qp_basis(double *psi_qp, double *psitot, double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag);
 
 // write
 void write_cube_file(double *rho, grid_st *grid, char *fileName);

@@ -1,0 +1,14 @@
+maxHoleStates = 4
+maxElecStates =	4
+sigmaECut = 0.01
+epsX = 6.1
+epsY = 6.1
+epsZ = 6.1
+nThreads = 4
+spinOrbit = 1
+NonLocal = 1
+calcDarkStates = 0
+timingSpecs = 0
+fermiEnergy = -0.2
+deltaEhole = 0.02
+deltaEelec = 0.02

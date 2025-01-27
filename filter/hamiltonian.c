@@ -60,24 +60,26 @@ void kinetic(zomplex *psi_out, double *ksqr, fftw_plan_loc planfw, fftw_plan_loc
 
   long j;
   
+
   // Copy inputted psi to fftwpsi
   memcpy(&fftwpsi[0], &psi_out[0], ist->ngrid*sizeof(fftwpsi[0]));
   
+
   // FT from r-space to k-space
   fftw_execute(planfw);
-  
+
   // Kinetic energy is diagonal in k-space, just multiply fftwpsi by k^2
   for (j = 0; j < ist->ngrid; j++) {
     fftwpsi[j][0] *= ksqr[j];
     fftwpsi[j][1] *= ksqr[j];
   }
-  
+
   // Inverse FT back to r-space
   fftw_execute(planbw);
   
   // Copy fftwpsi to psi_out to store T|psi_tmp> into |psi_out>
-  memcpy(&psi_out[0], &fftwpsi[0], ist->ngrid*sizeof(psi_out[0]));
-
+  memcpy(&psi_out[0], &fftwpsi[0], ist->ngrid*sizeof(fftwpsi[0]));
+  
   return;
 }
 
@@ -106,10 +108,12 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
   if(flag->SO==1){
     // Calculate |psi_out> = V_SO|psi_tmp>
     spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    // write_state_dat(psi_out, ist->nspinngrid, "psi_out_SO_ref.dat");
   }
   if (flag->NL == 1){
     // Calculate |psi_out> += V_NL|psi_tmp>
     nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    // write_state_dat(psi_out, ist->nspinngrid, "psi_out_NL_ref.dat");
   }
   
   // Calculate the action of the local potential energy part of the Hamiltonian on psi_tmp
@@ -309,7 +313,8 @@ void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl
             
           }
           proj.re *= nlc[index1].NL_proj_sign[iproj];
-          proj.im *= nlc[index1].NL_proj_sign[iproj];
+          proj.im *= nlc[index1].NL_proj_sign[iproj];   
+          
           proj.re *= par->dv;
           proj.im *= par->dv;
           

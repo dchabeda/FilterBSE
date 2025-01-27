@@ -1,76 +1,38 @@
 SHELL = /bin/sh
 
-MKLROOT = /opt/intel/compilers_and_libraries/linux/mkl
-INTELLINK =  ${MKLROOT}/lib/intel64/libmkl_scalapack_ilp64.a -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a ${MKLROOT}/lib/intel64/libmkl_blacs_intelmpi_ilp64.a -Wl,--end-group -liomp5 -lpthread -lm -ldl
+OS=Linux
 
-Linux_LIB =  ${INTELLINK} -L${HOME}/usr/lib -lfftw3
-Linux_MYLIB = 
-Linux_CLIB = -lm
-Linux_FCLIB = 	
+# libraries ...
+Linux_LIB = -qmkl -qopenmp -lpthread -lfftw3_omp -lfftw3 -lm
+Linux_DYLIB = -lmkl_intel_ilp64 -lmkl_lapack95_ilp64 -lmkl_blas95_ilp64 -lmkl_intel_thread -lmkl_core -lm
 
-CYGWIN_NT-6.3_LIB = -llapack -lblas -lfftw3_threads -lfftw3 -lpthread
-CYGWIN_NT-6.3_MYLIB = 
-CYGWIN_NT-6.3_CLIB =  -lm
-CYGWIN_NT-6.3_FCLIB = 	
-
-LIB = $(${OS}_LIB) $(${OS}_CLIB) $(${OS}_FCLIB) $(${OS}_MYLIB)
+LIB = $(Linux_DYLIB) $(Linux_LIB)
 
 # flags ...
-#Linux_OPTFLAGS = -fast -qopenmp -static
-Linux_OPTFLAGS = -DMKL_ILP64 -O2 -xSSE3  -qopenmp -static -fast
-#Linux_OPTFLAGS = -O0 -g -qopenmp
-Linux_CFLAGS = $(${OS}_OPTFLAGS) -DFFT_FFTW -I${HOME}/usr/include -I /opt/rocks/include -I"${MKLROOT}/include" -Wall -pedantic 
-Linux_FFLAGS = $(${OS}_OPTFLAGS)
-
-CYGWIN_NT-6.3_OPTFLAGS = -O3 -ffast-math 
-CYGWIN_NT-6.3_CFLAGS = $(${OS}_OPTFLAGS) -DFFT_FFTW
-CYGWIN_NT-6.3_FFLAGS = $(${OS}_OPTFLAGS) 
+Linux_OPTFLAGS = -DMKL_ILP64
+Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp
+#Linux_CFLAGS = -g -qopenmp -O0
+#Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
 
 MAINNAM = pot_coupling
 
-#compiler ...
-Linux_CC = icx
-Linux_FF = ifx
-Linux_LD = icx
-CYGWIN_NT-6.3_CC = gcc
-CYGWIN_NT-6.3_FF = gfortran
-CYGWIN_NT-6.3_LD = gcc
+# compiler ...
+Linux_CC = cc
 
 OBJECTS = \
-	read_bse.o read_filter.o init_bse.o init_filter.o save.o projectors.o interpolate.o \
+        read_bse.o read_filter.o init_bse.o init_filter.o save.o projectors.o interpolate.o \
         pot_coupling.o write.o nerror.o strain.o basis.o vector.o pot_mat_elems.c hamiltonian.o
 
-TESTOBJECTS = \
-	      testmain.o angular.o norm.o nerror.o write.o init.o size.o rand.o\
-	      interpolate.o projectors.o read.o
-
-CUBEOBJECTS = \
-		makecube.o write.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o vector.o strain.o
-
-POTMATOBJECTS = \
-                pot_coupling.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o\
-		hamiltonian.o strain.o vector.o
 
 # compilation ...
-
-.f.o:
-	$(${OS}_FF) $(${OS}_FFLAGS) -c  $*.f
+# compilation rule for all .c files
 .c.o:
-	$(${OS}_CC) -DOS_${OS} $(${OS}_CFLAGS) -c  $*.c  
+	$(Linux_CC) -DOS_$(OS) $(Linux_CFLAGS) -c $*.c  
 
-all: $(MAINNAM)
-
+# Compile the main executable Filter.x and link libraries
 $(MAINNAM): $(OBJECTS) 
-	$(${OS}_LD) -o $(MAINNAM).x $(${OS}_CFLAGS) $(OBJECTS) $(LIB)
+	$(Linux_CC) -o $(MAINNAM).x $(OBJECTS) $(LIB)
 
-test: $(TESTOBJECTS)
-	$(${OS}_LD) -o test.x $(${OS}_CFLAGS) $(TESTOBJECTS) $(LIB)
-
-cube: $(CUBEOBJECTS)
-	$(${OS}_LD) -o makecube.x $(${OS}_CFLAGS) $(CUBEOBJECTS) $(LIB)
-
-potmat: $(POTMATOBJECTS)
-	$(${OS}_LD) -o pot_coupling.x $(${OS}_CFLAGS) $(POTMATOBJECTS) $(LIB)
 
 clean:
 	/bin/rm *.o *.x

@@ -44,6 +44,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
   // Get the indices of the HOMO, LUMO, and also the number of eigstates in VB/CB 
   for (i = 0; i < ist->mn_states_tot; i++){
     // Find HOMO and total number of VB states
+    // If the state has variance < cutoff and energy below fermiE, it is a hole eigenstate
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] < par->fermi_E){
       ist->n_holes++; // increment the counter for number of hole states
       ist->homo_idx = cntr; // homo_idx in RAM is the value of cntr for which condition is met
@@ -55,6 +56,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
       cntr++;
     }
     // Find LUMO and total number of CB states
+    // If the state has variance < cutoff and energy above fermiE, it is an elec eigenstate
     if (sigma_E[i] < par->sigma_E_cut && eig_vals[i] > par->fermi_E){
       if (0 == ist->lumo_idx){
         eval_lumo_idx = i;
@@ -78,23 +80,23 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
   // First, in the VB
   deltaE = eig_vals[ist->homo_idx] - eig_vals[ist->homo_idx - ist->n_holes + 1];
   if (deltaE < par->delta_E_hole){
-    printf("\n\tUnconstrained energy span of holes, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
-    printf("\tIncrease size of VB basis states to reach desired result\n");
+    printf("\n\tUnconstrained energy span of holes, %.3lg a.u. (%.2lg eV) < desired span = %.3lg a.u. (%.2lg eV)\n", deltaE, deltaE * 27.211, par->delta_E_hole, par->delta_E_hole * 27.211 );
+    printf("\t**Increase size of VB basis states to reach desired result**\n");
   } else {
-    printf("\n\tUnconstrained energy span of holes %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
-    printf("\tFewer VB basis states would reach the desired result\n");
+    printf("\n\tUnconstrained energy span of holes %.3lg a.u. (%.2lg eV) > desired span = %.3lg a.u. (%.2lg eV)\n", deltaE, deltaE * 27.211, par->delta_E_hole, par->delta_E_hole * 27.211);
+    printf("\t**Fewer VB basis states would reach the desired result**\n");
   }
   // Then in the conduction band
   deltaE = eig_vals[ist->n_elecs + ist->lumo_idx - 1] - eig_vals[ist->lumo_idx];
   if (deltaE < par->delta_E_hole){
-    printf("\tUnconstrained energy span of elecs, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
-    printf("\tIncrease size of CB basis states to reach desired result\n");
+    printf("\tUnconstrained energy span of elecs, %.3lg a.u. (%.2lg eV) < desired span = %.3lg a.u. (%.2lg eV)\n", deltaE, deltaE * 27.211, par->delta_E_elec, par->delta_E_elec * 27.211);
+    printf("\t**Increase size of CB basis states to reach desired result**\n");
   } else {
-    printf("\tUnconstrained energy span of elecs, %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
-    printf("\tFewer CB basis states would reach the desired result\n");
+    printf("\tUnconstrained energy span of elecs, %.3lg a.u. (%.2lg eV) > desired span = %.3lg a.u. (%.2lg eV)\n", deltaE, deltaE * 27.211, par->delta_E_elec, par->delta_E_elec * 27.211);
+    printf("\t**Fewer CB basis states would reach the desired result**\n");
   }
 
-  // If the max number of electron or hole states was set, then constrain the basis
+  // If the max number of hole states was set, then constrain the hole eigenbasis
   // We will also modify the eig_vals and sigma_E array again so they only contain the
   // energies of the selected qp basis states
   
@@ -103,12 +105,14 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     ist->n_holes = ist->max_hole_states;
     printf("\n\tConstraining hole basis states to maxHoleStates\n\t  new ist->n_holes = %ld\n", ist->n_holes);
     
-    // Reorder eig_vals and sigma_E to only contain eigenstates
+    // Reorder eig_vals and sigma_E to only ist->max_hole_states 
+    // number of hole eigenstates closest to the band edge
     cntr = 0;
     for (i = 0; i < ist->n_holes; i++){
-      eig_vals[cntr] = eig_vals[ist->homo_idx - ist->n_holes + i + 1];
-      sigma_E[cntr] = sigma_E[ist->homo_idx - ist->n_holes + i + 1];
-      (*eval_hole_idxs)[cntr] = (*eval_hole_idxs)[(long) (ist->homo_idx - ist->n_holes + i + 1)];
+      // Replace the ith element of eig_vals with the value (max_hole_states - i) below the band edge
+      eig_vals[i] = eig_vals[ist->homo_idx - ist->n_holes + 1 + i];
+      sigma_E[i] = sigma_E[ist->homo_idx - ist->n_holes + 1 + i];
+      (*eval_hole_idxs)[i] = (*eval_hole_idxs)[(long) ( ist->homo_idx - ist->n_holes + 1 + i)];
       cntr++;
     }
     // check that the counter has the same value as ist->n_holes
@@ -116,22 +120,23 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
       printf("ERROR: something went wrong reordering eig_vals in get_qp_basis_indices\n");
       exit(EXIT_FAILURE);
     }
-
+    ist->homo_idx = ist->homo_idx - (old_n_holes - ist->n_holes);
     // Determine the new energy span
     deltaE = eig_vals[ist->homo_idx] - eig_vals[ist->homo_idx - ist->n_holes + 1];
     if (deltaE < par->delta_E_hole){
-      printf("\tConstrained energy span of holes, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
-      printf("\tIncrease size of VB basis states to reach desired result\n");
+      printf("\tConstrained energy span of holes, %.3lg a.u. (%.2lg eV) < desired span = %lg a.u. (%.2lg eV)\n", deltaE, deltaE * 27.211, par->delta_E_hole, par->delta_E_hole * 27.211);
+      printf("\t**Increase size of VB basis states to reach desired result**\n");
     } else {
-      printf("\n\tConstrained energy span of holes %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
-      printf("\tFewer VB basis states would reach the desired result\n");
+      printf("\n\tConstrained energy span of holes %.3lg a.u. (%.2lg eV) > desired span = %lg a.u. (%.2lg eV)\n", deltaE, deltaE * 27.211, par->delta_E_hole, par->delta_E_hole * 27.211);
+      printf("\t**Fewer VB basis states would reach the desired result**\n");
     }
-    ist->homo_idx = ist->homo_idx - (old_n_holes - ist->n_holes);
+    
     ist->lumo_idx = ist->homo_idx + 1; 
     // set the lumo_idx here to handle the case where the next if statement does not evaluate as true
     // in that case, the lumo_idx will be left as the one from the old_n_holes
   }
-  // If the user does not specify max_elec or max_hole_states, then use all the quasiparticle states for BSE
+
+  // If the max number of elec states was set, then constrain the elec eigenbasis
   if ((-1 != ist->max_elec_states) && (ist->n_elecs > ist->max_elec_states) ){
     
     ist->n_elecs = ist->max_elec_states;
@@ -140,26 +145,23 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
     
     // Reorder eig_vals and sigma_E to only contain eigenstates
     cntr = ist->homo_idx + 1;
-    for (i = ist->n_holes; i < ist->n_holes + ist->n_elecs; i++){
+    for (i = old_n_holes; i < old_n_holes + ist->n_elecs; i++){
       eig_vals[cntr] = eig_vals[i];
       sigma_E[cntr] = sigma_E[i];
       // (*eval_elec_idxs)[(long) cntr - ist->n_holes] = (*eval_elec_idxs)[i - ist->n_holes];
       // we have to subtract by n_holes because we start the iterator from n_holes + 1
       cntr++;
     }
-    // for (i = 0; i < ist->max_elec_states; i++){
-    //   (*eval_elec_idxs)[(long) cntr - ist->n_holes] = (*eval_elec_idxs)[i];
-    // }
  
     // Determine the new energy span
     deltaE = eig_vals[ist->n_elecs + ist->lumo_idx - 1] - eig_vals[ist->lumo_idx];
     if (deltaE < par->delta_E_elec){
-      printf("\tConstrained energy span of elecs, %lg a.u. < desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
-      printf("\tIncrease size of CB basis states to reach desired result\n");
+      printf("\tConstrained energy span of elecs, %.3lg a.u. (%.2lg eV) < desired span = %.3lg a.u. (%.2lg eV)\n", deltaE, deltaE * 27.211, par->delta_E_elec, par->delta_E_elec * 27.211);
+      printf("\t**Increase size of CB basis states to reach desired result**\n");
     } 
     else {
-      printf("\tConstrained energy span of elecs %lg a.u. > desired span = %lg a.u.\n", deltaE, par->delta_E_hole);
-      printf("\tFewer CB basis states would reach the desired result\n");
+      printf("\tConstrained energy span of elecs %.3lg a.u. (%.2lg eV) > desired span = %.3lg a.u. (%.2lg eV)\n", deltaE, deltaE * 27.211, par->delta_E_elec, par->delta_E_elec * 27.211);
+      printf("\t**Fewer CB basis states would reach the desired result**\n");
     }
 
   } 
@@ -175,9 +177,9 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
   printf("\tSelected # of filtered e- qp basis states = %ld\n", ist->n_elecs);
   printf("\tTotal number of quasiparticle states, n_qp = %ld\n", ist->n_qp);
   printf("\tThe BSEeval.par index of the HOMO state = %ld  LUMO state = %ld\n", ist->homo_idx, ist->lumo_idx);
-  printf("\tThe HOMO energy = % .6g a.u. % .5f eV\n", eig_vals[ist->homo_idx], eig_vals[ist->homo_idx]*AUTOEV);
-  printf("\tThe LUMO energy = % .6g a.u. % .5f eV\n", eig_vals[ist->lumo_idx], eig_vals[ist->lumo_idx]*AUTOEV);
-  printf("\tFundamental gap = %.6g a.u. %.5f eV\n", eig_vals[ist->lumo_idx]-eig_vals[ist->homo_idx], (eig_vals[ist->lumo_idx]-eig_vals[ist->homo_idx])*AUTOEV);
+  printf("\tThe HOMO energy = % .6g a.u. % .3f eV\n", eig_vals[ist->homo_idx], eig_vals[ist->homo_idx]*AUTOEV);
+  printf("\tThe LUMO energy = % .6g a.u. % .3f eV\n", eig_vals[ist->lumo_idx], eig_vals[ist->lumo_idx]*AUTOEV);
+  printf("\tFundamental gap = %.6g a.u. %.3f eV\n", eig_vals[ist->lumo_idx]-eig_vals[ist->homo_idx], (eig_vals[ist->lumo_idx]-eig_vals[ist->homo_idx])*AUTOEV);
 
   // Print BSEeval.par
   pf = fopen("BSEeval.par", "w");
@@ -191,7 +193,7 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
 
 /*****************************************************************************//*****************************************************************************/
 
-void get_qp_basis(double *psi, double *psitot, double *psi_hole, double *psi_elec, double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag){
+void get_qp_basis(double *psi_qp, double *psitot, double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag){
   /*******************************************************************
   * This function copies the wavefunctions for the elec and hole     *
   * states for the quasiparticle basis into psi_hole and psi_elec.   *
@@ -206,49 +208,53 @@ void get_qp_basis(double *psi, double *psitot, double *psi_hole, double *psi_ele
   * outputs: void                                                    *
   ********************************************************************/
  
-  long i, j, a, state_idx;
-  long jgrid, jgrid_real, jgrid_imag;
-  double tmp1, tmp2;
+  long i, cntr, state_idx;
+  // long jgrid, jgrid_real, jgrid_imag;
+  // double tmp1, tmp2;
 
   // Copy the hole states
+  cntr = 0;
   for (i = 0; i < ist->n_holes; i++){
     state_idx = ist->eval_hole_idxs[i];
-    memcpy(&psi_hole[i * ist->nspinngrid * ist->complex_idx], &psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx * sizeof(psitot[0])) ;
+    memcpy(&psi_qp[i * ist->nspinngrid * ist->complex_idx], &psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx * sizeof(psitot[0])) ;
+    cntr++;
   } 
+
   // Copy the electron states
-  for (i = 0; i < ist->n_elecs; i++){
+  for (i = 0; i < ist->max_elec_states; i++){
     state_idx = ist->eval_elec_idxs[i];
-    memcpy(&psi_elec[i * ist->nspinngrid * ist->complex_idx], &psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx * sizeof(psitot[0]));
+    memcpy(&psi_qp[cntr * ist->nspinngrid * ist->complex_idx], &psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx * sizeof(psitot[0]));
+    cntr++;
   } 
 
-  // Format the quasiparticle basis for continuity with old code
-  // Not sure if this makes any difference in the later functions
-  for (i = ist->n_holes - 1, a = 0; i >= 0 && a < ist->n_holes; i--, a++) {
-      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-        jgrid_real = ist->complex_idx * jgrid;
-        jgrid_imag = ist->complex_idx * jgrid + 1;
+  // // Format the quasiparticle basis for continuity with old code
+  // // Not sure if this makes any difference in the later functions
+  // for (i = ist->n_holes - 1, a = 0; i >= 0 && a < ist->n_holes; i--, a++) {
+  //     for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+  //       jgrid_real = ist->complex_idx * jgrid;
+  //       jgrid_imag = ist->complex_idx * jgrid + 1;
 
-        psi[ist->complex_idx * a * ist->nspinngrid + jgrid_real] = psi_hole[ist->complex_idx * i * ist->nspinngrid + jgrid_real];
-        psi[ist->complex_idx * a * ist->nspinngrid + jgrid_imag] = psi_hole[ist->complex_idx * i * ist->nspinngrid + jgrid_imag];
-      }
-  }
+  //       psi[a * ist->nspinngrid + jgrid_real] = psi_hole[i * ist->nspinngrid + jgrid_real];
+  //       psi[a * ist->nspinngrid + jgrid_imag] = psi_hole[i * ist->nspinngrid + jgrid_imag];
+  //     }
+  // }
 
-  for (i = ist->n_holes, a = 0; i < ist->n_holes + ist->n_elecs && a < ist->n_elecs; i++, a++) {
-      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-        jgrid_real = ist->complex_idx * jgrid;
-        jgrid_imag = ist->complex_idx * jgrid + 1;
+  // for (i = ist->n_holes, a = 0; i < ist->n_holes + ist->n_elecs && a < ist->n_elecs; i++, a++) {
+  //     for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+  //       jgrid_real = ist->complex_idx * jgrid;
+  //       jgrid_imag = ist->complex_idx * jgrid + 1;
 
-        psi[ist->complex_idx * i * ist->nspinngrid + jgrid_real] = psi_elec[ist->complex_idx * a * ist->nspinngrid + jgrid_real];
-        psi[ist->complex_idx * i * ist->nspinngrid + jgrid_imag] = psi_elec[ist->complex_idx * a * ist->nspinngrid + jgrid_imag];
-      }
-  }
+  //       psi[i * ist->nspinngrid + jgrid_real] = psi_elec[a * ist->nspinngrid + jgrid_real];
+  //       psi[i * ist->nspinngrid + jgrid_imag] = psi_elec[a * ist->nspinngrid + jgrid_imag];
+  //     }
+  // }
 
-  /* Rearrange eig_vals */
-  for (i = 0, j = ist->n_holes - 1; i < j; i++, j--) {
-      tmp1 = eig_vals[i];    tmp2 = sigma_E[i];
-      eig_vals[i] = eig_vals[j]; sigma_E[i] = sigma_E[j];
-      eig_vals[j] = tmp1;    sigma_E[j] = tmp2;
-  }
+  // /* Rearrange eig_vals */
+  // for (i = 0, j = ist->n_holes - 1; i < j; i++, j--) {
+  //     tmp1 = eig_vals[i];    tmp2 = sigma_E[i];
+  //     eig_vals[i] = eig_vals[j]; sigma_E[i] = sigma_E[j];
+  //     eig_vals[j] = tmp1;    sigma_E[j] = tmp2;
+  // }
 
   return;
 

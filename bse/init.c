@@ -4,7 +4,7 @@
 
 /*****************************************************************************//*****************************************************************************/
 
-void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
+void init_elec_hole_kernel(zomplex *pot_bare, zomplex *pot_screened, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
   /*******************************************************************
   * This function computes the value of the Coulomb kernel at each   *
   * grid point. The actual calculation of 1/r takes place in k-space *
@@ -12,8 +12,8 @@ void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *
   * dielectric constant, and the exchange term is unscreened (bare)  *
   * according to the derivation by Rohlfing and Louie: PRB 62 (8)    *
   * inputs:                                                          *
-  *  [pot_direct] array to hold value of the direct Coulomb pot      *
-  *  [pot_exchange] array to hold value of the screened exchange pot *
+  *  [pot_bare] array to hold value of the direct Coulomb pot      *
+  *  [pot_screened] array to hold value of the screened exchange pot *
   *  [grid] grid_st instance holding values of all grid points       *
   *  [ist] ptr to counters, indices, and lengths                     *
   *  [par] ptr to par_st holding VBmin, VBmax... params              *
@@ -46,7 +46,10 @@ void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *
   boxl2 = sqr(boxl);
   gamma = 7.0 / (2.0 * minr);
   gamma2 = sqr(gamma);
-
+  grid->dkx = TWOPI / ((double)grid->nx * grid->dx);
+  grid->dky = TWOPI / ((double)grid->ny * grid->dy);
+  grid->dkz = TWOPI / ((double)grid->nz * grid->dz);
+  
   // Prepare scaling factors for dielectric screening
   ex_1 = 1.0 / par->epsX;
   ey_1 = 1.0 / par->epsY;
@@ -54,10 +57,11 @@ void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *
   sqrtexeyez_1 = 1.0 / sqrt(par->epsX * par->epsY * par->epsZ);
   sqrtaveps = sqrt((par->epsX + par->epsY + par->epsZ) / 3.0);
   gammaeps = gamma * sqrtaveps;
-
+  
+  
   /*** no yukawa screening for the exchange ***/
   sqrk0 = gamma2 * sqr(sqrtaveps);
-
+  
   // Allocate memory to arrays for computing Coulomb kernel in k-space
   if ((kx2  = (double*)calloc(grid->nx, sizeof(double)))==NULL){
     fprintf(stderr, "ERROR: allocating memory for kx2 in init.c\n");
@@ -82,11 +86,11 @@ void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *
   
   // Initialize the arrays
   for (kx2[0] = 0.0, jx = 1; jx <= grid->nx / 2; jx++)
-    kx2[jx] = (kx2[grid->nx-jx] = sqr((double)(jx) * par->dkx));
+    kx2[jx] = (kx2[grid->nx-jx] = sqr((double)(jx) * grid->dkx));
   for (ky2[0] = 0.0, jy = 1; jy <= grid->ny / 2; jy++)
-    ky2[jy] = (ky2[grid->ny-jy] = sqr((double)(jy) * par->dky));
+    ky2[jy] = (ky2[grid->ny-jy] = sqr((double)(jy) * grid->dky));
   for (kz2[0] = 0.0, jz = 1; jz <= grid->nz / 2; jz++)
-    kz2[jz] = (kz2[grid->nz-jz] = sqr((double)(jz) * par->dkz));
+    kz2[jz] = (kz2[grid->nz-jz] = sqr((double)(jz) * grid->dkz));
 
   for (jxyz = 0; jxyz < ist->ngrid; jxyz++) potr[jxyz].re = potr[jxyz].im = 0.0;
   for (jxyz = 0; jxyz < ist->ngrid; jxyz++) potrx[jxyz].re = potrx[jxyz].im = 0.0;
@@ -94,7 +98,7 @@ void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *
 
   // Compute the screened and bare Coulomb potential at all points on the grid
   for (jz = 0; jz < grid->nz; jz++) {
-    z2 =sqr(grid->x[jz]);
+    z2 = sqr(grid->x[jz]);
     for (jy = 0; jy < grid->ny; jy++) {
       y2 = sqr(grid->y[jy]);
       jyz = grid->nx * (grid->ny * jz + jy);
@@ -105,64 +109,68 @@ void init_elec_hole_kernel(zomplex *pot_direct, zomplex *pot_exchange, grid_st *
       	if (r2 < boxl2) {
       	  r = sqrt(x2 + y2 + z2);
       	  potr[jxyz].re = calc_coulomb(r, gamma);
-      	  r = sqrt(ex_1 * x2 + ey_1 * y2 + ez_1 * z2);
+      	  r = sqrt(ex_1*x2 + ey_1*y2 + ez_1*z2);
       	  potrx[jxyz].re = sqrtexeyez_1 * calc_coulomb(r, gammaeps);
       	}
       }
     }
   }
 
+  // Zero out the arrays for all potentials
   for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
-    pot_direct[jxyz].re = pot_direct[jxyz].im = pot_exchange[jxyz].re = pot_exchange[jxyz].im = 0.0;
+    pot_bare[jxyz].re = pot_bare[jxyz].im = pot_screened[jxyz].re = pot_screened[jxyz].im = 0.0;
   }
 
-  printf("\tScreened direct Coulomb term...\n");
+
+  printf("\tBare Coulomb potential, v(r, r')...\n");
   memcpy(&fftwpsi[0], &potr[0], ist->ngrid*sizeof(fftwpsi[0]));
   fftw_execute(planfw);
-  memcpy(&pot_direct[0], &fftwpsi[0], ist->ngrid*sizeof(pot_direct[0]));
+  memcpy(&pot_bare[0], &fftwpsi[0], ist->ngrid*sizeof(pot_bare[0]));
 
-  printf("\tBare exchange Coulomb term...\n");
+  printf("\tScreened Coulomb potential, W(r, r')...\n");
   memcpy(&fftwpsi[0], &potrx[0], ist->ngrid*sizeof(fftwpsi[0]));
   fftw_execute(planfw);
-  memcpy(&pot_exchange[0], &fftwpsi[0], ist->ngrid*sizeof(pot_exchange[0]));
+  memcpy(&pot_screened[0], &fftwpsi[0], ist->ngrid*sizeof(pot_screened[0]));
   
-  for (sz = 1.0, jz = 0; jz < grid->nz; jz++, sz = -sz) {
+  
+  for (jz = 0; jz < grid->nz; jz++) {
     z2 = kz2[jz];
-    for (sy = 1.0, jy = 0; jy < grid->ny; jy++, sy = -sy) {
-      y2 = ky2[jy];
+    for (jy = 0; jy < grid->ny; jy++) {
+      y2 = ky2[jy]; 
       jyz = grid->nx * (grid->ny * jz + jy);
-      for (sx = 1.0, jx = 0; jx < grid->nx; jx++, sx = -sx) {
+      for (jx = 0; jx < grid->nx; jx++) {
       	x2 = kx2[jx];
       	jxyz = jyz + jx;
       	alpha = PIE * (double)(jx + jy + jz + ist->ngrid / 2);
       	cosa = cos(alpha);
       	sina = sin(alpha);
-
-      	/*** hartree term ***/
-      	tmp.re = pot_direct[jxyz].re;
-      	tmp.im = pot_direct[jxyz].im;
-      	
-      	pot_direct[jxyz].re = (tmp.re * cosa - tmp.im * sina) * par->dv;
-      	pot_direct[jxyz].im = (tmp.re * sina + tmp.im * cosa) * par->dv;
-      	pot_direct[jxyz].re += (FOURPI / (x2 + y2 + z2 + gamma2));
-      	pot_direct[jxyz].re *= ist->ngrid_1;
-      	pot_direct[jxyz].im *= ist->ngrid_1;
-
-      	/*** screened exchange term ***/
-      	tmp.re = pot_exchange[jxyz].re;
-      	tmp.im = pot_exchange[jxyz].im;
-
-      	pot_exchange[jxyz].re = (tmp.re * cosa - tmp.im * sina) * par->dv;
-      	pot_exchange[jxyz].im = (tmp.re * sina + tmp.im * cosa) * par->dv;
-      	
-      	pot_exchange[jxyz].re += (FOURPI * (1.0 - exp(-0.25 * (par->epsX * x2 + par->epsY * y2 + par->epsZ * z2) / sqrk0)) / (par->epsX * x2 + par->epsY * y2 + par->epsZ * z2 + EPSR));
         
-		    pot_exchange[jxyz].re *= ist->ngrid_1;
-      	pot_exchange[jxyz].im *= ist->ngrid_1;
+      	/*** hartree term ***/
+      	tmp.re = pot_bare[jxyz].re;
+      	tmp.im = pot_bare[jxyz].im;
+      	
+      	pot_bare[jxyz].re = (tmp.re * cosa - tmp.im * sina) * grid->dv;
+      	pot_bare[jxyz].im = (tmp.re * sina + tmp.im * cosa) * grid->dv;
+      	pot_bare[jxyz].re += (FOURPI / (x2 + y2 + z2 + gamma2));
+      	pot_bare[jxyz].re *= ist->ngrid_1;
+      	pot_bare[jxyz].im *= ist->ngrid_1;
+
+      	/*** screened Coulomb term ***/
+      	tmp.re = pot_screened[jxyz].re;
+      	tmp.im = pot_screened[jxyz].im;
+
+      	pot_screened[jxyz].re = (tmp.re * cosa - tmp.im * sina) * grid->dv;
+      	pot_screened[jxyz].im = (tmp.re * sina + tmp.im * cosa) * grid->dv;
+      	
+      	pot_screened[jxyz].re += (FOURPI * (1.0 - exp(-0.25 * (par->epsX * x2 + par->epsY * y2 + par->epsZ * z2) / sqrk0)) / (par->epsX * x2 + par->epsY * y2 + par->epsZ * z2 + EPSR));
+        
+		    pot_screened[jxyz].re *= ist->ngrid_1;
+      	pot_screened[jxyz].im *= ist->ngrid_1;
       }
     }
   }
 
+  printf("  Done generating e-h interaction potential.\n");
   free(potr);  free(potrx); free(kx2); free(ky2); free(kz2);
 
   return;
@@ -177,8 +185,8 @@ double calc_coulomb(double r, double gamma){
   * dielectric constant, and the exchange term is unscreened (bare)  *
   * according to the derivation by Rohlfing and Louie: PRB 62 (8)    *
   * inputs:                                                          *
-  *  [pot_direct] array to hold value of the direct Coulomb pot      *
-  *  [pot_exchange] array to hold value of the screened exchange pot *
+  *  [pot_bare] array to hold value of the direct Coulomb pot      *
+  *  [pot_screened] array to hold value of the screened exchange pot *
   *  [grid] grid_st instance holding values of all grid points       *
   *  [ist] ptr to counters, indices, and lengths                     *
   *  [par] ptr to par_st holding VBmin, VBmax... params              *

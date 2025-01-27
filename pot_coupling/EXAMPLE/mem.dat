@@ -1,3 +1,27 @@
 alloc ist.atom_types 160 B
 alloc top 2 B
 alloc bottom 2 B
+alloc grid.x 1544 B
+alloc grid.y 1544 B
+alloc grid.z 1544 B
+alloc ist.eval_hole_idxs 1544 B
+alloc ist.eval_elec_idxs 1544 B
+alloc psi_hole 2300498240 B
+alloc psi_elec 920199296 B
+alloc psi_qp 3220697536 B
+
+******************************************************************************
+
+total mem usage 6441 MB
+
+******************************************************************************
+free psitot 44399616032 B
+free psi_hole 2300498240 B
+free psi_elec 920199296 B
+free sigma_E 1544 B
+
+******************************************************************************
+
+total mem usage -41178 MB
+
+******************************************************************************

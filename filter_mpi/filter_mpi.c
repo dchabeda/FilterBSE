@@ -156,14 +156,11 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
           jgrid_real = ist->complex_idx * jgrid;
           jgrid_imag = ist->complex_idx * jgrid + 1;
 
-          #pragma omp atomic
           psi_rank[jstate + jgrid_real] += (an[ncjms+jc].re * psi[jgrid].re - an[ncjms+jc].im * psi[jgrid].im);
-          #pragma omp atomic
           psi_rank[jstate + jgrid_imag] += (an[ncjms+jc].re * psi[jgrid].im + an[ncjms+jc].im * psi[jgrid].re);
         }
       } else{
         for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
-          #pragma omp atomic
           psi_rank[jstate + jgrid] += an[ncjms+jc].re * psi[jgrid].re ; 
         }
       }

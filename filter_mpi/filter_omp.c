@@ -126,13 +126,17 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     }
     
     // Populate psi with the random initial wavefunction of filter cycle jns
-    for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-      jgrid_real = ist->complex_idx * jgrid;
-      jgrid_imag = ist->complex_idx * jgrid + 1;
+    if (1 == flag->isComplex){
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = ist->complex_idx * jgrid + 1;
 
-      psi[jgrid].re = psi_rank[ns_block + jgrid_real];
-      if (1 == flag->isComplex){
+        psi[jgrid].re = psi_rank[ns_block + jgrid_real];
         psi[jgrid].im = psi_rank[ns_block + jgrid_imag];
+      }
+    } else{
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        psi[jgrid].re = psi_rank[ns_block + jgrid];
       }
     }
     
@@ -238,7 +242,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   
   /***********************************************************************/
   /*** normalize the states and get their energies***/
-  if (parallel->mpi_rank == 0) printf("Normalizing filtered states\n"); fflush(stdout);
+  if (parallel->mpi_rank == 0) printf("\n  4.3 Normalizing filtered states\n"); fflush(stdout);
   normalize_all(psi_rank,ist->n_states_per_rank,ist,par,flag,parallel);
   
   // double *rho, sgn_val;
@@ -271,7 +275,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   // Get the energy of all the filtered states
   if ((ene_filters = (double*)calloc(ist->n_filters_per_rank*ist->m_states_per_filter,sizeof(double)))==NULL)nerror("ene_filters");
   
-  if (parallel->mpi_rank == 0) printf("Computing the energies of all filtered states\n"); fflush(stdout);
+  if (parallel->mpi_rank == 0) printf("\n  4.4 Computing the energies of all filtered states\n"); fflush(stdout);
   /*** calculate and print the energy of the filtered states ***/
   energy_all(psi_rank,ist->n_states_per_rank,pot_local,nlc,nl,ksqr,ene_filters,ist,par,flag,parallel);
 

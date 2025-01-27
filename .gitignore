@@ -1,5 +1,4 @@
 *.o
 *.x
-Makefile
 *.e*
 *.o*

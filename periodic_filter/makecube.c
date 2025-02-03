@@ -9,12 +9,13 @@ int countlines(char *filename);
 /*****************************************************************************/
 int main(int argc, char *argv[])
 {
-  FILE *ppsi;  double *psi;
+  FILE *ppsi;
   // custom structs 
   grid_st grid; par_st par; index_st ist; parallel_st parallel; flag_st flag;
   xyz_st *R; atom_info *atom;
   // double arrays
-  double *rho; 
+  double *rho;
+  double *psi;
   // long int arrays and counters
   long i, i_re, i_im, jms;
   long j, start, end;
@@ -22,6 +23,9 @@ int main(int argc, char *argv[])
   ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
   time_t currentTime = time(NULL);
 
+  parallel.mpi_size = 1;
+  parallel.mpi_rank = 0;
+  parallel.mpi_root = 0;
 
   //command line input parsing
   if (argc!=3){
@@ -58,13 +62,11 @@ int main(int argc, char *argv[])
   
   /*** read the nanocrystal configuration ***/
   printf("\nReading atomic configuration from conf.par:\n"); fflush(0);
-  char *file_name; file_name = malloc(9*sizeof(file_name[0]));
-  strcpy(file_name, "conf.par");
-  read_conf(file_name, R, atom, &ist, &par, &flag);
+  read_conf(R, atom, &ist, &par, &flag, &parallel);
   
   /*** initialize the grid ***/
   printf("\nInitializing the grid parameters:\n"); fflush(0);
-  init_grid_params(&grid, R, &ist, &par, &flag);
+  init_grid_params(&grid, R, &ist, &par, &flag, &parallel);
 
   if ((rho = (double *)calloc(ist.ngrid, sizeof(double)))==NULL) nerror("rho");
 
@@ -74,14 +76,13 @@ int main(int argc, char *argv[])
   //printf("%ld total states in psi.dat\n", jms); fflush(0);
   
   //allocate memory for psi
-  if ((psi = (double *) calloc(ist.complex_idx * ist.nspinngrid, sizeof(double))) == NULL) nerror("psi");
+  if ((psi = (double *) calloc(ist.nspinngrid, sizeof(double))) == NULL) nerror("psi");
 
 
   //read psi from file
 	ppsi = fopen("psi.dat" , "r");
 
-	
-  char filename[20];
+	char filename[20];
   // long file_ptr_loc;
   for (j = start; j <= end; j++){ 
     printf("Reading state %ld from psi.dat\n", j);
@@ -126,6 +127,10 @@ int main(int argc, char *argv[])
     }
   }
   fclose(ppsi);  
+
+  free(rho); free(psi);
+  free(ist.atom_types);
+  free(R); free(atom);
 
   printf("Done with makecube.x\n\n");
   return 0;

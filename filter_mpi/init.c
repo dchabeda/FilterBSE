@@ -3,7 +3,7 @@
 
 /*****************************************************************************/
 
-void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, parallel_st *parallel){
+void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*****************************************************************
   * This function initializes the parameters for building the grid *
   * The input geometry size is computed to ensure the number of    *
@@ -336,7 +336,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
 
   omp_set_dynamic(0);
   omp_set_num_threads(parallel->nthreads);
-#pragma omp parallel for private(dx,dy,dz,del,jy,jx,jyz,jxyz,sum,jatom)
+  #pragma omp parallel for private(dx,dy,dz,del,jy,jx,jyz,jxyz,sum,jatom)
   for (jz = 0; jz < grid->nz; jz++) {
     for (jy = 0; jy < grid->ny; jy++) {
       jyz = grid->nx * (grid->ny * jz + jy);
@@ -520,7 +520,15 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
           for (rpoint = 0; rpoint < PROJ_LEN; rpoint++){
             fscanf(pNL, "%lf %lf\n", &scratch, &nlcprojectors[PROJ_LEN * iproj + rpoint]);
           }
-        } //else {fprintf(stderr, "Cannot open file %s\n", projNL_file);}
+          fclose(pNL);
+        } else {
+          if (55 != atom[jatom].Zval){
+            // If any atom not a Cs atom is missing its file, this is BAD
+            printf("Cannot open %s file %s\n", atom[jatom].atyp, projNL_file);
+            fprintf(stderr, "Cannot open %s file %s\n", atom[jatom].atyp, projNL_file);
+            exit(EXIT_FAILURE);
+          }
+        }
       }
 
       // NL_projector signs
@@ -536,7 +544,15 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
             sgnProj[iproj] = 1;
           }
         }
-      } // else {fprintf(stderr,"Cannot open file %s\n", sgnNL_file);}
+        fclose(pSgn);
+      } else {
+        if (55 != atom[jatom].Zval){
+            // If any atom not a Cs atom is missing its file, this is BAD
+            printf("Cannot open %s file %s\n", atom[jatom].atyp, sgnNL_file);
+            fprintf(stderr, "Cannot open %s file %s\n", atom[jatom].atyp, sgnNL_file);
+            exit(EXIT_FAILURE);
+          }
+      }
     }
     
     

@@ -2,7 +2,7 @@
 
 /*****************************************************************************/
 
-double energy(zomplex *psi, zomplex *phi, double *pot_local, nlc_st *nlc, long *nl, double *ksqr, index_st *ist,
+double energy(zomplex *psi, zomplex *phi, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl, double *ksqr, index_st *ist,
   par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi){
   /*******************************************************************
   * This function calculates Exp[E] of a filtered state by evaluating*
@@ -28,7 +28,7 @@ double energy(zomplex *psi, zomplex *phi, double *pot_local, nlc_st *nlc, long *
   double ene = 0.0;
 
   memcpy(&phi[0], &psi[0], ist->nspinngrid*sizeof(phi[0]));
-  hamiltonian(phi, psi, pot_local, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
+  hamiltonian(phi, psi, pot_local, atom, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
 
   for (i = 0; i < ist->nspinngrid; i++) {
     ene += (psi[i].re * phi[i].re + psi[i].im * phi[i].im);
@@ -40,7 +40,7 @@ double energy(zomplex *psi, zomplex *phi, double *pot_local, nlc_st *nlc, long *
 
 /***************************************************************************/
 
-void energy_all(double *psitot, double *pot_local, nlc_st *nlc, long *nl,double *ksqr,
+void energy_all(double *psitot, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl,double *ksqr,
   double *ene_filters, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function calculates Exp[E] of all filtered states           *
@@ -101,7 +101,7 @@ void energy_all(double *psitot, double *pot_local, nlc_st *nlc, long *nl,double 
     }
     
     memcpy(&phi[0], &psi[0], ist->nspinngrid*sizeof(phi[0]));
-    hamiltonian(phi, psi, pot_local, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
+    hamiltonian(phi, psi, pot_local, atom, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
     // Compute the expectation value <psi|H|psi>
     // The quantity H|psi> is stored in phi
     ene_filters[jmn] = 0.0;
@@ -122,7 +122,7 @@ void energy_all(double *psitot, double *pot_local, nlc_st *nlc, long *nl,double 
 
 /***************************************************************************/
 
-void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid, nlc_st *nlc, long *nl, double *ksqr,\
+void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, atom_info *atom, grid_st *grid, nlc_st *nlc, long *nl, double *ksqr,\
   index_st *ist, par_st *par, parallel_st *parallel, flag_st *flag, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
   /*******************************************************************
   * This function calculates the range of the Hamiltonian spectrum   *
@@ -168,7 +168,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
       // Apply the Hamiltonian, shift orig by |phi>, and normalize (equivalent to forward imag. time propagation step)
       memcpy(&psi[0], &phi[0], ist->nspinngrid*sizeof(phi[0]));
       
-      hamiltonian(phi, psi, pot_local, nlc, nl,ksqr, ist, par, flag, planfw, planbw, fftwpsi);
+      hamiltonian(phi, psi, pot_local, atom, nlc, nl,ksqr, ist, par, flag, planfw, planbw, fftwpsi);
       
       for (ispn = 0; ispn < ist->nspin; ispn++) {
         for (jgrid = 0; jgrid < ist->ngrid; jgrid++) {
@@ -180,7 +180,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
       norma = normalize(&phi[0], ist->nspinngrid, ist, par, flag, parallel);
       // set Emin for next iteration
       ene_old = Emin;
-      Emin = energy(phi, psi, pot_local, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
+      Emin = energy(phi, psi, pot_local, atom, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
       // print progress
       fprintf(pf, "%ld %.16g %.16g %.16g\n", i, ene_old, Emin, fabs((Emin - ene_old) / Emin)); fflush(pf);
 
@@ -203,12 +203,12 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
     for (i = 0; (fabs((Emax-ene_old)/Emax)>1.0e-6) & (i < max_iter); i++){
       // Apply the Hamiltonian and normalize (equivalent to propagation step)
       memcpy(&phi[0], &psi[0], ist->nspinngrid*sizeof(phi[0]));
-      hamiltonian(psi, phi, pot_local,nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
+      hamiltonian(psi, phi, pot_local, atom, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
       
       norma = normalize(&psi[0], ist->nspinngrid, ist, par, flag, parallel);
       // reset the max energy after the last iteration
       ene_old = Emax;
-      Emax = energy(psi,phi,pot_local,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
+      Emax = energy(psi,phi,pot_local,atom,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
       // print progress
       fprintf (pf,"%ld %.16g %.16g %.16g\n", i, ene_old, Emax, fabs((Emax-ene_old)/Emax)); fflush(pf);
     }
@@ -241,7 +241,7 @@ void get_energy_range(zomplex *psi,zomplex *phi,double *pot_local, grid_st *grid
 
 /****************************************************************************************/
 
-void calc_sigma_E(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+void calc_sigma_E(double *psitot, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl, double *ksqr,
   double *sigma_E,index_st *ist,par_st *par,flag_st *flag){
   /*******************************************************************
   * This function calculates the quality of the eigenstates by       *
@@ -303,7 +303,7 @@ void calc_sigma_E(double *psitot, double *pot_local, nlc_st *nlc, long *nl, doub
     }
     memcpy(&phi[0],&psi[0],ist->nspinngrid*sizeof(phi[0]));
     // Apply the Hamiltonian to |psi>: |phi> = H|psi>
-    hamiltonian(phi, psi, pot_local, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
+    hamiltonian(phi, psi, pot_local, atom, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
     // Calculate the expectation value of H for wavefunc psi: <psi|H|psi> = <psi|phi> = sum_{jgrid} psi[jgrid] * phi[jgrid] * dv
     for (eval = 0.0, jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
       jgrid_real = ist->complex_idx*jgrid;
@@ -318,7 +318,7 @@ void calc_sigma_E(double *psitot, double *pot_local, nlc_st *nlc, long *nl, doub
     
     // Apply the Hamiltonian again onto phi: H|phi> = H^2|psi>
     memcpy(&psi[0], &phi[0], ist->nspinngrid*sizeof(psi[0]));
-    hamiltonian(phi, psi, pot_local, nlc, nl, ksqr, ist, par,flag, planfw, planbw, fftwpsi);
+    hamiltonian(phi, psi, pot_local, atom, nlc, nl, ksqr, ist, par,flag, planfw, planbw, fftwpsi);
     // Calculate the expectation value of H^2: <psi|H^2|psi>
     for (eval2 = 0.0, jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
       jgrid_real = ist->complex_idx*jgrid;

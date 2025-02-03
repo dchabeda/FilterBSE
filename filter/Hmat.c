@@ -2,7 +2,7 @@
 
 /*****************************************************************************/
 
-void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,parallel_st *parallel, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
+void diag_H(double *psitot,double *pot_local, atom_info *atom, nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,parallel_st *parallel, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
   /*******************************************************************
   * This function calculates eigenvalues and vectors of the real or  *
   * complex valued matrix, H, where H_ij = <psi_i|H|psi_j>           *
@@ -80,7 +80,7 @@ void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,d
       }
     }
     memcpy(&phi[0],&psi[0],ist->nspinngrid*sizeof(phi[0]));
-    hamiltonian(phi,psi,pot_local,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
+    hamiltonian(phi,psi,pot_local,atom,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
 
     /*** calculate <psi_j|H|psi_i> ***/
     #pragma omp parallel for private(jms, jgrid, jgrid_real, jgrid_imag) shared(H, H_z)

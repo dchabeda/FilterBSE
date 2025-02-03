@@ -17,7 +17,7 @@ void gen_SO_projectors(double dx, double rcut, long nproj, double*  projectors, 
 	double dr = rcut / ((double) N);
 	double r;
 	double sum, preFactor;
-	int i,j,rpoint,kpoint,projector;
+	int i, j, rpoint, kpoint, projector;
 	FILE *pf;
 	char fileName[100];
 
@@ -26,7 +26,7 @@ void gen_SO_projectors(double dx, double rcut, long nproj, double*  projectors, 
 
 	double *A = calloc(N*N, sizeof(double));	
 	//calculate the matrix of integrals for each ki and kj (symmetry assisted for i<-->j)
-	#pragma omp parallel for private(i,j,rpoint,ki,kj,sum,r)
+	#pragma omp parallel for private(i, j, rpoint, ki, kj, sum, r)
 	for ( i = 0; i < N; i++) {
 		ki = (double) i * dk;
 		for ( j = 0; j <= i; j++) {

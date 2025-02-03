@@ -1,6 +1,6 @@
 #include "fd.h"
 
-void calc_pot_overlap(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par,index_st *ist, flag_st *flag){
+void calc_pot_overlap(double *psitot, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl, double *eval, par_st *par,index_st *ist, flag_st *flag){
   FILE *pf, *pf1; 
   long i, a, istate, astate, jgridup, jgriddn, jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag; 
   zomplex tmp;
@@ -34,7 +34,7 @@ void calc_pot_overlap(double *psitot, double *pot_local, nlc_st *nlc, long *nl, 
     }
     
     // Compute the potential |phi> = Vloc + Vnonlocal + Vso|psi>
-    potential(phi, psi, pot_local, nlc, nl, ist, par, flag);
+    potential(phi, psi, pot_local, atom, nlc, nl, ist, par, flag);
     
     //for (i = 0; i < ist->total_homo; i++){
     // Make sure g is zero'd to begin with
@@ -76,7 +76,7 @@ void calc_pot_overlap(double *psitot, double *pot_local, nlc_st *nlc, long *nl, 
     }
     
     // Compute the potential |phi> = Vloc + Vnonlocal + Vso|psi>
-    potential(phi, psi, pot_local, nlc, nl, ist, par, flag);
+    potential(phi, psi, pot_local, atom, nlc, nl, ist, par, flag);
     
     //for (a = ist->lumo_idx; a < ist->lumo_idx + ist->total_lumo; a++){
     // Make sure g is zero'd to begin with

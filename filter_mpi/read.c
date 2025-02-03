@@ -34,6 +34,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   par->checkpoint_id = 0;
   flag->approxEnergyRange = 0;
   strcpy(par->fft_wisdom_dir, ""); //By default try to find fft wisdom in current directory
+  flag->periodic = 0;
+  flag->useGaussianBasis = 0;
   // Pseudopotential parameters
   ist->max_pot_file_len = 8192;
   flag->useStrain = 0; // By default, do not compute strain dependent terms in pseudopotential
@@ -46,6 +48,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   par->scale_surface_Cs = 1.0; // By default, do not charge balance the surface Cs atoms
   flag->readProj = 0;
   par->psi_zero_cut = 1e-16;
+  par->R_gint_cut2 = 0;
   // Hamiltonian parameters
   // Spin-orbit and non-local terms
   flag->useSpinors = 0; // default is to use non-spinor wavefunctions
@@ -110,6 +113,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "centerConf")) {
           flag->centerConf = strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "box_Z")) {
+          par->box_z = strtod(tmp, &endptr);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
@@ -188,6 +194,15 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "fftWisdomDir")) {
           strcpy(par->fft_wisdom_dir, tmp);
+      } else if (!strcmp(field, "useGaussianBasis")) {
+          flag->useGaussianBasis = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nOrbitalsPerAtom")) {
+          par->n_orbitals_per_atom = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nGaussPerOrbital")) {
+          par->n_gauss_per_orbital = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for parallelization
@@ -373,7 +388,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
     flag->restartFromCheckpoint = 1;
     ist->mn_states_tot = ist->n_states_for_ortho;
   }
-  
+
   // Handle nested parallelism
   parallel->n_outer_threads = parallel->nthreads;
   if (1 == parallel->nestedOMP){
@@ -402,6 +417,11 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
     fprintf(stderr, "ERROR: conf.par must be in current working directory\n");
     exit(EXIT_FAILURE);
   } 
+
+  if (1 == flag->useGaussianBasis){
+    par->n_orbitals = par->n_orbitals_per_atom * ist->natoms;
+    ist->mn_states_tot = par->n_orbitals;
+  }
 
   // Using input parameters, print the current job state
   if (parallel->mpi_rank == 0){

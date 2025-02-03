@@ -27,6 +27,8 @@ typedef struct flag {
   int restartFromOrtho, retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint, saveOutput;
   int approxEnergyRange, readProj;
   int useFastHam, useMPIOMP;
+  int periodic;
+  int useGaussianBasis;
 } flag_st;
 
 typedef struct index {
@@ -59,6 +61,11 @@ typedef struct par {
   char fft_wisdom_dir[200], fftw_wisdom[250];
   double psi_zero_cut;
   int ham_threads;
+  double box_z;
+  int n_orbitals;
+  int n_orbitals_per_atom;
+  int n_gauss_per_orbital;
+  double R_gint_cut2;
   // Redundnacies
   double dv;
 } par_st;
@@ -118,7 +125,14 @@ typedef struct parallel{
   long *jns, *jms;
 } parallel_st;
 
+typedef struct gauss_st{
+  double Rx, Ry, Rz;
+  double *coeff, *exp;
+} gauss_st;
 
+typedef struct MO_st {
+  double *coeff;
+} MO_st;
 
 /*****************************************************************************/
 // Macro definitions
@@ -163,17 +177,25 @@ typedef struct parallel{
 // Function declarations
 
 //init.c
-void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, parallel_st *parallel);
+void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, atom_info *atom, grid_st *grid,
     index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par);
+void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void init_filter_states(double *psi_rank, zomplex *psi, grid_st *grid, long *rand_seed, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void init_psi(zomplex *psi, long *rand_seed, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 double calc_dot_dimension(xyz_st *R, long n, char *dir);
 double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int);
+
+// gauss.c
+void init_gauss_params(gauss_st *gauss, xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
+void diag_mat(double *mat, double *eigv, int n_dim);
+void build_gauss_hamiltonian(double *H_mat, double *T_mat, double *V_mat, index_st *ist, par_st *par);
+void proj_gauss_on_grid(MO_st *MO, gauss_st *gauss, grid_st *grid, int start, int end, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
+void calc_X_canonical(double *S_mat, double *X, double *U, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
+void transform_H(double *H_mat, double *X, double *eig_vals, MO_st *MO, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 
 //read.c
 void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);
@@ -230,7 +252,12 @@ void scale_eigs_for_cheby(zomplex *phi, zomplex *psi, double *pot_local, nlc_st 
   fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st *ist, par_st *par, flag_st *flag);
 int sign(float x);
 
-//norm.c
+// integral.c
+void overlap_gauss(double *S_mat, gauss_st *gauss, atom_info *atom, index_st *ist, par_st *par, flag_st *flag);
+void kinetic_gauss(double *T_mat, gauss_st *gauss, atom_info *atom, index_st *ist, par_st *par, flag_st *flag);
+void potential_gauss(double *V_mat, double *pot_local, gauss_st *gauss, grid_st *grid, atom_info *atom, index_st *ist, par_st *par, flag_st *flag);
+
+// norm.c
 double calc_norm(zomplex *, double,long,long);
 double normalize(zomplex *, long ngrid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void normalize_all(double *psitot, long n_states, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
@@ -295,5 +322,7 @@ void save_output(char *file_name, double *psitot, double *eig_vals, double *sigm
 
 // aux.c
 char* format_duration(double elapsed_seconds);
+void matmul(int M, int N, int K, double *A, double *B, double *X);
+void trans_mat(int N, double *U, double *A, double *Ap);
 //void mpi_print(const char *message);
 /*****************************************************************************/

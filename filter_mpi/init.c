@@ -3,7 +3,7 @@
 
 /*****************************************************************************/
 
-void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, parallel_st *parallel){
+void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*****************************************************************
   * This function initializes the parameters for building the grid *
   * The input geometry size is computed to ensure the number of    *
@@ -60,17 +60,46 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, para
   grid->dky = TWOPI / ((double)grid->ny * grid->dy);
 
   /***initial parameters for the pot reduce mass, etc. in the z direction ***/
-  grid->zmin = -zd;
-  grid->zmax = zd - grid->dz;
-  ntmp  = (long)((grid->zmax - grid->zmin) / grid->dz);
-  if (parallel->mpi_rank == 0) printf("\tThe z_min = %lg and z_max %lg\n", grid->zmin, grid->zmax);
-  if (ntmp > grid->nz){
-    if (parallel->mpi_rank == 0) printf("\tinput nz insufficient; updating parameter.\n");
-    grid->nz = ntmp;
-  }
-  grid->zmin = -((double)(grid->nz) * grid->dz) / 2.0;
-  grid->zmax = ((double)(grid->nz) * grid->dz) / 2.0;
+  // Handle possible periodic z direction
+  if (0 == flag->periodic){
+    grid->zmin = -zd;
+    grid->zmax = zd - grid->dz;
+    ntmp  = (long)((grid->zmax - grid->zmin) / grid->dz);
+    printf("\tThe z_min = %lg and z_max %lg\n", grid->zmin, grid->zmax);
+    if ( (ntmp > grid->nz) && (0 == flag->periodic) ){
+      printf("\tinput nz insufficient; updating parameter.\n");
+      grid->nz = ntmp;
+    }
 
+    grid->zmin = -((double)(grid->nz) * grid->dz) / 2.0;
+    grid->zmax = ((double)(grid->nz) * grid->dz) / 2.0;
+  } 
+  else if ( (1 == flag->periodic) && (0.0 != par->box_z) ){
+    // Generate the box in the periodic z direction
+    // Determine if the number of grid points chosen is sufficient for the max grid spacing
+    printf("\tUsing periodic box of length %lg Bohr in z dim\n", par->box_z);
+    double dz;
+    int nz;
+    dz = par->box_z / grid->nz;
+    if (dz < grid->dz){
+      grid->dz = dz;
+    } else{
+      // Increase the number of gridpts to have a grid spacing below grid->dz
+      grid->nz = (int)(par->box_z / grid->dz) + 1;
+      grid->dz = par->box_z / grid->nz;
+      printf("\tModify periodic box grid: nz = %ld dz = %lg\n", grid->nz, grid->dz);
+    }
+
+    grid->zmin = - par->box_z / 2;
+    grid->zmax = par->box_z / 2;
+    printf("\t-L/2 = %lg L/2 = %lg\n", grid->zmin, grid->zmax);
+  } 
+  else {
+    printf("ERROR: periodic flag set but box_z = 0.0!\n");
+    fprintf(stderr, "ERROR: periodic flag set but box_z = 0!\n");
+    exit(EXIT_FAILURE);
+  }
+  
   grid->dkz = TWOPI / ((double)grid->nz * grid->dz);
   
   grid->nx_1 = 1.0 / (double)(grid->nx);
@@ -168,11 +197,20 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_
     ist->n_NL_gridpts = 0;
     for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
       for (jtmp =0, jz = 0; jz < grid->nz; jz++) {
+        dz = grid->z[jz] - R[jatom].z;
+        
+        // Implement periodic boundary conditions
+        if (1 == flag->periodic){
+          // if dz > l/2, compute distance to periodic replica
+          if ( dz > par->box_z/2) dz -= par->box_z;
+          if ( dz < -par->box_z/2) dz += par->box_z;
+        }
+        
         for (jy = 0; jy < grid->ny; jy++) {
+          dy = grid->y[jy] - R[jatom].y;
           for (jx = 0; jx < grid->nx; jx++) {
             dx = grid->x[jx] - R[jatom].x;
-            dy = grid->y[jy] - R[jatom].y;
-            dz = grid->z[jz] - R[jatom].z;
+            
             if (dx*dx + dy*dy + dz*dz < par->R_NLcut2) {
               jtmp++; 
             }
@@ -280,7 +318,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
   ********************************************************************/
 
   long jx, jy, jz, jyz, jxyz, jatom;
-  double del, dx, dy, dz;
+  double dist, dist2, dx, dy, dz;
   double sum;
   vector *atom_neighbor_list;
   double *strain_scale;
@@ -336,7 +374,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
 
   omp_set_dynamic(0);
   omp_set_num_threads(parallel->nthreads);
-#pragma omp parallel for private(dx,dy,dz,del,jy,jx,jyz,jxyz,sum,jatom)
+  #pragma omp parallel for private(dx,dy,dz,dist,dist2,jy,jx,jyz,jxyz,sum,jatom)
   for (jz = 0; jz < grid->nz; jz++) {
     for (jy = 0; jy < grid->ny; jy++) {
       jyz = grid->nx * (grid->ny * jz + jy);
@@ -346,7 +384,15 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
       	  dx = grid->x[jx] - R[jatom].x;
       	  dy = grid->y[jy] - R[jatom].y;
       	  dz = grid->z[jz] - R[jatom].z;
-      	  del = sqrt(dx * dx + dy * dy + dz * dz);
+
+          // Implement periodic boundary conditions
+          if (1 == flag->periodic){
+            // if dz > l/2, compute distance to periodic replica
+            if ( dz > par->box_z/2) dz -= par->box_z;
+            if ( dz < -par->box_z/2) dz += par->box_z;
+          }
+
+      	  dist2 = sqrt(dx * dx + dy * dy + dz * dz);
 
           // If strain dependent terms are requested, then set strain_factor to be the strain term for this atom
           if (1 == flag->useStrain){
@@ -355,17 +401,19 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
           // If potential interpolation is requested, then the potential needs to be the weighted average of the two geometries
           if (flag->interpolatePot == 1){
             if ((jxyz == 0)&& (jatom == 0)) if (parallel->mpi_rank == 0) printf("\tComputing interpolated cubic/ortho potential\n"); 
+            dist = sqrt(dist2);
             //cubic part of the function
-            sum += (1.0-atom[jatom].geom_par)*interpolate(del,pot->dr[2*atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
+            sum += (1.0-atom[jatom].geom_par)*interpolate(dist,pot->dr[2*atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
                 pot->file_lens[2*atom[jatom].idx],2*atom[jatom].idx,scale_LR,atom[jatom].LR_par, strain_factor, flag->LR);
             //ortho part of the function
-            sum += (atom[jatom].geom_par)*interpolate(del,pot->dr[2*atom[jatom].idx+1],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
+            sum += (atom[jatom].geom_par)*interpolate(dist,pot->dr[2*atom[jatom].idx+1],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
                 pot->file_lens[2*atom[jatom].idx+1],2*atom[jatom].idx+1,scale_LR,atom[jatom].LR_par, strain_factor, flag->LR);
           } 
           // Default route without potential interpolation between geometries
           else {
             if ((jxyz == 0) && (jatom == 0)) if (parallel->mpi_rank == 0) printf("\tComputing potential without interpolating over cubic/ortho parameters\n\n"); 
-      	    sum += interpolate(del,pot->dr[atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
+      	    dist = sqrt(dist2);
+            sum += interpolate(dist,pot->dr[atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
                 pot->file_lens[atom[jatom].idx],atom[jatom].idx,scale_LR,atom[jatom].LR_par, strain_factor, flag->LR);
           }
       	}
@@ -393,7 +441,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
 }
 
 /*****************************************************************************/
-void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atom, index_st *ist, par_st *par){
+void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function initializes the spin-orbit pot projectors.         *
   * It also calculates the number of grid points within R_NL_cut2    *
@@ -407,10 +455,14 @@ void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_in
   * outputs: void                                                    *
   ********************************************************************/
   
+  FILE *pf;
   int rpoint;
   double dr, dr_proj, *vr; 
+  double proj;
   long N = PROJ_LEN;
-
+  long jatom;
+  int iproj;
+  char fileName[50];
   // Compute a grid on which to defining the spherical harmonics and ang.mom. radial functions
   // name the grid vr, allocate memory
   if ((vr = (double*) calloc(N, sizeof(double)))==NULL){nerror("mem_vr");}
@@ -421,13 +473,27 @@ void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_in
 	}
   dr_proj = vr[1];
 
-  //gen projectors on the fly
-  gen_SO_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, SO_projectors, vr); 
-  
+  if (flag->readProj == 0){
+    //gen projectors on the fly
+    gen_SO_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, SO_projectors, vr); 
+  } 
+  else if (flag->readProj == 1){
+    for (iproj = 0; iproj < ist->nproj; iproj++){
+      sprintf(fileName, "projectorSO_%d.dat", iproj);
+      pf = fopen(fileName, "r");
+      for (rpoint = 0; rpoint < N; rpoint++){
+        fscanf(pf, "%lg %lg", &(vr[0]), &proj);
+        SO_projectors[iproj*N + rpoint] = proj;
+      }
+      fclose(pf);
+    }
+  } else {
+    printf("ERROR: readProj value %d not recognized\n", flag->readProj);
+    fprintf(stderr, "ERROR: readProj value %d not recognized\n", flag->readProj);
+    exit(EXIT_FAILURE);
+  }
+
   // Print the spin-orbit parameters for each atom for use in the coupling code
-  FILE *pf;
-  long jatom;
-  char fileName[50];
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++){
     if (atom[jatom].SO_par != 0) {
       sprintf(&fileName[0], "SO_proj_const_%ld.dat", jatom);
@@ -520,6 +586,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
           for (rpoint = 0; rpoint < PROJ_LEN; rpoint++){
             fscanf(pNL, "%lf %lf\n", &scratch, &nlcprojectors[PROJ_LEN * iproj + rpoint]);
           }
+          fclose(pNL);
         } //else {fprintf(stderr, "Cannot open file %s\n", projNL_file);}
       }
 
@@ -536,6 +603,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
             sgnProj[iproj] = 1;
           }
         }
+        fclose(pSgn);
       } // else {fprintf(stderr,"Cannot open file %s\n", sgnNL_file);}
     }
     
@@ -543,6 +611,14 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
     nl[jatom] = 0;
     for (jz = 0; jz < grid->nz; jz++) {
       dz = grid->z[jz] - R[jatom].z;
+
+      // Implement periodic boundary conditions
+      if (1 == flag->periodic){
+        // if dz > l/2, compute distance to periodic replica
+        if ( dz > par->box_z/2) dz -= par->box_z;
+        if ( dz < -par->box_z/2) dz += par->box_z;
+      }
+
       dzeps = dz + EPSDX;
       for (jy = 0; jy < grid->ny; jy++) {
         jyz = grid->nx * (grid->ny * jz + jy);

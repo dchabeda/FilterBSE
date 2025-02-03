@@ -31,7 +31,7 @@ void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,d
 
   FILE *pg;
   long ims, jms, jgrid, jgrid_real, jgrid_imag;
-  long long mn_states_tot = (long long)ist->mn_states_tot, info, lwk = 3*ist->mn_states_tot;
+  int mn_states_tot = (int)ist->mn_states_tot, info, lwk = 3*ist->mn_states_tot;
   double *rwork, sumre, sumim; zomplex *tpsi;
   double *H, *work;
   MKL_Complex16 *H_z, *work_z;
@@ -255,3 +255,31 @@ MKL_Complex16 dotp(zomplex *psi, double *psitot,long m,long ngrid,double dv){
 }
 
 /*****************************************************************************/
+
+void diag_mat(double *mat, double *eigv, int n_dim){
+  /*******************************************************************
+  * This function calculates eigenvalues and vectors of the real or  *
+  * complex valued matrix, H, where H_ij = <psi_i|H|psi_j>           *
+  * It utilizes the MKL LAPACK routines to do the diagonalization    *
+  * REAL VALUED                                                      *
+  *  https://www.netlib.org/lapack/explore-html-3.6.1/d2/d8a/group__double_s_yeigen_ga442c43fca5493590f8f26cf42fed4044.html#ga442c43fca5493590f8f26cf42fed4044
+  * COMPLEX VALUED                                                   *
+  *   https://www.netlib.org/lapack/explore-html-3.6.1/d6/dee/zheev_8f_a70c041fd19635ff621cfd5d804bd7a30.html
+  */
+  long long info; 
+  long long lwk = (long long) 3 * n_dim;
+  long long N = (long long) n_dim;
+  double *work;
+
+  // Allocate memory for scratch work
+  work = (double *) calloc(lwk, sizeof(double));
+
+  //
+  //
+  dsyev_("V", "U", &N, &mat[0], &N, &eigv[0], &work[0], &lwk, &info);
+  //
+  //
+
+  free(work);
+
+}

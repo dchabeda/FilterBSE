@@ -20,8 +20,8 @@ MAINNAM = Filter
 Linux_CC = cc
 
 OBJECTS = \
-	main.o read.o init.o save.o projectors.o norm.o rand.o interpolate.o strain.o \
-	energy.o coeff.o hamiltonian.o ortho.o Hmat.o write.o nerror.o \
+	main.o read.o init.o gauss.o save.o projectors.o norm.o rand.o interpolate.o strain.o \
+	energy.o coeff.o hamiltonian.o ortho.o Hmat.o write.o nerror.o integral.o \
 	vector.o dipole.o angular.o pseudopotential.o aux.o phamiltonian.o
 
 OMP = $(OBJECTS) filter_omp.o

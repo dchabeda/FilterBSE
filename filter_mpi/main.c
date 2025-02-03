@@ -19,14 +19,23 @@ int main(int argc, char *argv[]){
   zomplex *psi, *phi, *an; 
   int i;
   // custom structs 
-  flag_st flag; index_st ist; par_st par; atom_info *atom; 
-  pot_st pot; grid_st grid; xyz_st *R; nlc_st *nlc = NULL; 
+  flag_st flag; 
+  index_st ist; 
+  par_st par; 
+  atom_info *atom; 
+  pot_st pot; 
+  grid_st grid;
+  gauss_st *gauss;
+  xyz_st *R; 
+  nlc_st *nlc = NULL; 
   parallel_st parallel; 
   // double arrays
   double *psitot, *psi_rank;
   double *ksqr, *zn, *pot_local, *rho; 
   double *eig_vals, *ene_targets, *sigma_E, inital_clock_t, initial_wall_t;
-  double *SO_projectors; 
+  double *SO_projectors;
+  double *S_mat = NULL, *T_mat = NULL, *V_mat = NULL;
+  double *H_mat;
   // long int arrays and counters
   long *nl = NULL;
   long jstate, jgrid, jgrid_real, jgrid_imag, jspin, jms, jns, rand_seed, thread_id;
@@ -85,7 +94,7 @@ int main(int argc, char *argv[]){
 
   /*** initialize parameters for the grid ***/
   if (parallel.mpi_rank == 0) printf("\nInitializing the grid parameters:\n");
-  init_grid_params(&grid, R, &ist, &par, &parallel);
+  init_grid_params(&grid, R, &ist, &par, &flag, &parallel);
 
   // Allocate memory for the grid in the x, y, and z directions ***/
   if ((grid.x = (double *) calloc(grid.nx, sizeof(double))) == NULL){
@@ -240,7 +249,7 @@ int main(int argc, char *argv[]){
       
       if(flag.SO==1) {
         if (parallel.mpi_rank == 0) printf("\nSpin-orbit pseudopotential:\n");
-        init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par);
+        init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par, &flag, &parallel);
         if (parallel.mpi_rank == 0) printf("\tSO projectors generated.\n");
       }
       /*** initialization for the non-local potential ***/
@@ -252,6 +261,92 @@ int main(int argc, char *argv[]){
       // free memory allocated to SO_projectors
       if ( (flag.SO == 1) || (flag.NL == 1) ){
         free(SO_projectors); SO_projectors = NULL;
+      }
+
+      // If the job uses a Gaussian basis, initialize the Gaussian basis here
+      if (1 == flag.useGaussianBasis){
+        int a;
+        double *X, *U, *C;
+        MO_st *MO;
+        
+        // Allocate memory for the Gauss struct
+        gauss = (gauss_st*) calloc(par.n_orbitals, sizeof(gauss_st));
+        for (a = 0; a < par.n_orbitals; a++){
+          gauss[a].coeff = (double*) calloc(par.n_gauss_per_orbital, sizeof(double));
+          gauss[a].exp = (double*) calloc(par.n_gauss_per_orbital, sizeof(double));
+        }
+
+        // Allocate memory for the S, T, and V arrays
+        if ((S_mat = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(S_mat[0]))) == NULL){
+          fprintf(stderr, "ERROR: allocating memory for S_mat in main.c\n");
+          exit(EXIT_FAILURE);
+        }
+        if ((T_mat = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(T_mat[0]))) == NULL){
+          fprintf(stderr, "ERROR: allocating memory for S_mat in main.c\n");
+          exit(EXIT_FAILURE);
+        }
+        if ((V_mat = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(V_mat[0]))) == NULL){
+          fprintf(stderr, "ERROR: allocating memory for S_mat in main.c\n");
+          exit(EXIT_FAILURE);
+        }
+        if ((H_mat = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(H_mat[0]))) == NULL){
+          fprintf(stderr, "ERROR: allocating memory for S_mat in main.c\n");
+          exit(EXIT_FAILURE);
+        }
+        if ((X = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(X[0]))) == NULL){
+          fprintf(stderr, "ERROR: allocating memory for X in main.c\n");
+          exit(EXIT_FAILURE);
+        }
+        if ((U = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(U[0]))) == NULL){
+          fprintf(stderr, "ERROR: allocating memory for U in main.c\n");
+          exit(EXIT_FAILURE);
+        }
+        // Allocate memory for the orbital coefficient matrix, C
+        if ((C = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(double)))==NULL){
+          fprintf(stderr, "ERROR: allocating memory for C in main.c\n");
+          exit(EXIT_FAILURE);
+        }
+        if ((MO = (MO_st*)calloc(par.n_orbitals, sizeof(MO_st)))==NULL)nerror("Could not allocate MOs\n");
+          for (i = 0; i < par.n_orbitals; i++){
+            if ((MO[i].coeff = (double*)calloc(par.n_orbitals, sizeof(double)))==NULL)nerror("Could not allocate AO coefficients to MOs\n");
+        }
+
+        //
+        //
+        init_gauss_params(gauss, R, atom, &ist, &par, &flag, &parallel);
+        //
+        //
+        overlap_gauss(S_mat, gauss, atom, &ist, &par, &flag);
+        //
+        //
+        kinetic_gauss(T_mat, gauss, atom, &ist, &par, &flag);
+        //
+        //
+        potential_gauss(V_mat, pot_local, gauss, &grid, atom, &ist, &par, &flag);
+        //
+        //
+        build_gauss_hamiltonian(H_mat, T_mat, V_mat, &ist, &par);
+        //
+        //
+        calc_X_canonical(S_mat, X, U, &ist, &par, &flag, &parallel);
+        //
+        //
+        transform_H(H_mat, X, eig_vals, MO, &ist, &par, &flag, &parallel);
+        //
+        //
+        
+        for (a = 0; a < par.n_orbitals; a++){
+          printf("\tE%d = %lg\n", a, eig_vals[a]);
+        }
+        //
+        //
+        proj_gauss_on_grid(MO, gauss, &grid, 0, par.n_orbitals, &ist, &par, &flag, &parallel);
+        //
+        //
+        
+        exit(0);
+        
+        
       }
       
        
@@ -479,7 +574,7 @@ int main(int argc, char *argv[]){
         
         if(flag.SO==1) {
           printf("\nSpin-orbit pseudopotential:\n");
-          init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par);
+          init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par, &flag, &parallel);
         }
         /*** initialization for the non-local potential ***/
         if (flag.NL == 1){

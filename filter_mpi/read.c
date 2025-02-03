@@ -35,6 +35,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->approxEnergyRange = 0;
   strcpy(par->fft_wisdom_dir, ""); //By default try to find fft wisdom in current directory
   flag->periodic = 0;
+  par->box_z = 0;
   flag->useGaussianBasis = 0;
   // Pseudopotential parameters
   ist->max_pot_file_len = 8192;
@@ -48,6 +49,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   par->scale_surface_Cs = 1.0; // By default, do not charge balance the surface Cs atoms
   flag->readProj = 0;
   par->psi_zero_cut = 1e-16;
+  par->pot_cut_rad2 = 36.0; // All short ranged potentials are decayed to zero by 6 Bohr
   par->R_gint_cut2 = 0;
   // Hamiltonian parameters
   // Spin-orbit and non-local terms
@@ -98,6 +100,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "nz")) {
           grid->nz = strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "box_z")) {
+          par->box_z = strtod(tmp, &endptr);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "dGrid")) {
           grid->dx = strtod(tmp, &endptr);
           if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
@@ -203,6 +208,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "nGaussPerOrbital")) {
           par->n_gauss_per_orbital = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "periodic")) {
+          flag->periodic = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for parallelization
@@ -295,8 +303,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (parallel->mpi_rank == 0) printf("dx = double (grid spacing in x direction, units of Bohr)\n");
           if (parallel->mpi_rank == 0) printf("dy = double (grid spacing in y direction, units of Bohr)\n");
           if (parallel->mpi_rank == 0) printf("dz = double (grid spacing in z direction, units of Bohr)\n");
+          if (parallel->mpi_rank == 0) printf("box_z = double (dim of periodic box, units of Bohr)\n");
           if (parallel->mpi_rank == 0) printf("dGrid = double (grid spacing; sets the values of dx, dy, and dz equal)\n");
-          if (parallel->mpi_rank == 0) printf("mStatesPerFilter = int (number of total energy targets for each filter cycle)\n");
+          if (parallel->mpi_rank == 0) printf("dGrid = double (grid spacing; sets the values of dx, dy, and dz equal)\n");
+          if (parallel->mpi_rank == 0) printf("periodic = int (0 = 0D, 1 = periodic filter)\n");
           if (parallel->mpi_rank == 0) printf("nFilterCycles = int (number of filter cycles/number random initial wavefunctions)\n");
           if (parallel->mpi_rank == 0) printf("nCheby = int (number of terms in the Chebyshev expansion)\n");
           if (parallel->mpi_rank == 0) printf("VBmin = double (bottom of valence band energy window)\n");
@@ -1123,6 +1133,117 @@ void read_pot_file(FILE *pf, pot_st *pot, long j, long n, char *req){
   return;
 }
 
+/*****************************************************************************/
+
+void read_periodic_input(lattice_st *lattice, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+
+  FILE *pf;
+  int i = 0;
+  char field[1000], tmp[1000], *endptr;
+
+  if( access("periodic_input.par", F_OK) != -1 ) {
+    pf = fopen("periodic_input.par", "r");
+
+    while (fscanf(pf, "%s = %s", field, tmp) != EOF && i < 100) {
+      // ****** ****** ****** ****** ****** ****** 
+      // Set geometry parameters for grid
+      // ****** ****** ****** ****** ****** ****** 
+      //if (parallel->mpi_rank == 0) printf("field = %s tmp = %s\n", field, tmp);fflush(0);
+      if (!strcmp(field, "a")) {
+          lattice->a = strtof(tmp, &endptr);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "b")) {
+          lattice->b = strtof(tmp, &endptr);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "c")) {
+          lattice->c = strtof(tmp, &endptr);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "alpha")) {
+          lattice->alpha = strtof(tmp, &endptr);
+      } else if (!strcmp(field, "beta")) {
+          lattice->beta = strtof(tmp, &endptr);
+          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "gamma")) {
+          lattice->gamma = strtof(tmp, &endptr);
+          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "a1")) {
+          lattice->a1.x = (double) strtof(tmp, &endptr);
+          fscanf(pf, "%lf %lf", &(lattice->a1.y), &(lattice->a1.z));
+      } else if (!strcmp(field, "a2")) {
+          lattice->a2.x = (double) strtof(tmp, &endptr);
+          fscanf(pf, "%lf %lf", &(lattice->a2.y), &(lattice->a2.z));
+      } else if (!strcmp(field, "a3")) {
+          lattice->a3.x = (double) strtof(tmp, &endptr);
+          fscanf(pf, "%lf %lf", &(lattice->a3.y), &(lattice->a3.z));
+      } else if (!strcmp(field, "b1")) {
+          fscanf(pf, "%lf %lf %lf", &(lattice->b1.x), &(lattice->b1.y), &(lattice->b1.z));
+      } else if (!strcmp(field, "b2")) {
+          fscanf(pf, "%lf %lf %lf", &(lattice->b2.x), &(lattice->b2.y), &(lattice->b2.z));
+      } else if (!strcmp(field, "b3")) {
+          fscanf(pf, "%lf %lf %lf", &(lattice->b3.x), &(lattice->b3.y), &(lattice->b3.z));
+      } else if (!strcmp(field, "nBands")) {
+          ist->n_bands = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nk1")) {
+          ist->nk1 = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nk2")) {
+          ist->nk2 = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nk3")) {
+          ist->nk3 = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "readKPath")) {
+          flag->readKPath = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to int.\n"); exit(EXIT_FAILURE);}
+      }
+      // ****** ****** ****** ****** ****** ****** 
+      // Handle exceptions
+      // ****** ****** ****** ****** ****** ******
+      else {
+          if (parallel->mpi_rank == 0) printf("\nFIELD NOT RECOGNIZED: %s\n", field);
+          if (parallel->mpi_rank == 0) printf("\nInvalid input field and/ or format -> equal sign required after each field\n");
+          if (parallel->mpi_rank == 0) printf("Only allowed fields are (case-sensitive):\n\n");
+          if (parallel->mpi_rank == 0) printf("nBands = (int) number of bands to compute\n");
+          if (parallel->mpi_rank == 0) printf("readKPath = (int) if 1, get kpoints from kpath.par; otherwise nk1xnk2xnk3\n");
+          if (parallel->mpi_rank == 0) printf("a/b/c = (float) crystal lattice parameters\n");
+          if (parallel->mpi_rank == 0) printf("alpha/beta/gamma = (float) lattice angles\n");
+          if (parallel->mpi_rank == 0) printf("a1/a2/a3 = f f f direct lattice vector 1\n");
+          if (parallel->mpi_rank == 0) printf("nk1/nk2/nk3 = int int int number of k points in each direction\n");
+          
+          fflush(stdout);
+          exit(EXIT_FAILURE);
+      }
+      i++;
+    } 
+  } else{
+      if (parallel->mpi_rank == 0) printf("PROGRAM EXITING: periodic_input.par does not exist in directory\n");
+      fprintf(stderr, "PROGRAM EXITING: periodic_input.par does not exist in directory\n");
+      exit(EXIT_FAILURE);
+  }
+  fclose(pf);
+
+  // Set the number of total kpoints
+  ist->n_k_pts = ist->nk1 * ist->nk2 * ist->nk3;
+
+  printf("\nDone reading periodic input\n");
+  printf("\tn_bands = %d\n", ist->n_bands);
+  printf("\ta = %.3f b = %.3f c = %.3f\n", lattice->a, lattice->b, lattice->c);
+  printf("\talpha = %.3f beta = %.3f gamma = %.3f\n", lattice->alpha, lattice->beta, lattice->gamma);
+  printf("\ta1 = %.4f %.4f %.4f\n", lattice->a1.x, lattice->a1.y, lattice->a1.z);
+  printf("\ta2 = %.4f %.4f %.4f\n", lattice->a2.x, lattice->a2.y, lattice->a2.z);
+  printf("\ta3 = %.4f %.4f %.4f\n", lattice->a3.x, lattice->a3.y, lattice->a3.z);
+  printf("\treadKPath = %d\n", flag->readKPath);
+
+  // Scale the lattice vectors by the lattice parameters
+  lattice->a1 = retScaledVector(lattice->a1, lattice->a);
+  lattice->a2 = retScaledVector(lattice->a2, lattice->b);
+  lattice->a3 = retScaledVector(lattice->a3, lattice->c);
+
+
+  return;
+}
+
 void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, parallel_st *parallel){
   /*******************************************************************
   * If there are multiple geometries for an NC (eg. cubic/ortho),    *
@@ -1374,9 +1495,9 @@ double calc_bond_angle(long index1, long index2, long index3, xyz_st *R, paralle
   if (-1.0>dot/(l1*l2)||1.0<dot/(l1*l2)){return 180.0;}  
   if (-1.0>dot/(l1*l2)||1.0<dot/(l1*l2)){
     if (parallel->mpi_rank == 0) printf("Error in Bond Angle (%lf)!!\n", dot/(l1*l2));
-    if (parallel->mpi_rank == 0) printf("1: %f %f %f\n", R[index1].x, R[index1].y, R[index1].z );
-    if (parallel->mpi_rank == 0) printf("2: %f %f %f\n", R[index2].x, R[index2].y, R[index2].z );
-    if (parallel->mpi_rank == 0) printf("3: %f %f %f\n", R[index3].x, R[index3].y, R[index3].z );
+    if (parallel->mpi_rank == 0) printf("1: %lf %lf %lf\n", R[index1].x, R[index1].y, R[index1].z );
+    if (parallel->mpi_rank == 0) printf("2: %lf %lf %lf\n", R[index2].x, R[index2].y, R[index2].z );
+    if (parallel->mpi_rank == 0) printf("3: %lf %lf %lf\n", R[index3].x, R[index3].y, R[index3].z );
   }
 
   return acos(dot/(l1*l2))*180.0/PIE;

@@ -6,7 +6,7 @@
 
 /*****************************************************************************/
 
-void hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+void hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl, double *ksqr,
   index_st *ist, par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi){
   /*******************************************************************
   * This function applies the Hamiltonian onto a state               *
@@ -34,10 +34,10 @@ void hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *
   for (jspin = 0; jspin < ist->nspin; jspin++){
       kinetic(&psi_out[jspin*ist->ngrid], ksqr, planfw, planbw, fftwpsi, ist); //spin up/down
   } 
-
+  // write_state_dat(psi_out, ist->nspinngrid, "psi_out_kinetic.dat");
   // Calculate the action of the potential on the wavefunction: |psi_out> = V|psi_tmp>
-  potential(psi_out, psi_tmp, pot_local, nlc, nl, ist, par, flag);
-
+  potential(psi_out, psi_tmp, pot_local, atom, nlc, nl, ist, par, flag);
+  
   return;
 }
 
@@ -86,7 +86,7 @@ void kinetic(zomplex *psi_out, double *ksqr, fftw_plan_loc planfw, fftw_plan_loc
 /*****************************************************************************/
 
 // This calculates the total action of Vloc + Vnonloc + Vso|psi_tmp>
-void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, index_st *ist,
+void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl, index_st *ist,
   par_st *par, flag_st *flag){
   /*******************************************************************
   * This function calculates |psi_out> = [Vloc+V_SO+V_NL]|psi_tmp>   *
@@ -107,12 +107,12 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
 
   if(flag->SO==1){
     // Calculate |psi_out> = V_SO|psi_tmp>
-    spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    spin_orbit_proj_pot(psi_out, psi_tmp, atom, nlc, nl, ist, par);
     // write_state_dat(psi_out, ist->nspinngrid, "psi_out_SO_ref.dat");
   }
   if (flag->NL == 1){
     // Calculate |psi_out> += V_NL|psi_tmp>
-    nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+    nonlocal_proj_pot(psi_out, psi_tmp, atom, nlc, nl, ist, par);
     // write_state_dat(psi_out, ist->nspinngrid, "psi_out_NL_ref.dat");
   }
   
@@ -125,12 +125,12 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nl
       psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
     }
   }
-
+  // write_state_dat(psi_out, ist->nspinngrid, "psi_out_loc.dat");
   return;
 }
 
 
-void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl, index_st *ist, par_st *par){
+void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, atom_info *atom, nlc_st *nlc, long *nl, index_st *ist, par_st *par){
   /*******************************************************************
   * This function calculates the action of the spin-orbit nonlocal   *
   * potential using separable radial projector functions             *
@@ -183,7 +183,10 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
   //
 
   for ( jatom = 0; jatom < ist->n_NL_atoms; jatom++){
-
+    if (55 == atom[jatom].Zval){
+      // Cs atoms currently have 0.0 SO potential
+      continue;
+    }
     // sprintf(str, "atom_%ld_Vr%ld.dat", jatom, idx);
     // pf = fopen(str, "w");
     // rho = (zomplex *) calloc(ist->nspinngrid, sizeof(rho[0])); // allocate memory and initialize all to zero
@@ -233,7 +236,9 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
               LS.re += (  Lz[m][m_p].re * Sz[spin][spin_p].re - Lz[m][m_p].im * Sz[spin][spin_p].im);
               LS.im += (  Lz[m][m_p].re * Sz[spin][spin_p].im + Lz[m][m_p].im * Sz[spin][spin_p].re);              
               //printf("m:%i m':%i s:%i s':%i  LS: %f+i*%f\n", m, m_p, spin, spin_p, LS.re, LS.im);
-
+              if ( (LS.re == 0.0) && (LS.im == 0.0) ){
+                continue;
+              }
               PLS.re = LS.re * proj.re - LS.im * proj.im;
               PLS.im = LS.re * proj.im + LS.im * proj.re;
 
@@ -274,7 +279,7 @@ void spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
 
 /*****************************************************************************/
 
-void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl, index_st *ist, par_st *par){
+void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, atom_info *atom, nlc_st *nlc, long *nl, index_st *ist, par_st *par){
   /*******************************************************************
   * This function calculates the action of the angular nonlocal      *
   * potential using separable radial projector functions             *
@@ -293,6 +298,11 @@ void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl
   int iproj, spin, m;
 
   for ( jatom =0; jatom < ist->n_NL_atoms; jatom++){
+    if (55 == atom[jatom].Zval){
+      // printf("Skipping Cs atom %ld %d\n", jatom, atom[jatom].Zval); fflush(0);
+      // Cs atoms currently have 0.0 NL potential
+      continue;
+    }
     for ( iproj = 0; iproj < ist->nproj; iproj++){
       for ( spin = 0; spin < 2; spin++){
         for ( m = 0; m < 3; m++){

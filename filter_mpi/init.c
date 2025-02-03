@@ -587,7 +587,14 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
             fscanf(pNL, "%lf %lf\n", &scratch, &nlcprojectors[PROJ_LEN * iproj + rpoint]);
           }
           fclose(pNL);
-        } //else {fprintf(stderr, "Cannot open file %s\n", projNL_file);}
+        } else {
+          if (55 != atom[jatom].Zval){
+            // If any atom not a Cs atom is missing its file, this is BAD
+            printf("Cannot open %s file %s\n", atom[jatom].atyp, projNL_file);
+            fprintf(stderr, "Cannot open %s file %s\n", atom[jatom].atyp, projNL_file);
+            exit(EXIT_FAILURE);
+          }
+        }
       }
 
       // NL_projector signs
@@ -604,7 +611,14 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
           }
         }
         fclose(pSgn);
-      } // else {fprintf(stderr,"Cannot open file %s\n", sgnNL_file);}
+      } else {
+        if (55 != atom[jatom].Zval){
+            // If any atom not a Cs atom is missing its file, this is BAD
+            printf("Cannot open %s file %s\n", atom[jatom].atyp, sgnNL_file);
+            fprintf(stderr, "Cannot open %s file %s\n", atom[jatom].atyp, sgnNL_file);
+            exit(EXIT_FAILURE);
+          }
+      }
     }
     
     

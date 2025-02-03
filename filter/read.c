@@ -26,6 +26,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // NC configuration parameters
   ist->n_max_atom_types = N_MAX_ATOM_TYPES;
   flag->centerConf = 1; // this should honestly always be 1
+  par->box_z = 0.0;
   // Basis set configuration
   flag->readGrid = 0; // Read the grid points from an input file
   flag->useGaussianBasis = 0; // Use atom-centered Gaussian basis set
@@ -37,6 +38,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   par->checkpoint_id = 0;
   flag->approxEnergyRange = 0;
   flag->calcFilterOnly = 0;
+  flag->periodic = 0;
   // Pseudopotential parameters
   ist->max_pot_file_len = 8192;
   flag->useStrain = 0; // By default, do not compute strain dependent terms in pseudopotential
@@ -47,6 +49,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->outmost_material_int = -1;
   ist->ngeoms = 1; // number of different psuedopotential geometries (eg. cubic/ortho) for interpolating psuedopotentials
   par->scale_surface_Cs = 1.0; // By default, do not charge balance the surface Cs atoms
+  par->pot_cut_rad2 = 36.0; // r^2 where local pot has decayed and won't be computed
   // Spin-orbit and non-local terms
   flag->useSpinors = 0; // default is to use non-spinor wavefunctions
   flag->isComplex = 0;
@@ -55,6 +58,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->NL = 0; // computes the non-local terms in the Hamiltonian; automatically on if SO flag on
   ist->nproj = 5; // number of terms to expand projections in. converged by 5
   par->t_rev_factor = 1; // can time rev filt'rd states to get 2X eigst8. mem alloc multiplied by par.t_rev_factor
+  flag->readProj = 0;
   // Optional output flags
   flag->saveOutput = 1; // By default, write the formatted output file that can be read by BSE to recreate job state
   flag->calcPotOverlap = 0; // Calculates matrix elements of the potential <i|V|j>
@@ -102,14 +106,20 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "dz")) {
           grid->dz = strtod(tmp, &endptr);
           if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "box_z")) {
+          par->box_z = strtod(tmp, &endptr);
+          if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "centerConf")) {
-          flag->centerConf = strtol(tmp, &endptr, 10);
+          flag->centerConf = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "readGrid")) {
           flag->readGrid = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "useGaussianBasis")) {
           flag->useGaussianBasis = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "periodic")) {
+          flag->periodic = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
@@ -203,6 +213,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "NonLocal")) {
           flag->NL = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "readProj")) {
+          flag->readProj = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for additional output
@@ -289,6 +302,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("KEmax = double (maximum kinetic energy value considered)\n");
           printf("spinOrbit = int (0 for no spinOrbit, 1 for spinOrbit)\n");
           printf("NonLocal = int (0 for no non-local, 1 for non-local potential)\n");
+          printf("readProj = int (0 to gen nlc proj, 1 to read from files)\n");
           printf("approxEnergyRange = int, if 1 then energy range will be appox'd by local pot\n");
           printf("calcFilterOnly = int, if 1 then the job will terminate after Filtering\n");
           printf("setTargets = int (0 if half/half split of VB/CB targets suffices for your job)\n");

@@ -27,7 +27,6 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   ********************************************************************/
   // Array indexing
   long jns, jms, jmn, cntr = 0;
-  int i;
   long MAX_SIZE = ist->complex_idx*ist->nspinngrid*((ist->n_filters_per_rank - 1)*ist->m_states_per_filter + (ist->m_states_per_filter - 1)) + ist->nspinngrid*ist->complex_idx - 1;
   
   // File I/O
@@ -185,7 +184,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
       else{
         for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
           #pragma omp atomic
-          psi_rank[jns_ms + jgrid] += (an[ncjms+jc].re * psi[jgrid].re);
+          psi_rank[jns_ms + jgrid] += (an[ncjms+jc].re * psi[jgrid].re - an[ncjms+jc].im * psi[jgrid].im);
         }
       }
 
@@ -324,8 +323,6 @@ void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc
   struct timespec start, end;
   int jspin, j, jtmp; 
 
-  fftw_init_threads();
-  fftw_plan_with_nthreads(par->ham_threads);
   fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi; 
   long fft_flags=0;
 

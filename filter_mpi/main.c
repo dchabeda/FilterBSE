@@ -49,10 +49,12 @@ int main(int argc, char *argv[]){
   char *bottom; bottom = malloc(2*sizeof(bottom[0]));
   strcpy(top, "T\0"); strcpy(bottom, "B\0");
 
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
+  // MPI_Init(&argc, &argv);
+  // MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
+  // MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
   parallel.mpi_root = 0;
+  parallel.mpi_rank = 0;
+  parallel.mpi_size = 1;
 
   if (parallel.mpi_rank == 0) printf("******************************************************************************\n");
   if (parallel.mpi_rank == 0) printf("\nRUNNING PROGRAM: FILTER DIAGONALIZATION\n");
@@ -461,7 +463,7 @@ int main(int argc, char *argv[]){
 
       if (parallel.mpi_rank == 0) printf("\n  4.2 Running filter cycle\n");
       run_filter_cycle(psi_rank,pot_local,nlc,nl,ksqr,an,zn,ene_targets,&grid,&ist,&par,&flag,&parallel);
-      MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
+      // MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
       
       if (parallel.mpi_rank == 0) printf("\ndone calculating filter, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
@@ -481,60 +483,60 @@ int main(int argc, char *argv[]){
       
       /*************************************************************************/
       if (parallel.mpi_rank == 0) printf("Gathering psitot from all mpi_ranks\n"); fflush(0);
-      MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
+      // MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
       
       // If the size of each wavefunction is very large,
       // then MPI_Send/Recv is the only way to communicate
-      if (psi_rank_size > INT_MAX){
-        printf("The size of psi_rank, %lld > %d, too large for MPI_Gather\n", psi_rank_size, INT_MAX);
-        printf("Using MPI_Send/Recv to send individual psi to root node.\n");
-        // Because the entire psi_rank was too large to send at once,
-        // Split psi_rank into two blocks and send each one separately
-        int n_blocks = 2;
-        int buf_size = psi_rank_size / n_blocks;
+      // if (psi_rank_size > INT_MAX){
+      //   printf("The size of psi_rank, %lld > %d, too large for MPI_Gather\n", psi_rank_size, INT_MAX);
+      //   printf("Using MPI_Send/Recv to send individual psi to root node.\n");
+      //   // Because the entire psi_rank was too large to send at once,
+      //   // Split psi_rank into two blocks and send each one separately
+      //   int n_blocks = 2;
+      //   int buf_size = psi_rank_size / n_blocks;
         
-        // If MPI root node, then Recv from all other nodes into psitot
-        if (parallel.mpi_root == parallel.mpi_rank){
-          printf("This is the root rank = %d, it should receive\n", parallel.mpi_rank); fflush(0);
-          // Loop over all ranks (except root) to Recv data
-          for (long n_rank = 0; n_rank < parallel.mpi_size; n_rank++){
-            printf("Iterating to receive from rank %ld out of %d\n", n_rank, parallel.mpi_size); fflush(0);
-            if (n_rank != parallel.mpi_root){
-              printf("Non-root rank %ld\n", n_rank); fflush(0);
-              long long offset = psi_rank_size*n_rank;
-              MPI_Status *recv_status;
-              int recv_tag = n_blocks*n_rank;
-              // Recv all blocks (with appropriate tag) from the ranks
-              for (int block = 0; block < n_blocks; block++){ 
-                MPI_Recv(&psitot[offset + block*buf_size], buf_size, MPI_DOUBLE, n_rank, recv_tag+block, MPI_COMM_WORLD, recv_status);
-              }
-            }
-            // If root rank, then just copy psi_rank into psitot 
-            else {
-              printf("Memcpying root rank %ld\n", n_rank); fflush(0);
-              for (int block = 0; block < n_blocks; block++){
-                memcpy(&psitot[buf_size*block], &psi_rank[buf_size*block], buf_size*sizeof(double));
-              }
-            }
-          }
-        // If not the MPI root node, then Send psi_rank data
-        } else {
-          printf("Sending from non-root rank %d\n", parallel.mpi_rank); fflush(0);
-          int send_tag = n_blocks*parallel.mpi_rank;
-          // Send all blocks from this mpi_rank (with appropriate tag) to the root node
-          for (int block = 0; block < n_blocks; block++){
-            long long offset = buf_size * block;
-            MPI_Send(&psi_rank[offset], buf_size, MPI_DOUBLE, parallel.mpi_root, send_tag+block, MPI_COMM_WORLD);
-          }
-        }
-      }
-      // If the size of each wavefunction is small,
-      // then MPI_Gather is an efficient way to communicate
-      else {
-        MPI_Gather(psi_rank,psi_rank_size,MPI_DOUBLE,psitot,psi_rank_size,MPI_DOUBLE,0,MPI_COMM_WORLD);
-      }
-      if (parallel.mpi_rank == 0) printf("Succesfully gathered all states\n"); fflush(0);
-      MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
+      //   // If MPI root node, then Recv from all other nodes into psitot
+      //   if (parallel.mpi_root == parallel.mpi_rank){
+      //     printf("This is the root rank = %d, it should receive\n", parallel.mpi_rank); fflush(0);
+      //     // Loop over all ranks (except root) to Recv data
+      //     for (long n_rank = 0; n_rank < parallel.mpi_size; n_rank++){
+      //       printf("Iterating to receive from rank %ld out of %d\n", n_rank, parallel.mpi_size); fflush(0);
+      //       if (n_rank != parallel.mpi_root){
+      //         printf("Non-root rank %ld\n", n_rank); fflush(0);
+      //         long long offset = psi_rank_size*n_rank;
+      //         MPI_Status *recv_status;
+      //         int recv_tag = n_blocks*n_rank;
+      //         // Recv all blocks (with appropriate tag) from the ranks
+      //         for (int block = 0; block < n_blocks; block++){ 
+      //           MPI_Recv(&psitot[offset + block*buf_size], buf_size, MPI_DOUBLE, n_rank, recv_tag+block, MPI_COMM_WORLD, recv_status);
+      //         }
+      //       }
+      //       // If root rank, then just copy psi_rank into psitot 
+      //       else {
+      //         printf("Memcpying root rank %ld\n", n_rank); fflush(0);
+      //         for (int block = 0; block < n_blocks; block++){
+      //           memcpy(&psitot[buf_size*block], &psi_rank[buf_size*block], buf_size*sizeof(double));
+      //         }
+      //       }
+      //     }
+      //   // If not the MPI root node, then Send psi_rank data
+      //   } else {
+      //     printf("Sending from non-root rank %d\n", parallel.mpi_rank); fflush(0);
+      //     int send_tag = n_blocks*parallel.mpi_rank;
+      //     // Send all blocks from this mpi_rank (with appropriate tag) to the root node
+      //     for (int block = 0; block < n_blocks; block++){
+      //       long long offset = buf_size * block;
+      //       MPI_Send(&psi_rank[offset], buf_size, MPI_DOUBLE, parallel.mpi_root, send_tag+block, MPI_COMM_WORLD);
+      //     }
+      //   }
+      // }
+      // // If the size of each wavefunction is small,
+      // // then MPI_Gather is an efficient way to communicate
+      // else {
+      //   MPI_Gather(psi_rank,psi_rank_size,MPI_DOUBLE,psitot,psi_rank_size,MPI_DOUBLE,0,MPI_COMM_WORLD);
+      // }
+      // if (parallel.mpi_rank == 0) printf("Succesfully gathered all states\n"); fflush(0);
+      // MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
 
       /*************************************************************************/
       if (parallel.mpi_rank == 0){
@@ -988,7 +990,7 @@ int main(int argc, char *argv[]){
         free(top); free(bottom);
       }
       
-      MPI_Finalize(); // Finalize the MPI tasks and prepare to exit program
+      // MPI_Finalize(); // Finalize the MPI tasks and prepare to exit program
       
       exit(0);
       

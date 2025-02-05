@@ -17,7 +17,6 @@ int main(int argc, char *argv[]){
   FILE *ppsi, *peig, *pseed; 
   // zomplex types
   zomplex *psi, *phi, *an; 
-  int i;
   // custom structs 
   flag_st flag; 
   index_st ist; 
@@ -28,16 +27,19 @@ int main(int argc, char *argv[]){
   xyz_st *R; 
   nlc_st *nlc = NULL; 
   parallel_st parallel; 
+  vector *G_vecs;
   lattice_st lattice;
+  vector *G_vecs;
+  vector *k_vecs;
   // double arrays
   double *psitot, *psi_rank;
   double *ksqr, *zn, *pot_local, *rho; 
   double *eig_vals, *ene_targets, *sigma_E, inital_clock_t, initial_wall_t;
   double *SO_projectors;
-  vector *G_vecs;
-  vector *k_vecs;
   // long int arrays and counters
+  int i;
   long *nl = NULL;
+  char fileName[50];
   long jstate, jgrid, jgrid_real, jgrid_imag, jspin, jms, jns, rand_seed, thread_id;
   ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
   // Clock/Wall time output and stdout formatting
@@ -60,141 +62,196 @@ int main(int argc, char *argv[]){
   if (parallel.mpi_rank == 0) write_separation(stdout, bottom);
   fflush(stdout);
   
+  //
+  //
   /*************************************************************************/
   // Initialize job from input file
-  
-  if (parallel.mpi_rank == 0) write_separation(stdout, top);
   current_time = time(NULL);
   c_time_string = ctime(&current_time);
+  if (parallel.mpi_rank == 0) write_separation(stdout, top);
   if (parallel.mpi_rank == 0) printf("\n1.\tINITIALIZING JOB | %s\n", c_time_string);
   if (parallel.mpi_rank == 0) write_separation(stdout, bottom); fflush(stdout);
+  //
+  //
 
+  //
+  //
   /*** read initial setup from input.par ***/
   if (parallel.mpi_rank == 0) printf("\nReading job specifications from input.par:\n"); fflush(0);
   read_input(&flag, &grid, &ist, &par, &parallel);
+  //
+  //
 
+  //
+  //
   /*** read the lattice params from periodic_input.par ***/
-  // read_periodic_input(&lattice, &ist, &par, &flag, &parallel);
-  
+  read_periodic_input(&lattice, &ist, &par, &flag, &parallel);
+  //
+  //
+
+  //
+  //
   /*** allocating memory ***/
   // the positions of the atoms in the x, y, and z directions 
   if ((R = (xyz_st *) calloc(ist.natoms, sizeof(xyz_st))) == NULL) {
-    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: R array\n\n"); exit(EXIT_FAILURE);
+    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: R array\n\n"); 
+    exit(EXIT_FAILURE);
   }
   // the atom specific information 
   if ((atom = (atom_info *) calloc(ist.natoms, sizeof(atom_info))) == NULL){
-    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: atom struct\n\n"); exit(EXIT_FAILURE);
+    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: atom struct\n\n"); 
+    exit(EXIT_FAILURE);
   }
   // the energies of each energy target in filter
   if ((ene_targets = (double *) calloc(ist.m_states_per_filter, sizeof(double))) == NULL){
-    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: ene_targets\n\n"); exit(EXIT_FAILURE);
+    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: ene_targets\n\n"); 
+    exit(EXIT_FAILURE);
   }
-  
+  //
+  //
+
+  //
+  //
   /*** read the nanocrystal configuration ***/
   if (parallel.mpi_rank == 0) printf("\nReading atomic configuration from conf.par:\n");
   read_conf(R, atom, &ist, &par, &flag, &parallel);
+  //
+  //
 
+  //
+  //
   /*** initialize parameters for the grid ***/
   if (parallel.mpi_rank == 0) printf("\nInitializing the grid parameters:\n");
   init_grid_params(&grid, R, &ist, &par, &flag, &parallel);
+  //
+  //
 
+  //
+  //
   // Allocate memory for the grid in the x, y, and z directions ***/
   if ((grid.x = (double *) calloc(grid.nx, sizeof(double))) == NULL){
-    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: grid.x\n\n"); exit(EXIT_FAILURE);
+    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: grid.x\n\n"); 
+    exit(EXIT_FAILURE);
   }
   if ((grid.y = (double *) calloc(grid.ny, sizeof(double))) == NULL){
-    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: grid.y\n\n"); exit(EXIT_FAILURE);
+    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: grid.y\n\n"); 
+    exit(EXIT_FAILURE);
   }
   if ((grid.z = (double *) calloc(grid.nz, sizeof(double))) == NULL){
-    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: grid.z\n\n"); exit(EXIT_FAILURE);
+    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: grid.z\n\n"); 
+    exit(EXIT_FAILURE);
   }
   // the kinetic energy stored on the grid
   if ((ksqr = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
-    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: ksqr\n\n"); exit(EXIT_FAILURE);
+    if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: ksqr\n\n"); 
+    exit(EXIT_FAILURE);
   }
+  //
+  //
 
+  //
+  //
   /*** build the real- and k-space grids ***/
   if (parallel.mpi_rank == 0) printf("\nBuilding the real-space and k-space grids:\n");
   build_grid_ksqr(ksqr, R, &grid, &ist, &par, &flag, &parallel);
-  
-  /*** calculate the reciprocal vectors for the lattice ***/
-  // if (parallel.mpi_rank == 0) printf("\nGenerating reciprocal lattice vectors:\n");
-  // gen_recip_lat_vecs(&lattice, &ist, &par, &flag, &parallel);
-  
-  // /*** generate the G vectors for plane-wave basis ***/
-  // if (parallel.mpi_rank == 0) printf("\nGenerating G vectors:\n");
-  // if ((G_vecs = (vector *) calloc(ist.ngrid, sizeof(vector))) == NULL){
-  //   if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: G_vecs\n\n"); exit(EXIT_FAILURE);
-  // }
-  // gen_G_vecs(G_vecs, &grid, &ist, &par, &flag, &parallel);
-  // printf("  %d G vectors in the plane-wave basis\n", ist.n_G_vecs);
-  // write_vector_dat(G_vecs, ist.n_G_vecs, "G_vecs.dat");
-  
-  // /*** generate the k grid for computing energies/bandstructure ***/
-  // if (1 == flag.readKPath){
-  //   if (parallel.mpi_rank == 0) printf("\nReading k-path from file kpath.dat:\n");
-  //   read_k_path(&k_vecs, &lattice, &ist, &par, &flag, &parallel);
-  //   printf("  Successfully generated %d k vectors\n", ist.n_k_pts);
-  // } 
-  // else{
-  //   if (parallel.mpi_rank == 0) printf("\nGenerating %d x %d x %d k grid:\n", ist.nk1, ist.nk2, ist.nk3);
-  //   k_vecs = calloc(ist.n_k_pts, sizeof(k_vecs[0]));
-  //   gen_k_vecs(k_vecs, &lattice, &ist, &par, &flag, &parallel);
-  //   printf("  Successfully generated %d k vectors\n", ist.n_k_pts);
-  // }
+  //
+  //
 
-  // write_vector_dat(k_vecs, ist.n_k_pts, "kpoints.dat");
+
+  //
+  //
+  /*** read the lattice params from periodic_input.par ***/
+  read_periodic_input(&lattice, &ist, &par, &flag, &parallel);
+  //
+  //
+
+  //
+  //
+  /*** calculate the reciprocal vectors for the lattice ***/
+  if (parallel->mpi_rank == 0) printf("\nGenerating reciprocal lattice vectors:\n");
+  gen_recip_lat_vecs(&lattice, &ist, &par, &flag, &parallel);
+  //
+  //
+
+  //
+  //
+  /*** generate the G vectors for plane-wave basis ***/
+  if (parallel->mpi_rank == 0) printf("\nGenerating G vectors:\n");
+  if ((G_vecs = (vector *) calloc(ist->ngrid, sizeof(vector))) == NULL){
+    if (parallel->mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: G_vecs\n\n"); exit(EXIT_FAILURE);
+  }
+  //
+  //
+
+  //
+  //
+  gen_G_vecs(G_vecs, &grid, &ist, &par, &flag, &parallel);
+  printf("  %d G vectors in the plane-wave basis\n", ist->n_G_vecs);
+  write_vector_dat(G_vecs, ist->n_G_vecs, "G_vecs.dat");
+  //
+  //
+
+  //
+  //
+  /*** generate the k grid for computing energies/bandstructure ***/
+  if (1 == flag->readKPath){
+    if (parallel->mpi_rank == 0) printf("\nReading k-path from file kpath.dat:\n");
+    
+    read_k_path(&k_vecs, &lattice, &ist, &par, &flag, &parallel);
+    
+    printf("  Successfully generated %d k vectors\n", ist->n_k_pts);
+  } 
+  else{
+    if (parallel->mpi_rank == 0) printf("\nGenerating %d x %d x %d k grid:\n", ist->nk1, ist->nk2, ist->nk3);
+    
+    if((k_vecs = calloc(ist->n_k_pts, sizeof(k_vecs[0]))) == NULL){
+      if (parallel->mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: k_vecs\n\n"); exit(EXIT_FAILURE);
+    }
+    
+    gen_k_vecs(k_vecs, &lattice, &ist, &par, &flag, &parallel);
+    printf("  Successfully generated %d k vectors\n", ist->n_k_pts);
+  }
+  printf("n_kpts = %d n-G_vecs %d\n", ist->n_k_pts, ist->n_G_vecs);
+  //
+  //
+  
+  //
+  //
+  // write_vector_dat(k_vecs, ist->n_k_pts, "kpoints.dat");
+  //
+  //
   
   
+  
+  //
+  //
   /*** set the energy targets ***/
   if (parallel.mpi_rank == 0) printf("\nSetting the filter energy targets:\n");
   set_ene_targets(ene_targets, &ist, &par, &flag, &parallel);
-
+  //
+  //
   
   /*************************************************************************/
   /*** allocating memory for the rest of the program ***/
   if (parallel.mpi_rank == 0) printf("\nAllocating memory for FFT, pot, psi, eig_vals...\n");
   
   // 
-  // FFT
   // 
-  // FFT
+  // Initialize FFT threads for parallel Fourier transform
   fftw_init_threads();
-  fftw_plan_with_nthreads(parallel.n_inner_threads);
+  fftw_plan_with_nthreads(parallel.nthreads);
   fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi; 
   long fft_flags=0;
-  // Initialize FFT threads for parallel Fourier transform
-  // if (fftw_init_threads() == 0) {
-  //   fprintf(stderr, "FFTW threading initialization failed.\n");
-  //   exit(EXIT_FAILURE);
-  // }
+  //
   
-  // fftw_plan_with_nthreads(parallel.nthreads);
-
-  // Load wisdom if available
-  // sprintf(par.fftw_wisdom, "%sfftw_wisdom.dat", par.fft_wisdom_dir);
-  // if (fftw_import_wisdom_from_filename(par.fftw_wisdom) == 0) {
-  //     if (parallel.mpi_rank == 0) printf("No wisdom file found. Planning from scratch.\n");
-  // } else {
-  //     if (parallel.mpi_rank == 0) printf("FFT wisdom loaded successfully from %s.\n", par.fftw_wisdom);
-  // }
-  
+  //
   fftwpsi = fftw_malloc(sizeof(fftw_complex)*ist.ngrid);
   /*** initialization for the fast Fourier transform ***/
   planfw = fftw_plan_dft_3d(grid.nz, grid.ny, grid.nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
   planbw = fftw_plan_dft_3d(grid.nz, grid.ny, grid.nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
-  
-  // Save wisdom for future runs
-  //if (parallel.mpi_rank == 0) printf("wisdom file: %s\n", par.fftw_wisdom);
-  // if (fftw_export_wisdom_to_filename(par.fftw_wisdom) == 0) {
-  //   perror("FFT wisdom not saved.\n");
-  //   if (parallel.mpi_rank == 0) fprintf(stderr, "Failed to write FFTW wisdom to %s\n", par.fftw_wisdom);
-    
-  // } else {
-  //   if (parallel.mpi_rank == 0) printf("FFTW wisdom saved to %s\n", par.fftw_wisdom);
-  // } 
-  // fftw_export_wisdom_to_filename(par.fftw_wisdom);
-  
+  //
+
+  //
   // For reading the atomic potentials ***/
   pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
   pot.r = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
@@ -207,7 +264,10 @@ int main(int argc, char *argv[]){
     pot.pseudo_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
   }
   pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
-  
+  //
+
+  //
+  //
   // Wavefunction-type objects
   if ((psi = (zomplex *)calloc(ist.nspinngrid, sizeof(zomplex))) == NULL){
     if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: psi\n\n"); exit(EXIT_FAILURE);
@@ -252,8 +312,9 @@ int main(int argc, char *argv[]){
       if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: nl\n\n"); exit(EXIT_FAILURE);
     }
   }
-  
   if (parallel.mpi_rank == 0) printf("\tdone allocating memory.\n"); fflush(stdout);
+  //
+  //
 
   // The filter code supports restarting the job from a saved state. See save.c for formatting
   // of checkpoint files. See read_input in read.c for specifying the checkpoint restart
@@ -403,14 +464,22 @@ int main(int argc, char *argv[]){
       if ((parallel.jms = (long *) calloc(ist.mn_states_tot, sizeof(parallel.jms[0]))) == NULL){ 
         fprintf(stderr, "\nOUT OF MEMORY: parallel.jms\n\n"); exit(EXIT_FAILURE);
       }
-
+      
+      //
+      //
       if (parallel.mpi_rank == 0) printf("\n  4.2 Running filter cycle\n");
       run_filter_cycle(psi_rank,pot_local,nlc,nl,ksqr,an,zn,ene_targets,&grid,&ist,&par,&flag,&parallel);
-      
+      //
+      //
+
+      //
+      //
       if (parallel.mpi_rank == 0) printf("\ndone calculating filter, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
       fflush(stdout);
-
+      //
+      //
+      
       /*************************************************************************/
       /*** read all filtered states ***/
       /*ppsi = fopen("psi-filt.dat" , "r");

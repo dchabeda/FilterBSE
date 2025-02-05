@@ -2,7 +2,7 @@
 
 /*****************************************************************************/
 
-void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,parallel_st *parallel, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
+void diag_H(double *psitot, double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,parallel_st *parallel, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
   /*******************************************************************
   * This function calculates eigenvalues and vectors of the real or  *
   * complex valued matrix, H, where H_ij = <psi_i|H|psi_j>           *
@@ -31,7 +31,8 @@ void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,d
 
   FILE *pg;
   long ims, jms, jgrid, jgrid_real, jgrid_imag;
-  int mn_states_tot = (int)ist->mn_states_tot, info, lwk = 3*ist->mn_states_tot;
+  const long long mn_states_tot = (int)ist->mn_states_tot, lwk = 3*ist->mn_states_tot;
+  long long info;
   double *rwork, sumre, sumim; zomplex *tpsi;
   double *H, *work;
   MKL_Complex16 *H_z, *work_z;

@@ -130,7 +130,7 @@ void p_spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long
 
   double psi_re, psi_im;
   double y1_re, y1_im;
-  double nlcproj;
+  double SOproj;
 
   for (s = 0; s < ist->n_s_ang_mom; s++){
     for (m = 0; m < ist->n_l_ang_mom; m++){
@@ -146,7 +146,7 @@ void p_spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long
 
 
   omp_set_num_threads(ham_threads);
-  #pragma omp parallel for private(jatom, jatom_offset, NL_gridpt, r_idx, r, r_p, iproj, proj, s, s_p, m, m_p, j, j_p, jtot, psi_re, psi_im, y1_re, y1_im, nlcproj, LS_loc, PLS)
+  #pragma omp parallel for private(jatom, jatom_offset, iproj, j_p, s_p, m_p, proj, NL_gridpt, r_idx, r, r_p, psi_re, psi_im, y1_re, y1_im, SOproj, j, s, m, jtot, LS_loc, PLS)
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++){
     long jatom_offset = jatom * ist->n_NL_gridpts;
     // Compute equation 2.81 of Daniel Weinberg dissertation
@@ -169,11 +169,11 @@ void p_spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long
           
           y1_re = nlc[r_idx].y1[m_p].re;
           y1_im = nlc[r_idx].y1[m_p].im;
-          nlcproj = nlc[r_idx].proj[iproj];
+          SOproj = nlc[r_idx].proj[iproj];
           //weird signs b/c of Y_{lm}^*
           // Calculate the integral in eq 2.81
-          proj.re += psi_re * y1_re * nlcproj + psi_im * y1_im * nlcproj;
-          proj.im += psi_im * y1_re * nlcproj - psi_re * y1_im * nlcproj;
+          proj.re += psi_re * y1_re * SOproj + psi_im * y1_im * SOproj;
+          proj.im += psi_im * y1_re * SOproj - psi_re * y1_im * SOproj;
         }
         
         proj.re *= par->dv;
@@ -187,9 +187,12 @@ void p_spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long
 
           LS_loc.re = LS[jtot].re;
           LS_loc.im = LS[jtot].im;
+
           if (LS_loc.re == 0.0 && LS_loc.im == 0.0){
+            // skip this L.S element because it is 0.0
             continue;
           }
+
           PLS.re = LS_loc.re * proj.re - LS_loc.im * proj.im;
           PLS.im = LS_loc.re * proj.im + LS_loc.im * proj.re;
           
@@ -197,14 +200,14 @@ void p_spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long
             r_idx = jatom_offset + NL_gridpt;
             r_p = nlc[r_idx].jxyz + (ist->ngrid)*s;
             
-            nlcproj = nlc[r_idx].proj[iproj];
+            SOproj = nlc[r_idx].proj[iproj];
             y1_re = nlc[r_idx].y1[m].re;
             y1_im = nlc[r_idx].y1[m].im;
 
             #pragma omp atomic
-            psi_out[r_p].re += nlcproj * y1_re * PLS.re - nlcproj * y1_im * PLS.im;
+            psi_out[r_p].re += SOproj * y1_re * PLS.re - SOproj * y1_im * PLS.im;
             #pragma omp atomic
-            psi_out[r_p].im += nlcproj * y1_re * PLS.im + nlcproj * y1_im * PLS.re;
+            psi_out[r_p].im += SOproj * y1_re * PLS.im + SOproj * y1_im * PLS.re;
           }
         }
       }
@@ -235,8 +238,6 @@ void p_nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
   int iproj, s, m, j, t_id;
   int spin_arr[ist->n_j_ang_mom], m_arr[ist->n_j_ang_mom];
   zomplex proj;
-  double proj_re;
-  double proj_im;
 
   double psi_re, psi_im;
   double y1_re, y1_im;
@@ -251,7 +252,7 @@ void p_nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
   }
 
   omp_set_num_threads(ham_threads);
-  #pragma omp parallel for private(jatom, jatom_offset, NL_gridpt, r_idx, r, r_p, iproj, s, m, j, psi_re, psi_im, y1_re, y1_im, NL_proj)
+  #pragma omp parallel for private(jatom, jatom_offset, iproj, j, s, m, proj, NL_gridpt, r_idx, r, r_p, psi_re, psi_im, y1_re, y1_im, NL_proj)
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
     
     jatom_offset = jatom * ist->n_NL_gridpts;
@@ -280,8 +281,8 @@ void p_nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
         }
         
         // Apply scaling factors
-        proj_re *= nlc[jatom_offset].NL_proj_sign[iproj] * par->dv;
-        proj_im *= nlc[jatom_offset].NL_proj_sign[iproj] * par->dv;
+        proj.re *= nlc[jatom_offset].NL_proj_sign[iproj] * par->dv;
+        proj.im *= nlc[jatom_offset].NL_proj_sign[iproj] * par->dv;
 
         // Second loop over NL_gridpt
         for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++) {
@@ -294,9 +295,9 @@ void p_nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
           
           // Update thread-local psi_scratch
           #pragma omp atomic
-          psi_out[r_p].re += (NL_proj * (y1_re * proj_re - y1_im * proj_im));
+          psi_out[r_p].re += (NL_proj * (y1_re * proj.re - y1_im * proj.im));
           #pragma omp atomic
-          psi_out[r_p].im += NL_proj * (y1_re * proj_im + y1_im * proj_re);
+          psi_out[r_p].im += NL_proj * (y1_re * proj.im + y1_im * proj.re);
         }
       }
     }

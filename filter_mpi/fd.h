@@ -22,9 +22,10 @@
 typedef struct flag {
   int centerConf, setTargets, setSeed, interpolatePot, useStrain;
   int SO, NL, LR, useSpinors, isComplex;
-  int printPsiFilt, printOrtho, printNorm, printCubes;
+  int printPsiFilt, printOrtho, printNorm, printCubes, printGaussCubes;
   int calcPotOverlap, getAllStates, timeHamiltonian, calcSpinAngStat;
   int restartFromOrtho, retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint, saveOutput;
+  int calcFilterOnly;
   int approxEnergyRange, readProj;
   int useFastHam, useMPIOMP;
   int periodic;
@@ -40,11 +41,11 @@ typedef struct index {
   long natoms, n_atom_types, n_max_atom_types;
   long *atom_types;
   long max_pot_file_len, n_NL_gridpts, n_NL_atoms, nproj;
-  int nspin, ncubes, ngeoms;
+  int nspin, ncubes, n_gcubes_s, n_gcubes_e, ngeoms;
   int complex_idx;
   int crystal_structure_int, outmost_material_int;
   int n_s_ang_mom, n_l_ang_mom, n_j_ang_mom;
-  int n_bands, n_G_vecs, n_k_pts;
+  int n_bands, n_G_vecs, n_G_zeros, n_k_pts;
   int nk1, nk2, nk3;
   // Redundancies
   long nx, ny, nz;
@@ -70,6 +71,7 @@ typedef struct par {
   double R_gint_cut2;
   double pot_cut_rad2;
   double box_z;
+  int nb_min, nb_max; //min and max number of bands for printing
   // Redundnacies
   double dv;
 } par_st;
@@ -103,6 +105,8 @@ typedef struct grid {
   double xmin, xmax, ymin, ymax, zmin, zmax;
   long nx, ny, nz;
   double nx_1, ny_1, nz_1, ngrid_1;
+  long *g_idx;
+  long *g_zeros;
   // Redundancies
   long ngrid;
 } grid_st;
@@ -186,8 +190,8 @@ typedef struct MO_st {
 #define PbIBondMax  ( (3.3) * (ANGTOBOHR) ) 
 #define orthoBondAngle  160.6344 
 #define minCubicBondAngle  175.0
-#define HBAR 1
-#define MASS_E 1
+#define HBAR 1.0
+#define MASS_E 1.0
 
 /*****************************************************************************/
 // Function declarations
@@ -206,6 +210,9 @@ double calc_dot_dimension(xyz_st *R, long n, char *dir);
 double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int);
 
 // gauss.c
+void gauss_driver(
+  gauss_st *gauss, double *pot_local, double *eig_vals, xyz_st *R, atom_info *atom, grid_st *grid,
+  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void init_gauss_params(gauss_st *gauss, xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void diag_mat(double *mat, double *eigv, int n_dim);
 void build_gauss_hamiltonian(double *H_mat, double *T_mat, double *V_mat, index_st *ist, par_st *par);
@@ -234,11 +241,20 @@ void read_nearest_neighbors(vector *atom_neighbors, double *tetrahedron_vol_ref,
 void calc_strain_scale(double *strain_scale, vector *atom_neighbors, double *tetrahedron_vol_ref, atom_info *atom, double *a4_params, double *a5_params, long natoms);
 double calc_regular_tetrahedron_volume(double bond_length1, double bond_length2, double bond_length3, double bond_length4);
 
-//kspace.c
+// periodic.c
+void periodic_driver(double *pot_local, nlc_st *nlc, long *nl, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void gen_recip_lat_vecs(lattice_st *lattice, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void gen_G_vecs(vector *G_vecs, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void gen_k_vecs(vector *k_vecs, lattice_st *lattice, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void read_k_path(vector **k_vecs, lattice_st *lattice, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
+
+// ghamiltonian.c
+void g_hamiltonian(double *H_mat, vector *G_vecs, vector k, double *pot_local, nlc_st *nlc, long *nl, grid_st *grid,
+  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw, fftw_complex *fftwpsi);
+void g_kinetic(double *H_mat, vector *G_vecs, vector k, grid_st *grid, index_st *ist);
+void g_potential(double H_mat, zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, index_st *ist,
+  par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_complex *fftwpsi);
+
 
 //interpolate.c
 double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,double *pot_LR,long pot_file_len,long n,long j, int scale_LR, double scale_LR_par, double strain_factor, int is_LR);
@@ -348,5 +364,6 @@ void save_output(char *file_name, double *psitot, double *eig_vals, double *sigm
 char* format_duration(double elapsed_seconds);
 void matmul(int M, int N, int K, double *A, double *B, double *X);
 void trans_mat(int N, double *U, double *A, double *Ap);
+void print_progress_bar(int cur, int tot);
 //void mpi_print(const char *message);
 /*****************************************************************************/

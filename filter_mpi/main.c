@@ -34,8 +34,6 @@ int main(int argc, char *argv[]){
   double *ksqr, *zn, *pot_local, *rho; 
   double *eig_vals, *ene_targets, *sigma_E, inital_clock_t, initial_wall_t;
   double *SO_projectors;
-  double *S_mat = NULL, *T_mat = NULL, *V_mat = NULL;
-  double *H_mat;
   // long int arrays and counters
   long *nl = NULL;
   long jstate, jgrid, jgrid_real, jgrid_imag, jspin, jms, jns, rand_seed, thread_id;
@@ -49,12 +47,10 @@ int main(int argc, char *argv[]){
   char *bottom; bottom = malloc(2*sizeof(bottom[0]));
   strcpy(top, "T\0"); strcpy(bottom, "B\0");
 
-  // MPI_Init(&argc, &argv);
-  // MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
-  // MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
   parallel.mpi_root = 0;
-  parallel.mpi_rank = 0;
-  parallel.mpi_size = 1;
 
   if (parallel.mpi_rank == 0) printf("******************************************************************************\n");
   if (parallel.mpi_rank == 0) printf("\nRUNNING PROGRAM: FILTER DIAGONALIZATION\n");
@@ -265,90 +261,24 @@ int main(int argc, char *argv[]){
         free(SO_projectors); SO_projectors = NULL;
       }
 
-      // If the job uses a Gaussian basis, initialize the Gaussian basis here
+      // If the job uses a Gaussian basis, run the job in the Gaussian basis
       if (1 == flag.useGaussianBasis){
-        int a;
-        double *X, *U, *C;
-        MO_st *MO;
-        
-        // Allocate memory for the Gauss struct
-        gauss = (gauss_st*) calloc(par.n_orbitals, sizeof(gauss_st));
-        for (a = 0; a < par.n_orbitals; a++){
-          gauss[a].coeff = (double*) calloc(par.n_gauss_per_orbital, sizeof(double));
-          gauss[a].exp = (double*) calloc(par.n_gauss_per_orbital, sizeof(double));
-        }
-
-        // Allocate memory for the S, T, and V arrays
-        if ((S_mat = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(S_mat[0]))) == NULL){
-          fprintf(stderr, "ERROR: allocating memory for S_mat in main.c\n");
-          exit(EXIT_FAILURE);
-        }
-        if ((T_mat = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(T_mat[0]))) == NULL){
-          fprintf(stderr, "ERROR: allocating memory for S_mat in main.c\n");
-          exit(EXIT_FAILURE);
-        }
-        if ((V_mat = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(V_mat[0]))) == NULL){
-          fprintf(stderr, "ERROR: allocating memory for S_mat in main.c\n");
-          exit(EXIT_FAILURE);
-        }
-        if ((H_mat = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(H_mat[0]))) == NULL){
-          fprintf(stderr, "ERROR: allocating memory for S_mat in main.c\n");
-          exit(EXIT_FAILURE);
-        }
-        if ((X = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(X[0]))) == NULL){
-          fprintf(stderr, "ERROR: allocating memory for X in main.c\n");
-          exit(EXIT_FAILURE);
-        }
-        if ((U = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(U[0]))) == NULL){
-          fprintf(stderr, "ERROR: allocating memory for U in main.c\n");
-          exit(EXIT_FAILURE);
-        }
-        // Allocate memory for the orbital coefficient matrix, C
-        if ((C = (double*) calloc(par.n_orbitals * par.n_orbitals, sizeof(double)))==NULL){
-          fprintf(stderr, "ERROR: allocating memory for C in main.c\n");
-          exit(EXIT_FAILURE);
-        }
-        if ((MO = (MO_st*)calloc(par.n_orbitals, sizeof(MO_st)))==NULL)nerror("Could not allocate MOs\n");
-          for (i = 0; i < par.n_orbitals; i++){
-            if ((MO[i].coeff = (double*)calloc(par.n_orbitals, sizeof(double)))==NULL)nerror("Could not allocate AO coefficients to MOs\n");
-        }
-
         //
         //
-        init_gauss_params(gauss, R, atom, &ist, &par, &flag, &parallel);
+        gauss_driver(gauss, pot_local, eig_vals, R, atom, &grid, &ist, &par, &flag, &parallel);
         //
         //
-        overlap_gauss(S_mat, gauss, atom, &ist, &par, &flag);
-        //
-        //
-        kinetic_gauss(T_mat, gauss, atom, &ist, &par, &flag);
-        //
-        //
-        potential_gauss(V_mat, pot_local, gauss, &grid, atom, &ist, &par, &flag);
-        //
-        //
-        build_gauss_hamiltonian(H_mat, T_mat, V_mat, &ist, &par);
-        //
-        //
-        calc_X_canonical(S_mat, X, U, &ist, &par, &flag, &parallel);
-        //
-        //
-        transform_H(H_mat, X, eig_vals, MO, &ist, &par, &flag, &parallel);
-        //
-        //
-        
-        for (a = 0; a < par.n_orbitals; a++){
-          printf("\tE%d = %lg\n", a, eig_vals[a]);
-        }
-        //
-        //
-        proj_gauss_on_grid(MO, gauss, &grid, 0, par.n_orbitals, &ist, &par, &flag, &parallel);
-        //
-        //
-        
         exit(0);
-        
-        
+      }
+
+      // If the job uses a Gaussian basis, run the job in the Gaussian basis
+      if (1 == flag.periodic){
+        //
+        //
+        periodic_driver(pot_local, nlc, nl, &grid, &ist, &par, &flag, &parallel);
+        //
+        //
+        exit(0);
       }
       
        
@@ -463,12 +393,16 @@ int main(int argc, char *argv[]){
 
       if (parallel.mpi_rank == 0) printf("\n  4.2 Running filter cycle\n");
       run_filter_cycle(psi_rank,pot_local,nlc,nl,ksqr,an,zn,ene_targets,&grid,&ist,&par,&flag,&parallel);
-      // MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
+      MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
+      
       
       if (parallel.mpi_rank == 0) printf("\ndone calculating filter, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
       fflush(stdout);
 
+      if (1 == flag.calcFilterOnly){
+        exit(0);
+      }
       /*************************************************************************/
       /*** read all filtered states ***/
       /*ppsi = fopen("psi-filt.dat" , "r");
@@ -483,7 +417,7 @@ int main(int argc, char *argv[]){
       
       /*************************************************************************/
       if (parallel.mpi_rank == 0) printf("Gathering psitot from all mpi_ranks\n"); fflush(0);
-      // MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
+      MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
       
       // If the size of each wavefunction is very large,
       // then MPI_Send/Recv is the only way to communicate
@@ -533,10 +467,10 @@ int main(int argc, char *argv[]){
       // // If the size of each wavefunction is small,
       // // then MPI_Gather is an efficient way to communicate
       // else {
-      //   MPI_Gather(psi_rank,psi_rank_size,MPI_DOUBLE,psitot,psi_rank_size,MPI_DOUBLE,0,MPI_COMM_WORLD);
+        MPI_Gather(psi_rank,psi_rank_size,MPI_DOUBLE,psitot,psi_rank_size,MPI_DOUBLE,0,MPI_COMM_WORLD);
       // }
-      // if (parallel.mpi_rank == 0) printf("Succesfully gathered all states\n"); fflush(0);
-      // MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
+      if (parallel.mpi_rank == 0) printf("Succesfully gathered all states\n"); fflush(0);
+      MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
 
       /*************************************************************************/
       if (parallel.mpi_rank == 0){
@@ -609,29 +543,7 @@ int main(int argc, char *argv[]){
         }
         printf("psitot[max] = %lg\n", psitot[ist.complex_idx*ist.nspinngrid*ist.mn_states_tot - 1]);
         
-        long state_idx;
-        double sgn_val;
-        char fileName[50];
-        // if ((rho = (double *) calloc(ist.ngrid, sizeof(rho[0]))) == NULL){
-        //   fprintf(stderr, "\nOUT OF MEMORY: filter rho\n\n"); exit(EXIT_FAILURE);
-        // }
-        // for (jstate = 0; jstate < 5; jstate++){
-        //   state_idx = jstate*ist.complex_idx * ist.nspinngrid;
-        //   for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-        //     jgrid_real = ist.complex_idx * jgrid;
-        //     jgrid_imag = ist.complex_idx * jgrid + 1;
-
-        //     rho[jgrid] = sqr(psitot[state_idx + jgrid_real]);
-        //     sgn_val = psitot[state_idx + jgrid_real];
-        //     if (1 == flag.isComplex){
-        //       rho[jgrid] += sqr(psitot[state_idx + jgrid_imag]);
-        //       if (sgn_val < psitot[state_idx + jgrid_imag]) sgn_val = psitot[state_idx + jgrid_imag];
-        //     }
-        //     rho[jgrid] *= sign(sgn_val);
-        //   }
-        //   sprintf(fileName, "ortho-psi-%ld.cube", jstate);
-        //   write_cube_file(rho, &grid, fileName);
-        // }
+        
 
         printf("\nNormalizing filtered states (for safety)\n"); fflush(stdout);
         normalize_all(psitot,ist.mn_states_tot,&ist,&par,&flag,&parallel);
@@ -661,7 +573,7 @@ int main(int argc, char *argv[]){
         inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
         if (parallel.mpi_rank == 0) printf("mn_states_tot before ortho = %ld\n", ist.mn_states_tot);
         if (1 == flag.isComplex){
-          ist.mn_states_tot = ortho((MKL_Complex16 *)psitot, grid.dv, &ist, &par, &flag, &parallel);      
+          ist.mn_states_tot = ortho((MKL_Complex16*)psitot, grid.dv, &ist, &par, &flag, &parallel);      
         } else if (0 == flag.isComplex) {
           ist.mn_states_tot = ortho(psitot, grid.dv, &ist, &par, &flag, &parallel);
         }
@@ -990,7 +902,7 @@ int main(int argc, char *argv[]){
         free(top); free(bottom);
       }
       
-      // MPI_Finalize(); // Finalize the MPI tasks and prepare to exit program
+      MPI_Finalize(); // Finalize the MPI tasks and prepare to exit program
       
       exit(0);
       

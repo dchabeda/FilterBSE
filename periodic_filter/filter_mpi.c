@@ -127,13 +127,15 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     // Calculate term 0 of the expansion
     if (1 == flag->isComplex){
       for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
-        psi[jgrid].re = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
-        psi[jgrid].im = an[ncjms+0].re * psi[jgrid].im + an[ncjms+0].im * psi[jgrid].re;
+        jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = ist->complex_idx * jgrid + 1;
+
+        psi_rank[jstate + jgrid_real] = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
+        psi_rank[jstate + jgrid_imag] = an[ncjms+0].re * psi[jgrid].im + an[ncjms+0].im * psi[jgrid].re;
       }
     } else{
       for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
-        psi[jgrid].re = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
-        
+        psi_rank[jstate + jgrid_real] = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
       }
     }
     
@@ -142,7 +144,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
       
       memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
       
-      omp_set_num_threads(par->ham_threads);
+      // omp_set_num_threads(par->ham_threads);
       p_hamiltonian(psi,phi,pot_local,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi,par->ham_threads);
       
       for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
@@ -164,27 +166,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
           psi_rank[jstate + jgrid] += an[ncjms+jc].re * psi[jgrid].re ; 
         }
       }
-      // printf("chk 5\n"); fflush(0);
-      // if (parallel->mpi_rank == 0){
-      //   if ( (0 == (jc % ((long) (ist->ncheby / 4)) )) || (1 == jc) || ( (ist->ncheby - 1) == jc) ) {
-      //     // print the filtering progress to the output file
-      //     int barWidth = 16; // Width of the progress bar
-      //     float percent = (float)jc / ist->ncheby * 100;
-      //     int pos = barWidth * jc / ist->ncheby;
 
-      //     // Obtain the current time
-      //     time_t current_time = time(NULL);
-      //     // Convert to local time format and print
-      //     char* c_time_string = ctime(&current_time);
-      //     printf("\t  [");
-      //     for (int i = 0; i < barWidth; ++i) {
-      //         if (i < pos) printf("#");
-      //         else printf(" ");
-      //     }
-      //     printf("] %3.0f%% | %s\n", percent, c_time_string);
-      //     fflush(stdout);
-      //   }
-      // }
     }
 
     cntr++;
@@ -200,12 +182,10 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
 
   if (1 == flag->printPsiFilt){
     // Print the normalized filtered states to disk
-    cntr = 0;
     sprintf(fileName, "psi-filt-%d.dat", parallel->mpi_rank);
-    pf = fopen(fileName, "w");
-    for (jmn = start; jmn < end; jmn++){
-      fwrite(&psi_rank[cntr*ist->complex_idx*ist->nspinngrid], sizeof(double), ist->complex_idx*ist->nspinngrid, pf);
-      cntr++;
+    pf = fopen(fileName, "wb");
+    for (jmn = 0; jmn < ist->n_states_per_rank; jmn++){
+      fwrite(&psi_rank[jmn*ist->complex_idx*ist->nspinngrid], sizeof(double), ist->complex_idx*ist->nspinngrid, pf);
     }
     fclose(pf);
   }
@@ -214,7 +194,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   /*** normalize the states and get their energies***/
   if (parallel->mpi_rank == 0) printf("\n  4.3 Normalizing filtered states\n"); fflush(stdout);
   // printf("Normalizing states\n"); fflush(0);
-  normalize_all(psi_rank,ist->n_states_per_rank,ist,par,flag,parallel);
+  normalize_all(psi_rank, ist->n_states_per_rank, ist, par, flag, parallel);
   
 
   // Get the energy of all the filtered states
@@ -224,7 +204,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   /*** calculate and print the energy of the filtered states ***/
   energy_all(psi_rank,ist->n_states_per_rank,pot_local,nlc,nl,ksqr,ene_filters,ist,par,flag,parallel);
   // printf("exited energy_all\n"); fflush(0);
-  sprintf (fileName,"ene-filt-rank-%d.dat", parallel->mpi_rank);
+  sprintf(fileName,"ene-filt-rank-%d.dat", parallel->mpi_rank);
   pf = fopen(fileName , "w");
   cntr = 0;
   for (jmn = start; jmn < end; jmn++){

@@ -67,8 +67,9 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     
     if (1 == flag->approxEnergyRange){
             fprintf(pf,"\tEnergy range will be approx'd using only local potential\n");
-    } else {fprintf(pf,"\tFull energy range of Hamiltonian will be calculated\n");}
-    
+    } else if (0 == flag->approxEnergyRange){fprintf(pf,"\tFull energy range of Hamiltonian will be calculated\n");}
+    else {fprintf(pf, "Corrupted approxEnergyRange %d\n", flag->approxEnergyRange); exit(EXIT_FAILURE);}
+
     if (1 == flag->printPsiFilt){
         fprintf(pf, "\tprintPsiFilt is on. psi-filt.dat and psi-filt.cube files will be printed\n");
     } else {

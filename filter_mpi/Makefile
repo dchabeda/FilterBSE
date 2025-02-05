@@ -10,14 +10,14 @@ LIB = $(Linux_DYLIB) $(Linux_LIB)
 
 # flags ...
 Linux_OPTFLAGS = -DMKL_ILP64
-Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -xSSE3 -qopenmp -static
+Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp
 #Linux_CFLAGS = -g -qopenmp -O0
-#Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
+Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
 
 MAINNAM = Filter
 
 # compiler ...
-Linux_CC = icx
+Linux_CC = cc
 
 OBJECTS = \
 	main.o read.o init.o gauss.o save.o projectors.o norm.o rand.o interpolate.o strain.o \
@@ -40,7 +40,7 @@ CUBEOBJECTS = \
 
 # Compile the main executable Filter.x and link libraries
 $(MAINNAM): $(OMP)
-	$(Linux_CC) -o $(MAINNAM).x $(OMP) $(LIB)
+	$(Linux_CC) -o $(MAINNAM)_omp.x $(OMP) $(LIB)
 
 mpi: $(MPI)
 	$(Linux_CC) -o $(MAINNAM)_mpi.x $(MPI) $(LIB)

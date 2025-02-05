@@ -58,14 +58,10 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   // used to accelerate evaluation of the Hamiltonian operation
   //************************************************************************
   //************************************************************************
-  if (parallel->mpi_rank == 0) printf("Starting filtering loop\n\n"); fflush(0);
-  //long nthreads = (long) (parallel->nthreads / 2);
-  // int chunk_size = ist->n_filter_cycles / parallel->mpi_size;
-  // int start = parallel->mpi_rank * ist->n_filters_per_rank;
-  // int end = (parallel->mpi_rank == parallel->mpi_size - 1) ? ist->n_filter_cycles : start + ist->n_filters_per_rank;
   
   // Loop over all of the random states handled by this mpi-rank
-  omp_set_dynamic(0);
+  
+  omp_set_max_active_levels(1);
   omp_set_num_threads(parallel->nthreads);
   #pragma omp parallel for private(jmn) 
   for (jmn = 0; jmn < ist->n_states_per_rank; jmn++) {
@@ -73,7 +69,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     if (0 == omp_get_thread_num()){
       cntr++;
       if (parallel->mpi_rank == 0) printf("\tCurrently working on iteration %ld of filtering cycle\n", cntr); fflush(0);
-      if (parallel->mpi_rank == 0) printf("\t  (~%ld states)\n\n", cntr * parallel->nthreads); fflush(0);
+      if (parallel->mpi_rank == 0) printf("\t  (~%ld states)\n\n", cntr * omp_get_num_threads()); fflush(0);
       
     }
     // All variables declared within this parallel region are private for each thread
@@ -145,13 +141,16 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     // Calculate term 0 of the expansion
     if (1 == flag->isComplex){
       for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
-        psi[jgrid].re = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
-        psi[jgrid].im = an[ncjms+0].re * psi[jgrid].im + an[ncjms+0].im * psi[jgrid].re;
+	      jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = ist->complex_idx * jgrid + 1;
+
+        psi_rank[jns_ms + jgrid_real] = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
+        psi_rank[jns_ms + jgrid_imag] = an[ncjms+0].re * psi[jgrid].im + an[ncjms+0].im * psi[jgrid].re;
       }
     } 
     else {
       for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
-        psi[jgrid].re = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
+        psi_rank[jns_ms + jgrid] = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
       }
     }
     
@@ -175,15 +174,15 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
           jgrid_real = ist->complex_idx * jgrid;
           jgrid_imag = ist->complex_idx * jgrid + 1;
 
-          #pragma omp atomic
+          // #pragma omp atomic
           psi_rank[jns_ms + jgrid_real] += (an[ncjms+jc].re * psi[jgrid].re - an[ncjms+jc].im * psi[jgrid].im);
-          #pragma omp atomic
+          // #pragma omp atomic
           psi_rank[jns_ms + jgrid_imag] += (an[ncjms+jc].re * psi[jgrid].im + an[ncjms+jc].im * psi[jgrid].re);
         } 
       }
       else{
         for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
-          #pragma omp atomic
+          // #pragma omp atomic
           psi_rank[jns_ms + jgrid] += (an[ncjms+jc].re * psi[jgrid].re - an[ncjms+jc].im * psi[jgrid].im);
         }
       }

@@ -1,5 +1,97 @@
 #include "fd.h"
 
+/*******************************************************************************************/
+
+void gauss_driver(
+  gauss_st *gauss, double *pot_local, double * eig_vals, xyz_st *R, atom_info *atom, grid_st *grid,
+  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+  // Driver for computing Filter in a Gaussian basis
+  double *S_mat;
+  double *T_mat;
+  double *V_mat;
+  double *H_mat;
+  int a;
+  double *X, *U, *C;
+  MO_st *MO;
+  
+  // Allocate memory for the Gauss struct
+  gauss = (gauss_st*) calloc(par->n_orbitals, sizeof(gauss_st));
+  for (a = 0; a < par->n_orbitals; a++){
+    gauss[a].coeff = (double*) calloc(par->n_gauss_per_orbital, sizeof(double));
+    gauss[a].exp = (double*) calloc(par->n_gauss_per_orbital, sizeof(double));
+  }
+
+  // Allocate memory for the S, T, and V arrays
+  if ((S_mat = (double*) calloc(par->n_orbitals * par->n_orbitals, sizeof(S_mat[0]))) == NULL){
+    fprintf(stderr, "ERROR: allocating memory for S_mat in main.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((T_mat = (double*) calloc(par->n_orbitals * par->n_orbitals, sizeof(T_mat[0]))) == NULL){
+    fprintf(stderr, "ERROR: allocating memory for S_mat in main.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((V_mat = (double*) calloc(par->n_orbitals * par->n_orbitals, sizeof(V_mat[0]))) == NULL){
+    fprintf(stderr, "ERROR: allocating memory for S_mat in main.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((H_mat = (double*) calloc(par->n_orbitals * par->n_orbitals, sizeof(H_mat[0]))) == NULL){
+    fprintf(stderr, "ERROR: allocating memory for S_mat in main.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((X = (double*) calloc(par->n_orbitals * par->n_orbitals, sizeof(X[0]))) == NULL){
+    fprintf(stderr, "ERROR: allocating memory for X in main.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((U = (double*) calloc(par->n_orbitals * par->n_orbitals, sizeof(U[0]))) == NULL){
+    fprintf(stderr, "ERROR: allocating memory for U in main.c\n");
+    exit(EXIT_FAILURE);
+  }
+  // Allocate memory for the orbital coefficient matrix, C
+  if ((C = (double*) calloc(par->n_orbitals * par->n_orbitals, sizeof(double)))==NULL){
+    fprintf(stderr, "ERROR: allocating memory for C in main.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((MO = (MO_st*)calloc(par->n_orbitals, sizeof(MO_st)))==NULL)nerror("Could not allocate MOs\n");
+    for (a = 0; a < par->n_orbitals; a++){
+      if ((MO[a].coeff = (double*)calloc(par->n_orbitals, sizeof(double)))==NULL)nerror("Could not allocate AO coefficients to MOs\n");
+  }
+
+  //
+  //
+  init_gauss_params(gauss, R, atom, ist, par, flag, parallel);
+  //
+  //
+  overlap_gauss(S_mat, gauss, atom, ist, par, flag);
+  //
+  //
+  kinetic_gauss(T_mat, gauss, atom, ist, par, flag);
+  //
+  //
+  potential_gauss(V_mat, pot_local, gauss, grid, atom, ist, par, flag);
+  //
+  //
+  build_gauss_hamiltonian(H_mat, T_mat, V_mat, ist, par);
+  //
+  //
+  calc_X_canonical(S_mat, X, U, ist, par, flag, parallel);
+  //
+  //
+  transform_H(H_mat, X, eig_vals, MO, ist, par, flag, parallel);
+  //
+  //
+  // Print out the eigenvalues
+  for (a = 0; a < par->n_orbitals; a++){
+    printf("\tE%d = %lg\n", a, eig_vals[a]);
+  }
+  //
+  //
+  if (1 == flag->printGaussCubes){
+    proj_gauss_on_grid(MO, gauss, grid, ist->n_gcubes_s, ist->n_gcubes_e, ist, par, flag, parallel);
+  }
+  //
+  //
+  return;
+}
 
 void init_gauss_params( 
   gauss_st     *gauss,   xyz_st *R, 
@@ -25,7 +117,7 @@ void init_gauss_params(
   double **coeff_loc, **exp_loc;
   double min_exp = 1e10;
   long jatom, jatm_orb, jatm_orb_loc;
-  double g_norm;
+  double sigma, g_norm;
   FILE *pf;
 
   // 
@@ -83,8 +175,10 @@ void init_gauss_params(
             ieof = fscanf(pf, "%lg %lg", &coeff, &exp);
             
             // Compute the normalization constant for this gaussian
-            g_norm = 1 / sqrt( 1 / (2 * exp) );
-            g_norm *= pow(TWOPI, .75);
+            sigma = 1 / sqrt(1 / (2 * exp));
+            printf("This is sigma = %lg\n", sigma);
+            g_norm = pow(1/TWOPI, 1.5) * pow(sigma, 1.5) ;
+            printf("This is g_norm = %lg\n", g_norm);
             
             gauss[jatm_orb].coeff[i] = g_norm * coeff;
             gauss[jatm_orb].exp[i] = exp;
@@ -179,7 +273,7 @@ void build_gauss_hamiltonian(double *H_mat, double *T_mat, double *V_mat, index_
       idx = a * par->n_orbitals + b;
       
       H_mat[idx] = T_mat[idx] + V_mat[idx];
-      fprintf(pf, "<%d|%d> = %.16lg\n", a, b, H_mat[idx]);
+      fprintf(pf, "<%d|H|%d> = %.16lg\n", a, b, H_mat[idx]);
     }
   }
 
@@ -289,6 +383,7 @@ void calc_X_canonical(double *S_mat, double *X, double *U, index_st *ist, par_st
   double *A, *s, *WORK, *s_rt_inv;
 
   N = LDA = par->n_orbitals;
+  
   LWORK = 3 * N;
 
   if ((s = (double*) malloc(N * sizeof(s[0]))) == NULL) nerror("Could not allocate s\n");
@@ -307,21 +402,21 @@ void calc_X_canonical(double *S_mat, double *X, double *U, index_st *ist, par_st
   if (INFO) { 
     nerror("error in dsyev_ S_mat\n");
   } 
-  printf("Done diagonalizing S_mat matrix\n"); fflush(0);
+  // printf("Done diagonalizing S_mat matrix\n"); fflush(0);
 
   // Print the eigenvalues and Eigenvectors
-  printf("Eigenvalues:\n");
-  for (i = 0; i < par->n_orbitals; i++){
-      printf("% .6f\n", s[i]);
-  }
-  printf("Eigenvectors:\n");
-  for (i = 0; i < par->n_orbitals; i++){
-      printf("\n");
-      for (j = 0; j < par->n_orbitals; j++){
-          printf(" % .6f ", A[i*par->n_orbitals + j]);
-      }
-  }
-  printf("\n");
+  // printf("Eigenvalues:\n");
+  // for (i = 0; i < par->n_orbitals; i++){
+  //     printf("% .6f\n", s[i]);
+  // }
+  // printf("Eigenvectors:\n");
+  // for (i = 0; i < par->n_orbitals; i++){
+  //     printf("\n");
+  //     for (j = 0; j < par->n_orbitals; j++){
+  //         printf(" % .6f ", A[i*par->n_orbitals + j]);
+  //     }
+  // }
+  // printf("\n");
 
   // Make the inverse square root of the diagonalized S_mat matrix, s^-1/2
   if ((s_rt_inv = (double*)malloc(N * N * sizeof(double))) == NULL)nerror("Could not allocate inverse S_mat matrix\n");
@@ -334,27 +429,27 @@ void calc_X_canonical(double *S_mat, double *X, double *U, index_st *ist, par_st
   }
 
   // Print the inv sqrt diag mat and Eigenvectors
-  printf("\nMatrix s^-1/2:\n");
-  for (i = 0; i < par->n_orbitals; i++){
-      printf("\n");
-      for (j = 0; j < par->n_orbitals; j++){
-          printf(" % .6f ", s_rt_inv[i*par->n_orbitals + j]);
-      }
-  }
-  printf("\n");
+  // printf("\nMatrix s^-1/2:\n");
+  // for (i = 0; i < par->n_orbitals; i++){
+  //     printf("\n");
+  //     for (j = 0; j < par->n_orbitals; j++){
+  //         printf(" % .6f ", s_rt_inv[i*par->n_orbitals + j]);
+  //     }
+  // }
+  // printf("\n");
 
   // Compute X_canonical = U * s^-1/2.
   M = N = K = par->n_orbitals;
   matmul(M, N, K, A, s_rt_inv, X);    
 
-  printf("\nX_canonical:\n");
-  for (i = 0; i < par->n_orbitals; i++){
-      printf("\n");
-      for (j = 0; j < par->n_orbitals; j++){
-          printf(" % .6f ", X[i*par->n_orbitals + j]);
-      }
-  }
-  printf("\n");
+  // printf("\nX_canonical:\n");
+  // for (i = 0; i < par->n_orbitals; i++){
+  //     printf("\n");
+  //     for (j = 0; j < par->n_orbitals; j++){
+  //         printf(" % .6f ", X[i*par->n_orbitals + j]);
+  //     }
+  // }
+  // printf("\n");
 
   free(s); free(WORK); free(A); free(s_rt_inv);
 
@@ -390,14 +485,14 @@ void transform_H(double *H_mat, double *X, double *eig_vals, MO_st *MO, index_st
   // 
 
   // Print H'
-  fprintf(pf, "\nHp = ");
-  for (i = 0; i < par->n_orbitals; i++){
-      fprintf(pf, "\n");
-      for (j = 0; j < par->n_orbitals; j++){
-          fprintf(pf, " % .6f ", Hp[i*par->n_orbitals + j]);
-      }
-  }
-  fprintf(pf, "\n\n");
+  // fprintf(pf, "\nHp = ");
+  // for (i = 0; i < par->n_orbitals; i++){
+  //     fprintf(pf, "\n");
+  //     for (j = 0; j < par->n_orbitals; j++){
+  //         fprintf(pf, " % .6f ", Hp[i*par->n_orbitals + j]);
+  //     }
+  // }
+  // fprintf(pf, "\n\n");
 
   // Diagonalize the H' matrix
   // 
@@ -418,34 +513,34 @@ void transform_H(double *H_mat, double *X, double *eig_vals, MO_st *MO, index_st
   // printf("The second MO is Psi = %.6f Phi_1 + %.6f Phi_2\n", MO[1].coeff[0], MO[1].coeff[1] );
 
   // Print the eigenvalues (orbital energies) and eigenvectors (orbital coefficients)
-  fprintf(pf, "Orbital energies:\n");
-  for (i = 0; i < par->n_orbitals; i++){
-      fprintf(pf, "% .6f\n", eig_vals[i]);
-  }
-  fprintf(pf, "\n");
+  // fprintf(pf, "Orbital energies:\n");
+  // for (i = 0; i < par->n_orbitals; i++){
+  //     fprintf(pf, "% .6f\n", eig_vals[i]);
+  // }
+  // fprintf(pf, "\n");
 
-  fprintf(pf, "Canonical orbital coefficients:\n");
-  for (i = 0; i < par->n_orbitals; i++){
-      fprintf(pf, "\n");
-      for (j = 0; j < par->n_orbitals; j++){
-          fprintf(pf, " % .6f ", Hp[i*par->n_orbitals + j]);
-      }
-  }
-  fprintf(pf, "\n\n");
+  // fprintf(pf, "Canonical orbital coefficients:\n");
+  // for (i = 0; i < par->n_orbitals; i++){
+  //     fprintf(pf, "\n");
+  //     for (j = 0; j < par->n_orbitals; j++){
+  //         fprintf(pf, " % .6f ", Hp[i*par->n_orbitals + j]);
+  //     }
+  // }
+  // fprintf(pf, "\n\n");
 
   // Compute the orbital coefficients in terms of the original basis functions
   // C = X * C'
   double *C = (double *) calloc(N * N , sizeof(C[0]));
   matmul(N, N, N, X, Hp, C); 
 
-  fprintf(pf, "Original-orbital coefficients:\n");
+  // fprintf(pf, "Original-orbital coefficients:\n");
   
-  for (i = 0; i < N; i++){
-      fprintf(pf, "\n");
-      for (j = 0; j < N; j++){
-          fprintf(pf, " % .6f ", C[i*N + j]);  
-      }
-  }
-  fprintf(pf, "\n\n");
+  // for (i = 0; i < N; i++){
+  //     fprintf(pf, "\n");
+  //     for (j = 0; j < N; j++){
+  //         fprintf(pf, " % .6f ", C[i*N + j]);  
+  //     }
+  // }
+  // fprintf(pf, "\n\n");
 
 }

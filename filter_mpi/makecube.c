@@ -9,15 +9,17 @@ int countlines(char *filename);
 /*****************************************************************************/
 int main(int argc, char *argv[])
 {
-  FILE *ppsi;  zomplex *psi;
+  FILE *ppsi;
   // custom structs 
   grid_st grid; par_st par; index_st ist; parallel_st parallel; flag_st flag;
   xyz_st *R; atom_info *atom;
   // double arrays
-  double *rho; 
+  double *rho;
+  double *psi;
   // long int arrays and counters
   long i, jms;
   int j, start, end;
+  int jgrid_real, jgrid_imag;
   ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
   time_t currentTime = time(NULL);
 
@@ -61,45 +63,67 @@ int main(int argc, char *argv[])
   
   /*** initialize the grid ***/
   printf("\nInitializing the grid parameters:\n"); fflush(0);
-  init_grid_params(&grid, R, &ist, &par, &parallel);
+  init_grid_params(&grid, R, &ist, &par, &flag, &parallel);
 
   if ((rho = (double *)calloc(ist.ngrid, sizeof(double)))==NULL) nerror("rho");
-
 
   //count number of states found
   jms = countlines("eval.dat");
   printf("%ld total states in psi.dat\n", jms); fflush(0);
   
   //allocate memory for psi
-  if ((psi = (zomplex *) calloc(ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");
-
+  if ((psi = (double *) calloc(ist.complex_idx*ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");
 
   //read psi from file
 	ppsi = fopen("psi.dat" , "r");
 
-	
+
   char filename[20];
   for (j = start; j <= end; j++){ 
     printf("Reading state %d from psi.dat\n", j);
-
-    if(fseek(ppsi,j*ist.nspinngrid*sizeof(zomplex),SEEK_SET)!=0){
+    
+    if(fseek(ppsi,j*ist.complex_idx *ist.nspinngrid*sizeof(zomplex),SEEK_SET)!=0){
       printf("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
     }
-    fread (&psi[0],sizeof(zomplex),ist.nspinngrid,ppsi);
+    fread(&psi[0], sizeof(double), ist.complex_idx * ist.nspinngrid, ppsi);
 
-    for (i = 0;i<ist.ngrid; i++){
-      rho[i] = sqr(psi[i].re)+sqr(psi[i].im);
-              
+    if (1 == flag.isComplex){
+      for (i = 0; i < ist.ngrid; i++){
+        jgrid_real = i * ist.complex_idx;
+        jgrid_imag = jgrid_real + 1;
+        // sqrt is not physical, just to make values larger for visualization
+        rho[i] = sqrt( sqr(psi[jgrid_real]) + sqr(psi[jgrid_imag]) );    
+      }
+      sprintf(filename, "rhoUp%i.cube", j);
+      write_cube_file(rho, &grid, filename);
+    } else{
+      for (i = 0; i < ist.ngrid; i++){
+        // sqrt is not physical, just to make values larger for visualization
+        rho[i] = sqrt(sqr(psi[i]));    
+      }
+      sprintf(filename, "rhoUp%i.cube", j);
+      write_cube_file(rho, &grid, filename);
     }
-    sprintf(filename, "rhoUp%i.cube", j);
-    write_cube_file(rho, &grid, filename);
+    
     
     if (flag.useSpinors == 1){
-      for (i = 0;i<ist.ngrid; i++){
-        rho[i]=sqr(psi[ist.ngrid+i].re)+sqr(psi[ist.ngrid+i].im);
+      if (1 == flag.isComplex){
+        for (i = 0; i < ist.ngrid; i++){
+          jgrid_real = i * ist.complex_idx;
+          jgrid_imag = jgrid_real + 1;
+          // sqrt is not physical, just to make values larger for visualization
+          rho[i] = sqrt( sqr(psi[ist.ngrid + jgrid_real]) + sqr(psi[ist.ngrid + jgrid_imag]) );    
+        }
+        sprintf(filename, "rhoUp%i.cube", j);
+        write_cube_file(rho, &grid, filename);
+      } else{
+        for (i = 0; i < ist.ngrid; i++){
+          // sqrt is not physical, just to make values larger for visualization
+          rho[i] = sqrt(sqr(psi[ist.ngrid + i]));    
+        }
+        sprintf(filename, "rhoUp%i.cube", j);
+        write_cube_file(rho, &grid, filename);
       }
-      sprintf(filename, "rhoDn%i.cube", j);
-      write_cube_file(rho, &grid, filename);
     }
     // for (i = 0;i<ist.ngrid; i++){
     //   rho[i]= sqr(psi[i].re)+sqr(psi[i].im)+
@@ -111,9 +135,10 @@ int main(int argc, char *argv[])
   }
   fclose(ppsi);  
 
+  printf("Done with makecube.x\n");
+
+
   return 0;
-
-
 }
 
 

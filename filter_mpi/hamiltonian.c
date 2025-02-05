@@ -34,6 +34,7 @@ void hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *
   for (jspin = 0; jspin < ist->nspin; jspin++){
       kinetic(&psi_out[jspin*ist->ngrid], ksqr, planfw, planbw, fftwpsi, ist); //spin up/down
   } 
+  
   // write_state_dat(psi_out, ist->nspinngrid, "psi_out_kinetic.dat");
   // Calculate the action of the potential on the wavefunction: |psi_out> = V|psi_tmp>
   potential(psi_out, psi_tmp, pot_local, nlc, nl, ist, par, flag);
@@ -82,6 +83,7 @@ void kinetic(zomplex *psi_out, double *ksqr, fftw_plan_loc planfw, fftw_plan_loc
   
   return;
 }
+
 
 /*****************************************************************************/
 
@@ -368,7 +370,6 @@ void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl
 
 /*****************************************************************************/
 
-
 void time_reverse_all(double *psitot, double *dest, index_st *ist, parallel_st *parallel){
   /*******************************************************************
   * This function applies the real-space time reversal operator to   *
@@ -407,3 +408,96 @@ void time_reverse_all(double *psitot, double *dest, index_st *ist, parallel_st *
   return;
 }
 
+/*****************************************************************************/
+
+void e_ikr(zomplex *psi, vector k, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+
+  // Apply e^(ik.r) onto |psi_tmp> and store result in |psi_out>
+  // e^(ik.r) = cos(k.r) + i sin(k.r)
+
+  int jx, jy, jz, jyz, jgrid;
+  long jspingrid;
+  double x, y, z;
+  double psi_up_re, psi_up_im;
+  double psi_dn_re, psi_dn_im;
+  double cos, sin;
+  double kr;
+  vector r;
+
+  if (1 == flag->useSpinors){
+    for (jz = 0; jz < grid->nz; jz++){
+      r.z = grid->z[jz];
+      for (jy = 0; jy < grid->ny; jy++){
+        r.y = grid->y[jy];
+        jyz = grid->nx * (grid->ny * jz + jy);
+        for (jx = 0; jx < grid->nx; jx++){
+          // Finish constructing r vector
+          r.x = grid->x[jx]; 
+          
+          // grid point index jxyz
+          jgrid = jyz + jx;
+          
+          // spin down grid point index for wavefunction
+          jspingrid = ist->ngrid + jgrid;
+          
+          // Compute k dot r and the e^(ikr) values at this gridpoint
+          kr = retDotProduct(k, r);
+          cos = cos(kr);
+          sin = sin(kr);
+          
+          // Grab the elements of psi to avoid unecessary memory accesses;
+          psi_up_re = psi[jgrid].re;
+          psi_up_im = psi[jgrid].im;
+          psi_dn_re = psi[jspingrid].re;
+          psi_dn_im = psi[jspingrid].im;
+
+          // Compute the real and imag components of e^(ikr)|psi_tmp>
+          // [cos + i*sin][psi(r).re + i*psi(r).im]
+          // up spin
+          // 
+          psi[jgrid].re = psi_up_re * cos - psi_up_im * sin;
+          psi[jgrid].im = psi_up_re * sin + psi_up_im * cos;
+          // 
+          // dn spin
+          // 
+          psi[jspingrid].re = psi_dn_re * cos - psi_dn_im * sin;
+          psi[jspingrid].im = psi_dn_re * sin + psi_dn_im * cos;
+        }
+      }
+    }
+  } 
+  else {
+    for (jz = 0; jz < grid->nz; jz++){
+      r.z = grid->z[jz];
+      for (jy = 0; jy < grid->ny; jy++){
+        r.y = grid->y[jy];
+        jyz = grid->nx * (grid->ny * jz + jy);
+        for (jx = 0; jx < grid->nx; jx++){
+          // Finish constructing r vector
+          r.x = grid->x[jx]; 
+          
+          // grid point index jxyz
+          jgrid = jyz + jx;
+          
+          // Compute k dot r
+          kr = retDotProduct(k, r);
+          cos = cos(kr);
+          sin = sin(kr);
+          
+          // Grab the elements of psi to avoid unecessary memory accesses;
+          psi_up_re = psi[jgrid].re;
+          psi_up_im = psi[jgrid].im;
+
+          // Compute the real and imag components of e^(ikr)|psi_tmp>
+          // [cos + i*sin][psi(r).re + i*psi(r).im]
+          // we only compute up spin sector
+          // 
+          psi[jgrid].re = psi_up_re * cos - psi_up_im * sin;
+          psi[jgrid].im = psi_up_re * sin + psi_up_im * cos;
+        }
+      }
+    }
+  }
+  
+  return;
+}

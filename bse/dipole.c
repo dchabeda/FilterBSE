@@ -82,7 +82,11 @@ void calc_elec_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, gr
             
               sumX.im +=  tmp.im * x; sumY.im +=  tmp.im * y; sumZ.im +=  tmp.im * z;
             }
+            //
+            //
             sumX.re += tmp.re * x; sumY.re += tmp.re * y; sumZ.re += tmp.re * z;
+            //
+            //
           }
         }
       }

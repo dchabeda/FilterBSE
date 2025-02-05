@@ -65,9 +65,9 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
     grid->zmin = -zd;
     grid->zmax = zd - grid->dz;
     ntmp  = (long)((grid->zmax - grid->zmin) / grid->dz);
-    printf("\tThe z_min = %lg and z_max %lg\n", grid->zmin, grid->zmax);
+    if (parallel->mpi_rank == 0) printf("\tThe z_min = %lg and z_max %lg\n", grid->zmin, grid->zmax);
     if ( (ntmp > grid->nz) && (0 == flag->periodic) ){
-      printf("\tinput nz insufficient; updating parameter.\n");
+      if (parallel->mpi_rank == 0) printf("\tinput nz insufficient; updating parameter.\n");
       grid->nz = ntmp;
     }
 
@@ -77,7 +77,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
   else if ( (1 == flag->periodic) && (0.0 != par->box_z) ){
     // Generate the box in the periodic z direction
     // Determine if the number of grid points chosen is sufficient for the max grid spacing
-    printf("\tUsing periodic box of length %lg Bohr in z dim\n", par->box_z);
+    if (parallel->mpi_rank == 0) printf("\tUsing periodic box of length %lg Bohr in z dim\n", par->box_z);
     double dz;
     int nz;
     dz = par->box_z / grid->nz;
@@ -87,12 +87,12 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
       // Increase the number of gridpts to have a grid spacing below grid->dz
       grid->nz = (int)(par->box_z / grid->dz) + 1;
       grid->dz = par->box_z / grid->nz;
-      printf("\tModify periodic box grid: nz = %ld dz = %lg\n", grid->nz, grid->dz);
+      if (parallel->mpi_rank == 0) printf("\tModify periodic box grid: nz = %ld dz = %lg\n", grid->nz, grid->dz);
     }
 
     grid->zmin = - par->box_z / 2;
     grid->zmax = par->box_z / 2;
-    printf("\t-L/2 = %lg L/2 = %lg\n", grid->zmin, grid->zmax);
+    if (parallel->mpi_rank == 0) printf("\t-L/2 = %lg L/2 = %lg\n", grid->zmin, grid->zmax);
   } 
   else {
     printf("ERROR: periodic flag set but box_z = 0.0!\n");
@@ -105,6 +105,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
   grid->nx_1 = 1.0 / (double)(grid->nx);
   grid->ny_1 = 1.0 / (double)(grid->ny);
   grid->nz_1 = 1.0 / (double)(grid->nz);
+  grid->ngrid_1 = grid->nx_1 * grid->ny_1 * grid->nz_1;
   grid->dv = par->dv = grid->dx * grid->dy * grid->dz;
   grid->dr = sqrt(sqr(grid->dx) + sqr(grid->dy) + sqr(grid->dz));
 
@@ -392,7 +393,13 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
             if ( dz < -par->box_z/2) dz += par->box_z;
           }
 
-      	  dist2 = sqrt(dx * dx + dy * dy + dz * dz);
+      	  dist2 = dx*dx + dy*dy + dz*dz;
+
+          if (dist2 > par->pot_cut_rad2){
+            // Do not compute potential for grid points more than 6.0 Bohr
+            // from atom. Potential has decayed to zero.
+            continue;
+          }
 
           // If strain dependent terms are requested, then set strain_factor to be the strain term for this atom
           if (1 == flag->useStrain){
@@ -555,7 +562,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
   // 2. Calculate r, r2, y1[1+m], proj(r), etc. at the grid points
   omp_set_dynamic(0);
   omp_set_num_threads(parallel->nthreads);
-#pragma omp parallel for private(jatom)
+  #pragma omp parallel for private(jatom)
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
     long jx, jy, jz, jyz, jxyz;
     int iproj, rpoint, *sgnProj;

@@ -274,7 +274,7 @@ void calc_sigma_E(double *psitot, double *pot_local, nlc_st *nlc, long *nl, doub
   long ims;
   
   // Loop over all M*N states
-#pragma omp parallel for private(ims)
+  #pragma omp parallel for private(ims)
   for (ims = 0; ims < ist->mn_states_tot; ims++) {
     long jgrid, jgrid_real, jgrid_imag, jstate;
     double eval, eval2;

@@ -70,3 +70,26 @@ void trans_mat(int N, double *U, double *A, double *Ap){
 //         printf("%s", message);
 //     }
 // }
+
+/*****************************************************************************/
+
+void print_progress_bar(int cur, int tot){
+    // print the filtering progress to the output file
+    int barWidth = 16; // Width of the progress bar
+    float percent = (float)cur / tot * 100;
+    int pos = barWidth * cur / tot;
+
+    // Obtain the current time
+    time_t current_time = time(NULL);
+    // Convert to local time format and print
+    char* c_time_string = ctime(&current_time);
+    printf("\t  [");
+    for (int i = 0; i < barWidth; ++i) {
+        if (i < pos) printf("#");
+        else printf(" ");
+    }
+    printf("] %3.0f%% | %s\n", percent, c_time_string);
+    fflush(stdout);
+
+    return;
+}

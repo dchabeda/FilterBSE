@@ -7,13 +7,30 @@ void overlap_gauss(double *S_mat, gauss_st *gauss, atom_info *atom, index_st *is
   FILE *pf;
   int a, b, i, j;
   double i_c, j_c;
+  double Rx_a, Ry_a, Rz_a, Rx_b, Ry_b, Rz_b;
+  double R2;
   double d_ij, alpha, beta, rsqr, S_ij, ab, apb, sum;
 
   pf = fopen("gauss_overlap.dat", "w");
   // Compute overlap matrix elements for basis functions 
   // defined as a sum of Gaussians
   for (a = 0; a < par->n_orbitals; a++) {
+    Rx_a = gauss[a].Rx;
+    Ry_a = gauss[a].Ry;
+    Rz_a = gauss[a].Rz;
     for (b = 0; b < par->n_orbitals; b++) {
+      Rx_b = gauss[b].Rx;
+      Ry_b = gauss[b].Ry;
+      Rz_b = gauss[b].Rz;
+
+      // Compute the distance squared between orbitals a and b
+      R2 = sqr(Rx_b - Rx_a) + sqr(Ry_b - Ry_a) + sqr(Rz_b - Rz_a);
+      if (R2 > par->R_gint_cut2){
+        // If the atoms are too far apart, set <a|S|b> = 0 and skip calculation
+        S_mat[a * par->n_orbitals + b] = 0.0;
+        continue;
+      }
+
       // Initialize Overlap matrix calculation
       sum = 0.0;
       for (i = 0; i < par->n_gauss_per_orbital; i++) {
@@ -51,12 +68,29 @@ void kinetic_gauss(double *T_mat, gauss_st *gauss, atom_info *atom, index_st *is
   FILE *pf;
   int a, b, i, j;
   double i_c, j_c;
+  double Rx_a, Ry_a, Rz_a, Rx_b, Ry_b, Rz_b;
+  double R2;
   double d_ij, alpha, beta, rsqr, S_ij, ab, apb, sum;
 
   pf = fopen("gauss_kinetic.dat", "w");
   // Compute KE matrix elements for basis functions defined as a sum of Gaussians
   for (a = 0; a < par->n_orbitals; a++) {
+    Rx_a = gauss[a].Rx;
+    Ry_a = gauss[a].Ry;
+    Rz_a = gauss[a].Rz;
     for (b = 0; b < par->n_orbitals; b++) {
+      Rx_b = gauss[b].Rx;
+      Ry_b = gauss[b].Ry;
+      Rz_b = gauss[b].Rz;
+
+      // Compute the distance squared between orbitals a and b
+      R2 = sqr(Rx_b - Rx_a) + sqr(Ry_b - Ry_a) + sqr(Rz_b - Rz_a);
+      if (R2 > par->R_gint_cut2){
+        // If the atoms are too far apart, set <a|S|b> = 0 and skip calculation
+        T_mat[a * par->n_orbitals + b] = 0.0;
+        continue;
+      }
+
       // Initialize KE matrix calculation
       sum = 0.0;
       for (i = 0; i < par->n_gauss_per_orbital; i++) {
@@ -109,9 +143,9 @@ void potential_gauss(double *V_mat, double *pot_local, gauss_st *gauss, grid_st 
 
   pf = fopen("gauss_potential.dat", "w");
 
-  // for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
-  //     pot_local[jxyz] = 1.0;
-  // }
+  for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
+      pot_local[jxyz] = 1.0;
+  }
 
   // Compute KE matrix elements for basis functions defined as a sum of Gaussians
   for (a = 0; a < par->n_orbitals; a++) {

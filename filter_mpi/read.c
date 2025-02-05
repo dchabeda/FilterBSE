@@ -27,9 +27,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->n_max_atom_types = N_MAX_ATOM_TYPES;
   flag->centerConf = 1; // this should honestly always be 1
   // Filter algorithm parameters
-  par->KE_max = 10.0; // Increasing this value can improve wavefunctions
+  par->KE_max = 20.0; // Increasing this value can improve wavefunctions
   flag->setTargets = 0;
-  flag->printPsiFilt = 0;
+  flag->printPsiFilt = 1;
   flag->printOrtho = 0;
   par->checkpoint_id = 0;
   flag->approxEnergyRange = 0;
@@ -49,7 +49,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   par->scale_surface_Cs = 1.0; // By default, do not charge balance the surface Cs atoms
   flag->readProj = 0;
   par->psi_zero_cut = 1e-16;
-  par->pot_cut_rad2 = 36.0; // All short ranged potentials are decayed to zero by 6 Bohr
+  par->pot_cut_rad2 = 100.0; // All short ranged potentials are decayed to zero by 10.0 Bohr
   par->R_gint_cut2 = 0;
   // Hamiltonian parameters
   // Spin-orbit and non-local terms
@@ -122,6 +122,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "box_Z")) {
           par->box_z = strtod(tmp, &endptr);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "periodic")) {
+          flag->periodic = (int) strtod(tmp, &endptr);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for pseudopotentials
@@ -256,6 +259,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (flag->getAllStates == 0){
             fscanf(pf, "%lg", &par->sigma_E_cut);
           }
+      } else if (!strcmp(field, "calcFilterOnly")) {
+          flag->calcFilterOnly = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "sigmaECut")) {
           par->sigma_E_cut = strtod(tmp, &endptr);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
@@ -267,6 +273,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           flag->printCubes = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
           if (flag->printCubes == 1){fscanf(pf, "%d", &ist->ncubes);}
+      } else if (!strcmp(field, "printGaussCubes")) {
+          flag->printGaussCubes = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+          if (flag->printCubes == 1){fscanf(pf, "%d %d", &ist->n_gcubes_s, &ist->n_gcubes_e);}
       } else if (!strcmp(field, "calcSpinAngStat")) {
           flag->calcSpinAngStat = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
@@ -338,7 +348,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (parallel->mpi_rank == 0) printf("timeHamiltonian = int (1 to print timing information, 0 to not)\n");
           if (parallel->mpi_rank == 0) printf("printCubes = int (1 to print wavefunction cube files, 0 to not)\n");
           if (parallel->mpi_rank == 0) printf("If printCubes = 1, the next entry MUST specify the number of eigenstates to print\n");
+          if (parallel->mpi_rank == 0) printf("If printGaussCubes = 1, the next 2 entries are the start and end eigenstates to print\n");
           if (parallel->mpi_rank == 0) printf("calcSpinAngStat = int (calculate spin and ang. mom. statistics for eigenstates)\n");
+          if (parallel->mpi_rank == 0) printf("calcFilterOnly = int (if 1, terminate job after filtering)\n");
           if (parallel->mpi_rank == 0) printf("setSeed = int (if 1, set the random seed in for filter to generate exactly reproducible wavefunctions)\n");
           if (parallel->mpi_rank == 0) printf("If setSeed = 1, the next entry MUST specify the random seed as an integer \'rand_seed\'\n");
           if (parallel->mpi_rank == 0) printf("printNorm = int, if 1 then norms of wavefunctions are printed every 100 chebyshev iterations\n");
@@ -1140,6 +1152,10 @@ void read_periodic_input(lattice_st *lattice, index_st *ist, par_st *par, flag_s
   FILE *pf;
   int i = 0;
   char field[1000], tmp[1000], *endptr;
+  
+  ist->n_bands = 0;
+  par->nb_max = 0; //
+  par->nb_min = 0; // Set defaults to trigger nband condition
 
   if( access("periodic_input.par", F_OK) != -1 ) {
     pf = fopen("periodic_input.par", "r");
@@ -1184,6 +1200,12 @@ void read_periodic_input(lattice_st *lattice, index_st *ist, par_st *par, flag_s
       } else if (!strcmp(field, "nBands")) {
           ist->n_bands = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nbMin")) {
+          par->nb_min = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nbMax")) {
+          par->nb_max = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "nk1")) {
           ist->nk1 = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
@@ -1225,15 +1247,26 @@ void read_periodic_input(lattice_st *lattice, index_st *ist, par_st *par, flag_s
 
   // Set the number of total kpoints
   ist->n_k_pts = ist->nk1 * ist->nk2 * ist->nk3;
+  if ((par->nb_min == 0) && (par->nb_max == 0)){
+    if (ist->n_bands == 0){
+      printf("ERROR: number of bands not set!\n");
+      fprintf(stderr, "ERROR: number of bands not set!\n");
+      exit(EXIT_FAILURE);
+    }
+
+    par->nb_max = ist->n_bands;
+  }
 
   printf("\nDone reading periodic input\n");
   printf("\tn_bands = %d\n", ist->n_bands);
+  printf("\tnb_min = %d nb_max = %d\n", par->nb_min, par->nb_max);
   printf("\ta = %.3f b = %.3f c = %.3f\n", lattice->a, lattice->b, lattice->c);
   printf("\talpha = %.3f beta = %.3f gamma = %.3f\n", lattice->alpha, lattice->beta, lattice->gamma);
   printf("\ta1 = %.4f %.4f %.4f\n", lattice->a1.x, lattice->a1.y, lattice->a1.z);
   printf("\ta2 = %.4f %.4f %.4f\n", lattice->a2.x, lattice->a2.y, lattice->a2.z);
   printf("\ta3 = %.4f %.4f %.4f\n", lattice->a3.x, lattice->a3.y, lattice->a3.z);
   printf("\treadKPath = %d\n", flag->readKPath);
+  printf("\tn_k_pts = %d\n", ist->n_k_pts);
 
   // Scale the lattice vectors by the lattice parameters
   lattice->a1 = retScaledVector(lattice->a1, lattice->a);

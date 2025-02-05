@@ -115,13 +115,17 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
       // into a state with energy close to the target energy
       
       // Calculate term 0 of the expansion
-      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
-        jgrid_real = ist->complex_idx * jgrid;
-        jgrid_imag = ist->complex_idx * jgrid + 1;
+      if (1 == flag->isComplex){
+        for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
+          jgrid_real = ist->complex_idx * jgrid;
+          jgrid_imag = ist->complex_idx * jgrid + 1;
 
-        psi_rank[jstate + jgrid_real] = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
-        if (1 == flag->isComplex){
+          psi_rank[jstate + jgrid_real] = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
           psi_rank[jstate + jgrid_imag] = an[ncjms+0].re * psi[jgrid].im + an[ncjms+0].im * psi[jgrid].re;
+        }
+      } else{
+        for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
+          psi_rank[jstate + jgrid] = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
         }
       }
       
@@ -172,41 +176,6 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   /*** normalize the states and get their energies***/
   if (parallel->mpi_rank == 0) printf("\n  4.3 Normalizing filtered states\n"); fflush(stdout);
   normalize_all(psi_rank,ist->n_states_per_rank,ist,par,flag,parallel);
-  
-  // double *rho, sgn_val;
-  // long jgrid, jgrid_imag, jgrid_real, jstate;
-  // char str[100];
-  // if ((rho = (double *) calloc(ist->ngrid, sizeof(rho[0]))) == NULL){
-  //   fprintf(stderr, "\nOUT OF MEMORY: filter rho\n\n"); exit(EXIT_FAILURE);
-  // }
-  // if (1 == flag->printPsiFilt){
-  //   // Print the normalized filtered states to disk
-  //   sprintf(fileName, "psi-filt-%d.dat", parallel->mpi_rank);
-  //   pf = fopen(fileName, "w");
-  //   for (jns = 0; jns < ist->n_filters_per_rank; jns++){
-  //     for (jms = 0; jms < ist->m_states_per_filter; jms++){
-  //       jstate = (jns * ist->m_states_per_filter + jms) * ist->complex_idx*ist->nspinngrid;
-  //       fwrite(&psi_rank[jstate], sizeof(double), ist->complex_idx*ist->nspinngrid, pf);
-        
-  //       for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
-  //         jgrid_real = ist->complex_idx * jgrid;
-  //         jgrid_imag = ist->complex_idx * jgrid + 1;
-          
-  //         rho[jgrid] = sqr(psi_rank[jstate + jgrid_real]);
-  //         sgn_val = psi_rank[jstate + jgrid_real];
-  //         if (1 == flag->isComplex){
-  //           rho[jgrid] += sqr(psi_rank[jstate + jgrid_imag]);
-  //           if (sgn_val < psi_rank[jstate + jgrid_imag]) sgn_val = psi_rank[jstate + jgrid_imag];
-  //         }
-  //         rho[jgrid] *= sign(sgn_val);
-  //       }
-        
-  //       sprintf(str, "psi-filt-%ld-%ld-%d.cube", jns, jms, parallel->mpi_rank);
-  //       write_cube_file(rho, grid, str);
-  //     }
-  //   }
-  //   fclose(pf);
-  // }
 
   // Get the energy of all the filtered states
   if ((ene_filters = (double*)calloc(ist->n_states_per_rank, sizeof(double)))==NULL)nerror("ene_filters");
@@ -215,25 +184,6 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   /*** calculate and print the energy of the filtered states ***/
   energy_all(psi_rank,ist->n_states_per_rank,pot_local,nlc,nl,ksqr,ene_filters,ist,par,flag,parallel);
 
-  // for (jns = 0; jns < ist->n_filters_per_rank; jns++){
-  //   for (jms = 0; jms < ist->m_states_per_filter; jms++){
-  //     jstate = (jns * ist->m_states_per_filter + jms) * ist->complex_idx*ist->nspinngrid;
-  //     for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
-  //       jgrid_real = ist->complex_idx * jgrid;
-  //       jgrid_imag = ist->complex_idx * jgrid + 1;
-
-  //       rho[jgrid] = sqr(psi_rank[jstate + jgrid_real]);
-  //       sgn_val = psi_rank[jstate + jgrid_real];
-  //       if (1 == flag->isComplex){
-  //         rho[jgrid] += sqr(psi_rank[jstate + jgrid_imag]);
-  //         if (sgn_val < psi_rank[jstate + jgrid_imag]) sgn_val = psi_rank[jstate + jgrid_imag];
-  //       }
-  //       rho[jgrid] *= sign(sgn_val);
-  //     }
-  //   sprintf(str, "psi-ene-%ld-%ld-%d.cube", jns, jms, parallel->mpi_rank);
-  //   write_cube_file(rho, grid, str);
-  //   }
-  // }
 
   for (jns = 0; jns < ist->n_filters_per_rank; jns++){
     sprintf (fileName,"ene-filt-jns-%ld-%d.dat", jns, parallel->mpi_rank);

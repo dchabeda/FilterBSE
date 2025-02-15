@@ -397,13 +397,14 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   }
   ist->ngrid = grid->ngrid = grid->nx * grid->ny * grid->nz;
   ist->nspinngrid = ist->nspin * ist->ngrid;
+  ist->complex_idx = flag->isComplex + 1;
   ist->mn_states_tot = ist->n_filter_cycles * ist->m_states_per_filter;
   ist->n_states_per_rank = ist->mn_states_tot / parallel->mpi_size;
+  ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx;
   // used only for "filter_fast.c" scheme
   ist->n_filters_per_rank = ist->n_filter_cycles / parallel->mpi_size;
   // 
   ist->nthreads = parallel->nthreads;
-  ist->complex_idx = flag->isComplex + 1;
 
   // Handle flags for restarting filter from checkpoints or other retries
   if (1 == flag->restartFromOrtho){
@@ -549,7 +550,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
   char atyp[3];
     for (int k = 0; k<ist->n_atom_types; k++){
       assign_atom_type(atyp, ist->atom_types[k]);
-      if (parallel->mpi_rank == 0) printf("%c%c%c ", atyp[0], atyp[1], atyp[2]);
+      if (parallel->mpi_rank == 0) printf("%3s ", atyp);
     }
   if (parallel->mpi_rank == 0) printf("]\n");
   if (1 == flag->NL) if (parallel->mpi_rank == 0) printf("\tn_NL_atoms = %ld\n", ist->n_NL_atoms);
@@ -774,7 +775,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
 
           // Get the r-spacing and file length
           // check that it is the same as for the short range
-          if ((dr_check != pot->dr[j]) || (i != pot->file_lens[j]) ){
+          if ((dr_check != pot->dr[atyp_idx]) || (i != pot->file_lens[atyp_idx]) ){
             fprintf(stderr, "ERROR: short and long range pseudopotential files have different r-spacing or length\n");
             exit(EXIT_FAILURE);
           }
@@ -790,10 +791,10 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
           strcat(str, "_a4.par");
           pf = fopen(str, "r");
           if (pf != NULL) {
-              fscanf(pf, "%lg", &pot->a4_params[j]);
+              fscanf(pf, "%lg", &pot->a4_params[atyp_idx]);
               fclose(pf);
           } else {
-              pot->a4_params[j] = 0.0;
+              pot->a4_params[atyp_idx] = 0.0;
               fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
               // exit(EXIT_FAILURE);
           }
@@ -802,10 +803,10 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
           strcat(str, "_a5.par");
           pf = fopen(str, "r");
           if (pf != NULL) {
-              fscanf(pf, "%lg", &pot->a5_params[j]);
+              fscanf(pf, "%lg", &pot->a5_params[atyp_idx]);
               fclose(pf);
           } else {
-              pot->a5_params[j] = 0.0;
+              pot->a5_params[atyp_idx] = 0.0;
               fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
               // exit(EXIT_FAILURE);
           }

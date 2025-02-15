@@ -36,6 +36,7 @@ typedef struct flag {
 typedef struct index {
   long m_states_per_filter, n_filter_cycles, mn_states_tot;
   long n_filters_per_rank, n_states_per_rank, n_states_for_ortho;
+  long long psi_rank_size;
   long homo_idx, lumo_idx, total_homo, total_lumo;
   long ngrid, nspinngrid, ncheby;
   long natoms, n_atom_types, n_max_atom_types;
@@ -249,12 +250,16 @@ void gen_k_vecs(vector *k_vecs, lattice_st *lattice, index_st *ist, par_st *par,
 void read_k_path(vector **k_vecs, lattice_st *lattice, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 
 // ghamiltonian.c
-void g_hamiltonian(double *H_mat, vector *G_vecs, vector k, double *pot_local, nlc_st *nlc, long *nl, grid_st *grid,
-  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw, fftw_complex *fftwpsi);
-void g_kinetic(double *H_mat, vector *G_vecs, vector k, grid_st *grid, index_st *ist);
-void g_potential(double H_mat, zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, index_st *ist,
-  par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_complex *fftwpsi);
-
+void hamiltonian_k(
+  zomplex       *psi_out,  zomplex      *psi_tmp,    double *pot_local,    
+  vector        *G_vecs,   vector        k,          grid_st *grid, 
+  nlc_st        *nlc,      long         *nl,         index_st *ist, 
+  par_st        *par,      flag_st      *flag,       fftw_plan_loc planfw, 
+  fftw_plan_loc planbw,    fftw_complex *fftwpsi);
+void p_hamiltonian_k(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, vector *G_vecs, vector k, grid_st *grid, nlc_st *nlc, long *nl,
+  index_st *ist, par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, int ham_threads);
+void kinetic_k(zomplex *psi_out, vector *G_vecs, vector k, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st *ist);
+void e_ikr(zomplex *psi, vector k, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
 
 //interpolate.c
 double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,double *pot_LR,long pot_file_len,long n,long j, int scale_LR, double scale_LR_par, double strain_factor, int is_LR);
@@ -279,15 +284,19 @@ void p_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st
 void time_reverse_all(double *psitot, double *dest, index_st *ist, parallel_st *parallel);
 void time_hamiltonian(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
   index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
+void time_hamiltonian_k(zomplex *phi, zomplex *psi, double *pot_local, vector *G_vecs, vector k, grid_st *grid,nlc_st *nlc, long *nl,
+  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 
 
 //filter.c
-void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *ksqr, zomplex *an, 
-  double *zn, double *ene_targets, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
+void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+  zomplex *an, double *zn, double *ene_targets, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
+void run_filter_cycle_k(double *psi_rank, double *pot_local, vector *G_vecs, vector *k_vecs, nlc_st *nlc, long *nl, 
+  zomplex *an, double *zn, double *ene_targets, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void filter(zomplex *psin, zomplex *psim1, double *psims, double *pot_local, nlc_st *nlc, long *nl, 
   double *ksqr, zomplex *an, double *zn, long thread_id, long jn, fftw_plan_loc planfw, fftw_plan_loc planbw,
   fftw_complex *fftwpsis, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-void scale_eigs_for_cheby(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, double *ksqr, double zm1,
+void scale_eigs_for_cheby(zomplex *phi, zomplex *psi, double *pot_local, vector *G_vecs, vector k, grid_st *grid,nlc_st *nlc, long *nl, double zm1,
   fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st *ist, par_st *par, flag_st *flag);
 int sign(float x);
 
@@ -304,11 +313,19 @@ void normalize_all(double *psitot, long n_states, index_st *ist, par_st *par, fl
 //energy.c
 double energy(zomplex *psi, zomplex *phi, double *pot_local, nlc_st *nlc, long *nl, double *ksqr, index_st *ist,
   par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
+double energy_k(zomplex *psi, zomplex *phi, double *pot_local, vector *G_vecs, vector k, grid_st *grid,nlc_st *nlc, long *nl, index_st *ist,
+  par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
 void energy_all(double *psitot, long n_states, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+  double *ene, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
+void energy_all_k(double *psitot, long n_states, double *pot_local, vector *G_vecs, vector k, grid_st *grid,nlc_st *nlc, long *nl,
   double *ene, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void get_energy_range(zomplex *psi, zomplex *phi, double *pot_local, grid_st *grid, nlc_st *nlc, long *nl, double *ksqr,
   index_st *ist, par_st *par, parallel_st *parallel, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
+void get_energy_range_k(zomplex *psi, zomplex *phi, double *pot_local, vector *G_vecs, vector k, grid_st *grid, nlc_st *nlc, long *nl,
+  index_st *ist, par_st *par, parallel_st *parallel, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
 void calc_sigma_E(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+  double *eval2, index_st *ist, par_st *par, flag_st *flag);
+void calc_sigma_E_k(double *psitot, double *pot_local, vector *G_vecs, vector *k_vecs, grid_st *grid,nlc_st *nlc, long *nl,
   double *eval2, index_st *ist, par_st *par, flag_st *flag);
 
 
@@ -362,6 +379,7 @@ void save_output(char *file_name, double *psitot, double *eig_vals, double *sigm
 
 // aux.c
 char* format_duration(double elapsed_seconds);
+char* get_time();
 void matmul(int M, int N, int K, double *A, double *B, double *X);
 void trans_mat(int N, double *U, double *A, double *Ap);
 void print_progress_bar(int cur, int tot);

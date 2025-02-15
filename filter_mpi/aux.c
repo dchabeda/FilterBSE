@@ -18,6 +18,17 @@ char* format_duration(double elapsed_seconds) {
     return result;
 }
 
+/*****************************************************************************/
+char* get_time(){
+    time_t current_time;
+    char* c_time_string;
+
+    current_time = time(NULL);
+    c_time_string = ctime(&current_time);
+    return c_time_string;
+}
+
+/*****************************************************************************/
 void matmul(int M, int N, int K, double *A, double *B, double *X){
     // Function to multiply two matrices together:
     // [X] = [A] * [B]
@@ -93,3 +104,5 @@ void print_progress_bar(int cur, int tot){
 
     return;
 }
+
+/*****************************************************************************/

@@ -1,18 +1,19 @@
 #!/bin/bash
 
 # Check if both arguments (nstates and output_file) are provided
-if [ $# -ne 3 ]; then
-    echo "Usage: $0 <j_per_rank> <n_rank> <output_file>"
+if [ $# -ne 4 ]; then
+    echo "Usage: $0 <jmn> <n_rank> <nk> <output_file>"
     exit 1
 fi
 
 # Get the number of states and the output file name
-jr=$1
+jmn=$1
 nr=$2
-output_file=$3
+nk=$3
+output_file=$4
 
 # Get the size of the first file as a reference
-ref_file="psi-filt-0-0.dat"
+ref_file="psi-filt-0-0-0.dat"
 ref_size=$(stat --format="%s" "$ref_file" 2>/dev/null)
 
 # Check if the reference file exists
@@ -28,9 +29,10 @@ fi
 count=0
 
 # Loop over all the files and concatenate them if their sizes match
-for ((i=0; i<jr; i++)); do
+for ((i=0; i<jmn; i++)); do
 for ((j=0; j<nr; j++)); do
-    file="psi-filt-${i}-${j}.dat"
+for ((k=0; k<nk; k++)); do
+    file="psi-filt-${i}-${j}-${k}.dat"
     
     # Check if the file exists
     if [[ -f "$file" ]]; then
@@ -48,6 +50,7 @@ for ((j=0; j<nr; j++)); do
     else
         echo "Warning: $file does not exist!" 
     fi
+done
 done
 done
 # Print the number of successfully concatenated files

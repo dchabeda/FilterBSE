@@ -14,6 +14,7 @@
 #include "mkl.h"
 #include "unistd.h"
 
+
 /*****************************************************************************/
 typedef struct flag {
   int SO, NL, LR, useSpinors, isComplex;
@@ -75,6 +76,7 @@ typedef fftw_plan fftw_plan_loc;
 
 typedef struct parallel{
   long nthreads;
+  int mpi_rank, mpi_size, mpi_root;
 } parallel_st;
 
 /*****************************************************************************/
@@ -150,7 +152,8 @@ void calc_eh_kernel_cplx(zomplex       *psi_qp,
                         flag_st       *flag,
                         fftw_plan_loc *planfw,
                         fftw_plan_loc *planbw,
-                        fftw_complex  *fftwpsi);
+                        fftw_complex  *fftwpsi,
+                        parallel_st *parallel);
 
 void calc_eh_kernel_real(double       *psi_qp, 
                         zomplex       *pot_bare,

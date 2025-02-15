@@ -112,7 +112,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
   ist->ngrid = grid->ngrid = grid->nx * grid->ny * grid->nz;
   ist->nspinngrid = ist->nspin * ist->ngrid;
   ist->nx = grid->nx; ist->ny = grid->ny; ist->nz = grid->nz;
-
+  ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx;
 
   if (parallel->mpi_rank == 0) printf("\n\tFinal grid parameters:\n");
   if (parallel->mpi_rank == 0) printf("\t----------------------\n");
@@ -353,7 +353,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
       exit(EXIT_FAILURE);
     }
   }
-
+  
   // ****** ****** ****** ****** ****** ****** 
   // Read atomic pseudopotentials
   // ****** ****** ****** ****** ****** ******

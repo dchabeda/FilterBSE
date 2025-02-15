@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
   printf("%ld total states in psi.dat\n", jms); fflush(0);
   
   //allocate memory for psi
-  if ((psi = (double *) calloc(ist.complex_idx*ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");
+  if ((psi = (double *) calloc(ist.complex_idx*ist.nspinngrid, sizeof(double))) == NULL) nerror("psi");
 
   //read psi from file
 	ppsi = fopen("psi.dat" , "r");
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
   for (j = start; j <= end; j++){ 
     printf("Reading state %d from psi.dat\n", j);
     
-    if(fseek(ppsi,j*ist.complex_idx *ist.nspinngrid*sizeof(zomplex),SEEK_SET)!=0){
+    if(fseek(ppsi,j*ist.complex_idx *ist.nspinngrid*sizeof(double),SEEK_SET)!=0){
       printf("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
     }
     fread(&psi[0], sizeof(double), ist.complex_idx * ist.nspinngrid, ppsi);
@@ -112,16 +112,16 @@ int main(int argc, char *argv[])
           jgrid_real = i * ist.complex_idx;
           jgrid_imag = jgrid_real + 1;
           // sqrt is not physical, just to make values larger for visualization
-          rho[i] = sqrt( sqr(psi[ist.ngrid + jgrid_real]) + sqr(psi[ist.ngrid + jgrid_imag]) );    
+          rho[i] = sqrt( sqr(psi[ist.ngrid*ist.complex_idx + jgrid_real]) + sqr(psi[ist.ngrid*ist.complex_idx + jgrid_imag]) );    
         }
-        sprintf(filename, "rhoUp%i.cube", j);
+        sprintf(filename, "rhoDn%i.cube", j);
         write_cube_file(rho, &grid, filename);
       } else{
         for (i = 0; i < ist.ngrid; i++){
           // sqrt is not physical, just to make values larger for visualization
-          rho[i] = sqrt(sqr(psi[ist.ngrid + i]));    
+          rho[i] = sqrt(sqr(psi[ist.ngrid*ist.complex_idx + i]));    
         }
-        sprintf(filename, "rhoUp%i.cube", j);
+        sprintf(filename, "rhoDn%i.cube", j);
         write_cube_file(rho, &grid, filename);
       }
     }

@@ -86,13 +86,16 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   int start = parallel->mpi_rank * ist->n_states_per_rank;
   int end = (parallel->mpi_rank == parallel->mpi_size - 1) ? parallel->mpi_size*ist->n_states_per_rank : start + ist->n_states_per_rank;
   
+  // double *rho;
+  // rho = calloc(ist->ngrid, sizeof(double));
+
 
   // Loop over all of the states handled by this mpi-rank 
   for (jmn = start; jmn < end; jmn++){
     // Keep track of how many filter iterations have taken place
     
     if (parallel->mpi_rank == 0){
-      printf("\tCurrently working on iteration %ld/%ld of filtering cycle\n", cntr+1, ist->n_states_per_rank); fflush(0);
+      printf("\tIteration %ld/%ld | %s\n", cntr+1, ist->n_states_per_rank, get_time()); fflush(0);
       printf("\t  (~%ld states)\n\n", (cntr+1) * parallel->mpi_size); fflush(0);
     }
     
@@ -135,9 +138,25 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
       }
     } else{
       for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
-        psi_rank[jstate + jgrid_real] = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
+        psi_rank[jstate + jgrid] = an[ncjms+0].re * psi[jgrid].re - an[ncjms+0].im * psi[jgrid].im;
       }
     }
+
+    // sprintf(fileName, "psi-%ld-cheby-%d.cube", jmn, 0);
+    // if (1 == flag->isComplex){
+    //   for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
+    //     jgrid_real = ist->complex_idx * jgrid;
+    //     jgrid_imag = ist->complex_idx * jgrid + 1;
+
+    //     rho[jgrid] = sqrt( sqr(psi_rank[jstate + jgrid_real]) + sqr(psi_rank[jstate + jgrid_imag]) );
+    //   }
+    // }
+    // else{
+    //   for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
+    //     rho[jgrid] = psi_rank[jstate + jgrid];
+    //   }
+    // }
+    // write_cube_file(rho, grid, fileName);
     
     // Calculate the subsequent terms of the expansion
     for (jc = 1; jc < ist->ncheby; jc++){
@@ -167,6 +186,30 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
         }
       }
 
+      // sprintf(fileName, "psi-%ld-cheby-%ld.cube", jmn, jc);
+      // if (1 == flag->isComplex){
+      //   for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
+      //     jgrid_real = ist->complex_idx * jgrid;
+      //     jgrid_imag = ist->complex_idx * jgrid + 1;
+
+      //     rho[jgrid] = sqrt( sqr(psi_rank[jstate + jgrid_real]) + sqr(psi_rank[jstate + jgrid_imag]) );
+      //   }
+      // }
+      // else{
+      //   for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
+      //     rho[jgrid] = psi_rank[jstate + jgrid];
+      //   }
+      // }
+      // write_cube_file(rho, grid, fileName);
+
+    }
+
+    if (1 == flag->printPsiFilt){
+      // Print the normalized filtered states to disk
+      sprintf(fileName, "psi-filt-%ld-%d.dat", cntr, parallel->mpi_rank);
+      pf = fopen(fileName, "wb");
+      fwrite(&psi_rank[jstate], sizeof(double), ist->complex_idx*ist->nspinngrid, pf);
+      fclose(pf);
     }
 
     cntr++;
@@ -180,15 +223,15 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   // Copy the filtered wavefunctions back into psi_rank
   /*****************************************************************************/
 
-  if (1 == flag->printPsiFilt){
-    // Print the normalized filtered states to disk
-    sprintf(fileName, "psi-filt-%d.dat", parallel->mpi_rank);
-    pf = fopen(fileName, "wb");
-    for (jmn = 0; jmn < ist->n_states_per_rank; jmn++){
-      fwrite(&psi_rank[jmn*ist->complex_idx*ist->nspinngrid], sizeof(double), ist->complex_idx*ist->nspinngrid, pf);
-    }
-    fclose(pf);
-  }
+  // if (1 == flag->printPsiFilt){
+  //   // Print the normalized filtered states to disk
+  //   sprintf(fileName, "psi-filt-%d.dat", parallel->mpi_rank);
+  //   pf = fopen(fileName, "wb");
+  //   for (jmn = 0; jmn < ist->n_states_per_rank; jmn++){
+  //     fwrite(&psi_rank[jmn*ist->complex_idx*ist->nspinngrid], sizeof(double), ist->complex_idx*ist->nspinngrid, pf);
+  //   }
+  //   fclose(pf);
+  // }
 
   /***********************************************************************/
   /*** normalize the states and get their energies***/

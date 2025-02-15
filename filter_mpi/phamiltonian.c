@@ -91,7 +91,9 @@ void p_potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *
     }
   }
   else if (0 == flag->useSpinors){
+    //#pragma omp parallel for private(j)
     for (j = 0; j < ist->ngrid; j++) {
+      // #pragma omp atomic
       psi_out[j].re += (pot_local[j] * psi_tmp[j].re);
     }
   } else {

@@ -17,7 +17,8 @@ void calc_eh_kernel_cplx(zomplex       *psi_qp,
                         flag_st       *flag,
                         fftw_plan_loc *planfw,
                         fftw_plan_loc *planbw,
-                        fftw_complex  *fftwpsi
+                        fftw_complex  *fftwpsi,
+                        parallel_st *parallel
                         ){
     
     FILE   *pf;  
@@ -39,10 +40,10 @@ void calc_eh_kernel_cplx(zomplex       *psi_qp,
         }
     }
 
+
     omp_set_dynamic(0);
     omp_set_num_threads(ist->nthreads);
 
-    printf("\nComputing screened direct matrix, K^d_(ab,ij)\n");
     
     /*** vabji direct ***/
     // The two electron integrals have a trivial 4-fold permutation symmetry if complex
@@ -51,7 +52,11 @@ void calc_eh_kernel_cplx(zomplex       *psi_qp,
     // using Chemist's notation from Szabo and Ostlund
     // This loop indexing scheme effectively avoids trivial extra computation
     
-    // #pragma omp parallel for private(ibs,jbs,ene1,ene2,ene,tid,a,b,i,j)
+    if (parallel->mpi_rank == 0)
+    {
+    printf("\nComputing screened direct matrix, K^d_(ab,ij) on rank %d\n", parallel->mpi_rank);
+    
+    #pragma omp parallel for private(ibs,jbs,ene1,ene2,ene,tid,a,b,i,j)
     for (a = ist->lumo_idx; a < ist->lumo_idx+ist->n_elecs; a++) {
         
         // long jgrid, ispingrid, jgrid_imag, jgrid_real, jgriddn_imag, jgriddn_real, jgridup_imag, jgridup_real;
@@ -187,9 +192,12 @@ void calc_eh_kernel_cplx(zomplex       *psi_qp,
     fclose(pf);
     printf("  Done computing direct mat\n");
 
+    }
     
+    if ( (parallel->mpi_rank == 1 ) || (parallel->mpi_size == 1) ) //
+    {
     /*** vjbai exchange ***/
-    printf("\nComputing bare exchange matrix, K^x_(ai,bj)\n");
+    printf("\nComputing bare exchange matrix, K^x_(ai,bj) on rank %d\n", parallel->mpi_rank);
     
     //loop over electron states a
     for (a = ist->lumo_idx; a < ist->lumo_idx+ist->n_elecs; a++) {
@@ -326,7 +334,7 @@ void calc_eh_kernel_cplx(zomplex       *psi_qp,
     }
 	fclose(pf);
     printf("  Done computing exchange mat\n");
-    
+    } // close mpi rank 2
 
     FILE *ppsi;
     ppsi = fopen("bsRE.dat", "w");

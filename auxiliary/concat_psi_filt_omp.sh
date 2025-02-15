@@ -2,12 +2,12 @@
 
 # Check if both arguments (nstates and output_file) are provided
 if [ $# -ne 3 ]; then
-    echo "Usage: $0 <j_per_rank> <n_rank> <output_file>"
+    echo "Usage: $0 <jmn> <n_rank> <output_file>"
     exit 1
 fi
 
 # Get the number of states and the output file name
-jr=$1
+jmn=$1
 nr=$2
 output_file=$3
 
@@ -28,7 +28,7 @@ fi
 count=0
 
 # Loop over all the files and concatenate them if their sizes match
-for ((i=0; i<jr; i++)); do
+for ((i=0; i<jmn; i++)); do
 for ((j=0; j<nr; j++)); do
     file="psi-filt-${i}-${j}.dat"
     
@@ -50,6 +50,7 @@ for ((j=0; j<nr; j++)); do
     fi
 done
 done
+
 # Print the number of successfully concatenated files
 echo "$count files were successfully concatenated into $output_file" > concat_psi_filt.out
 echo "$count files were successfully concatenated into $output_file"

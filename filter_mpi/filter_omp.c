@@ -190,21 +190,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
       if ((0 == omp_get_thread_num()) && (parallel->mpi_rank == 0)){
         if ( (0 == (jc % ((long) (ist->ncheby / 4)) )) || (1 == jc) || ( (ist->ncheby - 1) == jc) ) {
           // print the filtering progress to the output file
-          int barWidth = 16; // Width of the progress bar
-          float percent = (float)jc / ist->ncheby * 100;
-          int pos = barWidth * jc / ist->ncheby;
-
-          // Obtain the current time
-          time_t current_time = time(NULL);
-          // Convert to local time format and print
-          char* c_time_string = ctime(&current_time);
-          printf("\t  [");
-          for (int i = 0; i < barWidth; ++i) {
-              if (i < pos) printf("#");
-              else printf(" ");
-          }
-          printf("] %3.0f%% | %s\n", percent, c_time_string);
-          fflush(stdout);
+          print_progress_bar(jc, ist->ncheby);
         }
       }
     }

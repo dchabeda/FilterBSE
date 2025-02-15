@@ -21,8 +21,8 @@ Linux_CC = cc
 
 OBJECTS = \
 	main.o read.o init.o save.o projectors.o norm.o rand.o interpolate.o strain.o \
-	energy.o coeff.o hamiltonian.o ortho.o Hmat.o write.o nerror.o periocic.o\
-	vector.o dipole.o angular.o pseudopotential.o aux.o phamiltonian.o ghaltonian.o
+	energy.o coeff.o hamiltonian.o ortho.o Hmat.o write.o nerror.o periodic.o\
+	vector.o dipole.o angular.o pseudopotential.o aux.o phamiltonian.o ghamiltonian.o
 
 OMP = $(OBJECTS) filter_omp.o
 
@@ -30,7 +30,7 @@ FAST = $(OBJECTS) filter_fast.o
 
 MPI = $(OBJECTS) filter_mpi.o
 
-PERIODIC = $(OBJECTS) filter_omp.o kspace.o
+PERIODIC = $(OBJECTS) filter_omp.o
 
 CUBEOBJECTS = \
 	makecube.o write.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o vector.o strain.o

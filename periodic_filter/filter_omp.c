@@ -2,8 +2,8 @@
 
 /*****************************************************************************/
 
-void run_filter_cycle(double *psi_rank, double *pot_local, vector *G_vecs, vector *k_vecs, nlc_st *nlc, long *nl, 
-  double *ksqr, zomplex *an, double *zn, double *ene_targets, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+void run_filter_cycle_k(double *psi_rank, double *pot_local, vector *G_vecs, vector *k_vecs, nlc_st *nlc, long *nl, 
+  zomplex *an, double *zn, double *ene_targets, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function runs a filter cycle on m ene_targets with one of   *
   * the initial random states as the starting point.                 *
@@ -27,11 +27,12 @@ void run_filter_cycle(double *psi_rank, double *pot_local, vector *G_vecs, vecto
   ********************************************************************/
   // k sampling
   int ik, ig;
-  vector = k;
+  int ik_block;
+  vector k;
 
   // Array indexing
   long jns, jms, jmn, cntr = 0;
-  long MAX_SIZE = ist->complex_idx*ist->nspinngrid*((ist->n_filters_per_rank - 1)*ist->m_states_per_filter + (ist->m_states_per_filter - 1)) + ist->nspinngrid*ist->complex_idx - 1;
+  long MAX_SIZE = ist->n_k_pts * (ist->complex_idx*ist->nspinngrid*((ist->n_filters_per_rank - 1)*ist->m_states_per_filter + (ist->m_states_per_filter - 1)) + ist->nspinngrid*ist->complex_idx - 1);
   
   // File I/O
   FILE *pf; char fileName[100];
@@ -68,7 +69,8 @@ void run_filter_cycle(double *psi_rank, double *pot_local, vector *G_vecs, vecto
   
   for (ik = 0; ik < ist->n_k_pts; ik++){
     k = k_vecs[ik];
-  
+    ik_block = ik * ist->psi_rank_size;
+    printf("kx = %lg, ky = %lg kz = %lg\n", k.x, k.y, k.z);
     omp_set_max_active_levels(1);
     omp_set_num_threads(parallel->nthreads);
     #pragma omp parallel for private(jmn) 
@@ -120,7 +122,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, vector *G_vecs, vecto
       jms = parallel->jms[jmn]; 
       
       ns_block = (jns * ist->m_states_per_filter * ist->complex_idx * ist->nspinngrid); 
-      jns_ms = ns_block + (jms * ist->complex_idx * ist->nspinngrid); 
+      jns_ms = ik_block + ns_block + (jms * ist->complex_idx * ist->nspinngrid); 
       ncjms = ist->ncheby * jms; 
       
       if (jns_ms >= MAX_SIZE || jns_ms < 0) {
@@ -142,6 +144,44 @@ void run_filter_cycle(double *psi_rank, double *pot_local, vector *G_vecs, vecto
           psi[jgrid].re = psi_rank[ns_block + jgrid];
         }
       }
+
+      // If we are computing a periodic filter calculation,
+      // then we apply the Hamiltonian onto Bloch states
+      // |psi> = e^(ik.r)phi(r), 
+      // where phi(r) are our usual filter functions
+      if (1 == flag->periodic){
+        e_ikr(psi, k, grid, ist, par, flag);
+      }
+
+      double *rho;
+      rho = calloc(ist->ngrid, sizeof(double));
+
+      sprintf(fileName, "psi-eikr-%ld-%d-re.cube", jmn, ik);
+      if (1 == flag->isComplex){
+        for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
+          jgrid_real = ist->complex_idx * jgrid;
+          rho[jgrid] = psi[jgrid].re;
+        }
+      }
+      else{
+        for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
+          rho[jgrid] = psi[jgrid].re;
+        }
+      }
+      write_cube_file(rho, grid, fileName);
+
+      sprintf(fileName, "psi-eikr-%ld-%d-im.cube", jmn, ik);
+      if (1 == flag->isComplex){
+        for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
+          rho[jgrid] = psi[jgrid].im;
+        }
+      }
+      else{
+        for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
+          rho[jgrid] = psi[jgrid].im;
+        }
+      }
+      write_cube_file(rho, grid, fileName);
       
       // For each energy target, perform a filter procedure to reshape psi
       // into a state with energy close to the target energy
@@ -171,7 +211,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, vector *G_vecs, vecto
         //
         //
         memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
-        hamiltonian_k(psi,phi,pot_local,G_vecs,k,grid,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
+        hamiltonian_k(psi,phi,pot_local,G_vecs,k,grid,nlc,nl,ist,par,flag,planfw,planbw,fftwpsi);
         
         for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
           /*** par->dE_1 = 4.0 / par->dE and therefore I don't multiply by 4 ***/
@@ -219,9 +259,27 @@ void run_filter_cycle(double *psi_rank, double *pot_local, vector *G_vecs, vecto
         // Print the normalized filtered states to disk
         sprintf(str, "psi-filt-%ld-%d-%d.dat", jmn, ik, parallel->mpi_rank);
         pf = fopen(str, "w");
-        fwrite(&psi_rank[jmn*ist->complex_idx*ist->nspinngrid], sizeof(double), ist->complex_idx*ist->nspinngrid, pf);
+        jns_ms = ik * ist->psi_rank_size +  jmn * ist->complex_idx * ist->nspinngrid;
+        fwrite(&psi_rank[jns_ms], sizeof(double), ist->complex_idx*ist->nspinngrid, pf);
       }
-      
+
+      sprintf(fileName, "psi-filt-%ld-%d.cube", jmn, ik);
+      if (1 == flag->isComplex){
+        for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
+          jgrid_real = ist->complex_idx * jgrid;
+          jgrid_imag = ist->complex_idx * jgrid + 1;
+
+          rho[jgrid] = sqrt( sqr(psi_rank[jns_ms + jgrid_real]) + sqr(psi_rank[jns_ms + jgrid_imag]) );
+        }
+      }
+      else{
+        for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
+          rho[jgrid] = psi_rank[jns_ms + jgrid];
+        }
+      }
+      write_cube_file(rho, grid, fileName);
+
+      free(rho);
       free(psi); free(phi);
       fftw_destroy_plan(planfw);
       fftw_destroy_plan(planbw);
@@ -231,7 +289,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, vector *G_vecs, vecto
     /***********************************************************************/
     /*** normalize the states and get their energies***/
     if (parallel->mpi_rank == 0) printf("\n  4.3 Normalizing filtered states\n"); fflush(stdout);
-    normalize_all(psi_rank,ist->n_states_per_rank,ist,par,flag,parallel);
+    normalize_all(&psi_rank[ik*ist->psi_rank_size],ist->n_states_per_rank,ist,par,flag,parallel);
     
     // double *rho, sgn_val;
     // long jgrid, jgrid_imag, jgrid_real, jstate;
@@ -265,7 +323,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, vector *G_vecs, vecto
     
     if (parallel->mpi_rank == 0) printf("\n  4.4 Computing the energies of all filtered states\n"); fflush(stdout);
     /*** calculate and print the energy of the filtered states ***/
-    energy_all(psi_rank,ist->n_states_per_rank,pot_local,G_vecs,k,nlc,nl,ene_filters,ist,par,flag,parallel);
+    energy_all_k(&psi_rank[ik*ist->psi_rank_size],ist->n_states_per_rank,pot_local,G_vecs,k,grid,nlc,nl,ene_filters,ist,par,flag,parallel);
 
     for (jns = 0; jns < ist->n_filters_per_rank; jns++){
       sprintf (fileName,"ene-filt-jns-%ld-%d-%d.dat", jns, ik, parallel->mpi_rank);
@@ -290,7 +348,7 @@ int sign(float x) {
 
 /*****************************************************************************/
 
-void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+void time_hamiltonian_k(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, vector *G_vecs, vector k, grid_st *grid, nlc_st *nlc, long *nl,
   index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function applies the Hamiltonian onto a state               *
@@ -327,13 +385,13 @@ void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc
   // Warmup runs to avoid including caching time, optimizations, innitial overhead etc.
   for (j = 0; j < 10; j++){
     for (jspin = 0; jspin < ist->nspin; jspin++){
-      kinetic(&psi_out[jspin*ist->ngrid], ksqr, planfw, planbw, fftwpsi, ist); //spin up/down
+      kinetic_k(&psi_out[jspin*ist->ngrid], G_vecs, k, planfw, planbw, fftwpsi, ist); //spin up/down
     } 
   }
   clock_gettime(CLOCK_MONOTONIC, &start); 
   for (j = 0; j < 10; j++){
     for (jspin = 0; jspin < ist->nspin; jspin++){
-      kinetic(&psi_out[jspin*ist->ngrid], ksqr, planfw, planbw, fftwpsi, ist); //spin up/down
+      kinetic_k(&psi_out[jspin*ist->ngrid], G_vecs, k, planfw, planbw, fftwpsi, ist); //spin up/down
     } 
   }
   clock_gettime(CLOCK_MONOTONIC, &end);
@@ -342,7 +400,10 @@ void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc
   
   
   // Calculate the action of the potential operator on the wavefunction: |psi_out> = V|psi_tmp>
-  
+  if (1 == flag->periodic){
+    e_ikr(psi_tmp, k, grid, ist, par, flag);
+  }
+
   if(flag->SO==1){
     // Calculate |psi_out> = V_SO|psi_tmp>
     // Warmup runs
@@ -376,6 +437,9 @@ void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc
   // Calculate the action of the local potential energy part of the Hamiltonian on psi_tmp
   clock_gettime(CLOCK_MONOTONIC, &start);
   for (int i = 0; i < 10; i++){
+    if (1 == flag->periodic){
+      e_ikr(psi_tmp, k, grid, ist, par, flag);
+    }
     for (jspin = 0; jspin < ist->nspin; jspin++){
       for (j = 0; j < ist->ngrid; j++) {
         jtmp = ist->ngrid * jspin + j ; // generalized indexing to handle spinors or spinless wavefuncs

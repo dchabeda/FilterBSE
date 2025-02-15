@@ -10,11 +10,11 @@ int main(int argc, char *argv[]){
   * The algorithm computes quasiparticle excited states using      *
   * sparse-matrix techniques. It is applied to nanocrystal         *
   * systems through the use of semiempirical pseudopotentials.     *
-  ******************************************************************/  
+  ******************************************************************/ 
 
   // DECLARE VARIABLES AND STRUCTS
   // file pointers
-  FILE *ppsi, *peig, *pseed; 
+  FILE *ppsi; *peig, *pseed; 
   // zomplex types
   zomplex *psi, *phi, *an; 
   int i;
@@ -271,16 +271,6 @@ int main(int argc, char *argv[]){
         exit(0);
       }
 
-      // If the job uses a Gaussian basis, run the job in the Gaussian basis
-      if (1 == flag.periodic){
-        //
-        //
-        periodic_driver(pot_local, nlc, nl, &grid, &ist, &par, &flag, &parallel);
-        //
-        //
-        exit(0);
-      }
-      
        
       /**************************************************************************/
       /*** calculate the energy range of the hamitonian ***/
@@ -469,6 +459,7 @@ int main(int argc, char *argv[]){
       // else {
         MPI_Gather(psi_rank,psi_rank_size,MPI_DOUBLE,psitot,psi_rank_size,MPI_DOUBLE,0,MPI_COMM_WORLD);
       // }
+      free(psi_rank);
       if (parallel.mpi_rank == 0) printf("Succesfully gathered all states\n"); fflush(0);
       MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
 
@@ -570,15 +561,25 @@ int main(int argc, char *argv[]){
         if (parallel.mpi_rank == 0) printf("\n5. ORTHOGONALIZATING FILTERED STATES | %s\n", c_time_string); 
         if (parallel.mpi_rank == 0) write_separation(stdout, bottom); fflush(stdout);
 
+        //
+        //
+        // ORTHOGONALIZE
         inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
         if (parallel.mpi_rank == 0) printf("mn_states_tot before ortho = %ld\n", ist.mn_states_tot);
         if (1 == flag.isComplex){
+          //
           ist.mn_states_tot = ortho((MKL_Complex16*)psitot, grid.dv, &ist, &par, &flag, &parallel);      
+          //
         } else if (0 == flag.isComplex) {
+          //
           ist.mn_states_tot = ortho(psitot, grid.dv, &ist, &par, &flag, &parallel);
+          //
         }
+        
         if (parallel.mpi_rank == 0) printf("mn_states_tot after ortho = %ld\n", ist.mn_states_tot);
         psitot = (double *) realloc(psitot, ist.mn_states_tot * ist.nspinngrid * ist.complex_idx * sizeof(psitot[0]) );
+        //
+        //
 
         normalize_all(&psitot[0], ist.mn_states_tot, &ist, &par, &flag, &parallel);
         

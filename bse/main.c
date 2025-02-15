@@ -1,6 +1,7 @@
 /*****************************************************************************/
 
 #include "fd.h"
+#include <mpi.h>
 
 /*****************************************************************************/
 
@@ -49,6 +50,14 @@ int main(int argc, char *argv[]){
     time_t current_time;
     char* c_time_string;
     char *top; top = malloc(2*sizeof(top[0])); 
+
+    // Initialize MPI
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
+    parallel.mpi_root = 0;
+    //
+
     fprintf(pmem, "alloc top %ld B\n", 2*sizeof(top[0])); mem += 2*sizeof(top[0]);
     char *bottom; bottom = malloc(2*sizeof(bottom[0]));
     fprintf(pmem, "alloc bottom %ld B\n", 2*sizeof(bottom[0])); mem += 2*sizeof(bottom[0]);
@@ -296,7 +305,8 @@ int main(int argc, char *argv[]){
 
     printf("\nElectric transition dipole moment...\n");
     calc_elec_dipole(trans_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
-    // calc_mag_dipole(mag_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
+    printf("\nMagnetic transition dipole moment...\n");
+    calc_mag_dipole(mag_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
     // calc_rot_strength(rs, mux, muy, muz, mx, my, mz, eig_vals, &ist);
     
     /* */
@@ -352,12 +362,13 @@ int main(int argc, char *argv[]){
     h0mat = (double *) calloc(ist.n_xton * ist.n_xton, sizeof(double)); 
     
     if (1 == flag.isComplex) {
-        calc_eh_kernel_cplx((zomplex*) psi_qp, pot_bare, pot_screened, pot_hartree, bsmat, direct, exchange, h0mat, eig_vals, &ist, &par, &flag, planfw, planbw, fftwpsi);
+        calc_eh_kernel_cplx((zomplex*) psi_qp, pot_bare, pot_screened, pot_hartree, bsmat, direct, exchange, h0mat, eig_vals, &ist, &par, &flag, planfw, planbw, fftwpsi, &parallel);
     }
     // else if (0 == flag.isComplex){
     //     calc_eh_kernel_real((zomplex*) psi_qp, pot_bare, pot_screened, pot_hartree, bsmat, direct, exchange, h0mat, eig_vals, &ist, &par, &flag, planfw, planbw, fftwpsi);
     // }
-    
+    MPI_Barrier(MPI_COMM_WORLD);
+
     xton_ene = (double *) calloc(ist.n_xton, sizeof(double));
     bs_coeff = (zomplex *) calloc(ist.n_xton*ist.n_xton, sizeof(zomplex));
     bethe_salpeter(bsmat, direct, exchange, bs_coeff, h0mat, xton_ene, psi_qp, s_mom,l_mom,l2_mom,LdotS, &grid, &ist, &par);
@@ -368,9 +379,9 @@ int main(int argc, char *argv[]){
     free(psi_qp); 
     free(eig_vals); 
     free(pot_hartree); free(pot_bare); free(pot_screened);
-    // free(direct); free(exchange); free(bsmat); free(h0mat);
+    free(direct); free(exchange); free(bsmat); free(h0mat);
     free(trans_dipole); free(mag_dipole); free(rot_strength);
-    // free(S_mom); free(L_mom); free(L_mom2);
+    free(s_mom); free(l_mom); free(l2_mom);
     free(planfw); free(planbw);
 
     time_t end_time = time(NULL);
@@ -384,6 +395,7 @@ int main(int argc, char *argv[]){
     write_separation(stdout, bottom);
     
     free(top); free(bottom);
+    MPI_Finalize();
     // exit(0);
 
     return 0;

@@ -49,7 +49,6 @@ void init_elec_hole_kernel(zomplex *pot_bare, zomplex *pot_screened, grid_st *gr
   grid->dkx = TWOPI / ((double)grid->nx * grid->dx);
   grid->dky = TWOPI / ((double)grid->ny * grid->dy);
   grid->dkz = TWOPI / ((double)grid->nz * grid->dz);
-  printf("grid->dkx = %lg grid->dky = %lg grid->dkz = %lg\n", grid->dkx, grid->dky, grid->dkz);
   
   // Prepare scaling factors for dielectric screening
   ex_1 = 1.0 / par->epsX;
@@ -58,11 +57,11 @@ void init_elec_hole_kernel(zomplex *pot_bare, zomplex *pot_screened, grid_st *gr
   sqrtexeyez_1 = 1.0 / sqrt(par->epsX * par->epsY * par->epsZ);
   sqrtaveps = sqrt((par->epsX + par->epsY + par->epsZ) / 3.0);
   gammaeps = gamma * sqrtaveps;
-  printf("gamma = %lg   gammaeps = %lg\n", gamma, gammaeps);
-  printf("sqrtaveps = %lg\n", sqrtaveps);
+  
+  
   /*** no yukawa screening for the exchange ***/
   sqrk0 = gamma2 * sqr(sqrtaveps);
-  printf("gamma2 = %lg sqrk0 = %lg\n", gamma2, sqrk0);
+  
   // Allocate memory to arrays for computing Coulomb kernel in k-space
   if ((kx2  = (double*)calloc(grid->nx, sizeof(double)))==NULL){
     fprintf(stderr, "ERROR: allocating memory for kx2 in init.c\n");
@@ -117,53 +116,22 @@ void init_elec_hole_kernel(zomplex *pot_bare, zomplex *pot_screened, grid_st *gr
     }
   }
 
-  // For debugging, print out direct and exchange on grid
-  // double *rho;
-  // rho = malloc(ist->ngrid * sizeof(rho[0]));
-  FILE *pf;
-  pf = fopen("potr.dat", "w");
-  for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
-    // rho[jxyz] = potr[jxyz].re; // + sqr(pot_bare[jxyz].im);
-    fprintf(pf, "%ld %.10f %.10f\n", jxyz, potr[jxyz].re, potr[jxyz].im );
-  }
-  fclose(pf);
-  // write_cube_file(rho, grid, "potr.cube");
-  pf = fopen("potrx.dat", "w");
-  for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
-    // rho[jxyz] = potrx[jxyz].re; // + sqr(pot_screened[jxyz].im);
-    fprintf(pf, "%ld %.10f %.10f\n", jxyz, potrx[jxyz].re, potrx[jxyz].im );
-  }
-  // write_cube_file(rho, grid, "potrx.cube");
-  fclose(pf);
-
+  // Zero out the arrays for all potentials
   for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
     pot_bare[jxyz].re = pot_bare[jxyz].im = pot_screened[jxyz].re = pot_screened[jxyz].im = 0.0;
   }
 
 
-  printf("\tBare Coulomb potential...\n");
+  printf("\tBare Coulomb potential, v(r, r')...\n");
   memcpy(&fftwpsi[0], &potr[0], ist->ngrid*sizeof(fftwpsi[0]));
   fftw_execute(planfw);
   memcpy(&pot_bare[0], &fftwpsi[0], ist->ngrid*sizeof(pot_bare[0]));
 
-  printf("\tScreened Coulomb potential, W...\n");
+  printf("\tScreened Coulomb potential, W(r, r')...\n");
   memcpy(&fftwpsi[0], &potrx[0], ist->ngrid*sizeof(fftwpsi[0]));
   fftw_execute(planfw);
   memcpy(&pot_screened[0], &fftwpsi[0], ist->ngrid*sizeof(pot_screened[0]));
   
-  pf = fopen("pot_bare_ft.dat", "w");
-  for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
-    // rho[jxyz] = pot_bare[jxyz].re; // + sqr(pot_bare[jxyz].im);
-    fprintf(pf, "%ld %.10f %.10f\n", jxyz, pot_bare[jxyz].re, pot_bare[jxyz].im );
-  }
-  fclose(pf);
-  // write_cube_file(rho, grid, "pot_bare_ft.cube");
-  pf = fopen("pot_screened_ft.dat", "w");
-  for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
-    // rho[jxyz] = pot_screened[jxyz].re; // + sqr(pot_screened[jxyz].im);
-    fprintf(pf, "%ld %.10f %.10f\n", jxyz, pot_screened[jxyz].re, pot_screened[jxyz].im );
-  }
-  fclose(pf);
   
   for (jz = 0; jz < grid->nz; jz++) {
     z2 = kz2[jz];
@@ -202,24 +170,7 @@ void init_elec_hole_kernel(zomplex *pot_bare, zomplex *pot_screened, grid_st *gr
     }
   }
 
-  // For debugging, print out direct and exchange on grid
-  // double *rho;
-  // rho = malloc(ist->ngrid * sizeof(rho[0]));
-  // FILE *pf;
-  pf = fopen("pot_bare.dat", "w");
-  for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
-    //  rho[jxyz] = pot_bare[jxyz].re; // + sqr(pot_bare[jxyz].im);
-    fprintf(pf, "%ld %.10f %.10f\n", jxyz, pot_bare[jxyz].re, pot_bare[jxyz].im );
-  }
-  fclose(pf);
-  
-  pf = fopen("pot_screened.dat", "w");
-  for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
-    // rho[jxyz] = pot_screened[jxyz].re; // + sqr(pot_screened[jxyz].im);
-    fprintf(pf, "%ld %.10f %.10f\n", jxyz, pot_screened[jxyz].re, pot_screened[jxyz].im );
-  }
-  fclose(pf);
-
+  printf("  Done generating e-h interaction potential.\n");
   free(potr);  free(potrx); free(kx2); free(ky2); free(kz2);
 
   return;

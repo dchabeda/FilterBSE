@@ -10,26 +10,30 @@ int main(int argc, char *argv[]){
   * The algorithm computes quasiparticle excited states using      *
   * sparse-matrix techniques. It is applied to nanocrystal         *
   * systems through the use of semiempirical pseudopotentials.     *
-  ******************************************************************/  
+  ******************************************************************/ 
 
   // DECLARE VARIABLES AND STRUCTS
   // file pointers
-  FILE *ppsi, *peig, *pseed; 
+  FILE *ppsi; *peig, *pseed; 
   // zomplex types
   zomplex *psi, *phi, *an; 
-  // FFT
-  fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi; 
-  long fft_flags=0;
   int i;
   // custom structs 
-  flag_st flag; index_st ist; par_st par; atom_info *atom; 
-  pot_st pot; grid_st grid; xyz_st *R; nlc_st *nlc = NULL; 
+  flag_st flag; 
+  index_st ist; 
+  par_st par; 
+  atom_info *atom; 
+  pot_st pot; 
+  grid_st grid;
+  gauss_st *gauss;
+  xyz_st *R; 
+  nlc_st *nlc = NULL; 
   parallel_st parallel; 
   // double arrays
   double *psitot, *psi_rank;
   double *ksqr, *zn, *pot_local, *rho; 
   double *eig_vals, *ene_targets, *sigma_E, inital_clock_t, initial_wall_t;
-  double *SO_projectors; 
+  double *SO_projectors;
   // long int arrays and counters
   long *nl = NULL;
   long jstate, jgrid, jgrid_real, jgrid_imag, jspin, jms, jns, rand_seed, thread_id;
@@ -46,6 +50,7 @@ int main(int argc, char *argv[]){
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
+  parallel.mpi_root = 0;
 
   if (parallel.mpi_rank == 0) printf("******************************************************************************\n");
   if (parallel.mpi_rank == 0) printf("\nRUNNING PROGRAM: FILTER DIAGONALIZATION\n");
@@ -53,7 +58,7 @@ int main(int argc, char *argv[]){
   if (parallel.mpi_rank == 0) printf("Printing from root node %d", parallel.mpi_rank); 
   if (parallel.mpi_rank == 0) write_separation(stdout, bottom);
   fflush(stdout);
-
+  
   /*************************************************************************/
   // Initialize job from input file
   
@@ -87,7 +92,7 @@ int main(int argc, char *argv[]){
 
   /*** initialize parameters for the grid ***/
   if (parallel.mpi_rank == 0) printf("\nInitializing the grid parameters:\n");
-  init_grid_params(&grid, R, &ist, &par, &parallel);
+  init_grid_params(&grid, R, &ist, &par, &flag, &parallel);
 
   // Allocate memory for the grid in the x, y, and z directions ***/
   if ((grid.x = (double *) calloc(grid.nx, sizeof(double))) == NULL){
@@ -120,22 +125,26 @@ int main(int argc, char *argv[]){
   // 
   // FFT
   // 
-
+  // FFT
+  fftw_init_threads();
+  fftw_plan_with_nthreads(parallel.n_inner_threads);
+  fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi; 
+  long fft_flags=0;
   // Initialize FFT threads for parallel Fourier transform
-  if (fftw_init_threads() == 0) {
-    fprintf(stderr, "FFTW threading initialization failed.\n");
-    exit(EXIT_FAILURE);
-  }
+  // if (fftw_init_threads() == 0) {
+  //   fprintf(stderr, "FFTW threading initialization failed.\n");
+  //   exit(EXIT_FAILURE);
+  // }
   
-  fftw_plan_with_nthreads(parallel.nthreads);
+  // fftw_plan_with_nthreads(parallel.nthreads);
 
   // Load wisdom if available
-  sprintf(par.fftw_wisdom, "%sfftw_wisdom.dat", par.fft_wisdom_dir);
-  if (fftw_import_wisdom_from_filename(par.fftw_wisdom) == 0) {
-      if (parallel.mpi_rank == 0) printf("No wisdom file found. Planning from scratch.\n");
-  } else {
-      if (parallel.mpi_rank == 0) printf("FFT wisdom loaded successfully from %s.\n", par.fftw_wisdom);
-  }
+  // sprintf(par.fftw_wisdom, "%sfftw_wisdom.dat", par.fft_wisdom_dir);
+  // if (fftw_import_wisdom_from_filename(par.fftw_wisdom) == 0) {
+  //     if (parallel.mpi_rank == 0) printf("No wisdom file found. Planning from scratch.\n");
+  // } else {
+  //     if (parallel.mpi_rank == 0) printf("FFT wisdom loaded successfully from %s.\n", par.fftw_wisdom);
+  // }
   
   fftwpsi = fftw_malloc(sizeof(fftw_complex)*ist.ngrid);
   /*** initialization for the fast Fourier transform ***/
@@ -144,13 +153,13 @@ int main(int argc, char *argv[]){
   
   // Save wisdom for future runs
   //if (parallel.mpi_rank == 0) printf("wisdom file: %s\n", par.fftw_wisdom);
-  if (fftw_export_wisdom_to_filename(par.fftw_wisdom) == 0) {
-    perror("FFT wisdom not saved.\n");
-    if (parallel.mpi_rank == 0) fprintf(stderr, "Failed to write FFTW wisdom to %s\n", par.fftw_wisdom);
+  // if (fftw_export_wisdom_to_filename(par.fftw_wisdom) == 0) {
+  //   perror("FFT wisdom not saved.\n");
+  //   if (parallel.mpi_rank == 0) fprintf(stderr, "Failed to write FFTW wisdom to %s\n", par.fftw_wisdom);
     
-  } else {
-    if (parallel.mpi_rank == 0) printf("FFTW wisdom saved to %s\n", par.fftw_wisdom);
-  } 
+  // } else {
+  //   if (parallel.mpi_rank == 0) printf("FFTW wisdom saved to %s\n", par.fftw_wisdom);
+  // } 
   // fftw_export_wisdom_to_filename(par.fftw_wisdom);
   
   // For reading the atomic potentials ***/
@@ -186,7 +195,7 @@ int main(int argc, char *argv[]){
   // is because we time reverse the spinors to get double the orthogonal states
   // Spinor calculations are 8 times more memory intensive than scalar calculations
   
-  long psi_rank_size = ist.n_states_per_rank*ist.nspinngrid*ist.complex_idx;
+  long long psi_rank_size = ist.n_states_per_rank*ist.nspinngrid*ist.complex_idx;
   if ((psi_rank = (double *) calloc(psi_rank_size, sizeof(psi_rank[0]))) == NULL){
     if (parallel.mpi_rank == 0) fprintf(stderr,"\nOUT OF MEMORY: psi_rank\n\n"); exit(EXIT_FAILURE);
   }
@@ -238,7 +247,7 @@ int main(int argc, char *argv[]){
       
       if(flag.SO==1) {
         if (parallel.mpi_rank == 0) printf("\nSpin-orbit pseudopotential:\n");
-        init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par);
+        init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par, &flag, &parallel);
         if (parallel.mpi_rank == 0) printf("\tSO projectors generated.\n");
       }
       /*** initialization for the non-local potential ***/
@@ -251,7 +260,17 @@ int main(int argc, char *argv[]){
       if ( (flag.SO == 1) || (flag.NL == 1) ){
         free(SO_projectors); SO_projectors = NULL;
       }
-      
+
+      // If the job uses a Gaussian basis, run the job in the Gaussian basis
+      if (1 == flag.useGaussianBasis){
+        //
+        //
+        gauss_driver(gauss, pot_local, eig_vals, R, atom, &grid, &ist, &par, &flag, &parallel);
+        //
+        //
+        exit(0);
+      }
+
        
       /**************************************************************************/
       /*** calculate the energy range of the hamitonian ***/
@@ -286,8 +305,7 @@ int main(int argc, char *argv[]){
       if (parallel.mpi_rank == 0) printf("\nCalculating Newton interpolation coefficients for filter functions.\n"); fflush(0);
       gen_newton_coeff(an, zn, ene_targets, &ist, &par, &parallel);
 
-      pseed = fopen("seed.dat", "w");
-      if (parallel.mpi_rank == 0) fprintf(pseed, "idx  seed\n");
+      
       if (flag.setSeed == 1){
         rand_seed = - par.rand_seed;} 
       else {
@@ -295,6 +313,9 @@ int main(int argc, char *argv[]){
       }
 
       if (parallel.mpi_rank == 0) printf("ncheby = %ld dt = %g dE = %g\n", ist.ncheby, par.dt, par.dE);
+      if (parallel.mpi_rank == 0) printf("\n  Energy width, sigma, of filter function = %.6g a.u.\n", sqrt(1 / (2*par.dt)));
+      if (parallel.mpi_rank == 0) printf("  Suggested max span of spectrum for filtering = %.6g a.u.\n", ist.m_states_per_filter * sqrt(1 / (2*par.dt)));
+      if (parallel.mpi_rank == 0) printf("  Requested span of spectrum to filter = %.6g a.u.\n", (ene_targets[par.n_targets_VB-1] - ene_targets[0]) + (ene_targets[par.n_targets_VB+par.n_targets_CB-1] - ene_targets[par.n_targets_VB])); fflush(stdout);
       
       // Save checkpoint after computing the potential on the grid and Newton interpolation coeffs
       if (1 == flag.saveCheckpoints){
@@ -321,96 +342,57 @@ int main(int argc, char *argv[]){
       /**************************************************************************/
       /*** start filtering loop.  we run over n_filter_cycles cycles and calculate ***/
       /*** m_states_per_filter filtered states at each cycle ***/
+      
+      
       if (parallel.mpi_rank == 0) write_separation(stdout, top);
       current_time = time(NULL);
       c_time_string = ctime(&current_time);
       if (parallel.mpi_rank == 0) printf("\n4. STARTING FILTERING | %s\n", c_time_string);
       if (parallel.mpi_rank == 0) write_separation(stdout, bottom); 
 
-      if (parallel.mpi_rank == 0) printf("\nEnergy width, sigma, of filter function = %.6g a.u.\n", sqrt(1 / (2*par.dt)));
-      if (parallel.mpi_rank == 0) printf("Suggested max span of spectrum for filtering = %.6g a.u.\n", ist.m_states_per_filter * sqrt(1 / (2*par.dt)));
-      if (parallel.mpi_rank == 0) printf("Requested span of spectrum to filter = %.6g a.u.\n", (ene_targets[par.n_targets_VB-1] - ene_targets[0]) + (ene_targets[par.n_targets_VB+par.n_targets_CB-1] - ene_targets[par.n_targets_VB]));
-      fflush(stdout);
-      double *rho, sgn_val;
-      char fileName[50];
-      if ((rho = (double *) calloc(ist.ngrid, sizeof(rho[0]))) == NULL){
-        if (parallel.mpi_rank == 0) fprintf(stderr, "\nOUT OF MEMORY: filter rho\n\n"); exit(EXIT_FAILURE);
-      }
       // Create the initial random wavefunctions for each filter state
       // This is an array of n_filter_cycles * m_states_per_filter states
       // where every block of length m_states_per_filter has the same random wavefunction
       
-      for (jns = 0; jns < ist.n_filters_per_rank; jns++) {
-        // Initialize a random wavefunction for filtering
-        for (jspin = 0; jspin < ist.nspin; jspin++) {
-          if (parallel.mpi_rank == 0) fprintf(pseed, "%ld %ld\n", ist.nspin*jns + jspin, rand_seed);
-          init_psi(&psi[jspin*ist.ngrid], &rand_seed, &grid, &ist, &par, &flag, &parallel);
-        }
-        for (jms = 0; jms < ist.m_states_per_filter; jms++) {
-          for (jgrid = 0; jgrid < ist.nspinngrid; jgrid++) {
-            // handle indexing of real and imaginary components if complex
-            // ist.complex_idx = (flag.isComplex + 1) = 2 when complex valued functions are in use, 1 if real
-            jgrid_real = ist.complex_idx * jgrid;
-            jgrid_imag = ist.complex_idx * jgrid + 1;
-            jstate = ist.complex_idx * ( jns*ist.m_states_per_filter*ist.nspinngrid + ist.nspinngrid*jms );
-            
-            // if the wavefunction is real-valued, then only the real component is stored
-            psi_rank[jstate + jgrid_real] = psi[jgrid].re;
-            
-            // if the wavefunction is complex-valued, then the imaginary component should also be stored
-            if (1 == flag.isComplex){
-              psi_rank[jstate + jgrid_imag] = psi[jgrid].im;
-              // the imaginary components will be stored one double away (16 bytes, or IMAG_IDX) in memory from the real component
-            }
-          }
-          /*** print cube files for the random states ***/
-          // for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-          //   jgrid_real = ist.complex_idx * jgrid;
-          //   jgrid_imag = ist.complex_idx * jgrid + 1;
-
-          //   rho[jgrid] = sqr(psi_rank[jstate + jgrid_real]);
-          //   sgn_val = psi_rank[jstate + jgrid_real];
-          //   if (1 == flag.isComplex){
-          //     rho[jgrid] += sqr(psi_rank[jstate + jgrid_imag]);
-          //     if (sgn_val < psi_rank[jstate + jgrid_imag]) sgn_val = psi_rank[jstate + jgrid_imag];
-          //   }
-          //   rho[jgrid] *= sign(sgn_val);
-          // }
-          // sprintf(fileName, "init-psi-%ld-%ld.cube", jns, jms);
-          // write_cube_file(rho, &grid, fileName);
-          
-        }
-      }
-      fclose(pseed);
-      // free(rho);
+      if (parallel.mpi_rank == 0) printf("\n  4.1 Initializing random filter states\n");
+      init_filter_states(psi_rank, psi, &grid, &rand_seed, &ist, &par, &flag, &parallel);
+      
       inital_clock_t = (double)clock(); 
       initial_wall_t = (double)time(NULL);
       
-      if ((0 == parallel.mpi_rank) && (1 == flag.timeHamiltonian) ){
+      if (1 == flag.timeHamiltonian){
         // Initialize state to perform Hamiltonian on for test
         memcpy(&phi[0], &psi_rank[0], ist.complex_idx*ist.nspinngrid*sizeof(psi_rank[0]));
         current_time = time(NULL);
         c_time_string = ctime(&current_time);
-        if (parallel.mpi_rank == 0) printf("Timing Hamiltonian operator... | %s\n", c_time_string);
-        time_hamiltonian(phi,psi,pot_local,nlc,nl,ksqr,&ist,&par,&flag,&parallel,planfw, planbw, fftwpsi);
+        if (parallel.mpi_rank == 0) printf("\n  Timing Hamiltonian operator... | %s\n", c_time_string); fflush(0);
+        
+        time_hamiltonian(phi,psi,pot_local,nlc,nl,ksqr,&ist,&par,&flag,&parallel);
+        
         current_time = time(NULL);
         c_time_string = ctime(&current_time);
-        if (parallel.mpi_rank == 0) printf("Done timing Hamiltonian | %s\n", c_time_string);
+        if (parallel.mpi_rank == 0) printf("  Done timing Hamiltonian | %s\n", c_time_string); fflush(0);
       }
 
-      if ((parallel.jns = (long *) calloc(ist.n_states_per_rank, sizeof(parallel.jns[0]))) == NULL){ 
-        fprintf(stderr, "\nOUT OF MEMORY: parallel->jns\n\n"); exit(EXIT_FAILURE);
+      if ((parallel.jns = (long *) calloc(ist.mn_states_tot, sizeof(parallel.jns[0]))) == NULL){ 
+        fprintf(stderr, "\nOUT OF MEMORY: parallel.jns\n\n"); exit(EXIT_FAILURE);
       }
-      if ((parallel.jms = (long *) calloc(ist.n_states_per_rank, sizeof(parallel.jms[0]))) == NULL){ 
-        fprintf(stderr, "\nOUT OF MEMORY: parallel->jms\n\n"); exit(EXIT_FAILURE);
+      if ((parallel.jms = (long *) calloc(ist.mn_states_tot, sizeof(parallel.jms[0]))) == NULL){ 
+        fprintf(stderr, "\nOUT OF MEMORY: parallel.jms\n\n"); exit(EXIT_FAILURE);
       }
 
+      if (parallel.mpi_rank == 0) printf("\n  4.2 Running filter cycle\n");
       run_filter_cycle(psi_rank,pot_local,nlc,nl,ksqr,an,zn,ene_targets,&grid,&ist,&par,&flag,&parallel);
+      MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
+      
       
       if (parallel.mpi_rank == 0) printf("\ndone calculating filter, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
       fflush(stdout);
 
+      if (1 == flag.calcFilterOnly){
+        exit(0);
+      }
       /*************************************************************************/
       /*** read all filtered states ***/
       /*ppsi = fopen("psi-filt.dat" , "r");
@@ -422,11 +404,65 @@ int main(int argc, char *argv[]){
           if (parallel.mpi_rank == 0) fprintf(stderr,"\nOUT OF MEMORY: psitot\n\n"); exit(EXIT_FAILURE);
         }
       }
+      
+      /*************************************************************************/
       if (parallel.mpi_rank == 0) printf("Gathering psitot from all mpi_ranks\n"); fflush(0);
-      MPI_Gather(psi_rank,psi_rank_size,MPI_DOUBLE,\
-                psitot,psi_rank_size,MPI_DOUBLE,0,MPI_COMM_WORLD);
+      MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
+      
+      // If the size of each wavefunction is very large,
+      // then MPI_Send/Recv is the only way to communicate
+      // if (psi_rank_size > INT_MAX){
+      //   printf("The size of psi_rank, %lld > %d, too large for MPI_Gather\n", psi_rank_size, INT_MAX);
+      //   printf("Using MPI_Send/Recv to send individual psi to root node.\n");
+      //   // Because the entire psi_rank was too large to send at once,
+      //   // Split psi_rank into two blocks and send each one separately
+      //   int n_blocks = 2;
+      //   int buf_size = psi_rank_size / n_blocks;
+        
+      //   // If MPI root node, then Recv from all other nodes into psitot
+      //   if (parallel.mpi_root == parallel.mpi_rank){
+      //     printf("This is the root rank = %d, it should receive\n", parallel.mpi_rank); fflush(0);
+      //     // Loop over all ranks (except root) to Recv data
+      //     for (long n_rank = 0; n_rank < parallel.mpi_size; n_rank++){
+      //       printf("Iterating to receive from rank %ld out of %d\n", n_rank, parallel.mpi_size); fflush(0);
+      //       if (n_rank != parallel.mpi_root){
+      //         printf("Non-root rank %ld\n", n_rank); fflush(0);
+      //         long long offset = psi_rank_size*n_rank;
+      //         MPI_Status *recv_status;
+      //         int recv_tag = n_blocks*n_rank;
+      //         // Recv all blocks (with appropriate tag) from the ranks
+      //         for (int block = 0; block < n_blocks; block++){ 
+      //           MPI_Recv(&psitot[offset + block*buf_size], buf_size, MPI_DOUBLE, n_rank, recv_tag+block, MPI_COMM_WORLD, recv_status);
+      //         }
+      //       }
+      //       // If root rank, then just copy psi_rank into psitot 
+      //       else {
+      //         printf("Memcpying root rank %ld\n", n_rank); fflush(0);
+      //         for (int block = 0; block < n_blocks; block++){
+      //           memcpy(&psitot[buf_size*block], &psi_rank[buf_size*block], buf_size*sizeof(double));
+      //         }
+      //       }
+      //     }
+      //   // If not the MPI root node, then Send psi_rank data
+      //   } else {
+      //     printf("Sending from non-root rank %d\n", parallel.mpi_rank); fflush(0);
+      //     int send_tag = n_blocks*parallel.mpi_rank;
+      //     // Send all blocks from this mpi_rank (with appropriate tag) to the root node
+      //     for (int block = 0; block < n_blocks; block++){
+      //       long long offset = buf_size * block;
+      //       MPI_Send(&psi_rank[offset], buf_size, MPI_DOUBLE, parallel.mpi_root, send_tag+block, MPI_COMM_WORLD);
+      //     }
+      //   }
+      // }
+      // // If the size of each wavefunction is small,
+      // // then MPI_Gather is an efficient way to communicate
+      // else {
+        MPI_Gather(psi_rank,psi_rank_size,MPI_DOUBLE,psitot,psi_rank_size,MPI_DOUBLE,0,MPI_COMM_WORLD);
+      // }
+      free(psi_rank);
       if (parallel.mpi_rank == 0) printf("Succesfully gathered all states\n"); fflush(0);
       MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
+
       /*************************************************************************/
       if (parallel.mpi_rank == 0){
         if (1 == flag.useSpinors){
@@ -465,7 +501,7 @@ int main(int argc, char *argv[]){
         
         if(flag.SO==1) {
           printf("\nSpin-orbit pseudopotential:\n");
-          init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par);
+          init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par, &flag, &parallel);
         }
         /*** initialization for the non-local potential ***/
         if (flag.NL == 1){
@@ -498,29 +534,7 @@ int main(int argc, char *argv[]){
         }
         printf("psitot[max] = %lg\n", psitot[ist.complex_idx*ist.nspinngrid*ist.mn_states_tot - 1]);
         
-        long state_idx;
-        double sgn_val;
-        char fileName[50];
-        if ((rho = (double *) calloc(ist.ngrid, sizeof(rho[0]))) == NULL){
-          fprintf(stderr, "\nOUT OF MEMORY: filter rho\n\n"); exit(EXIT_FAILURE);
-        }
-        for (jstate = 0; jstate < 5; jstate++){
-          state_idx = jstate*ist.complex_idx * ist.nspinngrid;
-          for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-            jgrid_real = ist.complex_idx * jgrid;
-            jgrid_imag = ist.complex_idx * jgrid + 1;
-
-            rho[jgrid] = sqr(psitot[state_idx + jgrid_real]);
-            sgn_val = psitot[state_idx + jgrid_real];
-            if (1 == flag.isComplex){
-              rho[jgrid] += sqr(psitot[state_idx + jgrid_imag]);
-              if (sgn_val < psitot[state_idx + jgrid_imag]) sgn_val = psitot[state_idx + jgrid_imag];
-            }
-            rho[jgrid] *= sign(sgn_val);
-          }
-          sprintf(fileName, "ortho-psi-%ld.cube", jstate);
-          write_cube_file(rho, &grid, fileName);
-        }
+        
 
         printf("\nNormalizing filtered states (for safety)\n"); fflush(stdout);
         normalize_all(psitot,ist.mn_states_tot,&ist,&par,&flag,&parallel);
@@ -539,22 +553,33 @@ int main(int argc, char *argv[]){
         par.checkpoint_id++;
         /*************************************************************************/
         /*** orthogonalize and normalize the filtered states using an svd routine ***/
-        
+        omp_set_num_threads(parallel.nthreads);
+
         if (parallel.mpi_rank == 0) write_separation(stdout, top);
         current_time = time(NULL);
         c_time_string = ctime(&current_time);
         if (parallel.mpi_rank == 0) printf("\n5. ORTHOGONALIZATING FILTERED STATES | %s\n", c_time_string); 
         if (parallel.mpi_rank == 0) write_separation(stdout, bottom); fflush(stdout);
 
+        //
+        //
+        // ORTHOGONALIZE
         inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
         if (parallel.mpi_rank == 0) printf("mn_states_tot before ortho = %ld\n", ist.mn_states_tot);
         if (1 == flag.isComplex){
-          ist.mn_states_tot = ortho((MKL_Complex16 *)psitot, grid.dv, &ist, &par, &flag, &parallel);      
+          //
+          ist.mn_states_tot = ortho((MKL_Complex16*)psitot, grid.dv, &ist, &par, &flag, &parallel);      
+          //
         } else if (0 == flag.isComplex) {
+          //
           ist.mn_states_tot = ortho(psitot, grid.dv, &ist, &par, &flag, &parallel);
+          //
         }
+        
         if (parallel.mpi_rank == 0) printf("mn_states_tot after ortho = %ld\n", ist.mn_states_tot);
         psitot = (double *) realloc(psitot, ist.mn_states_tot * ist.nspinngrid * ist.complex_idx * sizeof(psitot[0]) );
+        //
+        //
 
         normalize_all(&psitot[0], ist.mn_states_tot, &ist, &par, &flag, &parallel);
         
@@ -592,7 +617,7 @@ int main(int argc, char *argv[]){
         if (parallel.mpi_rank == 0) write_separation(stdout, bottom); fflush(stdout);
         
         inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
-        diag_H(psi,phi,psitot,pot_local,nlc,nl,ksqr,eig_vals,&ist,&par,&flag,planfw,planbw,fftwpsi);
+        diag_H(psitot,pot_local,nlc,nl,ksqr,eig_vals,&ist,&par,&flag,&parallel,planfw,planbw,fftwpsi);
         normalize_all(&psitot[0],ist.mn_states_tot,&ist,&par,&flag,&parallel);
         jms = ist.mn_states_tot;
         if (parallel.mpi_rank == 0) printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",

@@ -2,7 +2,7 @@
 
 /*****************************************************************************/
 
-void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,parallel_st *parallel, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
+void diag_H(double *psitot,double *pot_local, atom_info *atom, nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,parallel_st *parallel, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
   /*******************************************************************
   * This function calculates eigenvalues and vectors of the real or  *
   * complex valued matrix, H, where H_ij = <psi_i|H|psi_j>           *
@@ -80,7 +80,7 @@ void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,d
       }
     }
     memcpy(&phi[0],&psi[0],ist->nspinngrid*sizeof(phi[0]));
-    hamiltonian(phi,psi,pot_local,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
+    hamiltonian(phi,psi,pot_local,atom,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
 
     /*** calculate <psi_j|H|psi_i> ***/
     #pragma omp parallel for private(jms, jgrid, jgrid_real, jgrid_imag) shared(H, H_z)
@@ -95,7 +95,6 @@ void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,d
       }
     }
     
-    // fprintf (pg, "%ld th row finshed\n", ims); fflush(pg);
     if ( (ims == 0) || (0 == (ims % (ist->mn_states_tot/4))) || (ims == (ist->mn_states_tot - 1))){
       int barWidth = 16; // Width of the progress bar
       float percent = (float)ims / ist->mn_states_tot* 100;
@@ -154,13 +153,13 @@ void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,d
   current_time = time(NULL);
   c_time_string = ctime(&current_time);
   printf("Diagonalization complete! | %s\n", c_time_string); fflush(stdout);
+  
   // The eigenvectors have been computed in the basis of orthogonalized
   // filtered functions (Phi_filter). In order to obtain them in the grid basis
   // as Psi_grid, we must perform a change of basis.
   // The matrix H is holding the eigenvectors, so we perform
   // (Psi_grid)_a = SUM_i H_ai * (Phi_filter)_i
   // for each grid point
-
   printf("Writing out eigenvectors in the grid basis\n"); 
   for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
     jgrid_real = ist->complex_idx * jgrid;

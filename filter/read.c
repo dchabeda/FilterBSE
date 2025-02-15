@@ -26,6 +26,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // NC configuration parameters
   ist->n_max_atom_types = N_MAX_ATOM_TYPES;
   flag->centerConf = 1; // this should honestly always be 1
+  par->box_z = 0.0;
   // Basis set configuration
   flag->readGrid = 0; // Read the grid points from an input file
   flag->useGaussianBasis = 0; // Use atom-centered Gaussian basis set
@@ -37,6 +38,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   par->checkpoint_id = 0;
   flag->approxEnergyRange = 0;
   flag->calcFilterOnly = 0;
+  flag->periodic = 0;
   // Pseudopotential parameters
   ist->max_pot_file_len = 8192;
   flag->useStrain = 0; // By default, do not compute strain dependent terms in pseudopotential
@@ -47,6 +49,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->outmost_material_int = -1;
   ist->ngeoms = 1; // number of different psuedopotential geometries (eg. cubic/ortho) for interpolating psuedopotentials
   par->scale_surface_Cs = 1.0; // By default, do not charge balance the surface Cs atoms
+  par->pot_cut_rad2 = 36.0; // r^2 where local pot has decayed and won't be computed
   // Spin-orbit and non-local terms
   flag->useSpinors = 0; // default is to use non-spinor wavefunctions
   flag->isComplex = 0;
@@ -55,6 +58,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->NL = 0; // computes the non-local terms in the Hamiltonian; automatically on if SO flag on
   ist->nproj = 5; // number of terms to expand projections in. converged by 5
   par->t_rev_factor = 1; // can time rev filt'rd states to get 2X eigst8. mem alloc multiplied by par.t_rev_factor
+  flag->readProj = 0;
   // Optional output flags
   flag->saveOutput = 1; // By default, write the formatted output file that can be read by BSE to recreate job state
   flag->calcPotOverlap = 0; // Calculates matrix elements of the potential <i|V|j>
@@ -102,14 +106,20 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "dz")) {
           grid->dz = strtod(tmp, &endptr);
           if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "box_z")) {
+          par->box_z = strtod(tmp, &endptr);
+          if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "centerConf")) {
-          flag->centerConf = strtol(tmp, &endptr, 10);
+          flag->centerConf = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "readGrid")) {
           flag->readGrid = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "useGaussianBasis")) {
           flag->useGaussianBasis = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "periodic")) {
+          flag->periodic = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
@@ -203,6 +213,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "NonLocal")) {
           flag->NL = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "readProj")) {
+          flag->readProj = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for additional output
@@ -239,6 +252,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "saveCheckpoints")) {
           flag->saveCheckpoints = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "restartFromOrtho")) {
+          flag->restartFromOrtho = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+          if (flag->restartFromOrtho == 1){fscanf(pf, "%ld", &ist->n_states_for_ortho);}
       } else if (!strcmp(field, "restartFromCheckpoint")) {
           flag->restartFromCheckpoint = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
@@ -285,6 +302,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("KEmax = double (maximum kinetic energy value considered)\n");
           printf("spinOrbit = int (0 for no spinOrbit, 1 for spinOrbit)\n");
           printf("NonLocal = int (0 for no non-local, 1 for non-local potential)\n");
+          printf("readProj = int (0 to gen nlc proj, 1 to read from files)\n");
           printf("approxEnergyRange = int, if 1 then energy range will be appox'd by local pot\n");
           printf("calcFilterOnly = int, if 1 then the job will terminate after Filtering\n");
           printf("setTargets = int (0 if half/half split of VB/CB targets suffices for your job)\n");
@@ -302,6 +320,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("printNorm = int, if 1 then norms of wavefunctions are printed every 100 chebyshev iterations\n");
           printf("printPsiFilt = int, if 1 then filtered wavefunctions are printed\n");
           printf("retryFilter = int, if 1 then if no eigenstates obtained after diag, then filter is restarted.\n");
+          printf("restartFromOrtho = int, if 1 then \'psi-filt.dat\' is read from disk and job starts from ortho.\n");
+          printf("If restartFromOrtho = 1, the next entry MUST specify the total number of states in \'psi-filt.dat\'\n");
           printf("saveCheckpoints = int, if 1 then save states will be generated along the job run.\n");
           printf("restartFromCheckpoint = int, value is the ID of the checkpoint that the job should restart from.\n");
           printf("restartFromOrtho = int, if 1 then \'psi-filt.dat\' is read from disk and job starts from ortho.\n");
@@ -462,7 +482,7 @@ void read_conf(char *file_name, xyz_st *R, atom_info *atom, index_st *ist, par_s
   char atyp[3];
     for (int k = 0; k<ist->n_atom_types; k++){
       assign_atom_type(atyp, ist->atom_types[k]);
-      printf("%s ", atyp);
+      printf("%c%c%c ", atyp[0], atyp[1], atyp[2]);
     }
   printf("]\n");
   if (1 == flag->NL) printf("\tn_NL_atoms = %ld\n", ist->n_NL_atoms);
@@ -487,7 +507,7 @@ void read_conf(char *file_name, xyz_st *R, atom_info *atom, index_st *ist, par_s
   pw = fopen("conf.dat" , "w");
   fprintf(pw,"%ld\n", ist->natoms);
   for (i = 0; i < ist->natoms; i++) {
-    fprintf(pw, "%3s % .16g % .16g % .16g\n", atom[i].atyp, R[i].x, R[i].y, R[i].z);
+    fprintf(pw, "%3s % .16g % .16g % .16g\n", atom[i].atyp, R[i].x, R[i].y, R[i].z); 
   }
   fclose(pw);
   
@@ -599,7 +619,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
     if ( (0 == strcmp(atype, "P1")) || (0 == strcmp(atype, "P2")) ||
          (0 == strcmp(atype, "P3")) || (0 == strcmp(atype, "P4")) ||
          (0 == strcmp(atype, "PC5"))|| (0 == strcmp(atype, "PC6"))||
-         (0 == strcmp(atype, "P7")) || (0 == strcmp(atype, "P8"))){
+         (0 == strcmp(atype, "PA1")) || (0 == strcmp(atype, "PR1"))||
+         (0 == strcmp(atype, "PA2")) || (0 == strcmp(atype, "PR2"))||
+         (0 == strcmp(atype, "PA3")) || (0 == strcmp(atype, "PR3"))){
       // Get the name of the ligand potential (stored in atype)
       sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
       strcat(str, ".par");
@@ -936,6 +958,17 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
       if (atom[i].Zval == 52) atom[i].SO_par = 0.0; // Te
       if (atom[i].Zval == 31) atom[i].SO_par = 0.0; // Ga
       
+      // Ligands do not get SO potentials
+      if ( (0 == strcmp(atom[i].atyp, "P1")) || (0 == strcmp(atom[i].atyp, "P2")) ||
+         (0 == strcmp(atom[i].atyp, "P3")) || (0 == strcmp(atom[i].atyp, "P4")) ||
+         (0 == strcmp(atom[i].atyp, "PC5"))|| (0 == strcmp(atom[i].atyp, "PC6"))||
+         (0 == strcmp(atom[i].atyp, "PA1")) || (0 == strcmp(atom[i].atyp, "PR1"))||
+         (0 == strcmp(atom[i].atyp, "PA2")) || (0 == strcmp(atom[i].atyp, "PR2"))||
+         (0 == strcmp(atom[i].atyp, "PA3")) || (0 == strcmp(atom[i].atyp, "PR3"))){
+          printf("\tLigand potential %s will not be assigned SO param.\n", atom[i].atyp);
+          continue;
+      }
+
       // Read input file with spin orbit parameters
       // only if no interpolation requested!
       
@@ -945,15 +978,6 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
         if(atom[i].atyp[strnum] == '\0') break;
         strncat(str, &(atom[i].atyp[strnum]), 1);
       }
-
-      // Ligands do not get SO potentials
-      if ( (0 == strcmp(atom[i].atyp, "P1")) || (0 == strcmp(atom[i].atyp, "P2")) ||
-         (0 == strcmp(atom[i].atyp, "P3")) || (0 == strcmp(atom[i].atyp, "P4")) ||
-         (0 == strcmp(atom[i].atyp, "PC5"))|| (0 == strcmp(atom[i].atyp, "PC6"))||
-         (0 == strcmp(atom[i].atyp, "P7")) || (0 == strcmp(atom[i].atyp, "P8"))){
-          printf("\tLigand potential %s will not be assigned SO param.\n", atom[i].atyp);
-          continue;
-         }
 
       if (1 != flag->interpolatePot){
         // This is a job that uses spin-orbit and NL, but does not interpolate the potentials
@@ -1125,10 +1149,10 @@ void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par){
 
   for (i = 0; i < ist->natoms; i++){
     atm_id = atom[i].Zval;
-    printf("%d atom no. %d has par = %lg\n", atm_id, i, atom[i].geom_par);
-    printf("  SO_cub = %lg SO_ortho = %lg\n", coeff[atm_id].SO[0], coeff[atm_id].SO[1]);
-    printf("  NL_1_c = %lg NL_1_o = %lg\n", coeff[atm_id].NL1[0], coeff[atm_id].NL1[1]);
-    printf("  NL_2_c = %lg NL_2_o = %lg\n", coeff[atm_id].NL2[0], coeff[atm_id].NL2[1]);
+    // printf("%d: atom %d has par = %lg\n", i, atm_id, atom[i].geom_par);
+    // printf("  SO_cub = %lg SO_ortho = %lg\n", coeff[atm_id].SO[0], coeff[atm_id].SO[1]);
+    // printf("  NL_1_c = %lg NL_1_o = %lg\n", coeff[atm_id].NL1[0], coeff[atm_id].NL1[1]);
+    // printf("  NL_2_c = %lg NL_2_o = %lg\n", coeff[atm_id].NL2[0], coeff[atm_id].NL2[1]);
     atom[i].SO_par = atom[i].geom_par*coeff[atm_id].SO[0] + (1.0-atom[i].geom_par)*coeff[atm_id].SO[1];
     atom[i].NL_par[0] = atom[i].geom_par*coeff[atm_id].NL1[0] + (1.0-atom[i].geom_par)*coeff[atm_id].NL1[1];
     atom[i].NL_par[1] = atom[i].geom_par*coeff[atm_id].NL2[0] + (1.0-atom[i].geom_par)*coeff[atm_id].NL2[1];
@@ -1179,22 +1203,24 @@ void calc_geom_par(xyz_st *R, atom_info *atom, index_st *ist){
         // Calculate the bond angle for I atoms
         if(n_bonded != 2){
           // This is an edge I atom
-          atom[i].geom_par = 0.0; 
+          atom[i].geom_par = 0.0;
           //default to cubic if edge atom
           //printf("atom %ld (I) is an edge atom (n_bonded=%d)\n",i, n_bonded);
         } 
         else{
           bond_angle = calc_bond_angle(bonded[0], i, bonded[1], R);
-          //printf("atom %ld (I) has bond angle %g\n",i, bond_angle);
+          //printf("atom %ld (I) has bond angle %g\n",i, bond_angle); fflush(0);
 
           if (bond_angle < orthoBondAngle) {
-            atom[i].geom_par=1.0;
+            //printf("bond_angle %lg < ortho\n", bond_angle);
+            atom[i].geom_par = 1.0;
           }
-          if (bond_angle > minCubicBondAngle){
+          else if (bond_angle > minCubicBondAngle){
             atom[i].geom_par = 0.0;
           }
           else{
             atom[i].geom_par = 1.0 - ((bond_angle - orthoBondAngle) / (minCubicBondAngle - orthoBondAngle));
+            // atom[i].geom_par = ((180.0 - bond_angle) / (180.0 - orthoBondAngle));
           } 
         }
 
@@ -1333,9 +1359,12 @@ long assign_atom_number(char atyp[4]){
   else if ((atyp[0] == 'P') && (atyp[1] == '4')  && (atyp[2] == '\0')) return 5;
   else if ((atyp[0] == 'P') && (atyp[1] == 'C')  && (atyp[2] == '5'))  return 6;
   else if ((atyp[0] == 'P') && (atyp[1] == 'C')  && (atyp[2] == '6'))  return 7;
-  else if ((atyp[0] == 'P') && (atyp[1] == '7')  && (atyp[2] == '\0')) return 8;
-  else if ((atyp[0] == 'P') && (atyp[1] == '8')  && (atyp[2] == '\0')) return 9;
-  else if ((atyp[0] == 'P') && (atyp[1] == '9')  && (atyp[2] == '\0')) return 10;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'R')  && (atyp[2] == '1')) return 8;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'R')  && (atyp[2] == '2')) return 9;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'R')  && (atyp[2] == '3')) return 10;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'A')  && (atyp[2] == '1')) return 84;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'A')  && (atyp[2] == '2')) return 12;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'A')  && (atyp[2] == '3')) return 85;
   else if ((atyp[0] == 'S') && (atyp[1] == 'i')  && (atyp[2] == '\0')) return 14;
   else if ((atyp[0] == 'P') && (atyp[1] == '\0')  && (atyp[2] == '\0')) return 15;
   else if ((atyp[0] == 'S') && (atyp[1] == '\0')  && (atyp[2] == '\0')) return 16;
@@ -1350,7 +1379,7 @@ long assign_atom_number(char atyp[4]){
   else if ((atyp[0] == 'C') && (atyp[1] == 's')  && (atyp[2] == '\0')) return 55;
   else if ((atyp[0] == 'P') && (atyp[1] == 'b')  && (atyp[2] == '\0')) return 82;
   else {
-    fprintf(stderr, "atom type %s not in current list", atyp);
+    fprintf(stderr, "atom type %c%c%c not in current list", atyp[0], atyp[1], atyp[2]);
     exit(EXIT_FAILURE);
   }
 
@@ -1373,11 +1402,14 @@ void assign_atom_type(char *atyp, long j){
   else if (j == 3) {atyp[0] = 'P'; atyp[1] = '2'; atyp[2] = '\0';}
   else if (j == 4) {atyp[0] = 'P'; atyp[1] = '3'; atyp[2] = '\0';}
   else if (j == 5) {atyp[0] = 'P'; atyp[1] = '4'; atyp[2] = '\0';}
-  else if (j == 6) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '5'; atyp[3] = '\0';}
-  else if (j == 7) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '6'; atyp[3] = '\0';}
-  else if (j == 8) {atyp[0] = 'P'; atyp[1] = '7'; atyp[2] = '\0';}
-  else if (j == 9) {atyp[0] = 'P'; atyp[1] = '8'; atyp[2] = '\0';}
-  else if (j == 10) {atyp[0] = 'P'; atyp[1] = '9'; atyp[2] = '\0';}
+  else if (j == 6) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '5';}
+  else if (j == 7) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '6';}
+  else if (j == 8) {atyp[0] = 'P'; atyp[1] = 'R'; atyp[2] = '1';}
+  else if (j == 9) {atyp[0] = 'P'; atyp[1] = 'R'; atyp[2] = '2';}
+  else if (j == 10) {atyp[0] = 'P'; atyp[1] = 'R'; atyp[2] = '3';}
+  else if (j == 11) {atyp[0] = 'P'; atyp[1] = 'A'; atyp[2] = '1';}
+  else if (j == 12) {atyp[0] = 'P'; atyp[1] = 'A'; atyp[2] = '2';}
+  else if (j == 13) {atyp[0] = 'P'; atyp[1] = 'A'; atyp[2] = '3';}
   else if (j == 14) {atyp[0] = 'S'; atyp[1] = 'i'; atyp[2] = '\0';}
   else if (j == 15) {atyp[0] = 'P'; atyp[1] = '\0'; atyp[2] = '\0';}
   else if (j == 16) {atyp[0] = 'S'; atyp[1] = '\0'; atyp[2] = '\0';}

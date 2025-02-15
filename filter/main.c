@@ -116,6 +116,30 @@ int main(int argc, char *argv[]){
   
   /*************************************************************************/
   /*** allocating memory for the rest of the program ***/
+  // Open the /proc/meminfo file
+  FILE *file = fopen("/proc/meminfo", "r");
+  if (file == NULL) {
+      perror("Could not open /proc/meminfo");
+      return 1;
+  }
+
+  // Variables to store information
+  char label[256];
+  unsigned long available_ram_kb;
+
+  // Read through the file to find "MemAvailable"
+  while (fscanf(file, "%s %lu", label, &available_ram_kb) != EOF) {
+      if (strcmp(label, "MemAvailable:") == 0) {
+          // Available RAM is found, break out of the loop
+          break;
+      }
+  }
+
+  fclose(file);
+  // Print available RAM in kilobytes and megabytes
+  printf("Available RAM: %lu KB (%.2f GB)\n", available_ram_kb, available_ram_kb / 1024.0 / 1024.0);
+
+
   printf("\nAllocating memory for FFT, pot, psi, eig_vals...");
   
   // FFT
@@ -156,6 +180,8 @@ int main(int argc, char *argv[]){
   // The factor of par.t_rev_factor (2 w spinors, 1 w/o spinors) in the psitot memory allocation
   // is because we time reverse the spinors to get double the orthogonal states
   // Spinor calculations are 8 times more memory intensive than scalar calculations
+  
+
   if ((psitot = (double *) calloc(ist.complex_idx * par.t_rev_factor * ist.nspinngrid * ist.mn_states_tot, sizeof(psitot[0]))) == NULL){
     fprintf(stderr,"\nOUT OF MEMORY: psitot\n\n"); exit(EXIT_FAILURE);
   }
@@ -207,12 +233,12 @@ int main(int argc, char *argv[]){
       
       if(flag.SO==1) {
         printf("\nSpin-orbit pseudopotential:\n");
-        init_SO_projectors(SO_projectors, R, atom, &grid, &ist, &par);
+        init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par, &flag);
       }
       /*** initialization for the non-local potential ***/
       if (flag.NL == 1){
         printf("\nNon-local pseudopotential:\n"); fflush(0);
-        init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag);
+        init_NL_projectors(nlc, nl, SO_projectors, &grid, R, atom, &ist, &par, &flag);
       }
       // free memory allocated to SO_projectors
       if ( (flag.SO == 1) || (flag.NL == 1) ){
@@ -231,7 +257,7 @@ int main(int argc, char *argv[]){
       inital_clock_t = (double)clock(); 
       initial_wall_t = (double)time(NULL);
       
-      get_energy_range(psi, phi, pot_local, &grid, nlc, nl, ksqr, &ist, &par, &parallel, &flag, planfw, planbw, fftwpsi);
+      get_energy_range(psi, phi, pot_local, atom, &grid, nlc, nl, ksqr, &ist, &par, &parallel, &flag, planfw, planbw, fftwpsi);
       
       printf("\ndone calculate energy range, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
@@ -357,8 +383,15 @@ int main(int argc, char *argv[]){
       if ((parallel.jms = (long *) calloc(ist.mn_states_tot, sizeof(parallel.jms[0]))) == NULL){ 
         fprintf(stderr, "\nOUT OF MEMORY: parallel->jns\n\n"); exit(EXIT_FAILURE);
       }
-      run_filter_cycle(psitot,pot_local,nlc,nl,ksqr,an,zn,ene_targets,&grid,&ist,&par,&flag,&parallel);
-      
+
+      // 
+      // 
+      // 
+      run_filter_cycle(psitot,pot_local,atom,nlc,nl,ksqr,an,zn,ene_targets,&grid,&ist,&par,&flag,&parallel);
+      // 
+      // 
+      // 
+
       printf("\ndone calculating filter, CPU time (sec) %g, wall run time (sec) %g\n",
                 ((double)clock()-inital_clock_t)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-initial_wall_t); 
       fflush(stdout);
@@ -397,7 +430,7 @@ int main(int argc, char *argv[]){
         write_separation(stdout, bottom); fflush(stdout);
         
         printf("\nLocal pseudopotential:\n");
-        build_local_pot(pot_local, &pot, R, ksqr, atom, &grid, &ist, &par, &flag, &parallel);
+        build_local_pot(pot_local, &pot, R, atom, &grid, &ist, &par, &flag, &parallel);
         
         free(pot.r); pot.r = NULL; 
         free(pot.pseudo); pot.pseudo = NULL; 
@@ -412,7 +445,7 @@ int main(int argc, char *argv[]){
         
         if(flag.SO==1) {
           printf("\nSpin-orbit pseudopotential:\n");
-          init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par);
+          init_SO_projectors(SO_projectors, &grid, R, atom, &ist, &par, &flag);
         }
         /*** initialization for the non-local potential ***/
         if (flag.NL == 1){
@@ -541,7 +574,7 @@ int main(int argc, char *argv[]){
       write_separation(stdout, bottom); fflush(stdout);
       
       inital_clock_t = (double)clock(); initial_wall_t = (double)time(NULL);
-      diag_H(psitot,pot_local,nlc,nl,ksqr,eig_vals,&ist,&par,&flag,&parallel,planfw,planbw,fftwpsi);
+      diag_H(psitot,pot_local,atom,nlc,nl,ksqr,eig_vals,&ist,&par,&flag,&parallel,planfw,planbw,fftwpsi);
       normalize_all(&psitot[0],&ist,&par,&flag,&parallel);
       jms = ist.mn_states_tot;
       printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",
@@ -557,7 +590,7 @@ int main(int argc, char *argv[]){
       printf("\n7. CALCULATING VARIANCE OF EIGENVALUES | %s\n", c_time_string);
       write_separation(stdout, bottom); fflush(stdout);
       
-      calc_sigma_E(psitot, pot_local, nlc, nl, ksqr, sigma_E, &ist, &par, &flag);
+      calc_sigma_E(psitot, pot_local, atom, nlc, nl, ksqr, sigma_E, &ist, &par, &flag);
       
       /*** write the eigenstates/energies to a file ***/
       if (flag.getAllStates == 1) {printf("getAllStates flag on\nWriting all eigenstates to disk\n");}
@@ -789,7 +822,7 @@ int main(int argc, char *argv[]){
         printf("\nCALCULATING POTENTIAL MATRIX ELEMENTS | %s\n", c_time_string); fflush(0);
         write_separation(stdout, bottom); fflush(stdout);
 
-        calc_pot_overlap(&psitot[0], pot_local, nlc, nl, eig_vals, &par, &ist, &flag);
+        calc_pot_overlap(&psitot[0], pot_local, atom, nlc, nl, eig_vals, &par, &ist, &flag);
       } 
       if (flag.calcSpinAngStat == 1) {
         write_separation(stdout, top);

@@ -84,7 +84,7 @@ void gen_SO_projectors(double dx, double rcut, long nproj, double*  projectors, 
 }
 /*****************************************************************************/
 
-void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,int* sgnProj, double* vr, atom_info *atm,long jatom){
+void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,int* sgnProj, double* vr, atom_info *atm,long jatom, FILE *pproj){
 	long long N  = PROJ_LEN;
 	double kmax = 1.5 * PIE/dx;
 	double dk = kmax/((double) N);
@@ -94,9 +94,9 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	double sum, preFactor;
 	int i,j,rpoint,kpoint,projector;
 	double lam1, lam2;
-	FILE *pf, *pproj;
+	FILE *pf;
 	char fileName[100];
-
+	
 	// Width of the gaussian fucntion used for the SO potential. 
 	double width = 1.0;
 	double shift = 1.5;
@@ -107,9 +107,9 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	lam1= atm[jatom].NL_par[0];
 	lam2= atm[jatom].NL_par[1];
 	
-	pproj = fopen("projectors.dat", "w");
+	
 	fprintf(pproj, "For atom %ld with Zval %d we have l1=%g l2=%f\n", jatom, atm[jatom].Zval, lam1, lam2);
-	fclose(pproj);
+	
 	// printf("Checkpoint 1\n"); fflush(0);
 	if (lam1==0 && lam2==0){
 		// printf("inside loop\n"); fflush(0);
@@ -130,7 +130,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	}
 
 	//calculate the matrix of integrals for each ki and kj (symmetRy assisted for i<-->j)
-	#pragma omp parallel for private(i,j,rpoint,ki,kj,sum,r)
+	//#pragma omp parallel for private(i,j,rpoint,ki,kj,sum,r)
 	for ( i = 0; i < N; i++) {
 		ki = (double) i * dk;
 		for ( j = 0; j <= i; j++) {
@@ -157,9 +157,6 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	//diagonalize the matrix
 	dsyev_(&JOBZ, &UPLO, &N, &A[0], &LDA, &W[0], &WORK[0], &LWORK, &INFO);
 	
-	pproj = fopen("projectors.dat", "w");
-	fprintf(pproj,"gen_projectors: dsyev exit: %lld\n",INFO );
-	fclose(pproj);
 	//fflush(0);
 	// printf("Checkpoint 4\n"); fflush(0);
 
@@ -220,7 +217,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 			
 			//perform numerical integration
 			sum = 0;
-			#pragma omp parallel for private(k,kpoint) reduction(+:sum)
+			//#pragma omp parallel for private(k,kpoint) reduction(+:sum)
 			for ( kpoint = 0; kpoint < N; kpoint++){
 				k = (double) kpoint * dk;
 				sum += k * k * calcBessel(k*r, 1/(k*r + EPS)) * A[N*(i_eigs[projector])+kpoint] * dk;

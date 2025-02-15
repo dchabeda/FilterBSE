@@ -148,19 +148,20 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     for (j = 0; j < ist->n_atom_types; j++){ fscanf(pf, "%ld ", &ist->atom_types[j]); }
     fscanf(pf, "%d", &ist->nspin); 
     fscanf(pf, "%d", &ist->complex_idx); 
+    /*
     printf("%ld %ld\n", ist->ngrid, ist->nspinngrid);
     printf("%ld", ist->mn_states_tot);
     printf("%ld %ld\n", ist->natoms, ist->n_atom_types);
     printf("\n%d\n", ist->nspin);
-    printf("%d\n", ist->complex_idx);
+    printf("%d\n", ist->complex_idx); */
     // Read par
     printf("\tpar_st from filter...\n"); fflush(stdout);
     fscanf(pf, "%lg %lg", &par->KE_max, &par->fermi_E);
-    printf("%lg %lg\n", par->KE_max, par->fermi_E); fflush(0);
+    
     // Read flags
     printf("\tflag_st from filter...\n"); fflush(stdout);
-    fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);
-    printf("%d %d %d %d %d\n", flag->SO, flag->NL, flag->LR, flag->useSpinors, flag->isComplex);
+    fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);fflush(0);
+    //printf("%d %d %d %d %d\n", flag->SO, flag->NL, flag->LR, flag->useSpinors, flag->isComplex);fflush(0);
     // Read conf
     printf("\tconf from filter...\n"); fflush(stdout);
     if(( *R = malloc(ist->natoms * sizeof(xyz_st))) == NULL){
@@ -170,16 +171,16 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     
     for (j = 0; j < ist->natoms; j++){
         fscanf(pf, "%lg %lg %lg", &((*R)[j].x), &((*R)[j].y), &((*R)[j].z));
-        printf("%lg %lg %lg\n", (*R)[j].x, (*R)[j].y, (*R)[j].z); 
+        //printf("%lg %lg %lg\n", (*R)[j].x, (*R)[j].y, (*R)[j].z); 
     }
 
     // Read grid
     printf("\tgrid from filter...\n"); fflush(stdout);
     fscanf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg", &grid->dx, &grid->dy, &grid->dz, &grid->dr, &grid->dv, &grid->dkx, &grid->dky, &grid->dkz);
     fscanf(pf, "%lg %lg %lg %lg %lg %lg", &grid->xmin, &grid->xmax, &grid->ymin, &grid->ymax, &grid->zmin, &grid->zmax);
-    fscanf(pf, "%ld %ld %ld", &grid->nx, &grid->ny, &grid->nz); printf("%ld %ld %ld\n", grid->nx, grid->ny, grid->nz);fflush(0);
+    fscanf(pf, "%ld %ld %ld", &grid->nx, &grid->ny, &grid->nz); //printf("%ld %ld %ld\n", grid->nx, grid->ny, grid->nz);fflush(0);
     fscanf(pf, "%lg %lg %lg", &grid->nx_1, &grid->ny_1, &grid->nz_1);
-    fscanf(pf, "%7ld", &grid->ngrid); printf("\ngrid->ngrid = %ld\n", grid->ngrid);
+    fscanf(pf, "%7ld", &grid->ngrid); //printf("\ngrid->ngrid = %ld\n", grid->ngrid);
 
     if((*gridx = malloc(grid->nx * sizeof(double))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");
@@ -198,10 +199,10 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     fread(*gridx, sizeof(double), grid->nx, pf);
     fread(*gridy, sizeof(double), grid->ny, pf);
     fread(*gridz, sizeof(double), grid->nz, pf);
-    printf("gridz\n");
-    for (j = 0; j< grid->nx; j++){
-        printf("%lg\n", *(gridz)[j]);
-    }
+    //printf("gridz\n");
+    //for (j = 0; j< grid->nx; j++){
+        //printf("%lg\n", *(gridz)[j]);
+    //}
     // Read eig_vals and sigma_E
     if ((*eig_vals = malloc(ist->mn_states_tot * sizeof(*eig_vals[0]))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
@@ -216,9 +217,9 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     
     printf("\tsigma_E from filter...\n"); fflush(stdout);
     fread(*sigma_E, sizeof(*sigma_E[0]), ist->mn_states_tot, pf);
-    for (j = 0; j< ist->mn_states_tot; j++){
-        printf("%lg %lg\n", (*eig_vals)[j], (*sigma_E)[j]);
-    }
+    // for (j = 0; j< ist->mn_states_tot; j++){
+    //     printf("%lg %lg\n", (*eig_vals)[j], (*sigma_E)[j]);
+    // }
     // Read psitot
     if ((*psitot = malloc(ist->complex_idx * ist->mn_states_tot * ist->nspinngrid * sizeof(psitot[0]))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for psitot in read_filter_output\n");

@@ -22,13 +22,18 @@ typedef struct flag {
   int SO, NL, LR, useSpinors, isComplex;
   int printPsiFilt, printOrtho, printNorm, printCubes;
   int calcPotOverlap, getAllStates, timeHamiltonian, calcSpinAngStat;
-  int retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint, saveOutput;
-  int approxEnergyRange, calcFilterOnly, restartFromOrtho;
+  int restartFromOrtho, retryFilter, alreadyTried, saveCheckpoints, restartFromCheckpoint, saveOutput;
+  int calcFilterOnly;
+  int useGaussianBasis, readGrid;
+  int approxEnergyRange, readProj;
+  int useFastHam, useMPIOMP;
+  int periodic, readKPath;
+  
 } flag_st;
 
 typedef struct index {
   long m_states_per_filter, n_filter_cycles, mn_states_tot;
-  long n_states_for_ortho;
+  long n_filters_per_rank, n_states_per_rank, n_states_for_ortho;
   long homo_idx, lumo_idx, total_homo, total_lumo;
   long ngrid, nspinngrid, ncheby;
   long natoms, n_atom_types, n_max_atom_types;
@@ -37,6 +42,9 @@ typedef struct index {
   int nspin, ncubes, ngeoms;
   int complex_idx;
   int crystal_structure_int, outmost_material_int;
+  int n_s_ang_mom, n_l_ang_mom, n_j_ang_mom;
+  int n_bands, n_G_vecs, n_k_pts;
+  int nk1, nk2, nk3;
   // Redundancies
   long nx, ny, nz;
   long nthreads;
@@ -52,6 +60,11 @@ typedef struct par {
   int t_rev_factor;
   int checkpoint_id;
   char crystal_structure[15], outmost_material[15];
+  char fft_wisdom_dir[200], fftw_wisdom[250];
+  double psi_zero_cut;
+  int ham_threads;
+  double box_z;
+  double pot_cut_rad2;
   // Redundnacies
   double dv;
 } par_st;
@@ -67,6 +80,14 @@ typedef struct st5 {
   double x, y, z;
 } xyz_st;
 
+typedef struct lattice_st {
+  double a, b, c;
+  double alpha, beta, gamma;
+  double V_lat;
+  vector a1, a2, a3;
+  vector b1, b2, b3;
+} lattice_st;
+
 typedef struct st10 {
   double SO[2], NL1[2], NL2[2];
 } coeff_st;
@@ -76,7 +97,7 @@ typedef struct grid {
   double dx, dy, dz, dr, dv, dkx, dky, dkz;
   double xmin, xmax, ymin, ymax, zmin, zmax;
   long nx, ny, nz;
-  double nx_1, ny_1, nz_1;
+  double nx_1, ny_1, nz_1, ngrid_1;
   // Redundancies
   long ngrid;
 } grid_st;
@@ -105,9 +126,12 @@ typedef struct st11 {
 typedef fftw_plan fftw_plan_loc;
 
 typedef struct parallel{
-  long nthreads;
+  long nthreads, nranks;
+  int mpi_size, mpi_rank, mpi_root;
+  int nestedOMP, n_outer_threads, n_inner_threads;
   long *jns, *jms;
 } parallel_st;
+
 
 
 
@@ -159,7 +183,8 @@ void build_grid_ksqr(double *ksqr, xyz_st *R, grid_st *grid, index_st *ist, par_
 void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, grid_st *grid,
     index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *flag);
-void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par);
+void calc_recip_lat_vecs(lattice_st *lattice, index_st *ist, par_st *par, flag_st *flag);
+void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag);
 void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *grid, xyz_st *R, atom_info *atm, index_st *ist, par_st *par, flag_st *flag);
 void init_psi(zomplex *psi, long *rand_seed, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 double calc_dot_dimension(xyz_st *R, long n, char *dir);
@@ -171,6 +196,7 @@ void read_conf(char *file_name, xyz_st *R, atom_info *atm, index_st *ist, par_st
 void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *flag);
 void read_pot_file(FILE *pf, pot_st *pot, long j, long n, char *req);
 void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par);
+void read_periodic_input(lattice_st *lattice, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void calc_geom_par(xyz_st *R,atom_info *atm, index_st *ist );
 double calc_bond_angle(long index1,long index2,long index3, xyz_st *R);
 long assign_atom_number(char atyp[4]);
@@ -194,15 +220,15 @@ void Randomize();
 
 //hamiltonian.c
 void kinetic(zomplex *psi, double *ksqr, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st *ist);
-void potential(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, index_st *ist, par_st *par, flag_st *flag);
-void spin_orbit_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, index_st *ist, par_st *par);
-void nonlocal_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, index_st *ist, par_st *par);
-void hamiltonian(zomplex *phi, zomplex *psi, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+void potential(zomplex *phi, zomplex *psi, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl, index_st *ist, par_st *par, flag_st *flag);
+void spin_orbit_proj_pot(zomplex *phi, zomplex *psi, atom_info *atom, nlc_st *nlc, long* nl, index_st *ist, par_st *par);
+void nonlocal_proj_pot(zomplex *phi, zomplex *psi, atom_info *atom, nlc_st *nlc, long* nl, index_st *ist, par_st *par);
+void hamiltonian(zomplex *phi, zomplex *psi, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl, double *ksqr,
   index_st *ist, par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
 void time_reverse_all(double *psitot, double *dest, index_st *ist, parallel_st *parallel);
 
 //filter.c
-void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *ksqr, zomplex *an, 
+void run_filter_cycle(double *psitot, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl, double *ksqr, zomplex *an, 
   double *zn, double *ene_targets, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void filter(zomplex *psin, zomplex *psim1, double *psims, double *pot_local, nlc_st *nlc, long *nl, 
   double *ksqr, zomplex *an, double *zn, long thread_id, long jn, fftw_plan_loc planfw, fftw_plan_loc planbw,
@@ -218,13 +244,13 @@ double normalize(zomplex *, long ngrid, index_st *ist, par_st *par, flag_st *fla
 void normalize_all(double *psitot, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 
 //energy.c
-double energy(zomplex *psi, zomplex *phi, double *pot_local, nlc_st *nlc, long *nl, double *ksqr, index_st *ist,
+double energy(zomplex *psi, zomplex *phi, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl, double *ksqr, index_st *ist,
   par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
-void energy_all(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+void energy_all(double *psitot, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl, double *ksqr,
   double *ene, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-void get_energy_range(zomplex *psi, zomplex *phi, double *pot_local, grid_st *grid, nlc_st *nlc, long *nl, double *ksqr,
+void get_energy_range(zomplex *psi, zomplex *phi, double *pot_local, atom_info *atom, grid_st *grid, nlc_st *nlc, long *nl, double *ksqr,
   index_st *ist, par_st *par, parallel_st *parallel, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
-void calc_sigma_E(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
+void calc_sigma_E(double *psitot, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl, double *ksqr,
   double *eval2, index_st *ist, par_st *par, flag_st *flag);
 
 
@@ -236,7 +262,7 @@ void check_function(zomplex *an,zomplex *samp,index_st *ist,par_st *par, double 
 
 
 //Hmat.c
-void diag_H(double *psitot,double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag, parallel_st *parallel,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
+void diag_H(double *psitot,double *pot_local, atom_info *atom,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag, parallel_st *parallel,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 MKL_Complex16 dotp(zomplex *psi, double *phi,long m,long ngrid,double dv);
 double dotpreal(zomplex *psi,double *phi,long m,long ngrid,double dv);
 
@@ -248,10 +274,10 @@ long ortho(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag)
 
 //projectors.c
 void gen_SO_projectors(double dx, double rcut, long nproj,double*  projectors, double* vr);
-void gen_nlc_projectors(double dx, double rcut, long nproj, double*  projectors,int* sgnProj, double* vr, atom_info *atm,long jatom);
+void gen_nlc_projectors(double dx, double rcut, long nproj, double*  projectors,int* sgnProj, double* vr, atom_info *atm,long jatom, FILE *pproj);
 
 // pseudopotential.c
-void calc_pot_overlap(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par,index_st *ist, flag_st *flag);
+void calc_pot_overlap(double *psitot, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl, double *eval, par_st *par,index_st *ist, flag_st *flag);
 int countlines(char *filename);
 
 //angular.c
@@ -266,6 +292,7 @@ void low_pass_filter(zomplex* psi, grid_st *grid, fftw_plan_loc planfw, fftw_pla
 //write.c
 void write_cube_file(double *rho, grid_st *grid, char *fileName);
 void write_separation(FILE *pf, char *top_bttm);
+void write_state_dat(zomplex *psi, long n_elems, char* fileName);
 
 //save.c
 void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel);
@@ -274,4 +301,9 @@ void save_job_state(char *file_name, int checkpoint_id, double *psitot, double *
 void restart_from_save(char *file_name, int checkpoint_id, double *psitot, double *pot_local, double *ksqr, zomplex *an, double *zn, double *ene_targets, long *nl,\
     nlc_st *nlc, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, xyz_st *R, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
+
+// auxiliary
+int sign(float x);
+
+
 /*****************************************************************************/

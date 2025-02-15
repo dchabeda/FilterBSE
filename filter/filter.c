@@ -2,7 +2,7 @@
 
 /*****************************************************************************/
 
-void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl, 
+void run_filter_cycle(double *psitot, double *pot_local, atom_info *atom, nlc_st *nlc, long *nl, 
   double *ksqr, zomplex *an, double *zn, double *ene_targets, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function runs a filter cycle on m ene_targets with one of   *
@@ -143,8 +143,8 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
     for (jc = 1; jc < ist->ncheby; jc++){
 
       memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
-      hamiltonian(psi,phi,pot_local,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
-
+      hamiltonian(psi,phi,pot_local,atom,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
+      
       for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
         /*** par->dE_1 = 4.0 / par->dE and therefore I don't multiply by 4 ***/
         psi[jgrid].re = par->dE_1 * psi[jgrid].re - (2.0 + zn[jc-1] + par->Vmin * par->dE_1) * phi[jgrid].re;
@@ -219,10 +219,10 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
     if (1 == flag->printPsiFilt){
       // Print the normalized filtered states to disk
       sprintf(str, "psi-filt-%ld.dat", jmn);
-      pf = fopen(str, "w");
+      pf = fopen(str, "wb");
       fwrite(&psitot[jmn*ist->complex_idx*ist->nspinngrid], sizeof(double), ist->complex_idx*ist->nspinngrid, pf);
     }
-    
+    fclose(pf);
     free(psi); free(phi); free(psi_out);
     fftw_destroy_plan(planfw);
     fftw_destroy_plan(planbw);
@@ -250,7 +250,7 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
   
   printf("Computing the energies of all filtered states\n"); fflush(stdout);
   /*** calculate and print the energy of the filtered states ***/
-  energy_all(psitot,pot_local,nlc,nl,ksqr,ene_filters,ist,par,flag,parallel);
+  energy_all(psitot,pot_local,atom,nlc,nl,ksqr,ene_filters,ist,par,flag,parallel);
 
   for (jns = 0; jns < ist->n_filter_cycles; jns++){
     sprintf (fileName,"ene-filt-jns-%ld.dat", jns);
@@ -268,10 +268,6 @@ void run_filter_cycle(double *psitot, double *pot_local, nlc_st *nlc, long *nl,
 }
 
 
-/*****************************************************************************/
-int sign(float x) {
-    return (int)copysign(1.0, x);  // copysign gives the sign of x
-}
 
 void print_progress_bar(int progress, int total) {
     int barWidth = 10; // Width of the progress bar

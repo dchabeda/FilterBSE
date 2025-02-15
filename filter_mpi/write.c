@@ -18,6 +18,7 @@ void write_cube_file(double *rho, grid_st *grid, char *fileName) {
   double x, y, z;
   char line[80], atomSymbol[10];
 
+  
   if( access("conf.dat", F_OK) == -1 ){
         printf("ERROR: no conf.dat file exists in directory\n");
         fprintf(stderr, "ERROR: no conf.dat file exists in directory\n");
@@ -94,6 +95,8 @@ void write_cube_file(double *rho, grid_st *grid, char *fileName) {
   return;
 }
 
+/****************************************************************************/
+
 void write_separation(FILE *pf, char *top_bttm) {
   /*****************************************************************
   * This function prints asterisk separation lines in stdout       *
@@ -120,5 +123,37 @@ void write_separation(FILE *pf, char *top_bttm) {
 
   free(top_key); free(bttm_key);
   
+  return;
+}
+
+/****************************************************************************/
+
+void write_state_dat(zomplex *psi, long n_elems, char* fileName){
+  FILE *pf;
+  long i;
+
+  pf = fopen(fileName, "w");
+  for (i = 0; i < n_elems; i++){
+    fprintf(pf, "%lg %lg\n", psi[i].re, psi[i].im);
+  }
+  fclose(pf);
+  
+}
+
+/****************************************************************************/
+
+void write_vector_dat(vector *vec, int n_elems, char* fileName){
+  
+  FILE *pf;
+  int i;
+
+  pf = fopen(fileName, "w");
+
+  fprintf(pf, "units of 2pi/a\n");
+  for (i = 0; i < n_elems; i++){
+    fprintf(pf, "%lf %lf %lf\n", vec[i].x, vec[i].y, vec[i].z);
+  }
+  fclose(pf);
+
   return;
 }

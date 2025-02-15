@@ -37,44 +37,13 @@ void write_cube_file(double *rho, grid_st *grid, char *fileName) {
   fprintf(pf, "%5li%12.6f%12.6f%12.6f\n", grid->nz, 0.0, 0.0, grid->dz);
   fgets(line, 80, pConfFile); 
   while(fgets(line, 80, pConfFile) != NULL) {
-    sscanf(line, "%2s %lf %lf %lf", (char*)&atomSymbol, &x, &y, &z);
+    sscanf(line, "%s %lf %lf %lf", (char*)&atomSymbol, &x, &y, &z);
     
-    //TODO: make sane atom_info handling.... 
-    if (! strcmp(atomSymbol, "Cd")) { 
-      atomType = 48;
-    }
-    else if (! strcmp(atomSymbol, "S")) {  
-      atomType = 16;
-    }
-    else if (! strcmp(atomSymbol, "Se")) { 
-      atomType = 34;
-    }
-    else if (! strcmp(atomSymbol, "Zn")) {
-      atomType = 30;
-    }
-    else if (! strcmp(atomSymbol, "Te")) {
-      atomType = 52;
-    }
-  	else if (! strcmp(atomSymbol, "C")) {
-  	  atomType = 6;
-  	}
-    else if (! strcmp(atomSymbol, "Si")) {
-	  atomType = 14;
-    }
-    else if (! strcmp(atomSymbol, "Cs")) {
-    atomType = 55;
-    }
-    else if (! strcmp(atomSymbol, "Pb")) {
-    atomType = 82;
-    }
-    else if (! strcmp(atomSymbol, "I")) {
-    atomType = 53;
-    }
-    else { 
-      atomType = 1; 
-    }
+    atomType = assign_atom_number(atomSymbol);
+    
     fprintf(pf, "%5li%12.6f%12.6f%12.6f%12.6f\n", atomType, 0.0, x, y, z);
   }
+
   for (iX = 0; iX < grid->nx; iX++) {
     for (iY = 0; iY < grid->ny; iY++) {
       for (iZ = 0; iZ < grid->nz; iZ++) {
@@ -121,4 +90,22 @@ void write_separation(FILE *pf, char *top_bttm) {
   free(top_key); free(bttm_key);
   
   return;
+}
+
+//*****************************************************************
+void write_state_dat(zomplex *psi, long n_elems, char* fileName){
+  FILE *pf;
+  long i;
+
+  pf = fopen(fileName, "w");
+  for (i = 0; i < n_elems; i++){
+    fprintf(pf, "%lg %lg\n", psi[i].re, psi[i].im);
+  }
+  fclose(pf);
+  
+}
+
+//*****************************************************************
+int sign(float x) {
+    return (int)copysign(1.0, x);  // copysign gives the sign of x
 }

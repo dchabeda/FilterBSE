@@ -209,9 +209,7 @@ void get_qp_basis(double *psi_qp, double *psitot, double *eig_vals, double *sigm
   ********************************************************************/
  
   long i, cntr, state_idx;
-  // long jgrid, jgrid_real, jgrid_imag;
-  // double tmp1, tmp2;
-
+  
   // Copy the hole states
   cntr = 0;
   for (i = 0; i < ist->n_holes; i++){
@@ -229,34 +227,7 @@ void get_qp_basis(double *psi_qp, double *psitot, double *eig_vals, double *sigm
     cntr++;
   } 
 
-  // // Format the quasiparticle basis for continuity with old code
-  // // Not sure if this makes any difference in the later functions
-  // for (i = ist->n_holes - 1, a = 0; i >= 0 && a < ist->n_holes; i--, a++) {
-  //     for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-  //       jgrid_real = ist->complex_idx * jgrid;
-  //       jgrid_imag = ist->complex_idx * jgrid + 1;
-
-  //       psi[a * ist->nspinngrid + jgrid_real] = psi_hole[i * ist->nspinngrid + jgrid_real];
-  //       psi[a * ist->nspinngrid + jgrid_imag] = psi_hole[i * ist->nspinngrid + jgrid_imag];
-  //     }
-  // }
-
-  // for (i = ist->n_holes, a = 0; i < ist->n_holes + ist->n_elecs && a < ist->n_elecs; i++, a++) {
-  //     for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-  //       jgrid_real = ist->complex_idx * jgrid;
-  //       jgrid_imag = ist->complex_idx * jgrid + 1;
-
-  //       psi[i * ist->nspinngrid + jgrid_real] = psi_elec[a * ist->nspinngrid + jgrid_real];
-  //       psi[i * ist->nspinngrid + jgrid_imag] = psi_elec[a * ist->nspinngrid + jgrid_imag];
-  //     }
-  // }
-
-  // /* Rearrange eig_vals */
-  // for (i = 0, j = ist->n_holes - 1; i < j; i++, j--) {
-  //     tmp1 = eig_vals[i];    tmp2 = sigma_E[i];
-  //     eig_vals[i] = eig_vals[j]; sigma_E[i] = sigma_E[j];
-  //     eig_vals[j] = tmp1;    sigma_E[j] = tmp2;
-  // }
+  printf("   Finished reading in quasiparticle basis functions\n");
 
   return;
 

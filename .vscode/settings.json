@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "cstdlib": "c",
-        "fftw3.h": "c"
+        "fftw3.h": "c",
+        "chrono": "c"
     }
 }

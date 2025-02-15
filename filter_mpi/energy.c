@@ -63,8 +63,9 @@ void energy_all(double *psitot, long n_states, double *pot_local, nlc_st *nlc, l
   ********************************************************************/
   long jmn;
   
-#pragma omp parallel for private(jmn)
+// #pragma omp parallel for private(jmn)
   for (jmn = 0; jmn < n_states; jmn++) {
+    
     // Indexes for arrays
     long jgrid, jgrid_real, jgrid_imag, j_state;
     // Arrays for hamiltonian evaluation
@@ -86,30 +87,36 @@ void energy_all(double *psitot, long n_states, double *pot_local, nlc_st *nlc, l
     planbw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,fft_flags);
   
     j_state = jmn * ist->complex_idx * ist->nspinngrid;
-
+    
     // copy the wavefunction for state jmn into psi
-    for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-      jgrid_real = ist->complex_idx * jgrid;
-      jgrid_imag = ist->complex_idx * jgrid + 1;
+    if (1 == flag->isComplex){
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = ist->complex_idx * jgrid + 1;
 
-      psi[jgrid].re = psitot[j_state + jgrid_real];
-      if (1 == flag->isComplex){
+        psi[jgrid].re = psitot[j_state + jgrid_real];
         psi[jgrid].im = psitot[j_state + jgrid_imag];
-      } else if (0 == flag->isComplex){
+      }
+    }
+    else{
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        psi[jgrid].re = psitot[j_state + jgrid];
         psi[jgrid].im = 0.0;
       }
     }
     
     memcpy(&phi[0], &psi[0], ist->nspinngrid*sizeof(phi[0]));
     hamiltonian(phi, psi, pot_local, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
+    
     // Compute the expectation value <psi|H|psi>
     // The quantity H|psi> is stored in phi
+    
     ene_filters[jmn] = 0.0;
     for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
       ene_filters[jmn] += (psi[jgrid].re * phi[jgrid].re + psi[jgrid].im * phi[jgrid].im);
     }
     ene_filters[jmn] *= par->dv;
-
+    
     // Free dynamically allocated memory
     free(psi); free(phi);
     fftw_destroy_plan(planfw);
@@ -267,15 +274,17 @@ void calc_sigma_E(double *psitot, double *pot_local, nlc_st *nlc, long *nl, doub
   long ims;
   
   // Loop over all M*N states
-#pragma omp parallel for private(ims)
+  #pragma omp parallel for private(ims)
   for (ims = 0; ims < ist->mn_states_tot; ims++) {
-    long jgrid, jgrid_real, jgrid_imag;
+    long jgrid, jgrid_real, jgrid_imag, jstate;
     double eval, eval2;
     int fft_flags = 0;
     fftw_plan_loc planfw, planbw; 
     fftw_complex *fftwpsi;
     // Arrays for hamiltonian evaluation
     zomplex *psi, *phi; 
+
+    jstate = ist->complex_idx*ims*ist->nspinngrid;
     
     if ((psi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
       fprintf(stderr, "\nOUT OF MEMORY: psi in calc_sigma_E\n\n"); exit(EXIT_FAILURE);
@@ -288,29 +297,42 @@ void calc_sigma_E(double *psitot, double *pot_local, nlc_st *nlc, long *nl, doub
     planbw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,fft_flags);
   
     // select the current state to compute sigma_E for
-    for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-      jgrid_real = ist->complex_idx * jgrid;
-      jgrid_imag = ist->complex_idx * jgrid + 1;
+    if (1 == flag->isComplex){
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = ist->complex_idx * jgrid + 1;
 
-      psi[jgrid].re = psitot[ist->complex_idx*ims*ist->nspinngrid+jgrid_real];
-      if (1 == flag->isComplex){
-        psi[jgrid].im = psitot[ist->complex_idx*ims*ist->nspinngrid+jgrid_imag];
-      } else if (0 == flag->isComplex){
-        psi[jgrid].im = 0.0;
-      }
-      
+        psi[jgrid].re = psitot[jstate+jgrid_real];
+        
+        psi[jgrid].im = psitot[jstate+jgrid_imag];
+      } 
     }
+    else {
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+      psi[jgrid].re = psitot[jstate + jgrid];
+      
+      psi[jgrid].im = 0.0;
+      } 
+    }
+
+
     memcpy(&phi[0],&psi[0],ist->nspinngrid*sizeof(phi[0]));
     // Apply the Hamiltonian to |psi>: |phi> = H|psi>
     hamiltonian(phi, psi, pot_local, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
     // Calculate the expectation value of H for wavefunc psi: <psi|H|psi> = <psi|phi> = sum_{jgrid} psi[jgrid] * phi[jgrid] * dv
-    for (eval = 0.0, jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-      jgrid_real = ist->complex_idx*jgrid;
-      jgrid_imag = ist->complex_idx*jgrid + 1;
+    eval = 0.0;
+    if (1 == flag->isComplex){
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        jgrid_real = ist->complex_idx*jgrid;
+        jgrid_imag = ist->complex_idx*jgrid + 1;
 
-      eval += psitot[ist->complex_idx*ims*ist->nspinngrid+jgrid_real] * phi[jgrid].re;
-      if (1 == flag->isComplex){
-        eval += psitot[ist->complex_idx*ims*ist->nspinngrid+jgrid_imag] * phi[jgrid].im;
+        eval += psitot[jstate+jgrid_real] * phi[jgrid].re;
+        eval += psitot[jstate+jgrid_imag] * phi[jgrid].im;
+      }
+    }
+    else {
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        eval += psitot[jstate+jgrid] * phi[jgrid].re;
       }
     }
     eval *= par->dv;
@@ -319,13 +341,19 @@ void calc_sigma_E(double *psitot, double *pot_local, nlc_st *nlc, long *nl, doub
     memcpy(&psi[0], &phi[0], ist->nspinngrid*sizeof(psi[0]));
     hamiltonian(phi, psi, pot_local, nlc, nl, ksqr, ist, par,flag, planfw, planbw, fftwpsi);
     // Calculate the expectation value of H^2: <psi|H^2|psi>
-    for (eval2 = 0.0, jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-      jgrid_real = ist->complex_idx*jgrid;
-      jgrid_imag = ist->complex_idx*jgrid + 1;
+    eval2 = 0.0;
+    if (1 == flag->isComplex){
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        jgrid_real = ist->complex_idx*jgrid;
+        jgrid_imag = ist->complex_idx*jgrid + 1;
 
-      eval2 += psitot[ist->complex_idx*ims*ist->nspinngrid+jgrid_real] * phi[jgrid].re;
-      if (1 == flag->isComplex){
-        eval2 += psitot[ist->complex_idx*ims*ist->nspinngrid+jgrid_imag] * phi[jgrid].im;
+        eval2 += psitot[jstate+jgrid_real] * phi[jgrid].re;
+        eval2 += psitot[jstate+jgrid_imag] * phi[jgrid].im;
+      }
+    }
+    else{
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        eval2 += psitot[jstate+jgrid] * phi[jgrid].re;
       }
     }
     eval2 *= par->dv;

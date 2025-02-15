@@ -36,6 +36,8 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\tOutmost material: %s\n", par->outmost_material);
     if (par->scale_surface_Cs != 1.0) fprintf(pf, "\tLong range component of surface Cs atom potentials scaled by %lg\n", par->scale_surface_Cs);
     else fprintf(pf, "\tSurface Cs atoms NOT rescaled for charge balancing\n");
+    if (flag->readProj == 1) fprintf(pf, "\tProjector functions will be read from files\n");
+    else fprintf(pf, "\tProjector functions will be generated on the fly\n");
 
     // ****** ****** ****** ****** ****** ****** 
     // Set parameters & counters for filter algorithm
@@ -44,7 +46,6 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\t-------------------------------------------\n");
     fprintf(pf, "\tnFilterCycles (# random initial states) = %ld\n", ist->n_filter_cycles);
     fprintf(pf, "\tmStatesPerFilter (# energy targets) = %ld\n", ist->m_states_per_filter);
-    fprintf(pf, "\tFilters per rank (# rand states per node) = %ld\n", ist->n_filters_per_rank);
     fprintf(pf, "\tStates per rank (# states on node) = %ld\n", ist->n_states_per_rank);
     fprintf(pf, "\tnCheby = %ld\n", ist->ncheby);
     fprintf(pf, "\tVBmin = %lg, ", par->VBmin);
@@ -66,8 +67,9 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     
     if (1 == flag->approxEnergyRange){
             fprintf(pf,"\tEnergy range will be approx'd using only local potential\n");
-    } else {fprintf(pf,"\tFull energy range of Hamiltonian will be calculated\n");}
-    
+    } else if (0 == flag->approxEnergyRange){fprintf(pf,"\tFull energy range of Hamiltonian will be calculated\n");}
+    else {fprintf(pf, "Corrupted approxEnergyRange %d\n", flag->approxEnergyRange); exit(EXIT_FAILURE);}
+
     if (1 == flag->printPsiFilt){
         fprintf(pf, "\tprintPsiFilt is on. psi-filt.dat and psi-filt.cube files will be printed\n");
     } else {
@@ -90,7 +92,10 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\t-------------------------------\n");
     fprintf(pf, "\tMPI_SIZE (# MPI ranks) = %d\n", parallel->mpi_size);
     fprintf(pf, "\tnThreads (# OMP threads/rank) = %ld\n", parallel->nthreads);
-    
+    fprintf(pf, "\tnestedOMP = %d\n", parallel->nestedOMP);
+    fprintf(pf, "\tham_threads = %d\n", par->ham_threads);
+    fprintf(pf, "\tn_outer_threads = %d\n", parallel->n_outer_threads);
+
     // ****** ****** ****** ****** ****** ****** 
     // Set options for spin-orbit calculation
     // ****** ****** ****** ****** ****** ****** 

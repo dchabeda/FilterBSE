@@ -9,15 +9,16 @@ int countlines(char *filename);
 /*****************************************************************************/
 int main(int argc, char *argv[])
 {
-  FILE *ppsi;  zomplex *psi;
+  FILE *ppsi;  double *psi;
   // custom structs 
   grid_st grid; par_st par; index_st ist; parallel_st parallel; flag_st flag;
   xyz_st *R; atom_info *atom;
   // double arrays
   double *rho; 
   // long int arrays and counters
-  long i, jms;
-  int j, start, end;
+  long i, i_re, i_im, jms;
+  long j, start, end;
+  long long offset;
   ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
   time_t currentTime = time(NULL);
 
@@ -32,11 +33,11 @@ int main(int argc, char *argv[])
   end = atoi(argv[2]);
 
   if (start > end){
-    printf("Invaid start (%d), end(%d): start > end\n", start,end);
+    printf("Invaid start (%ld), end(%ld): start > end\n", start, end);
     exit(EXIT_FAILURE);
   }
   if (start < 0){
-    printf("Invaid start (%d): start < 0\n", start);
+    printf("Invaid start (%ld): start < 0\n", start);
     exit(EXIT_FAILURE);
   }
 
@@ -73,7 +74,7 @@ int main(int argc, char *argv[])
   //printf("%ld total states in psi.dat\n", jms); fflush(0);
   
   //allocate memory for psi
-  if ((psi = (zomplex *) calloc(ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");
+  if ((psi = (double *) calloc(ist.complex_idx * ist.nspinngrid, sizeof(double))) == NULL) nerror("psi");
 
 
   //read psi from file
@@ -81,37 +82,52 @@ int main(int argc, char *argv[])
 
 	
   char filename[20];
+  // long file_ptr_loc;
   for (j = start; j <= end; j++){ 
-    printf("Reading state %d from psi.dat\n", j);
-
-    if(fseek(ppsi,j*ist.nspinngrid*sizeof(zomplex),SEEK_SET)!=0){
+    printf("Reading state %ld from psi.dat\n", j);
+    offset = j*ist.complex_idx*ist.nspinngrid*sizeof(double);
+    // printf("File offset = %lld\n", offset);
+    if(fseek(ppsi, offset, SEEK_SET) != 0){
       printf("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
     }
-    fread (&psi[0],sizeof(zomplex),ist.nspinngrid,ppsi);
-
-    for (i = 0;i<ist.ngrid; i++){
-      rho[i] = sqrt(sqr(psi[i].re)+sqr(psi[i].im));
-              
+   
+    // file_ptr_loc = ftell(ppsi);
+    // printf("The file pointer is at %ld\n", file_ptr_loc);
+    if (fread(&psi[0], sizeof(double), ist.complex_idx*ist.nspinngrid, ppsi) == 0){
+      printf("Error in fread reading from psi.dat!\n"); exit(EXIT_FAILURE);
     }
-    sprintf(filename, "rhoUp%i.cube", j);
-    write_cube_file(rho, &grid, filename);
     
-    // for (i = 0;i<ist.ngrid; i++){
-    //   rho[i]=sqr(psi[ist.ngrid+i].re)+sqr(psi[ist.ngrid+i].im);
-    // }
-    // sprintf(filename, "rhoDn%i.cube", j);
-    // write_cube_file(rho, &grid, filename);
+    // file_ptr_loc = ftell(ppsi);
+    // printf("After reading the file pointer is at %ld\n", file_ptr_loc);
+    
+    if (flag.isComplex == 0){
+      for (i = 0; i < ist.ngrid; i++){
+        rho[i] = sqr(psi[i]);      
+      }
+    }
+    else {
+      for (i = 0; i < ist.ngrid; i++){
+        i_re = i * ist.complex_idx;
+        i_im = i * ist.complex_idx + 1;
+        rho[i]+=sqr(psi[i_re]) + sqr(psi[i_im]);
+      }
+    }
+    sprintf(filename, "rhoUp%ld.cube", j);
+    write_cube_file(rho, &grid, filename);
 
-    // for (i = 0;i<ist.ngrid; i++){
-    //   rho[i]= sqr(psi[i].re)+sqr(psi[i].im)+
-    //           sqr(psi[ist.ngrid+i].re)+sqr(psi[ist.ngrid+i].im);
-    // }
-    // sprintf(filename, "rhoTot%i.cube", j);
-    // write_cube_file(rho, &grid, filename);
-
+    if (flag.useSpinors == 1){
+      for (i = 0; i < ist.ngrid; i++){
+        i_re = i * ist.complex_idx;
+        i_im = i * ist.complex_idx + 1;
+        rho[i] += sqr(psi[ist.ngrid + i_re]) + sqr(psi[ist.ngrid + i_im]);
+      }
+      sprintf(filename, "rhoDn%ld.cube", j);
+      write_cube_file(rho, &grid, filename);
+    }
   }
   fclose(ppsi);  
 
+  printf("Done with makecube.x\n\n");
   return 0;
 
 

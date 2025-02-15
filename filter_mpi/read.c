@@ -27,13 +27,16 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->n_max_atom_types = N_MAX_ATOM_TYPES;
   flag->centerConf = 1; // this should honestly always be 1
   // Filter algorithm parameters
-  par->KE_max = 10.0; // Increasing this value can improve wavefunctions
+  par->KE_max = 20.0; // Increasing this value can improve wavefunctions
   flag->setTargets = 0;
-  flag->printPsiFilt = 0;
+  flag->printPsiFilt = 1;
   flag->printOrtho = 0;
   par->checkpoint_id = 0;
   flag->approxEnergyRange = 0;
   strcpy(par->fft_wisdom_dir, ""); //By default try to find fft wisdom in current directory
+  flag->periodic = 0;
+  par->box_z = 0;
+  flag->useGaussianBasis = 0;
   // Pseudopotential parameters
   ist->max_pot_file_len = 8192;
   flag->useStrain = 0; // By default, do not compute strain dependent terms in pseudopotential
@@ -44,6 +47,11 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->outmost_material_int = -1;
   ist->ngeoms = 1; // number of different psuedopotential geometries (eg. cubic/ortho) for interpolating psuedopotentials
   par->scale_surface_Cs = 1.0; // By default, do not charge balance the surface Cs atoms
+  flag->readProj = 0;
+  par->psi_zero_cut = 1e-16;
+  par->pot_cut_rad2 = 100.0; // All short ranged potentials are decayed to zero by 10.0 Bohr
+  par->R_gint_cut2 = 0;
+  // Hamiltonian parameters
   // Spin-orbit and non-local terms
   flag->useSpinors = 0; // default is to use non-spinor wavefunctions
   flag->isComplex = 0;
@@ -67,7 +75,13 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->restartFromOrtho = 0; // When = 1, filtered states are read from disk and job starts from ortho step 
   flag->retryFilter = 0; // When = 1, if no eigstates acquired, then retry the filter job 
   flag->alreadyTried = 0; // gets tripped to 1 after the first time retrying a Filter.
-  
+  // Parallelization options
+  parallel->nestedOMP = 0;
+  parallel->n_inner_threads = 1;
+  flag->useFastHam = 0;
+  flag->useMPIOMP = 0;
+  par->ham_threads = 1;
+
   // Parse the input file
   if( access( "input.par", F_OK) != -1 ) {
     pf = fopen("input.par", "r");
@@ -86,6 +100,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "nz")) {
           grid->nz = strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "box_z")) {
+          par->box_z = strtod(tmp, &endptr);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "dGrid")) {
           grid->dx = strtod(tmp, &endptr);
           if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
@@ -102,6 +119,12 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "centerConf")) {
           flag->centerConf = strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "box_Z")) {
+          par->box_z = strtod(tmp, &endptr);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "periodic")) {
+          flag->periodic = (int) strtod(tmp, &endptr);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for pseudopotentials
@@ -122,6 +145,12 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           strcpy(par->crystal_structure, tmp);
       } else if (0 == strcmp(field, "outmostMaterial")) {
           strcpy(par->outmost_material, tmp);
+      } else if (!strcmp(field, "readProj")) {
+          flag->readProj = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "psiZeroCut")) {
+          par->psi_zero_cut = strtod(tmp, &endptr);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Set parameters&counters for filter algorithm
@@ -173,6 +202,18 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "fftWisdomDir")) {
           strcpy(par->fft_wisdom_dir, tmp);
+      } else if (!strcmp(field, "useGaussianBasis")) {
+          flag->useGaussianBasis = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nOrbitalsPerAtom")) {
+          par->n_orbitals_per_atom = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nGaussPerOrbital")) {
+          par->n_gauss_per_orbital = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "periodic")) {
+          flag->periodic = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for parallelization
@@ -180,7 +221,19 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
         else if (!strcmp(field, "nThreads")) {
           parallel->nthreads = strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-      } 
+      } else if (!strcmp(field, "nestedOMP")) {
+          parallel->nestedOMP = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "hamThreads")) {
+          par->ham_threads = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "useFastHam")) {
+          flag->useFastHam = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "useMPIOMP")) {
+          flag->useMPIOMP = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for spin-orbit calculation
       // ****** ****** ****** ****** ****** ****** 
@@ -206,6 +259,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (flag->getAllStates == 0){
             fscanf(pf, "%lg", &par->sigma_E_cut);
           }
+      } else if (!strcmp(field, "calcFilterOnly")) {
+          flag->calcFilterOnly = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "sigmaECut")) {
           par->sigma_E_cut = strtod(tmp, &endptr);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
@@ -217,6 +273,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           flag->printCubes = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
           if (flag->printCubes == 1){fscanf(pf, "%d", &ist->ncubes);}
+      } else if (!strcmp(field, "printGaussCubes")) {
+          flag->printGaussCubes = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+          if (flag->printCubes == 1){fscanf(pf, "%d %d", &ist->n_gcubes_s, &ist->n_gcubes_e);}
       } else if (!strcmp(field, "calcSpinAngStat")) {
           flag->calcSpinAngStat = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
@@ -253,8 +313,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (parallel->mpi_rank == 0) printf("dx = double (grid spacing in x direction, units of Bohr)\n");
           if (parallel->mpi_rank == 0) printf("dy = double (grid spacing in y direction, units of Bohr)\n");
           if (parallel->mpi_rank == 0) printf("dz = double (grid spacing in z direction, units of Bohr)\n");
+          if (parallel->mpi_rank == 0) printf("box_z = double (dim of periodic box, units of Bohr)\n");
           if (parallel->mpi_rank == 0) printf("dGrid = double (grid spacing; sets the values of dx, dy, and dz equal)\n");
-          if (parallel->mpi_rank == 0) printf("mStatesPerFilter = int (number of total energy targets for each filter cycle)\n");
+          if (parallel->mpi_rank == 0) printf("dGrid = double (grid spacing; sets the values of dx, dy, and dz equal)\n");
+          if (parallel->mpi_rank == 0) printf("periodic = int (0 = 0D, 1 = periodic filter)\n");
           if (parallel->mpi_rank == 0) printf("nFilterCycles = int (number of filter cycles/number random initial wavefunctions)\n");
           if (parallel->mpi_rank == 0) printf("nCheby = int (number of terms in the Chebyshev expansion)\n");
           if (parallel->mpi_rank == 0) printf("VBmin = double (bottom of valence band energy window)\n");
@@ -266,8 +328,11 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (parallel->mpi_rank == 0) printf("longRange = int (if 1, the pseudopots have long range terms; no truncate)\n");
           if (parallel->mpi_rank == 0) printf("crystalStructure = string (name of crystal structure e.g. wurtzite)\n");
           if (parallel->mpi_rank == 0) printf("outmostMaterial = string (name of outmost layer if core-shell e.g. CdS)\n");
+          if (parallel->mpi_rank == 0) printf("readProj = int (if 1, read projector data from files)\n");
           if (parallel->mpi_rank == 0) printf("scaleSurfaceCs = double (fractional scaling factor of surface Cs to balance charge)\n");
-          if (parallel->mpi_rank == 0) printf("nThreads = 1-16 (number of compute threads to parallelize over)\n");
+          if (parallel->mpi_rank == 0) printf("nThreads = 1-128 (number of total OMP threads)\n");
+          if (parallel->mpi_rank == 0) printf("nestedOMP = int (0 for no nested parallelism, 1 for nested)\n");
+          if (parallel->mpi_rank == 0) printf("hamThreads = 1-16 (number of OMP threads to parallelize Ham over)\n");
           if (parallel->mpi_rank == 0) printf("fermiEnergy = double (fermi_E of the system)\n");
           if (parallel->mpi_rank == 0) printf("KEmax = double (maximum kinetic energy value considered)\n");
           if (parallel->mpi_rank == 0) printf("spinOrbit = int (0 for no spinOrbit, 1 for spinOrbit)\n");
@@ -283,7 +348,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (parallel->mpi_rank == 0) printf("timeHamiltonian = int (1 to print timing information, 0 to not)\n");
           if (parallel->mpi_rank == 0) printf("printCubes = int (1 to print wavefunction cube files, 0 to not)\n");
           if (parallel->mpi_rank == 0) printf("If printCubes = 1, the next entry MUST specify the number of eigenstates to print\n");
+          if (parallel->mpi_rank == 0) printf("If printGaussCubes = 1, the next 2 entries are the start and end eigenstates to print\n");
           if (parallel->mpi_rank == 0) printf("calcSpinAngStat = int (calculate spin and ang. mom. statistics for eigenstates)\n");
+          if (parallel->mpi_rank == 0) printf("calcFilterOnly = int (if 1, terminate job after filtering)\n");
           if (parallel->mpi_rank == 0) printf("setSeed = int (if 1, set the random seed in for filter to generate exactly reproducible wavefunctions)\n");
           if (parallel->mpi_rank == 0) printf("If setSeed = 1, the next entry MUST specify the random seed as an integer \'rand_seed\'\n");
           if (parallel->mpi_rank == 0) printf("printNorm = int, if 1 then norms of wavefunctions are printed every 100 chebyshev iterations\n");
@@ -316,6 +383,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
     flag->NL = 1; // SO automatically switches on NL
     par->R_NLcut2 = 1.5 +  6.0 * log(10.0) + 3.0 * grid->dx;
     //par->R_NLcut2 = 0.49 * 6.0 * log(10.0); // radius of grid points around atom for which to compute NL terms
+    ist->n_s_ang_mom = 2;
+    ist->n_l_ang_mom = 3;
+    ist->n_j_ang_mom = ist->n_s_ang_mom * ist->n_l_ang_mom;
   }
   if (flag->useSpinors == 1) {
     flag->isComplex = 1;
@@ -327,18 +397,40 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   }
   ist->ngrid = grid->ngrid = grid->nx * grid->ny * grid->nz;
   ist->nspinngrid = ist->nspin * ist->ngrid;
-  ist->mn_states_tot = ist->n_filter_cycles * ist->m_states_per_filter;
-  ist->n_filters_per_rank = ist->n_filter_cycles / parallel->mpi_size;
-  ist->n_states_per_rank = ist->n_filters_per_rank * ist->m_states_per_filter;
-  ist->nthreads = parallel->nthreads;
   ist->complex_idx = flag->isComplex + 1;
+  ist->mn_states_tot = ist->n_filter_cycles * ist->m_states_per_filter;
+  ist->n_states_per_rank = ist->mn_states_tot / parallel->mpi_size;
+  ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx;
+  // used only for "filter_fast.c" scheme
+  ist->n_filters_per_rank = ist->n_filter_cycles / parallel->mpi_size;
+  // 
+  ist->nthreads = parallel->nthreads;
 
   // Handle flags for restarting filter from checkpoints or other retries
   if (1 == flag->restartFromOrtho){
     flag->restartFromCheckpoint = 1;
     ist->mn_states_tot = ist->n_states_for_ortho;
   }
-  
+
+  // Handle nested parallelism
+  parallel->n_outer_threads = parallel->nthreads;
+  if (1 == parallel->nestedOMP){
+    // Check to make sure that ham_threads was also given a >1 value
+    if (par->ham_threads > 1){
+      parallel->n_inner_threads = par->ham_threads;
+      parallel->n_outer_threads = (int) (parallel->nthreads / parallel->n_inner_threads);
+      
+      if ( (parallel->n_outer_threads % ist->m_states_per_filter) != 0){
+        if (parallel->mpi_rank == 0) printf("WARNING: Nested parallel req'd but m_states %ld not factor of n_outer = %d\n", ist->m_states_per_filter, parallel->n_outer_threads);
+        if (parallel->mpi_rank == 0) fprintf(stderr, "WARNING: Nested parallel req'd but m_states %ld not factor of n_outer = %d\n", ist->m_states_per_filter, parallel->n_outer_threads);
+      }
+    }
+    else {
+      if (parallel->mpi_rank == 0) printf("WARNING: Nested parallelism requested but ham_threads = %d\n", par->ham_threads);
+      if (parallel->mpi_rank == 0) fprintf(stderr, "WARNING: Nested parallelism requested but ham_threads = %d\n", par->ham_threads);
+    }
+  }
+
   // Get the number of atoms (needed to initialize the atom list)
   pf = fopen("conf.par" , "r");
   if (pf) {
@@ -349,10 +441,16 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
     exit(EXIT_FAILURE);
   } 
 
+  if (1 == flag->useGaussianBasis){
+    par->n_orbitals = par->n_orbitals_per_atom * ist->natoms;
+    ist->mn_states_tot = par->n_orbitals;
+  }
+
   // Using input parameters, print the current job state
   if (parallel->mpi_rank == 0){
     print_input_state(stdout, flag, grid, par, ist, parallel);
   }
+
   return;
 }
 
@@ -452,7 +550,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
   char atyp[3];
     for (int k = 0; k<ist->n_atom_types; k++){
       assign_atom_type(atyp, ist->atom_types[k]);
-      if (parallel->mpi_rank == 0) printf("%s ", atyp);
+      if (parallel->mpi_rank == 0) printf("%3s ", atyp);
     }
   if (parallel->mpi_rank == 0) printf("]\n");
   if (1 == flag->NL) if (parallel->mpi_rank == 0) printf("\tn_NL_atoms = %ld\n", ist->n_NL_atoms);
@@ -589,7 +687,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
     if ( (0 == strcmp(atype, "P1")) || (0 == strcmp(atype, "P2")) ||
          (0 == strcmp(atype, "P3")) || (0 == strcmp(atype, "P4")) ||
          (0 == strcmp(atype, "PC5"))|| (0 == strcmp(atype, "PC6"))||
-         (0 == strcmp(atype, "P7"))|| (0 == strcmp(atype, "P8"))||(0 == strcmp(atype, "P9"))){
+         (0 == strcmp(atype, "PA1")) || (0 == strcmp(atype, "PR1"))||
+         (0 == strcmp(atype, "PA2")) || (0 == strcmp(atype, "PR2"))||
+         (0 == strcmp(atype, "PA3")) || (0 == strcmp(atype, "PR3"))){
       // Get the name of the ligand potential (stored in atype)
       sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
       strcat(str, ".par");
@@ -675,7 +775,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
 
           // Get the r-spacing and file length
           // check that it is the same as for the short range
-          if ((dr_check != pot->dr[j]) || (i != pot->file_lens[j]) ){
+          if ((dr_check != pot->dr[atyp_idx]) || (i != pot->file_lens[atyp_idx]) ){
             fprintf(stderr, "ERROR: short and long range pseudopotential files have different r-spacing or length\n");
             exit(EXIT_FAILURE);
           }
@@ -691,10 +791,10 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
           strcat(str, "_a4.par");
           pf = fopen(str, "r");
           if (pf != NULL) {
-              fscanf(pf, "%lg", &pot->a4_params[j]);
+              fscanf(pf, "%lg", &pot->a4_params[atyp_idx]);
               fclose(pf);
           } else {
-              pot->a4_params[j] = 0.0;
+              pot->a4_params[atyp_idx] = 0.0;
               fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
               // exit(EXIT_FAILURE);
           }
@@ -703,10 +803,10 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
           strcat(str, "_a5.par");
           pf = fopen(str, "r");
           if (pf != NULL) {
-              fscanf(pf, "%lg", &pot->a5_params[j]);
+              fscanf(pf, "%lg", &pot->a5_params[atyp_idx]);
               fclose(pf);
           } else {
-              pot->a5_params[j] = 0.0;
+              pot->a5_params[atyp_idx] = 0.0;
               fprintf(stderr, "\tWARNING: strain dependent pseudopotential requested; no %s file...\n", str);
               // exit(EXIT_FAILURE);
           }
@@ -748,7 +848,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
           // get ORTHO pseudopotential
           sprintf (str, "pot%c%c%c", atype[0], atype[1], atype[2]);
           strcat(str, "_ortho.par");
-          pf = fopen(tmpstr , "r");
+          pf = fopen(str , "r");
           if (pf != NULL) {
             strcpy(req, "ortho");
             read_pot_file(pf, pot, ngeoms*atyp_idx, ist->max_pot_file_len, req);
@@ -756,7 +856,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
             if (parallel->mpi_rank == 0) printf("%s ",str); // print the potential that finished reading
           }
           else {
-            fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", tmpstr); fflush(0); 
+            fprintf(stderr, "Unable to open pot file %s to read! Exiting...\n", str); fflush(0); 
             exit(EXIT_FAILURE);
           }
         }
@@ -940,10 +1040,12 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
       if ( (0 == strcmp(atom[i].atyp, "P1")) || (0 == strcmp(atom[i].atyp, "P2")) ||
          (0 == strcmp(atom[i].atyp, "P3")) || (0 == strcmp(atom[i].atyp, "P4")) ||
          (0 == strcmp(atom[i].atyp, "PC5"))|| (0 == strcmp(atom[i].atyp, "PC6"))||
-         (0 == strcmp(atom[i].atyp, "P7")) || (0 == strcmp(atom[i].atyp, "P8"))||(0 == strcmp(atype, "P9"))){
-          printf("\tLigand potential %s will not be assigned SO param.\n", atom[i].atyp);
+         (0 == strcmp(atom[i].atyp, "PA1")) || (0 == strcmp(atom[i].atyp, "PR1"))||
+         (0 == strcmp(atom[i].atyp, "PA2")) || (0 == strcmp(atom[i].atyp, "PR2"))||
+         (0 == strcmp(atom[i].atyp, "PA3")) || (0 == strcmp(atom[i].atyp, "PR3"))){
+          if (parallel->mpi_rank == 0) printf("\tLigand potential %s will not be assigned SO param.\n", atom[i].atyp);
           continue;
-         }
+      }
 
       if (1 != flag->interpolatePot){
         // This is a job that uses spin-orbit and NL, but does not interpolate the potentials
@@ -1044,6 +1146,138 @@ void read_pot_file(FILE *pf, pot_st *pot, long j, long n, char *req){
   return;
 }
 
+/*****************************************************************************/
+
+void read_periodic_input(lattice_st *lattice, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+
+  FILE *pf;
+  int i = 0;
+  char field[1000], tmp[1000], *endptr;
+  
+  ist->n_bands = 0;
+  par->nb_max = 0; //
+  par->nb_min = 0; // Set defaults to trigger nband condition
+
+  if( access("periodic_input.par", F_OK) != -1 ) {
+    pf = fopen("periodic_input.par", "r");
+
+    while (fscanf(pf, "%s = %s", field, tmp) != EOF && i < 100) {
+      // ****** ****** ****** ****** ****** ****** 
+      // Set geometry parameters for grid
+      // ****** ****** ****** ****** ****** ****** 
+      //if (parallel->mpi_rank == 0) printf("field = %s tmp = %s\n", field, tmp);fflush(0);
+      if (!strcmp(field, "a")) {
+          lattice->a = strtof(tmp, &endptr);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "b")) {
+          lattice->b = strtof(tmp, &endptr);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "c")) {
+          lattice->c = strtof(tmp, &endptr);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "alpha")) {
+          lattice->alpha = strtof(tmp, &endptr);
+      } else if (!strcmp(field, "beta")) {
+          lattice->beta = strtof(tmp, &endptr);
+          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "gamma")) {
+          lattice->gamma = strtof(tmp, &endptr);
+          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "a1")) {
+          lattice->a1.x = (double) strtof(tmp, &endptr);
+          fscanf(pf, "%lf %lf", &(lattice->a1.y), &(lattice->a1.z));
+      } else if (!strcmp(field, "a2")) {
+          lattice->a2.x = (double) strtof(tmp, &endptr);
+          fscanf(pf, "%lf %lf", &(lattice->a2.y), &(lattice->a2.z));
+      } else if (!strcmp(field, "a3")) {
+          lattice->a3.x = (double) strtof(tmp, &endptr);
+          fscanf(pf, "%lf %lf", &(lattice->a3.y), &(lattice->a3.z));
+      } else if (!strcmp(field, "b1")) {
+          fscanf(pf, "%lf %lf %lf", &(lattice->b1.x), &(lattice->b1.y), &(lattice->b1.z));
+      } else if (!strcmp(field, "b2")) {
+          fscanf(pf, "%lf %lf %lf", &(lattice->b2.x), &(lattice->b2.y), &(lattice->b2.z));
+      } else if (!strcmp(field, "b3")) {
+          fscanf(pf, "%lf %lf %lf", &(lattice->b3.x), &(lattice->b3.y), &(lattice->b3.z));
+      } else if (!strcmp(field, "nBands")) {
+          ist->n_bands = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nbMin")) {
+          par->nb_min = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nbMax")) {
+          par->nb_max = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nk1")) {
+          ist->nk1 = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nk2")) {
+          ist->nk2 = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nk3")) {
+          ist->nk3 = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "readKPath")) {
+          flag->readKPath = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to int.\n"); exit(EXIT_FAILURE);}
+      }
+      // ****** ****** ****** ****** ****** ****** 
+      // Handle exceptions
+      // ****** ****** ****** ****** ****** ******
+      else {
+          if (parallel->mpi_rank == 0) printf("\nFIELD NOT RECOGNIZED: %s\n", field);
+          if (parallel->mpi_rank == 0) printf("\nInvalid input field and/ or format -> equal sign required after each field\n");
+          if (parallel->mpi_rank == 0) printf("Only allowed fields are (case-sensitive):\n\n");
+          if (parallel->mpi_rank == 0) printf("nBands = (int) number of bands to compute\n");
+          if (parallel->mpi_rank == 0) printf("readKPath = (int) if 1, get kpoints from kpath.par; otherwise nk1xnk2xnk3\n");
+          if (parallel->mpi_rank == 0) printf("a/b/c = (float) crystal lattice parameters\n");
+          if (parallel->mpi_rank == 0) printf("alpha/beta/gamma = (float) lattice angles\n");
+          if (parallel->mpi_rank == 0) printf("a1/a2/a3 = f f f direct lattice vector 1\n");
+          if (parallel->mpi_rank == 0) printf("nk1/nk2/nk3 = int int int number of k points in each direction\n");
+          
+          fflush(stdout);
+          exit(EXIT_FAILURE);
+      }
+      i++;
+    } 
+  } else{
+      if (parallel->mpi_rank == 0) printf("PROGRAM EXITING: periodic_input.par does not exist in directory\n");
+      fprintf(stderr, "PROGRAM EXITING: periodic_input.par does not exist in directory\n");
+      exit(EXIT_FAILURE);
+  }
+  fclose(pf);
+
+  // Set the number of total kpoints
+  ist->n_k_pts = ist->nk1 * ist->nk2 * ist->nk3;
+  if ((par->nb_min == 0) && (par->nb_max == 0)){
+    if (ist->n_bands == 0){
+      printf("ERROR: number of bands not set!\n");
+      fprintf(stderr, "ERROR: number of bands not set!\n");
+      exit(EXIT_FAILURE);
+    }
+
+    par->nb_max = ist->n_bands;
+  }
+
+  printf("\nDone reading periodic input\n");
+  printf("\tn_bands = %d\n", ist->n_bands);
+  printf("\tnb_min = %d nb_max = %d\n", par->nb_min, par->nb_max);
+  printf("\ta = %.3f b = %.3f c = %.3f\n", lattice->a, lattice->b, lattice->c);
+  printf("\talpha = %.3f beta = %.3f gamma = %.3f\n", lattice->alpha, lattice->beta, lattice->gamma);
+  printf("\ta1 = %.4f %.4f %.4f\n", lattice->a1.x, lattice->a1.y, lattice->a1.z);
+  printf("\ta2 = %.4f %.4f %.4f\n", lattice->a2.x, lattice->a2.y, lattice->a2.z);
+  printf("\ta3 = %.4f %.4f %.4f\n", lattice->a3.x, lattice->a3.y, lattice->a3.z);
+  printf("\treadKPath = %d\n", flag->readKPath);
+  printf("\tn_k_pts = %d\n", ist->n_k_pts);
+
+  // Scale the lattice vectors by the lattice parameters
+  lattice->a1 = retScaledVector(lattice->a1, lattice->a);
+  lattice->a2 = retScaledVector(lattice->a2, lattice->b);
+  lattice->a3 = retScaledVector(lattice->a3, lattice->c);
+
+
+  return;
+}
+
 void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, parallel_st *parallel){
   /*******************************************************************
   * If there are multiple geometries for an NC (eg. cubic/ortho),    *
@@ -1105,8 +1339,8 @@ void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, par
       fscanf(pw,"%lg %*g", &coeff[atm_id].NL2[1]);
       fclose(pw);
     } else{
-      if (parallel->mpi_rank == 0) printf("\nNo SO(+NL) pot found in: %s\n", str);
-      fprintf(stderr, "No SO(+NL) pot found in: %s\n", str);
+      if (parallel->mpi_rank == 0) printf("\nNo SO(+NL) pot found in: %s\n", tmpstr);
+      fprintf(stderr, "No SO(+NL) pot found in: %s\n", tmpstr);
       exit(EXIT_FAILURE);
     }
   }
@@ -1176,7 +1410,7 @@ void calc_geom_par(xyz_st *R, atom_info *atom, index_st *ist, parallel_st *paral
           if (bond_angle < orthoBondAngle) {
             atom[i].geom_par=1.0;
           }
-          if (bond_angle > minCubicBondAngle){
+          else if (bond_angle > minCubicBondAngle){
             atom[i].geom_par = 0.0;
           }
           else{
@@ -1200,8 +1434,9 @@ void calc_geom_par(xyz_st *R, atom_info *atom, index_st *ist, parallel_st *paral
       // ****** ****** ****** ****** ****** ****** ****** ****** 
       // Handle Pb atoms later after all geom_pars are set for I
       case 82:
+      {
         break;
-
+      }
       default:
       {
         fprintf(stderr, "Unknown atom with Zval %d!\nExiting...", atom[i].Zval);
@@ -1251,14 +1486,17 @@ void calc_geom_par(xyz_st *R, atom_info *atom, index_st *ist, parallel_st *paral
           avg_I_par /= 6.0;
           atom[i].geom_par = avg_I_par;
         }
+        break;
       }
 
       // If an unknown atom is encountered that was not caught before
       default:
+      {
         fprintf(stderr, "Unknown atom with Zval %d!\nExiting...", atom[i].Zval);
         fflush(0);
         exit(EXIT_FAILURE);
-    
+      }
+
     }
   }
 
@@ -1291,9 +1529,9 @@ double calc_bond_angle(long index1, long index2, long index3, xyz_st *R, paralle
   if (-1.0>dot/(l1*l2)||1.0<dot/(l1*l2)){return 180.0;}  
   if (-1.0>dot/(l1*l2)||1.0<dot/(l1*l2)){
     if (parallel->mpi_rank == 0) printf("Error in Bond Angle (%lf)!!\n", dot/(l1*l2));
-    if (parallel->mpi_rank == 0) printf("1: %f %f %f\n", R[index1].x, R[index1].y, R[index1].z );
-    if (parallel->mpi_rank == 0) printf("2: %f %f %f\n", R[index2].x, R[index2].y, R[index2].z );
-    if (parallel->mpi_rank == 0) printf("3: %f %f %f\n", R[index3].x, R[index3].y, R[index3].z );
+    if (parallel->mpi_rank == 0) printf("1: %lf %lf %lf\n", R[index1].x, R[index1].y, R[index1].z );
+    if (parallel->mpi_rank == 0) printf("2: %lf %lf %lf\n", R[index2].x, R[index2].y, R[index2].z );
+    if (parallel->mpi_rank == 0) printf("3: %lf %lf %lf\n", R[index3].x, R[index3].y, R[index3].z );
   }
 
   return acos(dot/(l1*l2))*180.0/PIE;
@@ -1317,9 +1555,12 @@ long assign_atom_number(char atyp[4]){
   else if ((atyp[0] == 'P') && (atyp[1] == '4')  && (atyp[2] == '\0')) return 5;
   else if ((atyp[0] == 'P') && (atyp[1] == 'C')  && (atyp[2] == '5'))  return 6;
   else if ((atyp[0] == 'P') && (atyp[1] == 'C')  && (atyp[2] == '6'))  return 7;
-  else if ((atyp[0] == 'P') && (atyp[1] == '7')  && (atyp[2] == '\0')) return 8;
-  else if ((atyp[0] == 'P') && (atyp[1] == '8')  && (atyp[2] == '\0')) return 9;
-  else if ((atyp[0] == 'P') && (atyp[1] == '9')  && (atyp[2] == '\0')) return 10;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'R')  && (atyp[2] == '1')) return 8;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'R')  && (atyp[2] == '2')) return 9;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'R')  && (atyp[2] == '3')) return 10;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'A')  && (atyp[2] == '1')) return 11;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'A')  && (atyp[2] == '2')) return 12;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'A')  && (atyp[2] == '3')) return 13;
   else if ((atyp[0] == 'S') && (atyp[1] == 'i')  && (atyp[2] == '\0')) return 14;
   else if ((atyp[0] == 'P') && (atyp[1] == '\0')  && (atyp[2] == '\0')) return 15;
   else if ((atyp[0] == 'S') && (atyp[1] == '\0')  && (atyp[2] == '\0')) return 16;
@@ -1357,11 +1598,14 @@ void assign_atom_type(char *atyp, long j){
   else if (j == 3) {atyp[0] = 'P'; atyp[1] = '2'; atyp[2] = '\0';}
   else if (j == 4) {atyp[0] = 'P'; atyp[1] = '3'; atyp[2] = '\0';}
   else if (j == 5) {atyp[0] = 'P'; atyp[1] = '4'; atyp[2] = '\0';}
-  else if (j == 6) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '5'; atyp[3] = '\0';}
-  else if (j == 7) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '6'; atyp[3] = '\0';}
-  else if (j == 8) {atyp[0] = 'P'; atyp[1] = '7'; atyp[2] = '\0';}
-  else if (j == 9) {atyp[0] = 'P'; atyp[1] = '8'; atyp[2] = '\0';}
-  else if (j == 10) {atyp[0] = 'P'; atyp[1] = '9'; atyp[2] = '\0';}
+  else if (j == 6) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '5';}
+  else if (j == 7) {atyp[0] = 'P'; atyp[1] = 'C'; atyp[2] = '6';}
+  else if (j == 8) {atyp[0] = 'P'; atyp[1] = 'R'; atyp[2] = '1';}
+  else if (j == 9) {atyp[0] = 'P'; atyp[1] = 'R'; atyp[2] = '2';}
+  else if (j == 10) {atyp[0] = 'P'; atyp[1] = 'R'; atyp[2] = '3';}
+  else if (j == 11) {atyp[0] = 'P'; atyp[1] = 'A'; atyp[2] = '1';}
+  else if (j == 12) {atyp[0] = 'P'; atyp[1] = 'A'; atyp[2] = '2';}
+  else if (j == 13) {atyp[0] = 'P'; atyp[1] = 'A'; atyp[2] = '3';}
   else if (j == 14) {atyp[0] = 'S'; atyp[1] = 'i'; atyp[2] = '\0';}
   else if (j == 15) {atyp[0] = 'P'; atyp[1] = '\0'; atyp[2] = '\0';}
   else if (j == 16) {atyp[0] = 'S'; atyp[1] = '\0'; atyp[2] = '\0';}

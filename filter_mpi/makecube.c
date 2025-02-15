@@ -9,22 +9,24 @@ int countlines(char *filename);
 /*****************************************************************************/
 int main(int argc, char *argv[])
 {
-  FILE *ppsi;  zomplex *psi;
+  FILE *ppsi;
   // custom structs 
   grid_st grid; par_st par; index_st ist; parallel_st parallel; flag_st flag;
   xyz_st *R; atom_info *atom;
   // double arrays
-  double *rho; 
+  double *rho;
+  double *psi;
   // long int arrays and counters
   long i, jms;
   int j, start, end;
+  int jgrid_real, jgrid_imag;
   ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
   time_t currentTime = time(NULL);
 
 
   //command line input parsing
   if (argc!=3){
-    mpi_print("Usage: makecube start end");
+    printf("Usage: makecube start end");
     exit(EXIT_FAILURE);
   }
 
@@ -32,21 +34,21 @@ int main(int argc, char *argv[])
   end = atoi(argv[2]);
 
   if (start > end){
-    mpi_print("Invaid start (%d), end(%d): start > end\n", start,end);
+    printf("Invaid start (%d), end(%d): start > end\n", start,end);
     exit(EXIT_FAILURE);
   }
   if (start < 0){
-    mpi_print("Invaid start (%d): start < 0\n", start);
+    printf("Invaid start (%d): start < 0\n", start);
     exit(EXIT_FAILURE);
   }
 
-  mpi_print("This calculation began at: %s", ctime(&currentTime)); 
+  printf("This calculation began at: %s", ctime(&currentTime)); 
   fflush(stdout);
 
 
 
   /*** read initial setup from input.par ***/
-  mpi_print("\nReading job specifications from input.par:\n");
+  printf("\nReading job specifications from input.par:\n");
   read_input(&flag, &grid, &ist, &par, &parallel);
 
   /*** allocating memory ***/
@@ -56,50 +58,73 @@ int main(int argc, char *argv[])
   if ((atom = (atom_info *) calloc(ist.natoms, sizeof(atom_info))) == NULL) nerror("atom");
   
   /*** read the nanocrystal configuration ***/
-  mpi_print("\nReading atomic configuration from conf.par:\n"); fflush(0);
-  read_conf(R, atom, &ist, &par, &flag);
+  printf("\nReading atomic configuration from conf.par:\n"); fflush(0);
+  read_conf(R, atom, &ist, &par, &flag, &parallel);
   
   /*** initialize the grid ***/
-  mpi_print("\nInitializing the grid parameters:\n"); fflush(0);
-  init_grid_params(&grid, R, &ist, &par);
+  printf("\nInitializing the grid parameters:\n"); fflush(0);
+  init_grid_params(&grid, R, &ist, &par, &flag, &parallel);
 
   if ((rho = (double *)calloc(ist.ngrid, sizeof(double)))==NULL) nerror("rho");
 
-
   //count number of states found
   jms = countlines("eval.dat");
-  mpi_print("%ld total states in psi.dat\n", jms); fflush(0);
+  printf("%ld total states in psi.dat\n", jms); fflush(0);
   
   //allocate memory for psi
-  if ((psi = (zomplex *) calloc(ist.nspinngrid, sizeof(zomplex))) == NULL) nerror("psi");
-
+  if ((psi = (double *) calloc(ist.complex_idx*ist.nspinngrid, sizeof(double))) == NULL) nerror("psi");
 
   //read psi from file
 	ppsi = fopen("psi.dat" , "r");
 
-	
+
   char filename[20];
   for (j = start; j <= end; j++){ 
-    mpi_print("Reading state %d from psi.dat\n", j);
-
-    if(fseek(ppsi,j*ist.nspinngrid*sizeof(zomplex),SEEK_SET)!=0){
-      mpi_print("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
-    }
-    fread (&psi[0],sizeof(zomplex),ist.nspinngrid,ppsi);
-
-    for (i = 0;i<ist.ngrid; i++){
-      rho[i] = sqr(psi[i].re)+sqr(psi[i].im);
-              
-    }
-    sprintf(filename, "rhoUp%i.cube", j);
-    write_cube_file(rho, &grid, filename);
+    printf("Reading state %d from psi.dat\n", j);
     
-    // for (i = 0;i<ist.ngrid; i++){
-    //   rho[i]=sqr(psi[ist.ngrid+i].re)+sqr(psi[ist.ngrid+i].im);
-    // }
-    // sprintf(filename, "rhoDn%i.cube", j);
-    // write_cube_file(rho, &grid, filename);
+    if(fseek(ppsi,j*ist.complex_idx *ist.nspinngrid*sizeof(double),SEEK_SET)!=0){
+      printf("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
+    }
+    fread(&psi[0], sizeof(double), ist.complex_idx * ist.nspinngrid, ppsi);
 
+    if (1 == flag.isComplex){
+      for (i = 0; i < ist.ngrid; i++){
+        jgrid_real = i * ist.complex_idx;
+        jgrid_imag = jgrid_real + 1;
+        // sqrt is not physical, just to make values larger for visualization
+        rho[i] = sqrt( sqr(psi[jgrid_real]) + sqr(psi[jgrid_imag]) );    
+      }
+      sprintf(filename, "rhoUp%i.cube", j);
+      write_cube_file(rho, &grid, filename);
+    } else{
+      for (i = 0; i < ist.ngrid; i++){
+        // sqrt is not physical, just to make values larger for visualization
+        rho[i] = sqrt(sqr(psi[i]));    
+      }
+      sprintf(filename, "rhoUp%i.cube", j);
+      write_cube_file(rho, &grid, filename);
+    }
+    
+    
+    if (flag.useSpinors == 1){
+      if (1 == flag.isComplex){
+        for (i = 0; i < ist.ngrid; i++){
+          jgrid_real = i * ist.complex_idx;
+          jgrid_imag = jgrid_real + 1;
+          // sqrt is not physical, just to make values larger for visualization
+          rho[i] = sqrt( sqr(psi[ist.ngrid*ist.complex_idx + jgrid_real]) + sqr(psi[ist.ngrid*ist.complex_idx + jgrid_imag]) );    
+        }
+        sprintf(filename, "rhoDn%i.cube", j);
+        write_cube_file(rho, &grid, filename);
+      } else{
+        for (i = 0; i < ist.ngrid; i++){
+          // sqrt is not physical, just to make values larger for visualization
+          rho[i] = sqrt(sqr(psi[ist.ngrid*ist.complex_idx + i]));    
+        }
+        sprintf(filename, "rhoDn%i.cube", j);
+        write_cube_file(rho, &grid, filename);
+      }
+    }
     // for (i = 0;i<ist.ngrid; i++){
     //   rho[i]= sqr(psi[i].re)+sqr(psi[i].im)+
     //           sqr(psi[ist.ngrid+i].re)+sqr(psi[ist.ngrid+i].im);
@@ -110,9 +135,10 @@ int main(int argc, char *argv[])
   }
   fclose(ppsi);  
 
+  printf("Done with makecube.x\n");
+
+
   return 0;
-
-
 }
 
 

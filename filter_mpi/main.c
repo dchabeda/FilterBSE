@@ -12,32 +12,60 @@ int main(int argc, char *argv[]){
   * systems through the use of semiempirical pseudopotentials.     *
   ******************************************************************/ 
 
+  /*****************************************************************/
+  /*****************************************************************/
+  /*****************************************************************/
+  // 
   // DECLARE VARIABLES AND STRUCTS
-  // file pointers
-  FILE *ppsi; *peig, *pseed; 
+  //
+  FILE*           ppsi;           // File pointer for filtered states
+  FILE*           peig;           // File pointer for eigenvalues
+  FILE*           pseed;          // File pointer for random seed
+  
   // zomplex types
-  zomplex *psi, *phi, *an; 
-  int i;
+  zomplex*        psi;            // Wavefunction on the grid
+  zomplex*        phi;            // Wavefunction on the grid (auxiliary)
+  zomplex*        an;             // Newton interpolation coefficients
+  
   // custom structs 
-  flag_st flag; 
-  index_st ist; 
-  par_st par; 
-  atom_info *atom; 
-  pot_st pot; 
-  grid_st grid;
-  gauss_st *gauss;
-  xyz_st *R; 
-  nlc_st *nlc = NULL; 
-  parallel_st parallel; 
+  flag_st         flag;           // Flags for options in the program
+  index_st        ist;            // Indexes for the program
+  par_st          par;            // Parameters for the program
+  atom_info*      atom;           // Atom specific information
+  pot_st          pot;            // Atomic pseudopotential information
+  grid_st         grid;           // Grid params and the real space grid
+  gauss_st*       gauss;          // Gaussian basis information
+  xyz_st*         R;              // Atomic positions in the x, y, and z
+  nlc_st*         nlc = NULL;     // Non-local pseudopotential info
+  parallel_st     parallel;       // MPI parallelization information
+  
   // double arrays
-  double *psitot, *psi_rank;
-  double *ksqr, *zn, *pot_local, *rho; 
-  double *eig_vals, *ene_targets, *sigma_E, inital_clock_t, initial_wall_t;
-  double *SO_projectors;
+  double*         psitot;         // All filtered states
+  double*         psi_rank;       // Filter states for each rank
+  double*         pot_local;      // Local pseudopotential on the grid
+  double*         SO_projectors;  // Spin-orbit projectors
+  double*         ksqr;           // Kinetic energy sqr on the grid
+  double*         zn;             // Chebyshev support points
+  double*         rho;            // Density on the grid
+  double*         eig_vals;       // Quasiparticle energies
+  double*         ene_targets;    // Energy targets for filtering
+  double*         sigma_E;        // Standard dev. of the energies
+  double          inital_clock_t; // Initial CPU clock time
+  double          initial_wall_t; // Final wall time
+
   // long int arrays and counters
-  long *nl = NULL;
-  long jstate, jgrid, jgrid_real, jgrid_imag, jspin, jms, jns, rand_seed, thread_id;
-  ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
+  int             i;
+  long            jstate;
+  long            jgrid;
+  long            jgrid_real;
+  long            jgrid_imag;
+  long            jspin;
+  long            jms;
+  long            jns;
+  long            rand_seed;
+  long            thread_id; 
+  long*           nl = NULL;
+  
   // Clock/Wall time output and stdout formatting
   time_t start_time = time(NULL); // Get the actual time for total wall runtime
   time_t start_clock = clock(); // Get the starting CPU clock time for total CPU runtime
@@ -51,6 +79,8 @@ int main(int argc, char *argv[]){
   MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
   parallel.mpi_root = 0;
+
+  
 
   if (parallel.mpi_rank == 0) printf("******************************************************************************\n");
   if (parallel.mpi_rank == 0) printf("\nRUNNING PROGRAM: FILTER DIAGONALIZATION\n");

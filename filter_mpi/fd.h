@@ -194,6 +194,9 @@ typedef struct MO_st {
 #define HBAR 1.0
 #define MASS_E 1.0
 
+//
+#define ALLOCATE(ptr, length, message) allocate_memory((void**)&(ptr), (length), sizeof(typeof(*(ptr))), message)
+
 /*****************************************************************************/
 // Function declarations
 

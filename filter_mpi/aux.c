@@ -29,6 +29,15 @@ char* get_time(){
 }
 
 /*****************************************************************************/
+void allocate_memory(void **ptr, size_t length, size_t type_size, char* message) {
+    *ptr = calloc(length, type_size);
+    if (*ptr == NULL) {
+        fprintf(stderr, "Memory allocation failed: %s\n", message);
+        exit(EXIT_FAILURE);
+    }
+}
+
+/*****************************************************************************/
 void matmul(int M, int N, int K, double *A, double *B, double *X){
     // Function to multiply two matrices together:
     // [X] = [A] * [B]

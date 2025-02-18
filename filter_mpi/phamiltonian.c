@@ -1,5 +1,5 @@
-#include "fd.h"
-#include <complex.h>
+#include "hamiltonian.h"
+
 /*****************************************************************************/
 // File contains the main functions for calcuating the action of the hamiltonian on 
 // a wavefunction including non-local spin-orbit contributions 
@@ -7,8 +7,22 @@
 
 /*****************************************************************************/
 
-void p_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
-  index_st *ist, par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, int ham_threads){
+void p_hamiltonian(
+  zomplex*       psi_out, 
+  zomplex*       psi_tmp, 
+  double*        pot_local, 
+  zomplex*       LS, 
+  nlc_st*        nlc, 
+  long*          nl, 
+  double*        ksqr,
+  index_st*      ist, 
+  par_st*        par, 
+  flag_st*       flag, 
+  fftw_plan_loc  planfw, 
+  fftw_plan_loc  planbw, 
+  fftw_complex*  fftwpsi,
+  int            ham_threads
+  ){
   /*******************************************************************
   * This function applies the Hamiltonian onto a state               *
   * inputs:                                                          *
@@ -39,7 +53,7 @@ void p_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st
   // write_state_dat(psi_out, ist->nspinngrid, "psi_out_pkinetic.dat");
   // Calculate the action of the potential on the wavefunction: |psi_out> = V|psi_tmp>
   
-  p_potential(psi_out, psi_tmp, pot_local, nlc, nl, ist, par, flag, ham_threads);
+  p_potential(psi_out, psi_tmp, pot_local, LS, nlc, nl, ist, par, flag, ham_threads);
 
   return;
 }
@@ -47,8 +61,18 @@ void p_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st
 /*****************************************************************************/
 
 // This calculates the total action of Vloc + Vnonloc + Vso|psi_tmp>
-void p_potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, index_st *ist,
-  par_st *par, flag_st *flag, int ham_threads){
+void p_potential(
+  zomplex*        psi_out, 
+  zomplex*        psi_tmp, 
+  double*         pot_local, 
+  zomplex*        LS, 
+  nlc_st*         nlc, 
+  long*           nl, 
+  index_st*       ist,
+  par_st*         par, 
+  flag_st*        flag,
+  int             ham_threads
+  ){
   /*******************************************************************
   * This function calculates |psi_out> = [Vloc+V_SO+V_NL]|psi_tmp>   *
   * inputs:                                                          *
@@ -68,7 +92,7 @@ void p_potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *
 
   if(flag->SO==1){
     // Calculate |psi_out> = V_SO|psi_tmp>
-    p_spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, ham_threads);
+    p_spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par, ham_threads);
     //write_state_dat(psi_out, ist->nspinngrid, "psi_out_pSO.dat");
   }
   if (flag->NL == 1){
@@ -107,7 +131,16 @@ void p_potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *
 }
 
 
-void p_spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl, index_st *ist, par_st *par, int ham_threads){
+void p_spin_orbit_proj_pot(
+  zomplex*        psi_out, 
+  zomplex*        psi_tmp,
+  zomplex*        LS,
+  nlc_st*         nlc, 
+  long*           nl, 
+  index_st*       ist, 
+  par_st*         par,
+  int             ham_threads
+  ){
   /*******************************************************************
   * This function calculates the action of the spin-orbit nonlocal   *
   * potential using separable radial projector functions             *
@@ -128,7 +161,6 @@ void p_spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long
   int j, j_p, jtot;
   int t_id;
   zomplex proj, LS_loc, PLS;
-  zomplex *LS;
 
   double psi_re, psi_im;
   double y1_re, y1_im;
@@ -142,12 +174,8 @@ void p_spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long
     }
   }
 
-  // Define the LS matrix
-  LS = (zomplex*) calloc(ist->n_j_ang_mom * ist->n_j_ang_mom, sizeof(zomplex));
-  def_LS(LS, ist, par);
-
-
-  omp_set_num_threads(ham_threads);
+  
+  // omp_set_num_threads(ham_threads);
   #pragma omp parallel for private(jatom, jatom_offset, iproj, j_p, s_p, m_p, proj, NL_gridpt, r_idx, r, r_p, psi_re, psi_im, y1_re, y1_im, SOproj, j, s, m, jtot, LS_loc, PLS)
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++){
     long jatom_offset = jatom * ist->n_NL_gridpts;
@@ -221,7 +249,15 @@ void p_spin_orbit_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long
 
 /*****************************************************************************/
 
-void p_nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl, index_st *ist, par_st *par, int ham_threads){
+void p_nonlocal_proj_pot(
+  zomplex*        psi_out, 
+  zomplex*        psi_tmp, 
+  nlc_st*         nlc, 
+  long*           nl, 
+  index_st*       ist, 
+  par_st*         par,
+  int             ham_threads
+  ){
   /*******************************************************************
   * This function calculates the action of the angular nonlocal      *
   * potential using separable radial projector functions             *
@@ -253,7 +289,7 @@ void p_nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *
     }
   }
 
-  omp_set_num_threads(ham_threads);
+  // omp_set_num_threads(ham_threads);
   #pragma omp parallel for private(jatom, jatom_offset, iproj, j, s, m, proj, NL_gridpt, r_idx, r, r_p, psi_re, psi_im, y1_re, y1_im, NL_proj)
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
     

@@ -297,7 +297,7 @@ void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *f
 
 
 /*****************************************************************************/
-void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, atom_info *atom,
+void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
     grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   /*******************************************************************
   * This function calculates the local potential at all gridpoints.  *
@@ -444,6 +444,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, double *ksqr, at
     free(atom_neighbor_list); free(vol_ref); free(strain_scale);
     free(pot->a4_params); free(pot->a5_params);
   }
+  
   return;
 }
 
@@ -711,7 +712,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
 }
 
 /***************************************************************************/
-void init_filter_states(double *psi_rank, zomplex *psi, grid_st *grid, long *rand_seed, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+void init_filter_states(double *psi_rank, zomplex *psi, grid_st *grid, int *rand_seed, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   FILE *pseed;
   char str[20];
   int cntr;

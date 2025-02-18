@@ -166,6 +166,11 @@ void save_job_state(char *file_name, int checkpoint_id, double *psitot, double *
     long j;
     long checkpoint_tag = random();
 
+    write_separation(stdout, "T");
+    printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par->checkpoint_id, par->checkpoint_id, par->checkpoint_id, par->checkpoint_id);
+    write_separation(stdout, "B");
+    printf("\n"); fflush(stdout);
+
     printf("Save state tag: %ld\n", checkpoint_tag);
 
     pf = fopen(file_name, "w");
@@ -250,6 +255,10 @@ void restart_from_save(char *file_name, int checkpoint_id, double *psitot, doubl
     char *end_buffer, *eof; 
     eof = malloc(4*sizeof(eof[0])); end_buffer = malloc(4*sizeof(end_buffer[0]));
 
+    write_separation(stdout, "T");
+    printf("****    CHECKPOINT %d *** CHECKPOINT %d ** CHECKPOINT %d *** CHECKPOINT %d    ****", par->checkpoint_id, par->checkpoint_id, par->checkpoint_id, par->checkpoint_id);
+    write_separation(stdout, "B"); fflush(stdout);
+    
     strcpy(eof, "EOF");
 
     if( access(file_name, F_OK) == -1 ){

@@ -142,6 +142,41 @@ void write_state_dat(zomplex *psi, long n_elems, char* fileName){
 
 /****************************************************************************/
 
+void write_eval_dat(double* eig_vals, double* sigma_E, long n_elems, char* fileName){
+  
+  FILE *pf;
+  long i;
+
+  pf = fopen(fileName, "w");
+
+  if (pf == NULL){
+    fprintf(stderr, "ERROR: disk full, could not open %s\n", fileName);
+    exit(EXIT_FAILURE);
+  }
+
+  for (i = 0; i < n_elems; i++){
+    fprintf(pf, "%ld %.16lg %lg\n", i, eig_vals[i], sigma_E[i]);
+  }
+
+  fclose(pf);
+  
+  return;
+}
+
+/****************************************************************************/
+
+void write_psi_dat(double* psitot, long n_elems, char* fileName){
+
+  FILE *pf;
+  
+  pf = fopen(fileName, "w");
+
+  fwrite(psitot, sizeof(psitot[0]), n_elems, pf);
+
+  return;
+}
+/****************************************************************************/
+
 void write_vector_dat(vector *vec, int n_elems, char* fileName){
   
   FILE *pf;

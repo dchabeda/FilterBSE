@@ -1,8 +1,20 @@
-#include "fd.h"
+#include "Hmat.h"
 
 /*****************************************************************************/
 
-void diag_H(double *psitot, double *pot_local,nlc_st *nlc,long *nl,double *ksqr,double *eval,index_st *ist,par_st *par,flag_st *flag,parallel_st *parallel, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
+void diag_H(
+  double*        psitot, 
+  double*        pot_local, 
+  zomplex*       LS, 
+  nlc_st*        nlc, 
+  long*          nl, 
+  double*        ksqr, 
+  double*        eval, 
+  index_st*      ist, 
+  par_st*        par, 
+  flag_st*       flag, 
+  parallel_st*   parallel
+  ){
   /*******************************************************************
   * This function calculates eigenvalues and vectors of the real or  *
   * complex valued matrix, H, where H_ij = <psi_i|H|psi_j>           *
@@ -39,6 +51,16 @@ void diag_H(double *psitot, double *pot_local,nlc_st *nlc,long *nl,double *ksqr,
   time_t current_time;
   char* c_time_string;
   zomplex *psi, *phi;
+
+  // FFT
+  long fft_flags = FFTW_MEASURE;
+  fftw_plan_loc planfw, planbw;
+  fftw_complex *fftwpsi;
+  // Create FFT structs and plans for Fourier transform
+  fftwpsi = fftw_malloc(sizeof (fftw_complex) * ist->ngrid);
+  planfw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_FORWARD,fft_flags);
+  planbw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,fft_flags);
+  
 
   // Allocate memory specific to scalar or complex arrays
   if (0 == flag->isComplex){
@@ -81,7 +103,7 @@ void diag_H(double *psitot, double *pot_local,nlc_st *nlc,long *nl,double *ksqr,
       }
     }
     memcpy(&phi[0],&psi[0],ist->nspinngrid*sizeof(phi[0]));
-    hamiltonian(phi,psi,pot_local,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
+    hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
 
     /*** calculate <psi_j|H|psi_i> ***/
     #pragma omp parallel for private(jms, jgrid, jgrid_real, jgrid_imag) shared(H, H_z)
@@ -255,32 +277,4 @@ MKL_Complex16 dotp(zomplex *psi, double *psitot,long m,long ngrid,double dv){
   return(sum);
 }
 
-/*****************************************************************************/
 
-void diag_mat(double *mat, double *eigv, int n_dim){
-  /*******************************************************************
-  * This function calculates eigenvalues and vectors of the real or  *
-  * complex valued matrix, H, where H_ij = <psi_i|H|psi_j>           *
-  * It utilizes the MKL LAPACK routines to do the diagonalization    *
-  * REAL VALUED                                                      *
-  *  https://www.netlib.org/lapack/explore-html-3.6.1/d2/d8a/group__double_s_yeigen_ga442c43fca5493590f8f26cf42fed4044.html#ga442c43fca5493590f8f26cf42fed4044
-  * COMPLEX VALUED                                                   *
-  *   https://www.netlib.org/lapack/explore-html-3.6.1/d6/dee/zheev_8f_a70c041fd19635ff621cfd5d804bd7a30.html
-  */
-  long long info; 
-  long long lwk = (long long) 3 * n_dim;
-  long long N = (long long) n_dim;
-  double *work;
-
-  // Allocate memory for scratch work
-  work = (double *) calloc(lwk, sizeof(double));
-
-  //
-  //
-  dsyev_("V", "U", &N, &mat[0], &N, &eigv[0], &work[0], &lwk, &info);
-  //
-  //
-
-  free(work);
-
-}

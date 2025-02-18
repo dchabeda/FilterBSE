@@ -1,4 +1,4 @@
-#include "fd.h"
+#include "aux.h"
 
 /*****************************************************************************/
 char* format_duration(double elapsed_seconds) {
@@ -35,6 +35,7 @@ void allocate_memory(void **ptr, size_t length, size_t type_size, char* message)
         fprintf(stderr, "Memory allocation failed: %s\n", message);
         exit(EXIT_FAILURE);
     }
+    return;
 }
 
 /*****************************************************************************/
@@ -79,6 +80,35 @@ void trans_mat(int N, double *U, double *A, double *Ap){
             Ap[i * N + j] = sum;
         }
     }
+}
+
+/*****************************************************************************/
+
+void diag_mat(double *mat, double *eigv, int n_dim){
+    /*******************************************************************
+    * This function calculates eigenvalues and vectors of the real or  *
+    * complex valued matrix, H, where H_ij = <psi_i|H|psi_j>           *
+    * It utilizes the MKL LAPACK routines to do the diagonalization    *
+    * REAL VALUED                                                      *
+    *  https://www.netlib.org/lapack/explore-html-3.6.1/d2/d8a/group__double_s_yeigen_ga442c43fca5493590f8f26cf42fed4044.html#ga442c43fca5493590f8f26cf42fed4044
+    * COMPLEX VALUED                                                   *
+    *   https://www.netlib.org/lapack/explore-html-3.6.1/d6/dee/zheev_8f_a70c041fd19635ff621cfd5d804bd7a30.html
+    */
+    long long info; 
+    long long lwk = (long long) 3 * n_dim;
+    long long N = (long long) n_dim;
+    double *work;
+  
+    // Allocate memory for scratch work
+    work = (double *) calloc(lwk, sizeof(double));
+  
+    //
+    //
+    dsyev_("V", "U", &N, &mat[0], &N, &eigv[0], &work[0], &lwk, &info);
+    //
+    //
+  
+    free(work);
 }
 
 /*****************************************************************************/

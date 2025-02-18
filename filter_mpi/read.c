@@ -31,7 +31,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->setTargets = 0;
   flag->printPsiFilt = 1;
   flag->printOrtho = 0;
-  par->checkpoint_id = 0;
+  par->checkpoint_id = 1;
   flag->approxEnergyRange = 0;
   strcpy(par->fft_wisdom_dir, ""); //By default try to find fft wisdom in current directory
   flag->periodic = 0;
@@ -70,7 +70,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->printNorm = 0; // do not print output from normalize_all
   par->sigma_E_cut = 0.01;
   flag->saveCheckpoints = 0; // by default do not save job checkpoints
-  flag->restartFromCheckpoint = -1; // by default do not restart from checkpoint
+  flag->restartFromCheckpoint = 0; // by default do not restart from checkpoint
+  flag->calcFilterOnly = 0;
   // Restart job flags
   flag->restartFromOrtho = 0; // When = 1, filtered states are read from disk and job starts from ortho step 
   flag->retryFilter = 0; // When = 1, if no eigstates acquired, then retry the filter job 

@@ -10,8 +10,8 @@ LIB = $(Linux_DYLIB) $(Linux_LIB)
 
 # flags ...
 Linux_OPTFLAGS = -DMKL_ILP64
-Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp
-#Linux_CFLAGS = -g -qopenmp -O0
+#Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp
+Linux_CFLAGS = -g -qopenmp -O0
 #Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
 
 MAINNAM = Filter
@@ -20,9 +20,10 @@ MAINNAM = Filter
 Linux_CC = cc
 
 OBJECTS = \
-	main.o read.o init.o gauss.o save.o projectors.o norm.o rand.o interpolate.o strain.o \
-	energy.o coeff.o hamiltonian.o ortho.o Hmat.o write.o nerror.o integral.o \
-	vector.o dipole.o angular.o pseudopotential.o aux.o phamiltonian.o
+	main.o mod_init.o mod_mem.o mod_pot.o mod_filter.o mod_ortho.o mod_diag.o mod_output.o\
+	read.o init.o save.o projectors.o norm.o rand.o interpolate.o strain.o coeff.o \
+	energy.o hamiltonian.o ortho.o Hmat.o write.o nerror.o integral.o phamiltonian.o \
+	vector.o aux.o
 
 OMP = $(OBJECTS) filter_omp.o
 

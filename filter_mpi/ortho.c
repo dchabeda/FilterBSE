@@ -1,4 +1,4 @@
-#include "fd.h"
+#include "ortho.h"
 
 /*****************************************************************************/
 
@@ -102,3 +102,61 @@ long ortho(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag,
 
 /*****************************************************************************/
 
+void restart_from_ortho(
+  double*       psitot,
+  index_st*     ist,
+  par_st*       par,
+  flag_st*      flag,
+  parallel_st*  parallel){
+  
+  /************************************************************/
+  /*******************  DECLARE VARIABLES   *******************/
+  /************************************************************/
+
+  FILE *ppsi;
+  long tot_sz = par->t_rev_factor*ist->complex_idx*ist->nspinngrid*ist->mn_states_tot;
+  
+  /************************************************************/
+  /*******************     READ IN PSITOT   *******************/
+  /************************************************************/
+
+  write_separation(stdout, "T");
+  printf("**** START FROM ORTHO *** START FROM ORTHO ** START FROM ORTHO *** START FROM ORTHO ****");
+  write_separation(stdout, "B"); fflush(stdout);
+  
+  
+  printf("\nNo. states for orthogonalization = %ld\n", ist->mn_states_tot);
+  printf("Size of psitot array = %.2g GB\n", (double) tot_sz/1024/1024/1024); 
+  fflush(stdout);
+  
+  // Allocate psitot to have space for all the filtered states
+  
+  ALLOCATE(&psitot, tot_sz, "psitot");
+  
+  // Read in the states from psi-filt.dat file
+  
+  ppsi = fopen("psi-filt.dat", "r");
+  
+  if (ppsi != NULL){
+    printf("Reading psi-filt.dat\n"); fflush(stdout);
+    fread(&psitot[0], sizeof(double), tot_sz/par->t_rev_factor, ppsi);
+    fclose(ppsi);
+  } else{
+    fprintf(stderr, "ERROR: psi-filt.dat could not be opened\n");
+    exit(EXIT_FAILURE);
+  }
+
+  printf("psitot[max] = %lg\n", psitot[(tot_sz/par->t_rev_factor) - 1]);
+  
+  
+  printf("\nNormalizing filtered states (for safety)\n"); fflush(stdout);
+
+  normalize_all(psitot, ist->mn_states_tot, ist, par, flag, parallel);
+
+  if (2 == par->t_rev_factor){
+    printf("\nTime-reversing all filtered states (doubles number of orthogonal states)\n"); fflush(stdout);
+    time_reverse_all(&psitot[0], &psitot[tot_sz/par->t_rev_factor], ist, parallel);
+  }
+
+  return;
+}

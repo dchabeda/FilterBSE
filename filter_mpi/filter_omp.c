@@ -1,9 +1,23 @@
-#include "fd.h"
+#include "filter.h"
+
 
 /*****************************************************************************/
 
-void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl, 
-  double *ksqr, zomplex *an, double *zn, double *ene_targets, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+void run_filter_cycle(
+  double*       psi_rank, 
+  double*       pot_local,
+  zomplex*      LS,
+  nlc_st*       nlc, 
+  long*         nl, 
+  double*       ksqr, 
+  zomplex*      an, 
+  double*       zn, 
+  double*       ene_targets, 
+  grid_st*      grid, 
+  index_st*     ist, 
+  par_st*       par, 
+  flag_st*      flag, 
+  parallel_st*  parallel){
   /*******************************************************************
   * This function runs a filter cycle on m ene_targets with one of   *
   * the initial random states as the starting point.                 *
@@ -33,6 +47,9 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   FILE *pf; char fileName[100];
   // energy of the filtered states
   double *ene_filters;
+  
+  ALLOCATE(&(parallel->jns), ist->mn_states_tot, "parallel->jns");
+  ALLOCATE(&(parallel->jms), ist->mn_states_tot, "parallel->jms");
   
   for (jns = 0; jns < ist->n_filters_per_rank; jns++){
     for (jms = 0; jms < ist->m_states_per_filter; jms++){
@@ -161,7 +178,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
     for (jc = 1; jc < ist->ncheby; jc++){
       
       memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
-      hamiltonian(psi,phi,pot_local,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
+      hamiltonian(psi,phi,pot_local,LS,nlc,nl,ksqr,ist,par,flag,planfw,planbw,fftwpsi);
       // printf("Finished Hamiltonian\n"); fflush(0);
       for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
         /*** par->dE_1 = 4.0 / par->dE and therefore I don't multiply by 4 ***/
@@ -261,7 +278,7 @@ void run_filter_cycle(double *psi_rank, double *pot_local, nlc_st *nlc, long *nl
   
   if (parallel->mpi_rank == 0) printf("\n  4.4 Computing the energies of all filtered states\n"); fflush(stdout);
   /*** calculate and print the energy of the filtered states ***/
-  energy_all(psi_rank,ist->n_states_per_rank,pot_local,nlc,nl,ksqr,ene_filters,ist,par,flag,parallel);
+  energy_all(psi_rank,ist->n_states_per_rank,pot_local,LS,nlc,nl,ksqr,ene_filters,ist,par,flag,parallel);
 
   for (jns = 0; jns < ist->n_filters_per_rank; jns++){
     sprintf (fileName,"ene-filt-jns-%ld-%d.dat", jns, parallel->mpi_rank);
@@ -286,8 +303,19 @@ int sign(float x) {
 
 /*****************************************************************************/
 
-void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc_st *nlc, long *nl, double *ksqr,
-  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+void time_hamiltonian(
+  zomplex*      psi_out, 
+  zomplex*      psi_tmp, 
+  double*       pot_local, 
+  zomplex*      LS,
+  nlc_st*       nlc, 
+  long*         nl, 
+  double*       ksqr,
+  index_st*     ist, 
+  par_st*       par, 
+  flag_st*      flag, 
+  parallel_st*  parallel
+  ){
   /*******************************************************************
   * This function applies the Hamiltonian onto a state               *
   * inputs:                                                          *
@@ -343,11 +371,11 @@ void time_hamiltonian(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, nlc
     // Calculate |psi_out> = V_SO|psi_tmp>
     // Warmup runs
     for (j = 0; j < 3; j++){
-      spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+      spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par);
     }
     clock_gettime(CLOCK_MONOTONIC, &start); 
     for (j = 0; j < 10; j++){
-      spin_orbit_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par);
+      spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par);
     }
     clock_gettime(CLOCK_MONOTONIC, &end); 
     double elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;

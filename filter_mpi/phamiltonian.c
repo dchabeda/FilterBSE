@@ -194,6 +194,7 @@ void p_spin_orbit_proj_pot(
         for ( NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
           r_idx = jatom_offset + NL_gridpt;
           r = nlc[r_idx].jxyz + (ist->ngrid) * s_p;
+          
           psi_re = psi_tmp[r].re;
           psi_im = psi_tmp[r].im;
           

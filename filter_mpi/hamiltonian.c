@@ -223,7 +223,7 @@ void spin_orbit_proj_pot(
           s = spin_arr[j];
           m = m_arr[j];
           
-          zomplex PLS, LS_loc, LS_test;
+          zomplex PLS, LS_loc;
 
           PLS.re = PLS.im = 0.00;
           LS_loc = LS[jtot];

@@ -91,7 +91,7 @@ void run_filter_cycle(
     }
     // All variables declared within this parallel region are private for each thread
     // thread tracking
-    long thread_id;
+
     // File I/O
     FILE *pf; char str[100];
     // Arrays for hamiltonian evaluation
@@ -110,7 +110,6 @@ void run_filter_cycle(
     //   fprintf(stderr, "\nOUT OF MEMORY: filter rho\n\n"); exit(EXIT_FAILURE);
     // }
 
-    thread_id = omp_get_thread_num();	
     // Allocate memory for arrays
     if ((psi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
       fprintf(stderr, "\nOUT OF MEMORY: psi in run_filter_cycle\n\n"); exit(EXIT_FAILURE);
@@ -172,8 +171,6 @@ void run_filter_cycle(
     }
     
     // Calculate the subsequent terms of the expansion
-    //sprintf (str, "prop-%ld-%ld-%ld.dat", thread_id, jns, jms); // for debugging parallelized loops
-    //pf = fopen(str , "w");
 
     for (jc = 1; jc < ist->ncheby; jc++){
       

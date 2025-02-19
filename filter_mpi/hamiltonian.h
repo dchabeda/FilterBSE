@@ -39,7 +39,7 @@ void potential(
 void spin_orbit_proj_pot(
     zomplex*        psi_out, 
     zomplex*        psi_tmp,
-    zomplex*        LS,
+    zomplex*        projs,
     nlc_st*         nlc, 
     long*           nl, 
     index_st*       ist, 
@@ -48,7 +48,7 @@ void spin_orbit_proj_pot(
 
 void nonlocal_proj_pot(
     zomplex*        psi_out, 
-    zomplex*        psi_tmp, 
+    zomplex*        psi_tmp,
     nlc_st*         nlc, 
     long*           nl, 
     index_st*       ist, 
@@ -65,26 +65,28 @@ void time_reverse_all(
 // OMP parallelized Hamiltonian
 
 void p_hamiltonian(
-    zomplex*       psi_out, 
-    zomplex*       psi_tmp, 
-    double*        pot_local, 
-    zomplex*       LS, 
-    nlc_st*        nlc, 
-    long*          nl, 
-    double*        ksqr,
-    index_st*      ist, 
-    par_st*        par, 
-    flag_st*       flag, 
-    fftw_plan_loc  planfw, 
-    fftw_plan_loc  planbw, 
-    fftw_complex*  fftwpsi,
-    int            ham_threads
+    zomplex*        psi_out, 
+    zomplex*        psi_tmp, 
+    double*         pot_local, 
+    zomplex*        projs,
+    zomplex*        LS, 
+    nlc_st*         nlc, 
+    long*           nl, 
+    double*         ksqr,
+    index_st*       ist, 
+    par_st*         par, 
+    flag_st*        flag, 
+    fftw_plan_loc   planfw, 
+    fftw_plan_loc   planbw, 
+    fftw_complex*   fftwpsi,
+    int             ham_threads
 );
 
 void p_potential(
     zomplex*        psi_out, 
     zomplex*        psi_tmp, 
     double*         pot_local, 
+    zomplex*        projs,
     zomplex*        LS, 
     nlc_st*         nlc, 
     long*           nl, 
@@ -97,6 +99,7 @@ void p_potential(
 void p_spin_orbit_proj_pot(
     zomplex*        psi_out, 
     zomplex*        psi_tmp,
+    zomplex*        projs,
     zomplex*        LS,
     nlc_st*         nlc, 
     long*           nl, 
@@ -108,6 +111,7 @@ void p_spin_orbit_proj_pot(
 void p_nonlocal_proj_pot(
     zomplex*        psi_out, 
     zomplex*        psi_tmp, 
+    zomplex*        projs,
     nlc_st*         nlc, 
     long*           nl, 
     index_st*       ist, 

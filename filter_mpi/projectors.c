@@ -10,7 +10,7 @@
 #define EPS 1e-10
 /*****************************************************************************/
 void gen_SO_projectors(double dx, double rcut, long nproj, double*  projectors, double* vr){
-	long long N  = PROJ_LEN;
+	const long long N  = PROJ_LEN;
 	double kmax = 1.5 * PIE/dx;
 	double dk = kmax/((double) N);
 	double k, ki, kj;
@@ -47,10 +47,10 @@ void gen_SO_projectors(double dx, double rcut, long nproj, double*  projectors, 
 	//setup call to lapack
 	char JOBZ = 'V';
 	char UPLO = 'U';
-	long long LDA = N;
+	const long long LDA = N;
 	double* W = calloc( N, sizeof(double));
 	double* WORK = calloc( 3 * N, sizeof(double));
-	long long LWORK = 3 * N;
+	const long long LWORK = 3 * N;
 	long long INFO = 0;
 	//diagonalize the matrix
 	dsyev_(&JOBZ, &UPLO, &N, &A[0], &LDA, &W[0], &WORK[0], &LWORK, &INFO);
@@ -85,7 +85,7 @@ void gen_SO_projectors(double dx, double rcut, long nproj, double*  projectors, 
 /*****************************************************************************/
 
 void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,int* sgnProj, double* vr, atom_info *atm,long jatom){
-	long long N  = PROJ_LEN;
+	const long long N  = PROJ_LEN;
 	double kmax = 1.5 * PIE/dx;
 	double dk = kmax/((double) N);
 	double k, ki, kj;
@@ -151,8 +151,8 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	//setup call to lapack
 	char JOBZ = 'V';
 	char UPLO = 'U';
-	long long LDA = N;
-	long long LWORK = 3 * N;
+	const long long LDA = N;
+	const long long LWORK = 3 * N;
 	long long INFO = 0;
 	//diagonalize the matrix
 	dsyev_(&JOBZ, &UPLO, &N, &A[0], &LDA, &W[0], &WORK[0], &LWORK, &INFO);

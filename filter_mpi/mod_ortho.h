@@ -16,4 +16,5 @@ void mod_ortho(
     par_st*       par,
     flag_st*      flag,
     parallel_st*  parallel
-  );
+);
+

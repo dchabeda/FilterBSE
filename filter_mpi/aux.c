@@ -19,7 +19,7 @@ char* format_duration(double elapsed_seconds) {
 }
 
 /*****************************************************************************/
-char* get_time(){
+char* get_time(void){
     time_t current_time;
     char* c_time_string;
 

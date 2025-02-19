@@ -509,7 +509,7 @@ double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,doubl
 
 //rand.c
 double ran_nrc(long *rand_seed);
-void Randomize();
+void Randomize(void);
 
 //hamiltonian.c
 void time_hamiltonian_k(zomplex *phi, zomplex *psi, double *pot_local, vector *G_vecs, vector k, grid_st *grid,nlc_st *nlc, long *nl,

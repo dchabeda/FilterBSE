@@ -10,4 +10,6 @@ void mod_optional_output(
     index_st*     ist,
     par_st*       par,
     flag_st*      flag,
-    parallel_st*  parallel);
+    parallel_st*  parallel
+);
+

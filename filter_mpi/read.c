@@ -35,7 +35,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->approxEnergyRange = 0;
   strcpy(par->fft_wisdom_dir, ""); //By default try to find fft wisdom in current directory
   flag->periodic = 0;
-  par->box_z = 0;
+  par->box_z = 0.0;
   flag->useGaussianBasis = 0;
   // Pseudopotential parameters
   ist->max_pot_file_len = 8192;
@@ -611,7 +611,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
   xyz_st R_min, R_max;
   double dr_check;
   long i, j, atyp_idx; 
-  char str[30], tmpstr[30], atype[4], *req; req = malloc(10*sizeof(req[0]));
+  char str[30], atype[4], *req; req = malloc(10*sizeof(req[0]));
   // The number of geometries in the pseudopotential for each atom type. usually 1, more if interpolating
   long ngeoms = ist->ngeoms; 
   // pot->file_lens is the number of points in the pseudopotential file (also equivalent to the number of lines in the file)

@@ -181,6 +181,15 @@ void p_spin_orbit_proj_pot(
     long jatom_offset = jatom * ist->n_NL_gridpts;
     // Compute equation 2.81 of Daniel Weinberg dissertation
     // Action of spin-orbit operator on a real space wavefunctions
+
+    // Precompute the proj matrix for each atom
+    // make nproj x j_p len array for proj vals
+    // flatten that len 30 array so that each iteration
+    // uses only a small, cache local piece of psi_tmp
+    // compute all 30 ang_mom x proj matrix combos
+    // then move on
+
+
     for ( iproj = 0; iproj < ist->nproj; iproj++){
       for ( j_p = 0; j_p < ist->n_j_ang_mom; j_p++){
         s_p = spin_arr[j_p];
@@ -227,6 +236,7 @@ void p_spin_orbit_proj_pot(
           PLS.im = LS_loc.re * proj.im + LS_loc.im * proj.re;
           
           for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++){
+            
             r_idx = jatom_offset + NL_gridpt;
             r_p = nlc[r_idx].jxyz + (ist->ngrid)*s;
             

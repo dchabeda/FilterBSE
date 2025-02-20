@@ -20,4 +20,5 @@ void mod_diag(
     par_st*       par,
     flag_st*      flag,
     parallel_st*  parallel
-    );
+);
+

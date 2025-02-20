@@ -36,7 +36,7 @@ void mod_filter(
   const int ntCB = par->n_targets_CB;
   const int mpir = parallel->mpi_rank;
 
-  int rand_seed;
+  long rand_seed;
 
   char    *top;
   char    *bottom; 

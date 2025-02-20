@@ -34,6 +34,7 @@ void mod_pot(
   
   // Alloc mem for reading the atomic potentials ***/
   
+  ALLOCATE(&(pot->file_lens), atyp_tot, "pot->file_lens");
   ALLOCATE(&(pot->dr), atyp_tot, "pot->dr");
   ALLOCATE(&(pot->r), potfl_tot, "pot->r");
   ALLOCATE(&(pot->pseudo), potfl_tot, "pot->pseudo");
@@ -41,11 +42,14 @@ void mod_pot(
     // allocate mem for separate LR potentials 
     // if the surface atoms will be charge balanced
     ALLOCATE(&(pot->r_LR), potfl_tot, "pot->r_LR");
-    ALLOCATE(&(pot->pseudo), potfl_tot, "pot->pseudo_LR");
+    ALLOCATE(&(pot->pseudo_LR), potfl_tot, "pot->pseudo_LR");
   }
-  ALLOCATE(&(pot->file_lens), atyp_tot, "pot->file_lens");
+  
+  // Read atomic pseudopotentials
+  if (mpir == 0) printf("\tReading atomic pseudopotentials...\n");
+  read_pot(pot, R, atom, ist, par, flag, parallel);
 
-
+  // Build local potential on the grid
   build_local_pot(pot_local, pot, R, atom, grid, ist, par, flag, parallel);
   write_cube_file(pot_local, grid, "local-pot.cube");
   

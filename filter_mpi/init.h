@@ -64,7 +64,7 @@ void init_filter_states(
     double*       psi_rank, 
     zomplex*      psi, 
     grid_st*      grid, 
-    int*          rand_seed, 
+    long*          rand_seed, 
     index_st*     ist, 
     par_st*       par, 
     flag_st*      flag, 

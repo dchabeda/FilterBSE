@@ -8,7 +8,6 @@ void mod_output(
   double*       eig_vals,
   double*       sigma_E,
   grid_st*      grid,
-  double*       ksqr,
   index_st*     ist,
   par_st*       par,
   flag_st*      flag,
@@ -177,3 +176,4 @@ int select_conv_states(
 
   return cntr;
 }
+

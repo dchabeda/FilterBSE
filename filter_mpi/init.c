@@ -79,7 +79,6 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
     // Determine if the number of grid points chosen is sufficient for the max grid spacing
     if (parallel->mpi_rank == 0) printf("\tUsing periodic box of length %lg Bohr in z dim\n", par->box_z);
     double dz;
-    int nz;
     dz = par->box_z / grid->nz;
     if (dz < grid->dz){
       grid->dz = dz;
@@ -318,118 +317,128 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
   * outputs: void                                                    *
   ********************************************************************/
 
-  long jx, jy, jz, jyz, jxyz, jatom;
-  double dist, dist2, dx, dy, dz;
-  double sum;
-  vector *atom_neighbor_list;
-  double *strain_scale;
-  double *vol_ref;
-  double strain_factor = 1.0; // Default: when the strain factor is 1.0, it has no effect on the potential
-  int scale_LR = 0;
+  // Declare local variables from structs (for readability/documentation)
+  const int     mpir =  parallel->mpi_rank;
+  const int     nx   =  grid->nx;
+  const int     ny   =  grid->ny;
+  const int     nz   =  grid->nz;
+  const int     nat  =  ist->natoms;
+  const int     mpl  =  ist->max_pot_file_len;
+  const int     ipot =  flag->interpolatePot;
+  const int     uS   =  flag->useStrain;
+  const int     pbc  =  flag->periodic;
+  const int     csi  =  ist->crystal_structure_int;
+  const int     omi  =  ist->outmost_material_int;
 
-  // turn on the scale LR flag if surface Cs atoms will be scaled
-  if (1.0 != par->scale_surface_Cs){
-    if (parallel->mpi_rank == 0) printf("Surface Cs atom charges being scaled by %lg\n", par->scale_surface_Cs);
-    scale_LR = 1;
-  }
-  // Allocate memory for strain parameters if strain-dependent potentials are requested
-  if (1 == flag->useStrain){
-    if ((pot->a4_params = (double *) calloc(ist->ngeoms * ist->n_atom_types, sizeof(pot->a4_params[0]))) == NULL){
-    fprintf(stderr, "\nOUT OF MEMORY: a4params\n\n"); exit(EXIT_FAILURE);
-    }
-    if ((pot->a5_params = (double *) calloc(ist->ngeoms * ist->n_atom_types, sizeof(pot->a5_params[0]))) == NULL){
-    fprintf(stderr, "\nOUT OF MEMORY: a4params\n\n"); exit(EXIT_FAILURE);
-    }
-    if ((atom_neighbor_list = (vector *) calloc(4 * ist->natoms, sizeof(vector))) == NULL){
-      fprintf(stderr, "OUT OF MEMORY: atom_neighbor_list\n");
-      exit(EXIT_FAILURE);
-    }
-    if ((strain_scale = (double *) calloc(ist->natoms, sizeof(double))) == NULL){
-      fprintf(stderr, "OUT OF MEMORY: strain_scale\n");
-      exit(EXIT_FAILURE);
-    }
-    if ((vol_ref = (double *) calloc(ist->natoms, sizeof(double))) == NULL){
-      fprintf(stderr, "OUT OF MEMORY: vol_ref\n");
-      exit(EXIT_FAILURE);
-    }
-  }
-  
-  // ****** ****** ****** ****** ****** ****** 
-  // Read atomic pseudopotentials
-  // ****** ****** ****** ****** ****** ******
-  if (parallel->mpi_rank == 0) printf("\tReading atomic pseudopotentials...\n"); 
-  read_pot(pot, R, atom, ist, par, flag, parallel);
-  
-  // ****** ****** ****** ****** ****** ****** 
-  // Calculate strain_scale for atomic pots
-  // ****** ****** ****** ****** ****** ******
-  if (1 == flag->useStrain){
-    read_nearest_neighbors(atom_neighbor_list, vol_ref, ist->natoms, ist->crystal_structure_int, ist->outmost_material_int);
-    calc_strain_scale(strain_scale, atom_neighbor_list, vol_ref, atom, pot->a4_params, pot->a5_params, ist->natoms);
+  const double  ssCs =  par->scale_surface_Cs;
+  const double  pcr2 =  par->pot_cut_rad2;
+  const double  boxz =  par->box_z;
+
+  long   jx, jy, jz, jyz, jxyz, jat;
+  double dx, dy, dz, dist, dist2, sum;
+  double strainF = 1.0; // Default: No effect on potential
+  int    scaleLR = (ssCs != 1.0); // Default: if scale surface != 1.0, then scale LR
+
+  // Notify if surface Cs atom charges are scaled
+  if (scaleLR && mpir == 0) {
+    printf("Surface Cs atom charges being scaled by %lg\n", ssCs);
   }
 
-  // ****** ****** ****** ****** ****** ****** 
+  // Allocate memory for strain parameters if needed
+  vector*      neigh_list  =  NULL;
+  double*      s_scale      =  NULL;
+  double*      vol_ref      =  NULL;
+
+  if (uS) {
+    neigh_list   = (vector *) calloc(4 * nat, sizeof(vector));
+    s_scale  = (double *) calloc(nat, sizeof(double));
+    vol_ref  = (double *) calloc(nat, sizeof(double));
+    pot->a4_params = (double *) calloc(ist->ngeoms * ist->n_atom_types, sizeof(double));
+    pot->a5_params = (double *) calloc(ist->ngeoms * ist->n_atom_types, sizeof(double));
+
+    if (!neigh_list || !s_scale || !vol_ref || !pot->a4_params || !pot->a5_params) {
+      fprintf(stderr, "OUT OF MEMORY allocating strain\n");
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  
+  // Calculate strain_scale if needed
+  if (uS) {
+    read_nearest_neighbors(neigh_list, vol_ref, nat, csi, omi);
+    calc_strain_scale(s_scale, neigh_list, vol_ref, atom, pot->a4_params, pot->a5_params, nat);
+  }
+
   // Construct pseudopotential on grid
-  // ****** ****** ****** ****** ****** ******
-  if (parallel->mpi_rank == 0) printf("\tConstructing total pseudopotential on the grid...\n");
+  if (mpir == 0) printf("\tConstructing total pseudopotential on the grid...\n");
 
   omp_set_dynamic(0);
   omp_set_num_threads(parallel->nthreads);
-  #pragma omp parallel for private(dx,dy,dz,dist,dist2,jy,jx,jyz,jxyz,sum,jatom)
-  for (jz = 0; jz < grid->nz; jz++) {
-    for (jy = 0; jy < grid->ny; jy++) {
-      jyz = grid->nx * (grid->ny * jz + jy);
-      for (jx = 0; jx < grid->nx; jx++) {
-      	jxyz = jyz + jx;
-      	for (sum = 0.0, jatom = 0; jatom < ist->natoms; jatom++){
-      	  dx = grid->x[jx] - R[jatom].x;
-      	  dy = grid->y[jy] - R[jatom].y;
-      	  dz = grid->z[jz] - R[jatom].z;
 
-          // Implement periodic boundary conditions
-          if (1 == flag->periodic){
-            // if dz > l/2, compute distance to periodic replica
-            if ( dz > par->box_z/2) dz -= par->box_z;
-            if ( dz < -par->box_z/2) dz += par->box_z;
+  #pragma omp parallel for private(dx, dy, dz, dist, dist2, jy, jx, jyz, jxyz, sum, jat, strainF)
+  for (jz = 0; jz < nz; jz++) {
+    for (jy = 0; jy < ny; jy++) {
+      jyz = nx * (ny * jz + jy);
+      for (jx = 0; jx < nx; jx++) {
+        jxyz = jyz + jx;
+        sum = 0.0;
+
+        for (jat = 0; jat < nat; jat++) {
+          dx = grid->x[jx] - R[jat].x;
+          dy = grid->y[jy] - R[jat].y;
+          dz = grid->z[jz] - R[jat].z;
+
+          // Apply periodic boundary conditions
+          if (pbc) {
+            if (dz > boxz / 2) dz -= boxz;
+            if (dz < -boxz / 2) dz += boxz;
           }
 
-      	  dist2 = dx*dx + dy*dy + dz*dz;
+          dist2 = dx * dx + dy * dy + dz * dz;
 
-          if (dist2 > par->pot_cut_rad2){
-            // Do not compute potential for grid points more than 6.0 Bohr
-            // from atom. Potential has decayed to zero.
-            continue;
-          }
+          // Skip grid points beyond potential cutoff radius
+          if (dist2 > pcr2) continue;
 
-          // If strain dependent terms are requested, then set strain_factor to be the strain term for this atom
-          if (1 == flag->useStrain){
-            strain_factor = strain_scale[jatom];
+          // Apply strain factor if needed
+          strainF = uS ? s_scale[jat] : 1.0;
+          dist = sqrt(dist2);
+
+          // Interpolation handling
+          int    atyp_idx  =  atom[jat].idx;
+          double gpar      =  atom[jat].geom_par;
+
+          if (ipot) {
+            if ( (jxyz == 0) && (jat == 0) && (mpir == 0) ){
+              printf("\tComputing interpolated cubic/ortho potential\n");
+            }
+              
+            sum += (1.0 - gpar) * interpolate(
+              dist, pot->dr[2 * atyp_idx], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR,
+              mpl, pot->file_lens[2 * atyp_idx], 2 * atyp_idx,
+              scaleLR, atom[jat].LR_par, strainF, flag->LR
+            );
+            sum += gpar * interpolate(
+              dist, pot->dr[2 * atyp_idx + 1], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR,
+              mpl, pot->file_lens[2 * atyp_idx + 1], 2 * atyp_idx + 1,
+              scaleLR, atom[jat].LR_par, strainF, flag->LR
+            );
+          } else {
+            if (jxyz == 0 && jat == 0 && parallel->mpi_rank == 0)
+              printf("\tComputing potential without interpolating over cubic/ortho parameters\n\n");
+
+            sum += interpolate(
+              dist, pot->dr[atyp_idx], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR,
+              mpl, pot->file_lens[atyp_idx], atyp_idx,
+              scaleLR, atom[jat].LR_par, strainF, flag->LR
+            );
           }
-          // If potential interpolation is requested, then the potential needs to be the weighted average of the two geometries
-          if (flag->interpolatePot == 1){
-            if ((jxyz == 0)&& (jatom == 0)) if (parallel->mpi_rank == 0) printf("\tComputing interpolated cubic/ortho potential\n"); 
-            dist = sqrt(dist2);
-            //cubic part of the function
-            sum += (1.0-atom[jatom].geom_par)*interpolate(dist,pot->dr[2*atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
-                pot->file_lens[2*atom[jatom].idx],2*atom[jatom].idx,scale_LR,atom[jatom].LR_par, strain_factor, flag->LR);
-            //ortho part of the function
-            sum += (atom[jatom].geom_par)*interpolate(dist,pot->dr[2*atom[jatom].idx+1],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
-                pot->file_lens[2*atom[jatom].idx+1],2*atom[jatom].idx+1,scale_LR,atom[jatom].LR_par, strain_factor, flag->LR);
-          } 
-          // Default route without potential interpolation between geometries
-          else {
-            if ((jxyz == 0) && (jatom == 0)) if (parallel->mpi_rank == 0) printf("\tComputing potential without interpolating over cubic/ortho parameters\n\n"); 
-      	    dist = sqrt(dist2);
-            sum += interpolate(dist,pot->dr[atom[jatom].idx],pot->r,pot->r_LR,pot->pseudo,pot->pseudo_LR,ist->max_pot_file_len,
-                pot->file_lens[atom[jatom].idx],atom[jatom].idx,scale_LR,atom[jatom].LR_par, strain_factor, flag->LR);
-          }
-      	}
-      	pot_local[jxyz] = sum;
+        }
+        pot_local[jxyz] = sum;
       }
     }
-  }
+  } 
+ 
 
-  
   // Compute potential minimum
   par->Vmin = 1.0e10;
   par->Vmax = -1.0e10;
@@ -441,8 +450,11 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
   if (parallel->mpi_rank == 0) printf("\tVmin = %g Vmax = %g dV = %g \n", par->Vmin, par->Vmax, par->Vmax-par->Vmin);
 
   if (1 == flag->useStrain){
-    free(atom_neighbor_list); free(vol_ref); free(strain_scale);
-    free(pot->a4_params); free(pot->a5_params);
+    free(neigh_list); 
+    free(vol_ref); 
+    free(s_scale);
+    free(pot->a4_params); 
+    free(pot->a5_params);
   }
   
   return;
@@ -465,7 +477,7 @@ void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_in
   
   FILE *pf;
   int rpoint;
-  double dr, dr_proj, *vr; 
+  double dr, *vr; 
   double proj;
   long N = PROJ_LEN;
   long jatom;
@@ -479,7 +491,6 @@ void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_in
   for ( rpoint = 0; rpoint < N; rpoint++){
 		vr[rpoint] = (double) rpoint * dr ;
 	}
-  dr_proj = vr[1];
 
   if (flag->readProj == 0){
     //gen projectors on the fly
@@ -580,8 +591,8 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
       gen_nlc_projectors(grid->dx, sqrt(par->R_NLcut2), ist->nproj, nlcprojectors, sgnProj, vr, atom, jatom);
       
     } else if (1 == flag->readProj){
-      char projNL_file[50], projSO_file[50], sgnNL_file[50];
-      FILE *pNL, *pSO, *pSgn;
+      char projNL_file[50], sgnNL_file[50];
+      FILE *pNL, *pSgn;
       double eig, scratch;
       int tmp;
 
@@ -712,7 +723,7 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
 }
 
 /***************************************************************************/
-void init_filter_states(double *psi_rank, zomplex *psi, grid_st *grid, int *rand_seed, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+void init_filter_states(double *psi_rank, zomplex *psi, grid_st *grid, long *rand_seed, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   FILE *pseed;
   char str[20];
   int cntr;

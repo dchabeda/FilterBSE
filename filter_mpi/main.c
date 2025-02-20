@@ -34,16 +34,15 @@ int main(int argc, char *argv[]){
   grid.y =        NULL;
   grid.z =        NULL;
   nlc_st*         nlc = NULL;     // Non-local pseudopotential info
-  gauss_st*       gauss;          // Gaussian basis coeffs/exps
+  // gauss_st*       gauss;          // Gaussian basis coeffs/exps
   
   // double arrays
-  double*         psitot;         // All filtered states
+  double*         psitot = NULL;  // All filtered states
   double*         psi_rank;       // Filter states for each rank
   double*         pot_local;      // Local pseudopotential on the grid
   double*         SO_projectors;  // Spin-orbit projectors
   double*         ksqr;           // Kinetic energy sqr on the grid
   double*         zn;             // Chebyshev support points
-  double*         rho;            // Density on the grid
   double*         eig_vals;       // Quasiparticle energies
   double*         ene_targets;    // Energy targets for filtering
   double*         sigma_E;        // Standard dev. of the energies
@@ -215,7 +214,7 @@ int main(int argc, char *argv[]){
   /*******************   RUN OUTPUT MODULE  *******************/
   /************************************************************/
   if (0 == mpir){
-    mod_output(psitot, R, eig_vals, sigma_E, &grid, ksqr, &ist, &par, &flag, &parallel);
+    mod_output(psitot, R, eig_vals, sigma_E, &grid, &ist, &par, &flag, &parallel);
   }
 
   /************************************************************/

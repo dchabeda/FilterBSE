@@ -61,7 +61,7 @@ double ran_nrc(long *rand_seed)
 
 /*****************************************************************************/
 
-void Randomize()
+void Randomize(void)
 {
   double tt = (double)time(0);
   long   rn = (long)tt % 1000;

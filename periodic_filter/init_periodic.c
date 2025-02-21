@@ -21,7 +21,7 @@ void init_periodic(
   /*** calculate the reciprocal vectors for the lattice ***/
   if (mpir == 0) printf("\nGenerating reciprocal lattice vectors:\n");
   
-  gen_recip_lat_vecs(&lattice, &ist, &par, &flag, &parallel);
+  gen_recip_lat_vecs(lattice, ist, par, flag, parallel);
 
   /*** generate the G vectors for plane-wave basis ***/
   if (mpir == 0) printf("\nGenerating G vectors:\n");
@@ -30,29 +30,29 @@ void init_periodic(
 
   gen_G_vecs(G_vecs, grid, ist, par, flag, parallel);
   
-  printf("  %d G vectors in the plane-wave basis\n", ist.n_G_vecs);
-  write_vector_dat(G_vecs, ist.n_G_vecs, "G_vecs.dat");
+  printf("  %d G vectors in the plane-wave basis\n", ist->n_G_vecs);
+  write_vector_dat(G_vecs, ist->n_G_vecs, "G_vecs.dat");
 
 
   /*** generate the k grid for computing energies/bandstructure ***/
-  if (1 == flag.readKPath){
+  if (1 == flag->readKPath){
     if (mpir == 0) printf("\nReading k-path from file kpath.par:\n");
     
-    read_k_path(&k_vecs, &lattice, &ist, &par, &flag, &parallel);
+    read_k_path(&k_vecs, lattice, ist, par, flag, parallel);
     
-    printf("  Successfully generated %d k vectors\n", ist.n_k_pts);
+    printf("  Successfully generated %d k vectors\n", ist->n_k_pts);
   } 
   else{
-    if (mpir == 0) printf("\nGenerating %d x %d x %d k grid:\n", ist.nk1, ist.nk2, ist.nk3);
+    if (mpir == 0) printf("\nGenerating %d x %d x %d k grid:\n", ist->nk1, ist->nk2, ist->nk3);
     
-    if((k_vecs = calloc(ist.n_k_pts, sizeof(k_vecs[0]))) == NULL){
+    if((k_vecs = calloc(ist->n_k_pts, sizeof(k_vecs[0]))) == NULL){
       if (mpir == 0) fprintf(stderr, "\nOUT OF MEMORY: k_vecs\n\n"); exit(EXIT_FAILURE);
     }
     
-    gen_k_vecs(k_vecs, &lattice, &ist, &par, &flag, &parallel);
-    printf("  Successfully generated %d k vectors\n", ist.n_k_pts);
+    gen_k_vecs(k_vecs, lattice, ist, par, flag, parallel);
+    printf("  Successfully generated %d k vectors\n", ist->n_k_pts);
   }
-  printf("n_kpts = %d n-G_vecs %d\n", ist.n_k_pts, ist.n_G_vecs);
+  printf("n_kpts = %d n-G_vecs %d\n", ist->n_k_pts, ist->n_G_vecs);
 
   return;
 }

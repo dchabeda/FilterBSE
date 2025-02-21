@@ -11,13 +11,14 @@ LIB = $(Linux_DYLIB) $(Linux_LIB)
 # flags ...
 Linux_OPTFLAGS = -DMKL_ILP64
 Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp -Wall
+#Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp
 #Linux_CFLAGS = -g -qopenmp -O0 -Wall
-#Linux_CFLAGS = -g -Wno-language-extension-token -O0 -Wall # uncomment this line to debug/valgrind
+Linux_CFLAGS = -g -Wno-language-extension-token -O0 -Wall # uncomment this line to debug/valgrind
 
 MAINNAM = Filter
 
 # compiler ...
-Linux_CC = cc
+Linux_CC = icx
 
 OBJECTS = \
 	main.o mod_init.o mod_mem.o mod_pot.o mod_filter.o mod_ortho.o mod_diag.o mod_output.o\
@@ -38,6 +39,9 @@ CUBEOBJECTS = \
 # Compile the main executable Filter.x and link libraries
 $(MAINNAM): $(FAST)
 	$(Linux_CC) -o $(MAINNAM)_mpi.x $(OMP) $(LIB)
+
+$(MAINNAM): $(FAST)
+	$(Linux_CC) -o $(MAINNAM)_mpi.x $(FAST) $(LIB)
 
 
 # If desired, run make cube to build the makecube.x executable

@@ -181,7 +181,7 @@ void mod_filter(
   // 
 
   // Ensure all ranks synchronize here
-  MPI_Barrier(MPI_COMM_WORLD);
+  // MPI_Barrier(MPI_COMM_WORLD);
 
   if (mpir == 0){
     printf("\ndone calculating filter, CPU time (sec) %g, wall run time (sec) %g\n",

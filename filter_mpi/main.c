@@ -35,7 +35,7 @@ int main(int argc, char *argv[]){
   grid.z =        NULL;
   nlc_st*         nlc = NULL;     // Non-local pseudopotential info
 
-  lattice_st      lattice = NULL;
+  lattice_st      lattice;
   vector*         G_vecs  = NULL;
   vector*         k_vecs  = NULL;
   // gauss_st*       gauss;          // Gaussian basis coeffs/exps
@@ -56,10 +56,12 @@ int main(int argc, char *argv[]){
 
   // MPI Initialization
 
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
+  // MPI_Init(&argc, &argv);
+  // MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
+  // MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
   
+  parallel.mpi_rank = 0;
+  parallel.mpi_size = 1;
   const int mpir = parallel.mpi_rank;
   parallel.mpi_root = 0;
   
@@ -163,7 +165,7 @@ int main(int argc, char *argv[]){
       // MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
       // 
       // 
-      MPI_Gather(psi_rank, prs, MPI_DOUBLE, psitot, prs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+      // MPI_Gather(psi_rank, prs, MPI_DOUBLE, psitot, prs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
       free(psi_rank);
       // 
       // 
@@ -272,7 +274,7 @@ int main(int argc, char *argv[]){
     free(top); free(bottom);
   }
       
-  MPI_Finalize(); // Finalize the MPI tasks and prepare to exit program
+  // MPI_Finalize(); // Finalize the MPI tasks and prepare to exit program
       
   exit(0);
 } // End of main

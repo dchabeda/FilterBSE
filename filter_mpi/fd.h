@@ -519,7 +519,7 @@ void time_hamiltonian_k(zomplex *phi, zomplex *psi, double *pot_local, vector *G
 //filter.c
 void scale_eigs_for_cheby(zomplex *phi, zomplex *psi, double *pot_local, vector *G_vecs, vector k, grid_st *grid,nlc_st *nlc, long *nl, double zm1,
   fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st *ist, par_st *par, flag_st *flag);
-int sign(float x);
+
 
 // integral.c
 void overlap_gauss(double *S_mat, gauss_st *gauss, atom_info *atom, index_st *ist, par_st *par, flag_st *flag);

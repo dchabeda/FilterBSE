@@ -7,3 +7,4 @@ void diag_mat(double *mat, double *eigv, int n_dim);
 void print_progress_bar(int cur, int tot);
 char* format_duration(double elapsed_seconds);
 char* get_time(void);
+int sign(float x);

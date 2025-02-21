@@ -34,10 +34,6 @@ int main(int argc, char *argv[]){
   grid.y =        NULL;
   grid.z =        NULL;
   nlc_st*         nlc = NULL;     // Non-local pseudopotential info
-
-  lattice_st      lattice = NULL;
-  vector*         G_vecs  = NULL;
-  vector*         k_vecs  = NULL;
   // gauss_st*       gauss;          // Gaussian basis coeffs/exps
   
   // double arrays
@@ -96,9 +92,8 @@ int main(int argc, char *argv[]){
   ALLOCATE(&(ist.atom_types), N_MAX_ATOM_TYPES, "ist->atom_types");
 
   mod_init(
-    &grid, &(grid.x), &(grid.y), &(grid.z), &R, &atom, &ene_targets,
-    &ksqr, &lattice, &G_vecs, &k_vecs, &ist, &par, &flag, &parallel
-  );
+    &grid, &(grid.x), &(grid.y), &(grid.z), &R, &atom,
+    &ene_targets, &ksqr, &ist, &par, &flag, &parallel);
   
   /************************************************************/
   /*******************    RUN MEM MODULE    *******************/
@@ -106,8 +101,7 @@ int main(int argc, char *argv[]){
 
   mod_mem_alloc(
     &psi_rank, &psi, &phi, &pot_local, &LS, &nlc, &nl, &SO_projectors,
-    &an, &zn, &eig_vals, &sigma_E, &ist, &par, &flag, &parallel
-  );
+    &an, &zn, &eig_vals, &sigma_E, &ist, &par, &flag, &parallel);
   
   
   /************************************************************/
@@ -116,8 +110,7 @@ int main(int argc, char *argv[]){
 
   mod_pot(
     pot_local, &pot, R, atom, &grid, LS, nlc, nl, SO_projectors, 
-    &ist, &par, &flag, &parallel
-  );
+    &ist, &par, &flag, &parallel);
 
   
   // This code supports restarting the job from a saved state. 

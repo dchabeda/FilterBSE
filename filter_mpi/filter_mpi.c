@@ -108,6 +108,7 @@ void run_filter_cycle(
   // rho = calloc(ist->ngrid, sizeof(double));
 
   omp_set_num_threads(par->ham_threads);
+  for (jc = 1; jc < ist->ncheby; jc++){
   // Loop over all of the states handled by this mpi-rank 
   for (jmn = start; jmn < end; jmn++){
     // Keep track of how many filter iterations have taken place
@@ -177,7 +178,7 @@ void run_filter_cycle(
     // write_cube_file(rho, grid, fileName);
     
     // Calculate the subsequent terms of the expansion
-    for (jc = 1; jc < ist->ncheby; jc++){
+    
       
       memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
       
@@ -291,6 +292,7 @@ void run_filter_cycle(
 
 
 /*****************************************************************************/
+
 int sign(float x) {
     return (int)copysign(1.0, x);  // copysign gives the sign of x
 }

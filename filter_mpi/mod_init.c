@@ -15,6 +15,9 @@ void mod_init(
   atom_info**   atom,
   double**      ene_targets,
   double**      ksqr,
+  lattice_st**  lattice,
+  vector**      G_vecs,
+  vector**      k_vecs,
   index_st*     ist,
   par_st*       par,
   flag_st*      flag,
@@ -47,7 +50,7 @@ void mod_init(
   if (mpir == 0) printf("\nReading job specs from input.par:\n");
   read_input(flag, grid, ist, par, parallel);
 
-
+  
   /************************************************************/
   /*******************  ALLOCATING MEMORY   *******************/
   /************************************************************/
@@ -83,6 +86,15 @@ void mod_init(
   if (mpir == 0) printf("\nBuilding the r- and k-space grids:\n");
   build_grid_ksqr(*ksqr, *R, grid, ist, par, flag, parallel);
   
+  /************************************************************/
+  /*******************    INIT PERIODIC     *******************/
+  /************************************************************/
+
+  if (1 == flag->periodic){
+    init_periodic(*lattice, *G_vecs, *k_vecs, grid, ist, par, flag, parallel);
+  }
+
+
   /************************************************************/
   /*******************   SET ENE TARGETS    *******************/
   /************************************************************/

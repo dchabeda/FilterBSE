@@ -10,7 +10,7 @@ LIB = $(Linux_DYLIB) $(Linux_LIB)
 
 # flags ...
 Linux_OPTFLAGS = -DMKL_ILP64
-Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp -Wall -Wextra -pedantic
+Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp -Wall
 #Linux_CFLAGS = -g -qopenmp -O0 -Wall
 #Linux_CFLAGS = -g -Wno-language-extension-token -O0 -Wall # uncomment this line to debug/valgrind
 
@@ -23,13 +23,9 @@ OBJECTS = \
 	main.o mod_init.o mod_mem.o mod_pot.o mod_filter.o mod_ortho.o mod_diag.o mod_output.o\
 	read.o init.o save.o projectors.o norm.o rand.o interpolate.o strain.o coeff.o \
 	energy.o hamiltonian.o ortho.o Hmat.o write.o nerror.o integral.o phamiltonian.o \
-	vector.o aux.o
-
-OMP = $(OBJECTS) filter_omp.o
+	vector.o aux.o init_periodic.o
 
 FAST = $(OBJECTS) filter_fast.o
-
-MPI = $(OBJECTS) filter_mpi.o
 
 CUBEOBJECTS = \
 	makecube.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o vector.o strain.o
@@ -40,14 +36,9 @@ CUBEOBJECTS = \
 	$(Linux_CC) -DOS_$(OS) $(Linux_CFLAGS) -c $*.c  
 
 # Compile the main executable Filter.x and link libraries
-$(MAINNAM): $(OMP)
-	$(Linux_CC) -o $(MAINNAM)_omp.x $(OMP) $(LIB)
+$(MAINNAM): $(FAST)
+	$(Linux_CC) -o $(MAINNAM)_mpi.x $(OMP) $(LIB)
 
-mpi: $(MPI)
-	$(Linux_CC) -o $(MAINNAM)_mpi.x $(MPI) $(LIB)
-
-fast: $(FAST)
-	$(Linux_CC) -o $(MAINNAM)_fast.x $(FAST) $(LIB)
 
 # If desired, run make cube to build the makecube.x executable
 cube: $(CUBEOBJECTS)

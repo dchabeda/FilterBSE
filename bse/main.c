@@ -50,12 +50,14 @@ int main(int argc, char *argv[]){
     time_t current_time;
     char* c_time_string;
     char *top; top = malloc(2*sizeof(top[0])); 
+    char *endptr;
 
     // Initialize MPI
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
     parallel.mpi_root = 0;
+    const int mpir = parallel.mpi_rank;
     //
 
     fprintf(pmem, "alloc top %ld B\n", 2*sizeof(top[0])); mem += 2*sizeof(top[0]);
@@ -65,8 +67,8 @@ int main(int argc, char *argv[]){
 
     /*************************************************************************/
     fprintf(stdout, "******************************************************************************\n");
-    printf("\nRUNNING PROGRAM: BETHE-SALPETHER\n");
-    printf("This calculation began at: %s", ctime(&start_time)); 
+    if (mpir == 0) printf("\nRUNNING PROGRAM: BETHE-SALPETHER\n");
+    if (mpir == 0) printf("This calculation began at: %s", ctime(&start_time)); 
     write_separation(stdout, bottom);
     fflush(stdout);
 
@@ -76,50 +78,30 @@ int main(int argc, char *argv[]){
     write_separation(stdout, top);
     current_time = time(NULL);
     c_time_string = ctime(&current_time);
-    printf("\n1.\tINITIALIZING JOB | %s\n", c_time_string);
+    if (mpir == 0) printf("\n1.\tINITIALIZING JOB | %s\n", c_time_string);
     write_separation(stdout, bottom); fflush(stdout);
 
     /*************************************************************************/
     /*** Read output from filter output.par ***/
-    printf("\nReading filter output from output.dat:\n"); fflush(stdout);
-    // ******
-    // ******
-    read_filter_output("output.dat", &psitot, &eig_vals, &sigma_E, &R, &grid, &gridx, &gridy, &gridz, &ist, &par, &flag);
-    // ******
-    // ******
-
-    // Move the grid values into the grid struct arrays.
-    // The memory allocation got too thorny, so we do this simple transfer
+    int init_unsafe = 0;
+    if (argv[1] != NULL) init_unsafe = (int) strtol(argv[1], &endptr, 10);
     
-    if ((grid.x = malloc( grid.nx * sizeof(grid.x[0]))) == NULL ){
-        fprintf(stderr, "ERROR: allocating memory for grid.x in main\n");
-        exit(EXIT_FAILURE);
-    }
-    if ((grid.y = malloc(grid.ny * sizeof(grid.y[0]))) == NULL ){
-            fprintf(stderr, "ERROR: allocating memory for grid.y in main\n");
-            exit(EXIT_FAILURE);
-        }
-    if ((grid.z = malloc( grid.nz * sizeof(grid.z[0]))) == NULL ){
-        fprintf(stderr, "ERROR: allocating memory for grid.z in main\n");
-        exit(EXIT_FAILURE);
-    }
-    fprintf(pmem, "alloc grid.x %ld B\n", grid.nx * sizeof(grid.x[0])); mem += grid.nx * sizeof(grid.x[0]);
-    fprintf(pmem, "alloc grid.y %ld B\n", grid.ny * sizeof(grid.y[0])); mem += grid.ny * sizeof(grid.y[0]);
-    fprintf(pmem, "alloc grid.z %ld B\n", grid.nz * sizeof(grid.z[0])); mem += grid.nz * sizeof(grid.z[0]);
-
-    for (i = 0; i < grid.nx; i++){
-        grid.x[i] = gridx[i];
-    }
-    for (i = 0; i < grid.ny; i++){
-        grid.y[i] = gridy[i];
-    }
-    for (i = 0; i < grid.nz; i++){
-        grid.z[i] = gridz[i];
+    if (0 == init_unsafe){
+        if (mpir == 0) printf("\nReading filter output from output.dat:\n"); fflush(stdout);
+    
+    // ******
+    // ******
+        read_filter_output("output.dat", &psitot, &eig_vals, &sigma_E, &R, &grid, &(grid.x), &(grid.y), &(grid.z), &ist, &par, &flag);
+    // ******
+    // ******
+    } else if (1 == init_unsafe){
+        if (mpir == 0) printf("\nReading UNSAFE input from unsafe_input.par:\n"); fflush(stdout);
+        read_unsafe_input(&psitot, &eig_vals, &sigma_E, &R, &grid, &(grid.x), &(grid.y), &(grid.z), &ist, &par, &flag, &parallel);
     }
 
     /*************************************************************************/
     /*** Read initial setup from input.par ***/
-    printf("\nReading BSE job specifications from input.par:\n"); fflush(stdout);
+    if (mpir == 0) printf("\nReading BSE job specifications from input.par:\n"); fflush(stdout);
     // ******
     // ******
     read_input(&flag, &grid, &ist, &par, &parallel);
@@ -129,7 +111,7 @@ int main(int argc, char *argv[]){
 
     /*************************************************************************/
     /*** Determine the configuration of the quasiparticle basis ***/
-    printf("\nSetting quasiparticle basis indices:\n"); fflush(stdout);
+    if (mpir == 0) printf("\nSetting quasiparticle basis indices:\n"); fflush(stdout);
     
     // Allocate memory for the lists of the indices of eigenstates
     // The maximum possible number of hole states is mn_states_tot from filter.
@@ -180,18 +162,18 @@ int main(int argc, char *argv[]){
     fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / 1000000 );
     write_separation(pmem, bottom); fflush(pmem);
 
-    // printf("\nTHE HOLES:\n");
-    // for (i = 0; i < ist.n_holes; i++){
-    //     printf("%ld\n", ist.eval_hole_idxs[i]);
-    // }
-    // printf("\nTHE ELECS:\n");
-    // for (i = 0; i < ist.n_elecs; i++){
-    //     printf("%ld\n", ist.eval_elec_idxs[i]);
-    // }
+    if (mpir == 0) printf("\nTHE HOLES:\n");
+    for (i = 0; i < ist.n_holes; i++){
+        if (mpir == 0) printf("%ld\n", ist.eval_hole_idxs[i]);
+    }
+    if (mpir == 0) printf("\nTHE ELECS:\n");
+    for (i = 0; i < ist.n_elecs; i++){
+        if (mpir == 0) printf("%ld\n", ist.eval_elec_idxs[i]);
+    }
     
     // ******
     // ******
-    printf("\nReading quasiparticle basis wavefunctions:\n"); fflush(stdout);
+    if (mpir == 0) printf("\nReading quasiparticle basis wavefunctions:\n"); fflush(stdout);
     get_qp_basis(psi_qp, psitot, eig_vals, sigma_E, &ist, &par, &flag);
     ist.n_xton = ist.n_elecs * ist.n_holes;
     // ******
@@ -209,7 +191,7 @@ int main(int argc, char *argv[]){
     if (1 == flag.useSpinors){
         current_time = time(NULL);
         c_time_string = ctime(&current_time);
-        printf("\nComputing spin composition of quasiparticle spinors | %s\n", c_time_string); fflush(stdout);
+        if (mpir == 0) printf("\nComputing spin composition of quasiparticle spinors | %s\n", c_time_string); fflush(stdout);
         FILE *pf = fopen("qp_spins.dat", "w");
         for (int state  = 0; state < ist.n_qp; state++){
             fprintf(pf, "\nStats on state%d: (E=%lg)\n", state, eig_vals[state]);
@@ -234,19 +216,19 @@ int main(int argc, char *argv[]){
     write_separation(stdout, top);
     current_time = time(NULL);
     c_time_string = ctime(&current_time);
-    printf("\n2.\tCOMPUTING ELECTRON-HOLE INTERACTION POTENTIALS | %s\n", c_time_string);
+    if (mpir == 0) printf("\n2.\tCOMPUTING ELECTRON-HOLE INTERACTION POTENTIALS | %s\n", c_time_string);
     write_separation(stdout, bottom); fflush(stdout);
 
     /*************************************************************************/
     // Allocate memory for the hartree, screened coulomb and bare exchange pots
-    printf("Allocating memory for hartree, direct, and exchange potentials..."); fflush(stdout);
+    if (mpir == 0) printf("Allocating memory for hartree, direct, and exchange potentials..."); fflush(stdout);
     pot_bare  = (zomplex *) malloc(ist.ngrid * sizeof(pot_bare[0]));
     pot_screened  = (zomplex *) malloc(ist.ngrid * sizeof(pot_screened[0]));
     pot_hartree = (zomplex *) malloc(ist.ngrid*parallel.nthreads*sizeof(pot_hartree[0]));
     fprintf(pmem, "alloc pot_bare %ld B\n", ist.ngrid*sizeof(pot_bare[0])); mem += ist.ngrid * sizeof(pot_bare[0]);
     fprintf(pmem, "alloc pot_screened %ld B\n", ist.ngrid*sizeof(pot_screened[0])); mem += ist.ngrid * sizeof(pot_screened[0]);
     fprintf(pmem, "alloc pot_hartree %ld B\n", ist.ngrid*parallel.nthreads*sizeof(pot_bare[0])); mem += ist.ngrid*parallel.nthreads*sizeof(pot_bare[0]);
-    printf(" done.\n"); fflush(stdout);
+    if (mpir == 0) printf(" done.\n"); fflush(stdout);
 
     // Initialize the FFT arrays for parallel Fourier transform
     fftwpsi = fftw_malloc(ist.ngrid*parallel.nthreads*sizeof(fftw_complex));
@@ -264,7 +246,7 @@ int main(int argc, char *argv[]){
                                      &fftwpsi[i*ist.ngrid], FFTW_BACKWARD, fft_flags);
     }
     
-    printf("Computing interaction potential on grid...\n"); fflush(stdout);
+    if (mpir == 0) printf("Computing interaction potential on grid...\n"); fflush(stdout);
     init_elec_hole_kernel(pot_bare, pot_screened, &grid, &ist, &par, planfw[0], planbw[0], &fftwpsi[0]);
 
     /*************************************************************************/
@@ -274,11 +256,11 @@ int main(int argc, char *argv[]){
     write_separation(stdout, top);
     current_time = time(NULL);
     c_time_string = ctime(&current_time);
-    printf("\n3.\tCOMPUTING SINGLE-PARTICLE PROPERTIES | %s\n", c_time_string);
+    if (mpir == 0) printf("\n3.\tCOMPUTING SINGLE-PARTICLE PROPERTIES | %s\n", c_time_string);
     write_separation(stdout, bottom); fflush(stdout);
 
     /*************************************************************************/
-    printf("Allocating memory for single particle matrix elements... "); fflush(stdout);
+    if (mpir == 0) printf("Allocating memory for single particle matrix elements... "); fflush(stdout);
     // trans_dipole def= <psi_i|mu|psi_a>
     if ((trans_dipole = (xyz_st *) malloc(ist.n_elecs*ist.n_holes * sizeof(trans_dipole[0]))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for trans_dipole in main.c\n");
@@ -301,11 +283,11 @@ int main(int argc, char *argv[]){
     write_separation(pmem, top);
     fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / 1000000 );
     write_separation(pmem, bottom); fflush(pmem);
-    printf("done\n"); fflush(stdout);
+    if (mpir == 0) printf("done\n"); fflush(stdout);
 
-    printf("\nElectric transition dipole moment...\n");
+    if (mpir == 0) printf("\nElectric transition dipole moment...\n");
     calc_elec_dipole(trans_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
-    printf("\nMagnetic transition dipole moment...\n");
+    if (mpir == 0) printf("\nMagnetic transition dipole moment...\n");
     calc_mag_dipole(mag_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
     // calc_rot_strength(rs, mux, muy, muz, mx, my, mz, eig_vals, &ist);
     
@@ -316,7 +298,7 @@ int main(int argc, char *argv[]){
         write_separation(stdout, top);
         current_time = time(NULL);
         c_time_string = ctime(&current_time);
-        printf("\n  -  COMPUTING ANG.MOM. PROPERTIES | %s\n", c_time_string);
+        if (mpir == 0) printf("\n  -  COMPUTING ANG.MOM. PROPERTIES | %s\n", c_time_string);
         write_separation(stdout, bottom); fflush(stdout);
 
         l_mom = (xyz_st *) malloc( (ist.n_holes*ist.n_holes + ist.n_elecs*ist.n_elecs) * sizeof(L_mom[0])); //<psi_r|Lx|psi_s>
@@ -351,10 +333,10 @@ int main(int argc, char *argv[]){
     write_separation(stdout, top);
     current_time = time(NULL);
     c_time_string = ctime(&current_time);
-    printf("\n4.\tCOMPUTING ELEC-HOLE INTERACTION KERNEL | %s\n", c_time_string);
+    if (mpir == 0) printf("\n4.\tCOMPUTING ELEC-HOLE INTERACTION KERNEL | %s\n", c_time_string);
     write_separation(stdout, bottom); fflush(stdout);
     
-    printf("\nThe number of electron-hole pairs in the exciton basis = %ld\n", ist.n_xton);
+    if (mpir == 0) printf("\nThe number of electron-hole pairs in the exciton basis = %ld\n", ist.n_xton);
 
     direct = (zomplex *) calloc(ist.n_xton * ist.n_xton, sizeof(zomplex)); 
     exchange = (zomplex *) calloc(ist.n_xton * ist.n_xton, sizeof(zomplex)); 
@@ -369,12 +351,16 @@ int main(int argc, char *argv[]){
     // }
     MPI_Barrier(MPI_COMM_WORLD);
 
+    if (parallel.mpi_rank == 0){
+    
     xton_ene = (double *) calloc(ist.n_xton, sizeof(double));
     bs_coeff = (zomplex *) calloc(ist.n_xton*ist.n_xton, sizeof(zomplex));
     bethe_salpeter(bsmat, direct, exchange, bs_coeff, h0mat, xton_ene, psi_qp, s_mom,l_mom,l2_mom,LdotS, &grid, &ist, &par);
     
     calc_optical_exc(bs_coeff, xton_ene, trans_dipole, mag_dipole, &ist, &par);
     
+    free(xton_ene); free(bs_coeff);
+    }
     /***********************************************************************/
     free(psi_qp); 
     free(eig_vals); 
@@ -388,9 +374,9 @@ int main(int argc, char *argv[]){
     time_t end_clock = clock();
 
     write_separation(stdout, top);
-    printf("\nDONE WITH PROGRAM: BETHE-SALPETHER\n");
-    printf("This calculation ended at: %s\n", ctime(&end_time)); 
-    printf("Total job CPU time (sec) %.4g, wall run time (sec) %.4g",
+    if (mpir == 0) printf("\nDONE WITH PROGRAM: BETHE-SALPETHER\n");
+    if (mpir == 0) printf("This calculation ended at: %s\n", ctime(&end_time)); 
+    if (mpir == 0) printf("Total job CPU time (sec) %.4g, wall run time (sec) %.4g",
             ((double)end_clock - (double)start_clock)/(double)(CLOCKS_PER_SEC), (double)end_time - (double)start_time );fflush(0);
     write_separation(stdout, bottom);
     

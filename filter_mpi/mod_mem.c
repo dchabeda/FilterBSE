@@ -25,9 +25,14 @@ void mod_mem_alloc(
   const int mpir = parallel->mpi_rank;
   
   const int nj = ist->n_j_ang_mom;
+
+  long eig_sz = par->t_rev_factor * ist->mn_states_tot;
   
   ist->psi_rank_size = ist->n_states_per_rank*ist->nspinngrid*ist->complex_idx;
-  
+  if (1 == flag->periodic){
+    ist->psi_rank_size *= ist->n_k_pts;
+    eig_sz *= ist->n_k_pts;
+  }
   
   /************************************************************/
   /*******************    ALLOCATE MEMORY   *******************/
@@ -62,8 +67,8 @@ void mod_mem_alloc(
   ALLOCATE(zn, ist->ncheby, "zn cheby");
   
   // the quasiparticle energies and standard deviations
-  ALLOCATE(eig_vals, par->t_rev_factor*ist->mn_states_tot, "eig_vals");
-  ALLOCATE(sigma_E, par->t_rev_factor*ist->mn_states_tot, "sigma_E");
+  ALLOCATE(eig_vals, eig_sz, "eig_vals");
+  ALLOCATE(sigma_E, eig_sz, "sigma_E");
   
   
   if (mpir == 0) printf("\tdone allocating memory.\n"); fflush(stdout);

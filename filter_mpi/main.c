@@ -56,12 +56,10 @@ int main(int argc, char *argv[]){
 
   // MPI Initialization
 
-  // MPI_Init(&argc, &argv);
-  // MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
-  // MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
   
-  parallel.mpi_rank = 0;
-  parallel.mpi_size = 1;
   const int mpir = parallel.mpi_rank;
   parallel.mpi_root = 0;
   
@@ -145,8 +143,9 @@ int main(int argc, char *argv[]){
       /************************************************************/
       
       mod_filter(
-        psi_rank, psi, phi, pot_local, &grid, LS, nlc, nl,
-        an, zn, ene_targets, ksqr, &ist, &par, &flag, &parallel);
+        psi_rank, psi, phi, pot_local, &grid, LS, nlc, nl, an, zn,
+        ene_targets, ksqr, &lattice, G_vecs, k_vecs, &ist, &par, &flag, &parallel
+      );
       
       if (1 == flag.calcFilterOnly){
         exit(0);
@@ -162,10 +161,9 @@ int main(int argc, char *argv[]){
         printf("Gathering psitot from all mpi_ranks\n"); fflush(0);
       }
       
-      // MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
       // 
       // 
-      // MPI_Gather(psi_rank, prs, MPI_DOUBLE, psitot, prs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+      MPI_Gather(psi_rank, prs, MPI_DOUBLE, psitot, prs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
       free(psi_rank);
       // 
       // 
@@ -189,9 +187,25 @@ int main(int argc, char *argv[]){
       
       if (mpir == 0) // subsequent modules performed on a single rank
       {
+
+        /************************************************************/
+        /*******************  RESTART FROM ORTHO  *******************/
+        /************************************************************/
+        
+        if (1 == flag.restartFromOrtho){
+          // 
+          long long tot_sz = par.t_rev_factor * ist.complex_idx * ist.nspinngrid * ist.mn_states_tot;
+          
+          ALLOCATE(&psitot, tot_sz, "psitot"); 
+          restart_from_ortho(psitot, &ist, &par, &flag, &parallel);
+          // 
+        } 
+
+
         mod_ortho(
           psitot, pot_local, &grid, nlc, nl, an, zn, ene_targets,
-          ksqr, &ist, &par, &flag, &parallel);
+          ksqr, &ist, &par, &flag, &parallel
+        );
 
         psitot = realloc(psitot, ist.mn_states_tot*ist.nspinngrid*ist.complex_idx*sizeof(psitot[0]));
 
@@ -274,7 +288,7 @@ int main(int argc, char *argv[]){
     free(top); free(bottom);
   }
       
-  // MPI_Finalize(); // Finalize the MPI tasks and prepare to exit program
+  MPI_Finalize(); // Finalize the MPI tasks and prepare to exit program
       
   exit(0);
 } // End of main

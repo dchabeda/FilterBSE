@@ -91,7 +91,7 @@ void mod_init(
   /************************************************************/
 
   if (1 == flag->periodic){
-    init_periodic(lattice, *G_vecs, *k_vecs, grid, ist, par, flag, parallel);
+    init_periodic(lattice, G_vecs, k_vecs, grid, ist, par, flag, parallel);
   }
 
 

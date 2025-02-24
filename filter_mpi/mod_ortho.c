@@ -21,26 +21,17 @@ void mod_ortho(
   /************************************************************/
   const int mpir = parallel->mpi_rank;
   
-  long long tot_sz = ist->complex_idx * ist->nspinngrid * ist->mn_states_tot;
+  long tot_sz = ist->complex_idx*ist->nspinngrid*ist->mn_states_tot;
   
   double init_clock;
   double init_wall;
   
-  /************************************************************/
-  /*******************  RESTART FROM ORTHO  *******************/
-  /************************************************************/
-
-  if (1 == flag->restartFromOrtho){
-    // 
-    restart_from_ortho(psitot, ist, par, flag, parallel);
-    // 
-  } 
-
+  
   /************************************************************/
   /*******************  RESTART FROM CHKPT  *******************/
   /************************************************************/
-
-  else if (1 == flag->restartFromCheckpoint){
+  
+  if ( (1 == flag->restartFromCheckpoint) && (1 != flag->restartFromOrtho) ){
     par->checkpoint_id = flag->restartFromCheckpoint;
     // 
     restart_from_save(
@@ -52,8 +43,8 @@ void mod_ortho(
   
   // Time reverse spinors
 
-  if (1 == flag->useSpinors){
-    printf("\nTime-reversing filtered states (2x no. of orthogonal states)");
+  if ( (1 == flag->useSpinors) && (1 != flag->noTimeRev) ){
+    printf("\nTime-reversing filtered states (2x no. of orthogonal states)"); fflush(0);
     time_reverse_all(&psitot[0], &psitot[tot_sz], ist, parallel);
   }
 
@@ -64,9 +55,10 @@ void mod_ortho(
   if (mpir == 0){
     write_separation(stdout, "T");
     printf("\n5. ORTHOGONALIZATING FILTERED STATES | %s\n", get_time());
-    write_separation(stdout, "B"); fflush(stdout);
+    write_separation(stdout, "B");
 
     printf("\nmn_states_tot before ortho = %ld\n", ist->mn_states_tot);
+    fflush(stdout);
   }
 
   init_clock = (double)clock(); 
@@ -83,13 +75,13 @@ void mod_ortho(
   //
   //
 
-  if (mpir == 0) printf("mn_states_tot after ortho = %ld\n", ist->mn_states_tot);
+  if (mpir == 0) printf("mn_states_tot after ortho = %ld\n", ist->mn_states_tot); fflush(0);
   // psitot = (double *) realloc(psitot, ist->mn_states_tot * ist->nspinngrid * ist->complex_idx * sizeof(psitot[0]) );
   
 
   // Normalize the orthogonalized states
 
-  normalize_all(&psitot[0], ist->mn_states_tot, ist, par, flag, parallel);
+  normalize_all(psitot, ist->mn_states_tot, ist, par, flag, parallel);
         
   if (mpir == 0){
     printf(

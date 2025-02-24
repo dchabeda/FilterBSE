@@ -114,24 +114,22 @@ void restart_from_ortho(
   /************************************************************/
 
   FILE *ppsi;
-  long tot_sz = par->t_rev_factor*ist->complex_idx*ist->nspinngrid*ist->mn_states_tot;
+  long tot_sz = ist->complex_idx*ist->nspinngrid*ist->mn_states_tot;
   
   /************************************************************/
   /*******************     READ IN PSITOT   *******************/
   /************************************************************/
 
   write_separation(stdout, "T");
-  printf("**** START FROM ORTHO *** START FROM ORTHO ** START FROM ORTHO *** START FROM ORTHO ****");
+  printf("****  RESTART FROM ORTHO  **  RESTART FROM ORTHO  **  RESTART FROM ORTHO  ****");
   write_separation(stdout, "B"); fflush(stdout);
   
   
   printf("\nNo. states for orthogonalization = %ld\n", ist->mn_states_tot);
-  printf("Size of psitot array = %.2g GB\n", (double) tot_sz/1024/1024/1024); 
+  printf("Size of psitot array = %.2g GB\n", 
+    sizeof(double) * (double)tot_sz/1024/1024/1024
+  ); 
   fflush(stdout);
-  
-  // Allocate psitot to have space for all the filtered states
-  
-  ALLOCATE(&psitot, tot_sz, "psitot");
   
   // Read in the states from psi-filt.dat file
   
@@ -139,24 +137,21 @@ void restart_from_ortho(
   
   if (ppsi != NULL){
     printf("Reading psi-filt.dat\n"); fflush(stdout);
-    fread(&psitot[0], sizeof(double), tot_sz/par->t_rev_factor, ppsi);
+    fread(psitot, sizeof(double), tot_sz, ppsi);
     fclose(ppsi);
   } else{
     fprintf(stderr, "ERROR: psi-filt.dat could not be opened\n");
     exit(EXIT_FAILURE);
   }
 
-  printf("psitot[max] = %lg\n", psitot[(tot_sz/par->t_rev_factor) - 1]);
+  printf("psitot[max] = %lg\n", psitot[(tot_sz) - 1]);
   
   
   printf("\nNormalizing filtered states (for safety)\n"); fflush(stdout);
 
   normalize_all(psitot, ist->mn_states_tot, ist, par, flag, parallel);
-
-  if (2 == par->t_rev_factor){
-    printf("\nTime-reversing all filtered states (doubles number of orthogonal states)\n"); fflush(stdout);
-    time_reverse_all(&psitot[0], &psitot[tot_sz/par->t_rev_factor], ist, parallel);
-  }
-
+  
+  printf("Done normalizing\n"); fflush(stdout);
+  
   return;
 }

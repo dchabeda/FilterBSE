@@ -345,30 +345,31 @@ void calc_sigma_E(
   ********************************************************************/
 
   long ims;
-  
+  int fft_flags = 0;
+  fftw_plan_loc planfw, planbw; 
+  fftw_complex *fftwpsi;
+  // Arrays for hamiltonian evaluation
+  zomplex *psi, *phi; 
+
+  if ((psi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
+    fprintf(stderr, "\nOUT OF MEMORY: psi in calc_sigma_E\n\n"); exit(EXIT_FAILURE);
+  }
+  if ((phi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
+    fprintf(stderr, "\nOUT OF MEMORY: phi in calc_sigma_E\n\n"); exit(EXIT_FAILURE);
+  }
+  fftwpsi = fftw_malloc(sizeof (fftw_complex )*ist->ngrid);
+  planfw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_FORWARD,fft_flags);
+  planbw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,fft_flags);
+
   // Loop over all M*N states
-  #pragma omp parallel for private(ims)
+  // #pragma omp parallel for private(ims)
   for (ims = 0; ims < ist->mn_states_tot; ims++) {
     long jgrid, jgrid_real, jgrid_imag, jstate;
     double eval, eval2;
-    int fft_flags = 0;
-    fftw_plan_loc planfw, planbw; 
-    fftw_complex *fftwpsi;
-    // Arrays for hamiltonian evaluation
-    zomplex *psi, *phi; 
-
+    
     jstate = ist->complex_idx*ims*ist->nspinngrid;
     
-    if ((psi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
-      fprintf(stderr, "\nOUT OF MEMORY: psi in calc_sigma_E\n\n"); exit(EXIT_FAILURE);
-    }
-    if ((phi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
-      fprintf(stderr, "\nOUT OF MEMORY: phi in calc_sigma_E\n\n"); exit(EXIT_FAILURE);
-    }
-    fftwpsi = fftw_malloc(sizeof (fftw_complex )*ist->ngrid);
-    planfw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_FORWARD,fft_flags);
-    planbw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,fft_flags);
-  
+    omp_set_num_threads(ist->nthreads);
     // select the current state to compute sigma_E for
     if (1 == flag->isComplex){
       for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
@@ -391,7 +392,8 @@ void calc_sigma_E(
 
     memcpy(&phi[0],&psi[0],ist->nspinngrid*sizeof(phi[0]));
     // Apply the Hamiltonian to |psi>: |phi> = H|psi>
-    hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
+    
+    p_hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi, ist->nthreads);
     // Calculate the expectation value of H for wavefunc psi: <psi|H|psi> = <psi|phi> = sum_{jgrid} psi[jgrid] * phi[jgrid] * dv
     eval = 0.0;
     if (1 == flag->isComplex){
@@ -412,7 +414,7 @@ void calc_sigma_E(
     
     // Apply the Hamiltonian again onto phi: H|phi> = H^2|psi>
     memcpy(&psi[0], &phi[0], ist->nspinngrid*sizeof(psi[0]));
-    hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par,flag, planfw, planbw, fftwpsi);
+    p_hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par,flag, planfw, planbw, fftwpsi, ist->nthreads);
     // Calculate the expectation value of H^2: <psi|H^2|psi>
     eval2 = 0.0;
     if (1 == flag->isComplex){
@@ -435,12 +437,14 @@ void calc_sigma_E(
     // sigma_E is the sqrt of the variance
     sigma_E[ims] = sqrt(fabs(eval2));
 
-    // Free dynamically allocated memory
-    free(psi); free(phi);
-    fftw_destroy_plan(planfw);
-    fftw_destroy_plan(planbw);
-    fftw_free(fftwpsi);
+    
   }
+
+  // Free dynamically allocated memory
+  free(psi); free(phi);
+  fftw_destroy_plan(planfw);
+  fftw_destroy_plan(planbw);
+  fftw_free(fftwpsi);
 
   return;
 }

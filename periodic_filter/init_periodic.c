@@ -4,55 +4,64 @@
 
 void init_periodic(
   lattice_st*    lattice,
-  vector*        G_vecs,
-  vector*        k_vecs,
+  vector**       G_vecs,
+  vector**       k_vecs,
   grid_st*       grid, 
   index_st*      ist, 
   par_st*        par, 
   flag_st*       flag, 
   parallel_st*   parallel){
 
+  /************************************************************/
+  /*******************  DECLARE VARIABLES   *******************/
+  /************************************************************/
+
   const int mpir = parallel->mpi_rank;
   
-  /*** Read input for the periodic lattice ***/
+  /************************************************************/
+  /*******************      READ INPUT      *******************/
+  /************************************************************/
+
   if (mpir == 0) printf("\nReading lattice params from periodic_input.par:\n");
+  
   read_periodic_input(lattice, ist, par, flag, parallel);
 
-  /*** calculate the reciprocal vectors for the lattice ***/
+  /************************************************************/
+  /****************   CALC RECIP LAT & G_VECS  ****************/
+  /************************************************************/
+
   if (mpir == 0) printf("\nGenerating reciprocal lattice vectors:\n");
   
   gen_recip_lat_vecs(lattice, ist, par, flag, parallel);
 
-  /*** generate the G vectors for plane-wave basis ***/
   if (mpir == 0) printf("\nGenerating G vectors:\n");
   
-  ALLOCATE(&G_vecs, ist->ngrid, "G_vecs");
+  ALLOCATE(G_vecs, ist->ngrid, "G_vecs");
 
   gen_G_vecs(G_vecs, grid, ist, par, flag, parallel);
   
   printf("  %d G vectors in the plane-wave basis\n", ist->n_G_vecs);
-  write_vector_dat(G_vecs, ist->n_G_vecs, "G_vecs.dat");
+  
+  write_vector_dat(*G_vecs, ist->n_G_vecs, "G_vecs.dat");
 
+  /************************************************************/
+  /*******************      GEN K GRID      *******************/
+  /************************************************************/
 
-  /*** generate the k grid for computing energies/bandstructure ***/
   if (1 == flag->readKPath){
     if (mpir == 0) printf("\nReading k-path from file kpath.par:\n");
     
-    read_k_path(&k_vecs, lattice, ist, par, flag, parallel);
-    
-    printf("  Successfully generated %d k vectors\n", ist->n_k_pts);
+    read_k_path(k_vecs, lattice, ist, par, flag, parallel);
   } 
   else{
     if (mpir == 0) printf("\nGenerating %d x %d x %d k grid:\n", ist->nk1, ist->nk2, ist->nk3);
     
-    if((k_vecs = calloc(ist->n_k_pts, sizeof(k_vecs[0]))) == NULL){
-      if (mpir == 0) fprintf(stderr, "\nOUT OF MEMORY: k_vecs\n\n"); exit(EXIT_FAILURE);
-    }
+    ALLOCATE(k_vecs, ist->n_k_pts, "k_vecs");
     
     gen_k_vecs(k_vecs, lattice, ist, par, flag, parallel);
-    printf("  Successfully generated %d k vectors\n", ist->n_k_pts);
   }
-  printf("n_kpts = %d n-G_vecs %d\n", ist->n_k_pts, ist->n_G_vecs);
+  
+  printf("  n_kpts = %d n-G_vecs %d\n", ist->n_k_pts, ist->n_G_vecs);
 
   return;
 }
@@ -65,6 +74,7 @@ void gen_recip_lat_vecs(
   par_st*        par, 
   flag_st*       flag, 
   parallel_st*   parallel){
+  
   // Calculate the reciprocal lattice vectors, b_i, 
   // from the lattice vectors, a_i
 
@@ -103,13 +113,14 @@ void gen_recip_lat_vecs(
 /*****************************************************************************/
 
 void gen_G_vecs(
-  vector*        G_vecs, 
+  vector**       G_vecs, 
   grid_st*       grid, 
   index_st*      ist, 
   par_st*        par, 
   flag_st*       flag, 
   parallel_st*   parallel
   ){
+
   FILE *pf;
   double *gx, *gy, *gz;
   double G_max;
@@ -124,19 +135,19 @@ void gen_G_vecs(
 
   // The kinetic energy is 0.5*|(k+G)|^2
   // Here, we generate and store the system-dependent vectors G
-  gx_min = - (TWOPI / grid->xmin) * grid->ngrid_1;
   for (gx[0] = 0.0, jx = 1; jx <= grid->nx / 2; jx++){
-    gx[grid->nx-jx] = -1.00 * (gx[jx] = gx_min + (double)(jx) * grid->dkx * grid->ngrid_1);
+    gx[jx] = (double)(jx) * grid->dkx * grid->ngrid_1;
+    gx[grid->nx-jx] = -1.00 * gx[jx];
   }
 
-  gy_min = - (TWOPI / grid->ymin) * grid->ngrid_1;
   for (gy[0] = 0.0, jy = 1; jy <= grid->nx / 2; jy++){
-    gy[grid->ny-jy] = -1.00 * (gy[jy] = gy_min + (double)(jy) * grid->dky * grid->ngrid_1);
+    gy[jy] = (double)(jy) * grid->dky * grid->ngrid_1;
+    gy[grid->ny-jy] = -1.00 * gy[jy];
   }
 
-  gz_min = - (TWOPI / grid->zmin) * grid->ngrid_1;
   for (gz[0] = 0.0, jz = 1; jz <= grid->nz / 2; jz++){
-    gz[grid->nz-jz] = -1.00 * (gz[jz] = gz_min + (double)(jz) * grid->dkz * grid->ngrid_1);
+    gz[jz] = (double)(jz) * grid->dkz * grid->ngrid_1;
+    gz[grid->nz-jz] = -1.00 * gz[jz];
   }
 
   printf("These are the grid and g vectors\n");
@@ -154,22 +165,23 @@ void gen_G_vecs(
   }
 
   pf = fopen("ksqr.dat", "w");
-  G_max = par->KE_max * (grid->ny_1 * grid->nx_1 * grid->nz_1) / KE_pref;
+  G_max = par->KE_max * grid->ngrid_1 / KE_pref;
   
   for (jz = 0; jz < grid->nz; jz++){
     for (jy = 0; jy < grid->ny; jy++){
       jyz = grid->nx * (grid->ny * jz + jy);
       for (jx = 0; jx < grid->nx; jx++){
         jxyz = jyz + jx;
-        G_vecs[jxyz].x = gx[jx];
-        G_vecs[jxyz].y = gy[jy];
-        G_vecs[jxyz].z = gz[jz];
-        G_vecs[jxyz].mag = sqr(gx[jx]) + sqr(gy[jy]) + sqr(gz[jz]);
-        if (G_vecs[jxyz].mag > G_max){
-          scale_mag = G_max / G_vecs[jxyz].mag;
-          G_vecs[jxyz] = retScaledVector(G_vecs[jxyz], scale_mag);
+        (*G_vecs)[jxyz].x = gx[jx];
+        (*G_vecs)[jxyz].y = gy[jy];
+        (*G_vecs)[jxyz].z = gz[jz];
+        (*G_vecs)[jxyz].mag = sqrt(sqr(gx[jx]) + sqr(gy[jy]) + sqr(gz[jz]));
+        
+        if ((*G_vecs)[jxyz].mag > G_max){
+          scale_mag = G_max / (*G_vecs)[jxyz].mag;
+          (*G_vecs)[jxyz] = retScaledVector((*G_vecs)[jxyz], scale_mag);
         } 
-        fprintf(pf, "%d %.4lg %.4lg %.4lg %.4lg\n", jxyz, G_vecs[jxyz].x, G_vecs[jxyz].y, G_vecs[jxyz].z, G_vecs[jxyz].mag);
+        fprintf(pf, "%d %.4lg %.4lg %.4lg %.4lg\n", jxyz, (*G_vecs)[jxyz].x, (*G_vecs)[jxyz].y, (*G_vecs)[jxyz].z, (*G_vecs)[jxyz].mag);
       }
     }
   }
@@ -187,7 +199,7 @@ void gen_G_vecs(
 /*****************************************************************************/
 
 void gen_k_vecs(
-  vector*        k_vecs, 
+  vector**       k_vecs, 
   lattice_st*    lattice, 
   index_st*      ist, 
   par_st*        par, 
@@ -196,9 +208,9 @@ void gen_k_vecs(
   // Generate an nk1 x nk2 x nk3 kgrid for the calculation
   int i;
   int n1, n2, n3;
-  double k1_scale = TWOPI / lattice->a;
-  double k2_scale = TWOPI / lattice->b;
-  double k3_scale = TWOPI / lattice->c;
+  double k1_scale = TWOPI / lattice->a  / ist->ngrid;
+  double k2_scale = TWOPI / lattice->b  / ist->ngrid;
+  double k3_scale = TWOPI / lattice->c  / ist->ngrid;
   double dk1, dk2, dk3;
   vector k;
   
@@ -216,14 +228,15 @@ void gen_k_vecs(
   
   // Generate the nk1 x nk2 x nk3 kgrid
   i = 0;
-  k.x = k.y = k.z = 0.0;
+  k.x = k.y = k.z = k.mag = 0.0;
   for (n1 = 0; n1 < ist->nk1; n1++){
     for (n2 = 0; n2 < ist->nk2; n2++){
       for (n3 = 0; n3 < ist->nk3; n3++){
         k.x = k1_scale * n1 * dk1;
-        k.y = k2_scale * n2*dk2;
+        k.y = k2_scale * n2 * dk2;
         k.z = k3_scale * n3 * dk3;
-        k_vecs[i] = k;
+        k.mag = retVectorMagnitude(k);
+        (*k_vecs)[i] = k;
         i++;
       }
     }

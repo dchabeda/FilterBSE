@@ -1,10 +1,10 @@
-#include "fd.h"
+#include "ghamiltonian.h"
 
 
 /*****************************************************************************/
 void hamiltonian_k(
   zomplex       *psi_out,  zomplex      *psi_tmp,    double *pot_local,    
-  vector        *G_vecs,   vector        k,          grid_st *grid, 
+  vector        *G_vecs,   vector        k,          grid_st *grid, zomplex *LS,
   nlc_st        *nlc,      long         *nl,         index_st *ist, 
   par_st        *par,      flag_st      *flag,       fftw_plan_loc planfw, 
   fftw_plan_loc planbw,    fftw_complex *fftwpsi){
@@ -47,13 +47,13 @@ void hamiltonian_k(
   
   // write_state_dat(psi_out, ist->nspinngrid, "psi_out_kinetic.dat");
   // Calculate the action of the potential on the wavefunction: |psi_out> = V|psi_tmp>
-  potential(psi_out, psi_tmp, pot_local, nlc, nl, ist, par, flag);
+  potential(psi_out, psi_tmp, pot_local, LS, nlc, nl, ist, par, flag);
 
   return;
 }
 
 /*****************************************************************************/
-void p_hamiltonian_k(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, vector *G_vecs, vector k, grid_st *grid, nlc_st *nlc, long *nl,
+void p_hamiltonian_k(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, vector *G_vecs, vector k, grid_st *grid, zomplex* LS, nlc_st *nlc, long *nl,
   index_st *ist, par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, int ham_threads){
   /*******************************************************************
   * This function applies the Hamiltonian onto a state               *
@@ -93,7 +93,7 @@ void p_hamiltonian_k(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, vect
     e_ikr(psi_tmp, k, grid, ist, par, flag);
   }
 
-  p_potential(psi_out, psi_tmp, pot_local, nlc, nl, ist, par, flag, ham_threads);
+  p_potential(psi_out, psi_tmp, pot_local, LS, nlc, nl, ist, par, flag, ham_threads);
 
   return;
 }

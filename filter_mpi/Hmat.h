@@ -1,5 +1,6 @@
 #include "fd.h"
 #include "hamiltonian.h"
+#include "aux.h"
 
 void diag_H(
     double*        psitot, 

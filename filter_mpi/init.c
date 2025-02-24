@@ -29,12 +29,11 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
   
   if (parallel->mpi_rank == 0) printf("\tMin. required box dimension for each direction (Bohr):\n");
   if (parallel->mpi_rank == 0) printf("\t-----------------------------------------------------\n");
-  if (parallel->mpi_rank == 0) printf("\txd = %g yd = %g zd = %g\n", 2*xd, 2*yd, 2*zd);
+  if (parallel->mpi_rank == 0) printf("\txd = %lg yd = %lg zd = %lg\n", 2.0*xd, 2.0*yd, 2.0*zd);
 
   /***initial parameters for the pot reduce mass, etc. in the x direction ***/
   grid->xmin = -xd;
   grid->xmax = xd - grid->dx; // There is an off-by-one in the grid due to the loop not including the final element. Create odd grid to have same grid points on each side.
-  if (parallel->mpi_rank == 0) printf("\tThe x_min = %lg and x_max %lg\n", grid->xmin, grid->xmax);
   ntmp  = (long)((grid->xmax - grid->xmin) / grid->dx);
   if (ntmp > grid->nx){
     if (parallel->mpi_rank == 0) printf("\tinput nx insufficient; updating parameter.\n");
@@ -42,13 +41,13 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
   }
   grid->xmin = -((double)(grid->nx) * grid->dx) / 2.0;
   grid->xmax = ((double)(grid->nx) * grid->dx) / 2.0;
+  if (parallel->mpi_rank == 0) printf("\tThe x_min = %lg and x_max %lg\n", grid->xmin, grid->xmax);
   
   grid->dkx = TWOPI / ((double)grid->nx * grid->dx); // reciprocal lattice vector length
   
   /***initial parameters for the pot reduce mass, etc. in the y direction ***/
   grid->ymin = -yd;
   grid->ymax = yd - grid->dy;
-  if (parallel->mpi_rank == 0) printf("\tThe y_min = %lg and y_max %lg\n", grid->ymin, grid->ymax);
   ntmp  = (long)((grid->ymax - grid->ymin) / grid->dy);
   if (ntmp > grid->ny){
     if (parallel->mpi_rank == 0) printf("\tinput ny insufficient; updating parameter.\n");
@@ -56,7 +55,8 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
   }
   grid->ymin = -((double)(grid->ny) * grid->dy) / 2.0;
   grid->ymax = ((double)(grid->ny) * grid->dy) / 2.0;
-
+  if (parallel->mpi_rank == 0) printf("\tThe y_min = %lg and y_max %lg\n", grid->ymin, grid->ymax);
+  
   grid->dky = TWOPI / ((double)grid->ny * grid->dy);
 
   /***initial parameters for the pot reduce mass, etc. in the z direction ***/
@@ -65,7 +65,6 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
     grid->zmin = -zd;
     grid->zmax = zd - grid->dz;
     ntmp  = (long)((grid->zmax - grid->zmin) / grid->dz);
-    if (parallel->mpi_rank == 0) printf("\tThe z_min = %lg and z_max %lg\n", grid->zmin, grid->zmax);
     if ( (ntmp > grid->nz) && (0 == flag->periodic) ){
       if (parallel->mpi_rank == 0) printf("\tinput nz insufficient; updating parameter.\n");
       grid->nz = ntmp;
@@ -73,6 +72,8 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
 
     grid->zmin = -((double)(grid->nz) * grid->dz) / 2.0;
     grid->zmax = ((double)(grid->nz) * grid->dz) / 2.0;
+    if (parallel->mpi_rank == 0) printf("\tThe z_min = %lg and z_max %lg\n", grid->zmin, grid->zmax);
+    
   } 
   else if ( (1 == flag->periodic) && (0.0 != par->box_z) ){
     // Generate the box in the periodic z direction
@@ -115,7 +116,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
 
   if (parallel->mpi_rank == 0) printf("\n\tFinal grid parameters:\n");
   if (parallel->mpi_rank == 0) printf("\t----------------------\n");
-  if (parallel->mpi_rank == 0) printf("\txd = %.1f yd = %.1f zd = %.1f\n", 2*grid->xmax, 2*grid->ymax, 2*grid->zmax);
+  if (parallel->mpi_rank == 0) printf("\txmin = %lf ymin = %lf zmin = %lf\n", grid->xmin, grid->ymin, grid->zmin);
   if (parallel->mpi_rank == 0) printf("\tdx = %g dy = %g dz = %g dv = %g dr = %g\n", grid->dx, grid->dy, grid->dz, grid->dv, grid->dr);
   if (parallel->mpi_rank == 0) printf("\tnx = %ld  ny = %ld  nz = %ld\n", ist->nx, ist->ny, ist->nz);
   if (parallel->mpi_rank == 0) printf("\tngrid = %ld, nspin = %d, nspinngrid = %ld\n", ist->ngrid, ist->nspin, ist->nspinngrid);
@@ -362,6 +363,10 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
     }
   }
 
+  // Read atomic pseudopotentials
+  if (mpir == 0) printf("\tReading atomic pseudopotentials...\n");
+  read_pot(pot, R, atom, ist, par, flag, parallel);
+
   
   // Calculate strain_scale if needed
   if (uS) {
@@ -411,12 +416,14 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
             if ( (jxyz == 0) && (jat == 0) && (mpir == 0) ){
               printf("\tComputing interpolated cubic/ortho potential\n");
             }
-              
+            
+            // geom1 (cubic)
             sum += (1.0 - gpar) * interpolate(
               dist, pot->dr[2 * atyp_idx], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR,
               mpl, pot->file_lens[2 * atyp_idx], 2 * atyp_idx,
               scaleLR, atom[jat].LR_par, strainF, flag->LR
             );
+            // geom2 (orthorhombic)
             sum += gpar * interpolate(
               dist, pot->dr[2 * atyp_idx + 1], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR,
               mpl, pot->file_lens[2 * atyp_idx + 1], 2 * atyp_idx + 1,
@@ -723,51 +730,68 @@ void init_NL_projectors(nlc_st *nlc,long *nl, double *SO_projectors, grid_st *gr
 }
 
 /***************************************************************************/
-void init_filter_states(double *psi_rank, zomplex *psi, grid_st *grid, long *rand_seed, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
-  FILE *pseed;
-  char str[20];
-  int cntr;
-  long jmn, jgrid, jgrid_real, jgrid_imag, jstate;
-  int jspin;
-  int start = parallel->mpi_rank * ist->n_states_per_rank;
-  int end = (parallel->mpi_rank == parallel->mpi_size - 1) ? ist->mn_states_tot : start + ist->n_states_per_rank;
+void init_filter_states(
+  double*       psi_rank, 
+  zomplex*      psi, 
+  grid_st*      grid, 
+  long*         rand_seed, 
+  index_st*     ist, 
+  par_st*       par, 
+  flag_st*      flag, 
+  parallel_st*  parallel){
+  
+  FILE*         pseed;
+  char          str[20];
+  
+  int           jspin; 
+  long          jns;
+  long          jms;
+  long          jstate;
+  long          jgrid;
+  long          jgrid_real;
+  long          jgrid_imag;
+  long          ns_block;
+  long          stlen = ist->complex_idx * ist->nspinngrid;
   
   // Print out the random seeds for debugging purposes
   sprintf(str, "seed-%d.dat", parallel->mpi_rank);
   pseed = fopen(str, "w");
   fprintf(pseed, "idx  seed\n");
   
-  cntr = 0;
-  // Initialize n_states_per_rank random states on each mpi rank
-  for (jmn = start; jmn < end; jmn++) {
+  
+  // Initialize n_filters_per_rank random states on each mpi rank
+  for (jns = 0; jns < ist->n_filters_per_rank; jns++) {
+    
     // Initialize a random wavefunction for filtering
     for (jspin = 0; jspin < ist->nspin; jspin++) {
-      fprintf(pseed, "%ld %ld\n", ist->nspin*jmn + jspin, *rand_seed);
+      fprintf(pseed, "%ld %ld\n", ist->nspin*jns + jspin, *rand_seed);
       init_psi(&psi[jspin*ist->ngrid], rand_seed, grid, ist, par, flag, parallel);
     }
     
-    if (1 == flag->isComplex){
-      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-        // handle indexing of real and imaginary components if complex
-        // ist->complex_idx = (flag->isComplex + 1) = 2 when complex valued functions are in use, 1 if real
-        jgrid_real = ist->complex_idx * jgrid;
-        jgrid_imag = ist->complex_idx * jgrid + 1;
-        jstate = cntr * ist->complex_idx *ist->nspinngrid;
-        
-        psi_rank[jstate + jgrid_real] = psi[jgrid].re;
-        psi_rank[jstate + jgrid_imag] = psi[jgrid].im;
-        // the imaginary components will be stored one double away (16 bytes, or IMAG_IDX) in memory from the real component
-      } 
-    }
-    else{
-      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-        jstate = cntr * ist->nspinngrid;
-        // if the wavefunction is real-valued, then only the real component is stored
-        psi_rank[jstate + jgrid] = psi[jgrid].re;
+    ns_block = jns * (ist->m_states_per_filter * stlen);
+    
+    for (jms = 0; jms < ist->m_states_per_filter; jms++){
+      jstate = ns_block + jms * stlen;
+
+      if (1 == flag->isComplex){
+        for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+          // handle indexing of real and imaginary components if complex
+          // ist->complex_idx = (flag->isComplex + 1) = 2 when complex valued functions are in use, 1 if real
+          jgrid_real = ist->complex_idx * jgrid;
+          jgrid_imag = jgrid_real + 1;
+          
+          psi_rank[jstate + jgrid_real] = psi[jgrid].re;
+          psi_rank[jstate + jgrid_imag] = psi[jgrid].im;
+          // the imaginary components will be stored one double away (16 bytes, or IMAG_IDX) in memory from the real component
+        } 
+      }
+      else{
+        for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+          // if the wavefunction is real-valued, then only the real component is stored
+          psi_rank[jstate + jgrid] = psi[jgrid].re;
+        }
       }
     }
-
-    cntr++;
   }
 
   fclose(pseed);

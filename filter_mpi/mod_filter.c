@@ -20,6 +20,9 @@ void mod_filter(
   double*       zn,
   double*       ene_targets,
   double*       ksqr,
+  lattice_st*   lattice,
+  vector*       G_vecs,
+  vector*       k_vecs,
   index_st*     ist,
   par_st*       par,
   flag_st*      flag,
@@ -115,7 +118,7 @@ void mod_filter(
   if (0 == flag->setSeed){
     Randomize();  rand_seed = -random() + mpir;
   } else {
-    rand_seed = - par->rand_seed;
+    rand_seed = - par->rand_seed + mpir;
   }
   
   // Gen initial random wavefunctions for each filter cycle
@@ -156,11 +159,9 @@ void mod_filter(
   /************************************************************/
   /*******************   RUN FILTER CYCLE   *******************/
   /************************************************************/
-
-  /************************************************************/
   /*******  For [n_filter_cycles] random initial states *******/
   /*******   perform filtering at [m_states] E targets  *******/
-  
+  /************************************************************/
 
   if (mpir == 0){
     write_separation(stdout, top);
@@ -174,14 +175,21 @@ void mod_filter(
 
   // 
   //
-  run_filter_cycle(
+  if (0 == flag->periodic){
+  run_filter_cycles(
     psi_rank, pot_local, LS, nlc, nl, ksqr, an, zn, 
     ene_targets, grid, ist, par, flag, parallel);
+  }
+  // else if (1 == flag->periodic){
+  //   run_filter_cycles_k(
+  //     psi_rank, pot_local, LS, nlc, nl, ksqr, an, zn, 
+  //     ene_targets, grid, G_vecs, k_vecs, ist, par, flag, parallel);
+  // }
   // 
   // 
 
   // Ensure all ranks synchronize here
-  // MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Barrier(MPI_COMM_WORLD);
 
   if (mpir == 0){
     printf("\ndone calculating filter, CPU time (sec) %g, wall run time (sec) %g\n",

@@ -200,3 +200,18 @@ void p_operator(char* direc, double *kindex, zomplex *psi, zomplex *Lpsi, grid_s
 // optical.c
 void calc_optical_exc(zomplex *bs_coeff, double *eval, xyz_st *mu, xyz_st *m, index_st *ist, par_st *par);
 /*****************************************************************************/
+
+void read_unsafe_input(
+  double** psitot,
+  double** eig_vals,
+  double** sigma_E,
+  xyz_st** R, 
+  grid_st *grid,
+  double** gridx,
+  double** gridy,
+  double** gridz,
+  index_st *ist,
+  par_st *par,
+  flag_st *flag,
+  parallel_st *parallel
+  );

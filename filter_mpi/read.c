@@ -60,6 +60,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->NL = 0; // computes the non-local terms in the Hamiltonian; automatically on if SO flag on
   ist->nproj = 5; // number of terms to expand projections in. converged by 5
   par->t_rev_factor = 1; // can time rev filt'rd states to get 2X eigst8. mem alloc multiplied by par.t_rev_factor
+  flag->noTimeRev = 0;
   // Optional output flags
   flag->saveOutput = 1; // By default, write the formatted output file that can be read by BSE to recreate job state
   flag->calcPotOverlap = 0; // Calculates matrix elements of the potential <i|V|j>
@@ -247,7 +248,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "NonLocal")) {
           flag->NL = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-      }
+      } else if (!strcmp(field, "noTimeRev")) {
+        flag->noTimeRev = (int) strtol(tmp, &endptr, 10);
+        if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+    }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for additional output
       // ****** ****** ****** ****** ****** ******
@@ -338,6 +342,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (parallel->mpi_rank == 0) printf("KEmax = double (maximum kinetic energy value considered)\n");
           if (parallel->mpi_rank == 0) printf("spinOrbit = int (0 for no spinOrbit, 1 for spinOrbit)\n");
           if (parallel->mpi_rank == 0) printf("NonLocal = int (0 for no non-local, 1 for non-local potential)\n");
+          if (parallel->mpi_rank == 0) printf("noTimeRev = int (0 to time reverse, 1 for no time reversal)\n");
           if (parallel->mpi_rank == 0) printf("approxEnergyRange = int, if 1 then energy range will be appox'd by local pot\n");
           if (parallel->mpi_rank == 0) printf("setTargets = int (0 if half/half split of VB/CB targets suffices for your job)\n");
           if (parallel->mpi_rank == 0) printf("If setTargets = 1, the next two entries MUST be \'n_targets_VB n_targets_CB\'\n");
@@ -392,6 +397,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
     flag->isComplex = 1;
     ist->nspin = 2; // generate spinor wavefunctions
     par->t_rev_factor = 2; // give double the memory allocation to psitot
+
+    if (flag->noTimeRev) par->t_rev_factor = 1;
   }
   if (flag->interpolatePot == 1) {
     ist->ngeoms = 2; // give double memory to pot.r and pot.pseudo vectors
@@ -400,11 +407,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->nspinngrid = ist->nspin * ist->ngrid;
   ist->complex_idx = flag->isComplex + 1;
   ist->mn_states_tot = ist->n_filter_cycles * ist->m_states_per_filter;
-  ist->n_states_per_rank = ist->mn_states_tot / parallel->mpi_size;
-  ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx;
-  // used only for "filter_fast.c" scheme
   ist->n_filters_per_rank = ist->n_filter_cycles / parallel->mpi_size;
-  // 
+  ist->n_states_per_rank = ist->n_filters_per_rank * ist->m_states_per_filter;
+  ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx;
+
   ist->nthreads = parallel->nthreads;
 
   // Handle flags for restarting filter from checkpoints or other retries
@@ -413,24 +419,6 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
     ist->mn_states_tot = ist->n_states_for_ortho;
   }
 
-  // Handle nested parallelism
-  parallel->n_outer_threads = parallel->nthreads;
-  if (1 == parallel->nestedOMP){
-    // Check to make sure that ham_threads was also given a >1 value
-    if (par->ham_threads > 1){
-      parallel->n_inner_threads = par->ham_threads;
-      parallel->n_outer_threads = (int) (parallel->nthreads / parallel->n_inner_threads);
-      
-      if ( (parallel->n_outer_threads % ist->m_states_per_filter) != 0){
-        if (parallel->mpi_rank == 0) printf("WARNING: Nested parallel req'd but m_states %ld not factor of n_outer = %d\n", ist->m_states_per_filter, parallel->n_outer_threads);
-        if (parallel->mpi_rank == 0) fprintf(stderr, "WARNING: Nested parallel req'd but m_states %ld not factor of n_outer = %d\n", ist->m_states_per_filter, parallel->n_outer_threads);
-      }
-    }
-    else {
-      if (parallel->mpi_rank == 0) printf("WARNING: Nested parallelism requested but ham_threads = %d\n", par->ham_threads);
-      if (parallel->mpi_rank == 0) fprintf(stderr, "WARNING: Nested parallelism requested but ham_threads = %d\n", par->ham_threads);
-    }
-  }
 
   // Get the number of atoms (needed to initialize the atom list)
   pf = fopen("conf.par" , "r");

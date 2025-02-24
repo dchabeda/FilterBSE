@@ -2,7 +2,7 @@
 
 /*****************************************************************************/
 
-void run_filter_cycle(
+void run_filter_cycles(
   double*       psi_rank, 
   double*       pot_local,
   zomplex*      LS,
@@ -63,10 +63,11 @@ void run_filter_cycle(
 
   //              Arrays for Hamiltonian evaluation
   zomplex*        psi;
-  zomplex*        phi; 
-  zomplex*        projs;
+  zomplex*        phi;
   
   //              FFT plans and arrays
+  fftw_init_threads();
+  fftw_plan_with_nthreads(par->ham_threads);
   fftw_plan_loc   planfw;
   fftw_plan_loc   planbw;
   fftw_complex*   fftwpsi;
@@ -75,9 +76,6 @@ void run_filter_cycle(
   /************************************************************/
   /*******************  INIT ARRAYS & MEM   *******************/
   /************************************************************/
-
-  fftw_init_threads();
-  fftw_plan_with_nthreads(par->ham_threads);
   
   // Create FFT structs and plans for Fourier transform
   fftwpsi = fftw_malloc(sizeof (fftw_complex) * ist->ngrid);
@@ -86,7 +84,6 @@ void run_filter_cycle(
   
   ALLOCATE(&psi, ist->nspinngrid, "psi in filter_mpi"); 
   ALLOCATE(&phi, ist->nspinngrid, "phi in filter_mpi");
-  ALLOCATE(&projs, par->ham_threads * (ist->nproj * ist->n_j_ang_mom) , "proj");
   ALLOCATE(&ene_filters, ist->n_states_per_rank, "ene_filters");
   
   /************************************************************/
@@ -98,8 +95,6 @@ void run_filter_cycle(
   /* propagating at each energy target                        */
   /************************************************************/
   
-  double *rho = (double*)calloc(ist->ngrid, sizeof(double)) ;
-  double sgn_val;
   char str[40];
 
   // Set the number of OMP threads for Hamiltonian eval
@@ -112,13 +107,13 @@ void run_filter_cycle(
     
     // Keep track of how many filter iterations have taken place
     if (mpir == 0) {
-      printf("  Random psi %ld / %ld | %s\n", jns, ist->n_filters_per_rank, get_time());
+      printf("  Random psi %ld / %ld | %s\n", jns + 1, ist->n_filters_per_rank, get_time());
       fflush(0);
     }
 
     // Run the filter cycle (apply Hamiltonian ncheby times)
     filter_cycle(
-      psi_rank, jns, psi, phi, pot_local, projs, LS, nlc, nl, ksqr, an, zn,
+      psi_rank, jns, psi, phi, pot_local, LS, nlc, nl, ksqr, an, zn,
       ene_targets, grid, ist, par, flag, parallel, planfw, planbw, fftwpsi
     );
 
@@ -173,7 +168,7 @@ void run_filter_cycle(
     fclose(pf);
   }
 
-  free(ene_filters); free(projs);
+  free(ene_filters);
   
   return;
 }
@@ -188,7 +183,6 @@ void filter_cycle(
   zomplex*      psi,
   zomplex*      phi,
   double*       pot_local,
-  zomplex*      projs,
   zomplex*      LS,
   nlc_st*       nlc, 
   long*         nl, 
@@ -235,7 +229,6 @@ void filter_cycle(
   long           jms; 
   long           ns_block;
   long           jstate;
-  long           cntr = 0;
   long           jgrid;
   long           jgrid_real;
   long           jgrid_imag;
@@ -248,7 +241,7 @@ void filter_cycle(
   const long     ms = ist->m_states_per_filter;
   const long     stlen = ist->nspinngrid * ist->complex_idx;
 
-  const long     mpir = mpir;
+  const long     mpir = parallel->mpi_rank;
   // 
 
   ns_block = jns * (ms * stlen);
@@ -309,7 +302,7 @@ void filter_cycle(
 
     // Apply Hamiltonian and renormalize eigs for Cheby stability
     p_hnorm(
-      psi, phi, pot_local, projs, LS, nlc, nl, ksqr, zn_jc, 
+      psi, phi, pot_local, LS, nlc, nl, ksqr, zn_jc, 
       ist, par, flag, parallel, planfw, planbw, fftwpsi
     );
 
@@ -338,6 +331,12 @@ void filter_cycle(
         }
       }
     }
+
+    if (mpir == 0){
+      if ( (1 == jc) || (0 == (jc % ((long) (ist->ncheby / 4 + 1)) )) || ( (ist->ncheby - 1) == jc) ){
+        print_progress_bar(jc, ist->ncheby);
+      }
+    }
   }
 
   return;
@@ -350,7 +349,6 @@ void p_hnorm(
   zomplex*      psi_out, 
   zomplex*      psi_tmp, 
   double*       pot_local,
-  zomplex*      projs, 
   zomplex*      LS,
   nlc_st*       nlc, 
   long*         nl, 
@@ -370,7 +368,7 @@ void p_hnorm(
   memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid * sizeof(psi_tmp[0]));
 
   p_hamiltonian(
-    psi_out, psi_tmp, pot_local, projs, LS, nlc, nl, ksqr, ist, 
+    psi_out, psi_tmp, pot_local, LS, nlc, nl, ksqr, ist, 
     par, flag, planfw, planbw, fftwpsi, par->ham_threads
   );
   
@@ -456,21 +454,17 @@ void time_hamiltonian(
   
   
   // Calculate the action of the potential operator on the wavefunction: |psi_out> = V|psi_tmp>
-  // Allocate projector scratch work space
-  zomplex *projs;
-  ALLOCATE(&projs, par->ham_threads * (ist->nproj * ist->n_j_ang_mom) , "proj");
-  
 
   if(flag->SO==1){
     // Calculate |psi_out> = V_SO|psi_tmp>
 
     // Warmup runs
     for (j = 0; j < 3; j++){
-      p_spin_orbit_proj_pot(psi_out, psi_tmp, projs, LS, nlc, nl, ist, par, par->ham_threads);
+      p_spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par, par->ham_threads);
     }
     clock_gettime(CLOCK_MONOTONIC, &start); 
     for (j = 0; j < n_iter; j++){
-      p_spin_orbit_proj_pot(psi_out, psi_tmp, projs, LS, nlc, nl, ist, par, par->ham_threads);
+      p_spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par, par->ham_threads);
     }
     clock_gettime(CLOCK_MONOTONIC, &end); 
     double elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
@@ -481,11 +475,11 @@ void time_hamiltonian(
   if (flag->NL == 1){
     // Calculate |psi_out> += V_NL|psi_tmp>
     for (j = 0; j < 3; j++){
-      p_nonlocal_proj_pot(psi_out, psi_tmp, projs, nlc, nl, ist, par, par->ham_threads);
+      p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, par->ham_threads);
     }
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (j = 0; j < n_iter; j++){
-      p_nonlocal_proj_pot(psi_out, psi_tmp, projs, nlc, nl, ist, par, par->ham_threads);
+      p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, par->ham_threads);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
     elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;

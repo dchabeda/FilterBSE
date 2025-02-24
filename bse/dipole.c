@@ -205,9 +205,9 @@ void calc_mag_dipole(xyz_st *mag_dipole, double *psi_qp, double *eig_vals, grid_
       mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_im =  0.5 * sumY.im;
       mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_im =  0.5 * sumZ.im;
 
-      fprintf(pf1,"%ld %ld %g %g\n",i, a, sumX.re, sumX.im);
-      fprintf(pf2,"%ld %ld %g %g\n",i, a, sumY.re, sumY.im);
-      fprintf(pf3,"%ld %ld %g %g\n",i, a, sumZ.re, sumZ.im);
+      fprintf(pf1, "%ld %ld %g %g\n", i, a, sumX.re, sumX.im);
+      fprintf(pf2, "%ld %ld %g %g\n", i, a, sumY.re, sumY.im);
+      fprintf(pf3, "%ld %ld %g %g\n", i, a, sumZ.re, sumZ.im);
 
       ms = \
       ( sqr(mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re) + sqr(mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_im) 

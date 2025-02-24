@@ -1,18 +1,19 @@
 #!/bin/bash
 
 # Check if both arguments (nstates and output_file) are provided
-if [ $# -ne 3 ]; then
-    echo "Usage: $0 <j_per_rank> <n_rank> <output_file>"
+if [ $# -ne 4 ]; then
+    echo "Usage: $0 <j_per_rank> <rnk_start> <rank_end> <output_file>"
     exit 1
 fi
 
 # Get the number of states and the output file name
 jr=$1
-nr=$2
-output_file=$3
+r_s=$2
+r_e=$3
+output_file=$4
 
 # Get the size of the first file as a reference
-ref_file="psi-filt-0-0.dat"
+ref_file="psi-filt-0-$((r_s)).dat"
 ref_size=$(stat --format="%s" "$ref_file" 2>/dev/null)
 
 # Check if the reference file exists
@@ -29,7 +30,7 @@ count=0
 
 # Loop over all the files and concatenate them if their sizes match
 for ((i=0; i<jr; i++)); do
-for ((j=0; j<nr; j++)); do
+for ((j=r_s; j<r_e; j++)); do
     file="psi-filt-${i}-${j}.dat"
     
     # Check if the file exists
@@ -41,6 +42,7 @@ for ((j=0; j<nr; j++)); do
             cat "$file" >> "$output_file"
             echo "Concatenated $file"
             echo "Concatenated $file" > concat_psi_filt.out
+            rm $file
             ((count++))  # Increment the counter for each successfully concatenated file
         else
             echo "Warning: $file has a different size ($size bytes) than the reference ($ref_size bytes)!"

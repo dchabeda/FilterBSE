@@ -216,6 +216,183 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   return;
 }
 
+/****************************************************************************/
+
+void read_unsafe_input(
+    double** psitot,
+    double** eig_vals,
+    double** sigma_E,
+    xyz_st** R, 
+    grid_st *grid,
+    double** gridx,
+    double** gridy,
+    double** gridz,
+    index_st *ist,
+    par_st *par,
+    flag_st *flag,
+    parallel_st *parallel
+    ){
+
+    // Read in psitot, set up the grid, etc.
+    // but in an unsafe way without using output.dat
+    // Wavefunctions might not be aligned with the grid,
+    // leading to uncontrolled errors
+    // USE AT YOUR OWN RISK
+    FILE *pf;
+    int i = 0;
+    char field[1000], tmp[1000], *endptr;
+
+    long stlen;
+    long j;
+    long itmp;
+    
+    if( access( "unsafe_input.par", F_OK) != -1 ) {
+        pf = fopen("unsafe_input.par", "r");
+    
+        while (fscanf(pf, "%s = %s", field, tmp) != EOF && i < 100) {
+            // ****** ****** ****** ****** ****** ****** 
+            // Set parameters&counters for BSE algorithm
+            // ****** ****** ****** ****** ****** ****** 
+            if (!strcmp(field, "mnStatesTot")) {
+                ist->mn_states_tot= strtol(tmp, &endptr, 10);
+                if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+            } else if (!strcmp(field, "nAtoms")) {
+                ist->natoms = strtol(tmp, &endptr, 10);
+                if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
+            } else if (!strcmp(field, "nx")) {
+                grid->nx = strtod(tmp, &endptr);
+                if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
+            } else if (!strcmp(field, "ny")) {
+                grid->ny = strtod(tmp, &endptr);
+                if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
+            } else if (!strcmp(field, "nz")) {
+                grid->nz = strtod(tmp, &endptr);
+                if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
+            } else if (!strcmp(field, "xmin")) {
+                grid->xmin = strtod(tmp, &endptr);
+                if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
+            }  else if (!strcmp(field, "ymin")) {
+                grid->ymin = strtod(tmp, &endptr);
+                if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
+            } else if (!strcmp(field, "zmin")) {
+                grid->zmin = strtod(tmp, &endptr);
+                if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
+            } else if (!strcmp(field, "dx")) {
+                grid->dx = strtod(tmp, &endptr);
+                if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
+            } else if (!strcmp(field, "dy")) {
+                grid->dy = strtod(tmp, &endptr);
+                if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
+            } else if (!strcmp(field, "dz")) {
+                grid->dz = strtod(tmp, &endptr);
+                if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
+            }
+            // ****** ****** ****** ****** ****** ****** 
+            // Handle exceptions
+            // ****** ****** ****** ****** ****** ******
+            else {
+                printf("\nFIELD NOT RECOGNIZED in unsafe_input.par: %s\n", field);
+                printf("\nInvalid input field and/ or format -> equal sign required after each field\n");
+                
+                fflush(stdout);
+                exit(EXIT_FAILURE);
+            }
+            i++;
+        } 
+        fclose(pf);
+    } 
+    else{
+        printf("PROGRAM EXITING: unsafe_input.par does not exist in directory\n");
+        fprintf(stderr, "PROGRAM EXITING: unsafe_input.par does not exist in directory\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    // Assign and construct system size variables
+    grid->dv = grid->dx * grid->dy * grid->dz;
+    ist->nx = grid->nx;  ist->ny = grid->ny;  ist->nz = grid->nz;
+    ist->ngrid = grid->ngrid = ist->nx * ist->ny * ist->nz;
+    ist->nspinngrid = 2 * ist->ngrid;// hardocded for complex spinors, need to make general
+    ist->complex_idx = 2; // these are hardocde for complex spinors, need to make general
+    stlen = ist->complex_idx * ist->nspinngrid;
+
+    printf("Done reading in unsafe_input.par\n\n");
+    printf("xmin = %lg ymin = %lg zmin = %lg\n", grid->xmin, grid->ymin, grid->zmin);
+    printf("nx = %ld ny = %ld nz = %ld\n", grid->nx, grid->ny, grid->nz);
+    printf("dx = %lg dy = %lg dz = %lg\n", grid->dx, grid->dy, grid->dz);
+    printf("natoms = %ld\n", ist->natoms);
+    printf("mn_states_tot = %ld\n", ist->mn_states_tot);
+
+    // Allocate memory for grid, psi, eigs, sigma_E, and R
+    (*gridx)       =   (double*) calloc(grid->nx, sizeof(double));
+    (*gridy)       =   (double*) calloc(grid->ny, sizeof(double));
+    (*gridz)       =   (double*) calloc(grid->nz, sizeof(double));
+
+    (*psitot)      =   (double*) calloc(ist->mn_states_tot * stlen, sizeof(double));
+
+    (*eig_vals)    =   (double*) calloc(ist->mn_states_tot, sizeof(double));
+    (*sigma_E)     =   (double*) calloc(ist->mn_states_tot, sizeof(double));
+
+    (*R)           =   (xyz_st*) calloc(ist->natoms, sizeof(xyz_st));
+
+    // Build the grid
+
+    for (j = 0; j < grid->nx; j++) (*gridx)[j] = grid->xmin + j * grid->dx;
+    for (j = 0; j < grid->ny; j++) (*gridy)[j] = grid->ymin + j * grid->dy;
+    for (j = 0; j < grid->nx; j++) (*gridz)[j] = grid->zmin + j * grid->dz;
+
+    // Define grid maxima
+    grid->xmax = (*gridx)[grid->nx - 1];
+    grid->ymax = (*gridy)[grid->ny - 1];
+    grid->zmax = (*gridz)[grid->nz - 1];
+
+    // Read in psitot from psi.par
+    if( access( "psi.par", F_OK) != -1 ) {
+        pf = fopen("psi.par", "r");
+        fread((*psitot), stlen * sizeof(double), ist->mn_states_tot, pf);
+        fclose(pf);
+    } 
+    else{
+        printf("PROGRAM EXITING: psi.par does not exist in directory\n");
+        fprintf(stderr, "PROGRAM EXITING: psi.par does not exist in directory\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Read in the eig_vals and sigma_E
+    if( access( "eval.par", F_OK) != -1 ) {
+        pf = fopen("eval.par", "r");
+        
+        for (j = 0; j < ist->mn_states_tot; j++){
+            fscanf(pf, "%ld %lg %lg", &itmp, &((*eig_vals)[j]),  &((*sigma_E)[j]));
+        }
+
+        fclose(pf);
+    } 
+    else{
+        printf("PROGRAM EXITING: eval.par does not exist in directory\n");
+        fprintf(stderr, "PROGRAM EXITING: eval.par does not exist in directory\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    // Read in atomic configuration
+    if( access( "conf.par", F_OK) != -1 ) {
+        pf = fopen("conf.par", "r");
+        
+        for (j = 0; j < ist->natoms; j++){
+            fscanf(pf, "%s %lg %lg %lg", &tmp, &((*R)[j].x) , &((*R)[j].y), &((*R)[j].z));
+        }
+
+        fclose(pf);
+    } 
+    else{
+        printf("PROGRAM EXITING: conf.par does not exist in directory\n");
+        fprintf(stderr, "PROGRAM EXITING: conf.par does not exist in directory\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Done with function read_unsafe_input\n"); fflush(0);
+
+    return;
+}
 
 /****************************************************************************/
 

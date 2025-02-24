@@ -45,10 +45,7 @@ void mod_pot(
     ALLOCATE(&(pot->pseudo_LR), potfl_tot, "pot->pseudo_LR");
   }
   
-  // Read atomic pseudopotentials
-  if (mpir == 0) printf("\tReading atomic pseudopotentials...\n");
-  read_pot(pot, R, atom, ist, par, flag, parallel);
-
+  
   // Build local potential on the grid
   build_local_pot(pot_local, pot, R, atom, grid, ist, par, flag, parallel);
   write_cube_file(pot_local, grid, "local-pot.cube");

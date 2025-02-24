@@ -68,6 +68,7 @@ typedef struct flag {
   int   calcFilterOnly;
   int   approxEnergyRange;
   int   readProj;
+  int   noTimeRev;
 
   // Performance and parallelization
   int   useFastHam;
@@ -485,24 +486,6 @@ void read_nearest_neighbors(vector *atom_neighbors, double *tetrahedron_vol_ref,
 void calc_strain_scale(double *strain_scale, vector *atom_neighbors, double *tetrahedron_vol_ref, atom_info *atom, double *a4_params, double *a5_params, long natoms);
 double calc_regular_tetrahedron_volume(double bond_length1, double bond_length2, double bond_length3, double bond_length4);
 
-// periodic.c
-void periodic_driver(double *pot_local, nlc_st *nlc, long *nl, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-void gen_recip_lat_vecs(lattice_st *lattice, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-void gen_G_vecs(vector *G_vecs, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-void gen_k_vecs(vector *k_vecs, lattice_st *lattice, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-void read_k_path(vector **k_vecs, lattice_st *lattice, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-
-// ghamiltonian.c
-void hamiltonian_k(
-  zomplex       *psi_out,  zomplex      *psi_tmp,    double *pot_local,    
-  vector        *G_vecs,   vector        k,          grid_st *grid, 
-  nlc_st        *nlc,      long         *nl,         index_st *ist, 
-  par_st        *par,      flag_st      *flag,       fftw_plan_loc planfw, 
-  fftw_plan_loc planbw,    fftw_complex *fftwpsi);
-void p_hamiltonian_k(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, vector *G_vecs, vector k, grid_st *grid, nlc_st *nlc, long *nl,
-  index_st *ist, par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, int ham_threads);
-void kinetic_k(zomplex *psi_out, vector *G_vecs, vector k, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st *ist);
-void e_ikr(zomplex *psi, vector k, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
 
 //interpolate.c
 double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,double *pot_LR,long pot_file_len,long n,long j, int scale_LR, double scale_LR_par, double strain_factor, int is_LR);
@@ -510,10 +493,6 @@ double interpolate(double r,double dr,double *vr,double *vr_LR,double *pot,doubl
 //rand.c
 double ran_nrc(long *rand_seed);
 void Randomize(void);
-
-//hamiltonian.c
-void time_hamiltonian_k(zomplex *phi, zomplex *psi, double *pot_local, vector *G_vecs, vector k, grid_st *grid,nlc_st *nlc, long *nl,
-  index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 
 
 //filter.c
@@ -530,16 +509,6 @@ void potential_gauss(double *V_mat, double *pot_local, gauss_st *gauss, grid_st 
 double calc_norm(zomplex *, double,long,long);
 double normalize(zomplex *, long ngrid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void normalize_all(double *psitot, long n_states, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-
-//energy.c
-double energy_k(zomplex *psi, zomplex *phi, double *pot_local, vector *G_vecs, vector k, grid_st *grid,nlc_st *nlc, long *nl, index_st *ist,
-  par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
-void energy_all_k(double *psitot, long n_states, double *pot_local, vector *G_vecs, vector k, grid_st *grid,nlc_st *nlc, long *nl,
-  double *ene, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-void get_energy_range_k(zomplex *psi, zomplex *phi, double *pot_local, vector *G_vecs, vector k, grid_st *grid, nlc_st *nlc, long *nl,
-  index_st *ist, par_st *par, parallel_st *parallel, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
-void calc_sigma_E_k(double *psitot, double *pot_local, vector *G_vecs, vector *k_vecs, grid_st *grid,nlc_st *nlc, long *nl,
-  double *eval2, index_st *ist, par_st *par, flag_st *flag);
 
 
 //coeff.c

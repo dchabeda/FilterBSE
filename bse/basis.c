@@ -220,9 +220,9 @@ void get_qp_basis(double *psi_qp, double *psitot, double *eig_vals, double *sigm
   } 
 
   // Copy the electron states
-  for (i = 0; i < ist->max_elec_states; i++){
+  for (i = 0; i < ist->n_elecs; i++){
     state_idx = ist->eval_elec_idxs[i];
-    // printf("psi_qp: reading state %ld\n", state_idx);
+    printf("psi_qp elec: reading state %ld\n", state_idx);
     memcpy(&psi_qp[cntr * ist->nspinngrid * ist->complex_idx], &psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx * sizeof(psitot[0]));
     cntr++;
   } 

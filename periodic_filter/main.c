@@ -1,0 +1,297 @@
+#include "main.h"
+
+/*****************************************************************************/
+
+int main(int argc, char *argv[]){
+  /*****************************************************************
+  * This is the main function for Filter.x. It is the driver that  *
+  * controls memory allocation, structs, and the filter algorithm. *
+  * The algorithm computes quasiparticle excited states using      *
+  * sparse-matrix techniques. It is applied to nanocrystal         *
+  * systems through the use of semiempirical pseudopotentials.     *
+  ******************************************************************/ 
+  
+  /*****************************************************************/
+  /*************   DECLARE VARIABLES AND STRUCTS   *****************/
+  /*****************************************************************/
+
+  //              zomplex types
+  zomplex*        psi;            // Wavefunction on the grid
+  zomplex*        phi;            // Wavefunction on the grid (helper)
+  zomplex*        an;             // Newton interpolation coefficients
+  zomplex*        LS = NULL;      // Spin-orbit matrix
+  
+  //              custom structs 
+  index_st        ist;            // Indexes for the program
+  par_st          par;            // Parameters for the program
+  flag_st         flag;           // Flags for options in the program
+  parallel_st     parallel;       // MPI parallelization information
+  xyz_st*         R;              // Atomic positions in the x, y, and z
+  atom_info*      atom;           // Atom specific information
+  pot_st          pot;            // Atomic pseudopotential information
+  grid_st         grid;           // Grid params and the real space grid
+  grid.x =        NULL;
+  grid.y =        NULL;
+  grid.z =        NULL;
+  nlc_st*         nlc = NULL;     // Non-local pseudopotential info
+
+  lattice_st      lattice;
+  vector*         G_vecs  = NULL;
+  vector*         k_vecs  = NULL;
+  // gauss_st*       gauss;          // Gaussian basis coeffs/exps
+  
+  //              double arrays
+  double*         psitot = NULL;  // All filtered states
+  double*         psi_rank;       // Filter states for each rank
+  double*         pot_local;      // Local pseudopotential on the grid
+  double*         SO_projectors;  // Spin-orbit projectors
+  double*         ksqr;           // Kinetic energy sqr on the grid
+  double*         zn;             // Chebyshev support points
+  double*         eig_vals;       // Quasiparticle energies
+  double*         ene_targets;    // Energy targets for filtering
+  double*         sigma_E;        // Standard dev. of the energies
+  
+  //              long int arrays and counters
+  long*           nl = NULL;
+
+  // MPI Initialization
+
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
+  
+  const int mpir = parallel.mpi_rank;
+  parallel.mpi_root = 0;
+  
+  /************************************************************/
+  /*******************   JOB PRE-PRINTING   *******************/
+  /************************************************************/
+
+  // Clock/Wall time output and stdout formatting
+  time_t start_time = time(NULL); // Get the actual time for total wall runtime
+  time_t start_clock = clock(); // Get the starting CPU clock time for total CPU runtime
+  
+  char    *top;
+  char    *bottom; 
+  top    = malloc(2*sizeof(top[0]));
+  bottom = malloc(2*sizeof(bottom[0]));
+  strcpy(top, "T\0");
+  strcpy(bottom, "B\0");
+
+  
+  if (mpir == 0){
+    printf("******************************************************************************\n");
+    printf("\nRUNNING PROGRAM: FILTER DIAGONALIZATION\n");
+    printf("This calculation began at: %s\n", get_time()); 
+    printf("Printing from root node %d", mpir); 
+    write_separation(stdout, bottom);
+    fflush(stdout);
+  }
+  
+  /************************************************************/
+  /*******************   RUN INIT MODULE    *******************/
+  /************************************************************/
+  
+  // allocate mem for all the atom types as a pre-step
+  ALLOCATE(&(ist.atom_types), N_MAX_ATOM_TYPES, "ist->atom_types");
+
+  mod_init(
+    &grid, &(grid.x), &(grid.y), &(grid.z), &R, &atom, &ene_targets,
+    &ksqr, &lattice, &G_vecs, &k_vecs, &ist, &par, &flag, &parallel
+  );
+  
+  /************************************************************/
+  /*******************    RUN MEM MODULE    *******************/
+  /************************************************************/
+
+  mod_mem_alloc(
+    &psi_rank, &psi, &phi, &pot_local, &LS, &nlc, &nl, &SO_projectors,
+    &an, &zn, &eig_vals, &sigma_E, &ist, &par, &flag, &parallel
+  );
+  
+  
+  /************************************************************/
+  /*******************    RUN POT MODULE    *******************/
+  /************************************************************/
+
+  mod_pot(
+    pot_local, &pot, R, atom, &grid, LS, nlc, nl, SO_projectors, 
+    &ist, &par, &flag, &parallel
+  );
+
+  
+  // This code supports restarting the job from a saved state. 
+  // See save.c for formatting of checkpoint files. 
+  // See read_input in read.c for specifying the checkpoint restart
+  switch (flag.restartFromCheckpoint){
+    
+    // No restart requested 
+    case 0:
+      
+      // // If the job uses a Gaussian basis, run the job in the Gaussian basis
+      // if (1 == flag.useGaussianBasis){
+      //   //
+      //   gauss_driver(
+      //     gauss, pot_local, eig_vals, R, atom, 
+      //     &grid, &ist, &par, &flag, &parallel);
+      //   //
+      //   exit(0);
+      // }
+
+      /************************************************************/
+      /*******************  RUN FILTER MODULE   *******************/
+      /************************************************************/
+      
+      mod_filter(
+        psi_rank, psi, phi, pot_local, &grid, LS, nlc, nl, an, zn,
+        ene_targets, ksqr, &lattice, G_vecs, k_vecs, &ist, &par, &flag, &parallel
+      );
+      
+      if (1 == flag.calcFilterOnly){
+        exit(0);
+      }
+
+      // Gather all psi_rank from MPI ranks into psitot
+      const long long tot_sz = ist.complex_idx * par.t_rev_factor * ist.nspinngrid * ist.mn_states_tot;
+      const long long prs = ist.psi_rank_size;
+
+      if (mpir == 0){ 
+        printf("Allocating mem for psitot\n");
+        ALLOCATE(&psitot, tot_sz, "psitot");
+        printf("Gathering psitot from all mpi_ranks\n"); fflush(0);
+      }
+      
+      // MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
+      // 
+      // 
+      MPI_Gather(psi_rank, prs, MPI_DOUBLE, psitot, prs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+      free(psi_rank);
+      // 
+      // 
+
+      if (mpir == 0) printf("Succesfully gathered all states\n"); fflush(0);
+      
+      // Save a checkpoint if requested
+      if ((1 == flag.saveCheckpoints) && (0 == mpir)){
+        save_job_state(
+          "checkpoint_1.dat", par.checkpoint_id, psitot, pot_local, ksqr,
+          an, zn, ene_targets, nl, nlc, &grid, &ist, &par, &flag, &parallel);
+      }
+
+    // Restart from orthogonalization module
+    case 1:
+      omp_set_num_threads(parallel.nthreads);
+      
+      /************************************************************/
+      /*******************   RUN ORTHO MODULE   *******************/
+      /************************************************************/
+      
+      if (mpir == 0) // subsequent modules performed on a single rank
+      {
+
+        /************************************************************/
+        /*******************  RESTART FROM ORTHO  *******************/
+        /************************************************************/
+        
+        if (1 == flag.restartFromOrtho){
+          // 
+          long long tot_sz = par.t_rev_factor * ist.complex_idx * ist.nspinngrid * ist.mn_states_tot;
+          
+          ALLOCATE(&psitot, tot_sz, "psitot");fflush(0);
+          restart_from_ortho(psitot, &ist, &par, &flag, &parallel);
+          // 
+        } 
+
+
+        mod_ortho(
+          psitot, pot_local, &grid, nlc, nl, an, zn, ene_targets,
+          ksqr, &ist, &par, &flag, &parallel
+        );
+
+        psitot = realloc(psitot, ist.mn_states_tot*ist.nspinngrid*ist.complex_idx*sizeof(psitot[0]));
+
+        // Save checkpoint if requested
+        if (1 == flag.saveCheckpoints){
+          save_job_state(
+            "checkpoint_2.dat", par.checkpoint_id, psitot, pot_local, ksqr,
+            an, zn, ene_targets, nl, nlc, &grid, &ist, &par, &flag, &parallel);
+        }
+      } // mpi rank 0
+
+    // Restart from diagonalization module
+    case 2:
+      if (0 == mpir){
+
+        mod_diag(psitot, pot_local, eig_vals, sigma_E, G_vecs, k_vecs, &grid, LS, nlc, nl,
+        an, zn, ene_targets, &ist, &par, &flag, &parallel);
+
+        // Save checkpoint if requested
+        if (3 == flag.saveCheckpoints){
+          save_job_state(
+            "checkpoint_3.dat", par.checkpoint_id, psitot, pot_local, ksqr,
+            an, zn, ene_targets, nl, nlc, &grid, &ist, &par, &flag, &parallel);
+        }
+      } // end [if mpi rank 0]
+  } // end switch
+  
+  /************************************************************/
+  /*******************   RUN OUTPUT MODULE  *******************/
+  /************************************************************/
+  if (0 == mpir){
+    mod_output(psitot, R, eig_vals, sigma_E, &grid, &ist, &par, &flag, &parallel);
+  }
+
+  /************************************************************/
+  /*****************  OPTIONAL OUTPUT MODULE  *****************/
+  /************************************************************/
+
+  // if (0 == mpir){
+  //   mod_optional_output(
+  //     psitot, R, eig_vals, sigma_E, &grid, ksqr, &ist, &par, &flag, &parallel)
+  // }
+
+  /************************************************************/
+  /******************   FREE MEM & FINALIZE   *****************/
+  /************************************************************/
+      
+  free(ist.atom_types);
+  free(grid.x); free(grid.y); free(grid.z); 
+  free(R); free(atom);
+  free(psi); free(phi); 
+  free(pot_local); free(ksqr);
+  free(nlc); free(nl); 
+  free(eig_vals); free(ene_targets); free(sigma_E);
+  free(an); free(zn);
+  
+  if (0 == mpir){
+    free(psitot); 
+
+    // Get total job duration
+
+    time_t end_time = time(NULL);
+    time_t end_clock = clock();
+    double elapsed_seconds = difftime(end_time, start_time);
+    char* duration = format_duration(elapsed_seconds);
+    
+    // Print final job stat line
+
+    write_separation(stdout, top);
+    
+    printf("\nDONE WITH PROGRAM: FILTER DIAGONALIZATION\n");
+    printf("This calculation ended at: %s\n", ctime(&end_time)); 
+    printf("Total job CPU time (sec) %.4g | %s\n",
+      ((double)end_clock - (double)start_clock)/(double)(CLOCKS_PER_SEC), 
+      format_duration(((double)end_clock - (double)start_clock)/(double)(CLOCKS_PER_SEC)) );
+    printf("Total wall run time (sec) %.4g | %s", (double)end_time - (double)start_time, duration);
+    
+    write_separation(stdout, bottom); fflush(0);
+
+    free(top); free(bottom);
+  }
+      
+  MPI_Finalize(); // Finalize the MPI tasks and prepare to exit program
+      
+  exit(0);
+} // End of main
+
+/*****************************************************************************/

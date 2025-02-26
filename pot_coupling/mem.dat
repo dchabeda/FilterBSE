@@ -1,0 +1,3 @@
+alloc ist.atom_types 160 B
+alloc top 2 B
+alloc bottom 2 B

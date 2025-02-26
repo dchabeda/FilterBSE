@@ -1,2 +1,6 @@
 *.o
 *.x
+filter/EXAMPLES/*/psi.dat
+filter/EXAMPLES/*/output.dat
+*.e*
+*.o*

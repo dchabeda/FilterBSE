@@ -4,14 +4,14 @@
 
 /***************************************************************************************/
 
-void hartree(zomplex *rho, zomplex *potq, zomplex *poth, long_st ist, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi) {  
+void hartree(zomplex *rho, zomplex *potq, zomplex *poth, index_st *ist, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi) {  
   long j;
   zomplex tmp;
 
-  memcpy(&fftwpsi[0],&rho[0],ist.ngrid*sizeof(fftwpsi[0]));
+  memcpy(&fftwpsi[0],&rho[0],ist->ngrid*sizeof(fftwpsi[0]));
   fftw_execute(planfw);
 
-  for (j = 0; j < ist.ngrid; j++) {
+  for (j = 0; j < ist->ngrid; j++) {
     tmp.re = fftwpsi[j][0];
     tmp.im = fftwpsi[j][1];
 
@@ -20,7 +20,7 @@ void hartree(zomplex *rho, zomplex *potq, zomplex *poth, long_st ist, fftw_plan_
   }
 
   fftw_execute(planbw);
-  for (j = 0; j < ist.ngrid; j++) {
+  for (j = 0; j < ist->ngrid; j++) {
 	  poth[j].re = fftwpsi[j][0];
     poth[j].im = fftwpsi[j][1];
   }

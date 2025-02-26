@@ -19,17 +19,29 @@ void calc_elec_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, gr
   ********************************************************************/
 
   FILE *pf1, *pf2, *pf3, *pf; 
-  long a, i, jx, jy, jz, jyz; 
-  long jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
-  long i_up_real, i_up_imag, i_dn_real, i_dn_imag, a_up_real, a_up_imag, a_dn_real, a_dn_imag;
+  long a, i, jx, jy, jz, jyz, jxyz; 
+  long jgur; // jgrid_up_real
+  long jgui;
+  long jgdr; //jgrid_dn_real 
+  long jgdi;
+  long iur; // istate_up_real
+  long iui;
+  long idr; // istate_dn_real
+  long idi;
+  long aur; // astate_up_real
+  long aui, adr, adi;
   zomplex sumX, sumY, sumZ, tmp;
   double z, y, x, bohr_freq, osc_strength;
+  long idx;
+  const long stlen = ist->nspinngrid * ist->complex_idx;
   
   // Output will be written to these files
   pf = fopen("OS0.dat" , "w"); 
-  fprintf(pf, "i  a   sqrt(mu2)     Ea-Ei 	  f_osc       mu_x.re     mu_y.re     mu_z.re");
-  if (flag->useSpinors){
-    fprintf(pf, "     mu_x.im     mu_y.im     mu_z.im");
+  
+  if (flag->isComplex){
+    fprintf(pf, "i  a   sqrt(mu2)     Ea-Ei 	  f_osc       mu_x.re     mu_x.im     mu_y.re     mu_y.im     mu_z.re     mu_z.im");
+  } else{
+    fprintf(pf, "i  a   sqrt(mu2)     Ea-Ei 	  f_osc       mu_x.re     mu_y.re     mu_z.re");
   }
   //pf1 = fopen("mu_x.dat", "w"); pf2 = fopen("mu_y.dat", "w"); pf3 = fopen("mu_z.dat", "w");
 
@@ -38,7 +50,7 @@ void calc_elec_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, gr
 
   // Main computional work of function performed here - must loop over all electron-hole (i-a) pairs
   // compute $$\vec{\mu} = <a|\vec{r}|i> = \int dr \sum_\simga \psi_{a}^{*}(r,\sigma) \vec{r} \psi_i(r,\sigma)$$
-
+  #pragma omp parallel for private(i, a, jz, jy, jx, jyz, jxyz, jgur, jgui, jgdr, jgdi, iur, iui, idr, idi, aur, aui, adr, adi, idx, osc_strength, bohr_freq)
   for (i = 0; i < ist->n_holes; i++){
     // fprintf(pf1,"\n"); fprintf(pf2,"\n"); fprintf(pf3,"\n");
     for (a = ist->lumo_idx; a < ist->lumo_idx+ist->n_elecs; a++) {
@@ -49,36 +61,37 @@ void calc_elec_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, gr
           y = grid->y[jy];
           jyz = ist->nx * (ist->ny * jz + jy);
           for (jx = 0; jx < ist->nx; jx++) {
+            jxyz = jyz + jx;
             x = grid->x[jx];
-            // If the wavefunctions are scalar, only one of these indices is necessary (jgridup_real)
+            // If the wavefunctions are scalar, only one of these indices is necessary (jgur)
             // If psi_qp are spinors, then all four indices are necessary
-            jgridup_real = ist->complex_idx * (jyz + jx);
-            i_up_real = i*ist->nspinngrid*ist->complex_idx+jgridup_real;
-            a_up_real = a*ist->nspinngrid*ist->complex_idx+jgridup_real;
+            jgur = ist->complex_idx * (jyz + jx);
+            iur = i*stlen+jgur;
+            aur = a*stlen+jgur;
             
             // compute matrix element with real, scalar wavefuntions
-      	    tmp.re = psi_qp[a_up_real] * psi_qp[i_up_real];
+      	    tmp.re = psi_qp[aur] * psi_qp[iur];
             // sumX.re += tmp.re * x; sumY.re += tmp.re * y; sumZ.re += tmp.re * z;
 
             // If using spinors, add the down component of the integral (and the remaining imaginary piece from the up spin)
             if (1 == flag->useSpinors){
               // get indices for computing matrix elem with spinor
-              jgridup_imag = ist->complex_idx * (jyz + jx) + 1;
-              jgriddn_real = jgridup_real + ist->ngrid*ist->complex_idx;
-              jgriddn_imag = jgridup_imag + ist->ngrid*ist->complex_idx;
-              i_up_imag = i*ist->nspinngrid*ist->complex_idx+jgridup_imag; a_up_imag = a*ist->nspinngrid*ist->complex_idx+jgridup_imag;
-              i_dn_real = i*ist->nspinngrid*ist->complex_idx+jgriddn_real; a_dn_real = a*ist->nspinngrid*ist->complex_idx+jgriddn_real;
-              i_dn_imag = i*ist->nspinngrid*ist->complex_idx+jgriddn_imag; a_dn_imag = a*ist->nspinngrid*ist->complex_idx+jgriddn_imag;
+              jgui = ist->complex_idx * jxyz + 1;
+              jgdr = jgur + ist->ngrid*ist->complex_idx;
+              jgdi = jgui + ist->ngrid*ist->complex_idx;
+              iui = i*stlen+jgui; aui = a*stlen+jgui;
+              idr = i*stlen+jgdr; adr = a*stlen+jgdr;
+              idi = i*stlen+jgdi; adi = a*stlen+jgdi;
 
               // REAL PART OF MATRIX ELEM CONTINUED
               // imaginary component of up spin contribution
-              tmp.re += psi_qp[a_up_imag] * psi_qp[i_up_imag];
+              tmp.re += psi_qp[aui] * psi_qp[iui];
               // and down spin contribution
-              tmp.re += psi_qp[a_dn_real] * psi_qp[i_dn_real]  + psi_qp[a_dn_imag] * psi_qp[i_dn_imag];
+              tmp.re += psi_qp[adr] * psi_qp[idr]  + psi_qp[adi] * psi_qp[idi];
 
               // IMAG PART OF MATRIX ELEM
-              tmp.im = psi_qp[a_up_imag] * psi_qp[i_up_real] + psi_qp[a_dn_imag] * psi_qp[i_dn_real]
-                     - psi_qp[a_up_real] * psi_qp[i_up_imag] - psi_qp[a_dn_real] * psi_qp[i_dn_imag];
+              tmp.im = psi_qp[aui] * psi_qp[iur] + psi_qp[adi] * psi_qp[idr]
+                     - psi_qp[aur] * psi_qp[iui] - psi_qp[adr] * psi_qp[idi];
             
               sumX.im +=  tmp.im * x; sumY.im +=  tmp.im * y; sumZ.im +=  tmp.im * z;
             }
@@ -90,15 +103,16 @@ void calc_elec_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, gr
           }
         }
       }
-      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re = par->dv * sumX.re;  
-      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_re = par->dv * sumY.re; 
-      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_re = par->dv * sumZ.re; 
+      idx = i*ist->n_elecs+(a-ist->lumo_idx);
+      trans_dipole[idx].x_re = par->dv * sumX.re;  
+      trans_dipole[idx].y_re = par->dv * sumY.re; 
+      trans_dipole[idx].z_re = par->dv * sumZ.re; 
       osc_strength = sqr(par->dv) * (sqr(sumX.re) + sqr(sumY.re) + sqr(sumZ.re));
        
       if (1 == flag->useSpinors){
-        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_im = par->dv * sumX.im; 
-        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_im = par->dv * sumY.im;
-        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_im = par->dv * sumZ.im;
+        trans_dipole[idx].x_im = par->dv * sumX.im; 
+        trans_dipole[idx].y_im = par->dv * sumY.im;
+        trans_dipole[idx].z_im = par->dv * sumZ.im;
         osc_strength += sqr(par->dv) * (sqr(sumX.im) + sqr(sumY.im) + sqr(sumZ.im));
       }
       // fprintf (pf1,"%ld %ld %g %g\n",i,a,mux[i*ist->n_elecs+(a-ist->lumo_idx)].re, mux[i*ist->n_elecs+(a-ist->lumo_idx)].im);
@@ -106,11 +120,14 @@ void calc_elec_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, gr
       // fprintf (pf3,"%ld %ld %g %g\n",i,a,muz[i*ist->n_elecs+(a-ist->lumo_idx)].re, muz[i*ist->n_elecs+(a-ist->lumo_idx)].im);
 
       bohr_freq = eig_vals[a] - eig_vals[i];
-      fprintf(pf,"\n%ld % ld  %.8f %.12f % .8f % .8f % .8f % .8f", i, a, sqrt(osc_strength), bohr_freq, (2.0/3.0)*bohr_freq*osc_strength, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re,
-        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_re, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_re);
-
       if (1 == flag->useSpinors){
-        fprintf(pf," %.8f %.8f %.8f", trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_im, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_im, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_im);
+        fprintf(pf,"\n%ld % ld  %.8f %.12f % .8f % .8f % .8f % .8f %.8f %.8f %.8f", i, a, sqrt(osc_strength), bohr_freq, (2.0/3.0)*bohr_freq*osc_strength, 
+          trans_dipole[idx].x_re, trans_dipole[idx].x_im,
+          trans_dipole[idx].y_re, trans_dipole[idx].y_re,
+          trans_dipole[idx].z_re, trans_dipole[idx].z_im);
+      } else{
+        fprintf(pf,"\n%ld % ld  %.8f %.12f % .8f % .8f % .8f % .8f", i, a, sqrt(osc_strength), bohr_freq, (2.0/3.0)*bohr_freq*osc_strength, 
+          trans_dipole[idx].x_re, trans_dipole[idx].y_re, trans_dipole[idx].z_re);
       }
     }
   }
@@ -129,17 +146,25 @@ void calc_mag_dipole(xyz_st *mag_dipole, double *psi_qp, double *eig_vals, grid_
 {
   FILE *pf1, *pf2, *pf3, *pf; 
   long a, i, jx, jy, jz, jyz; 
-  long jgrid,jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
-  long i_up_real, i_up_imag, i_dn_real, i_dn_imag, a_up_real, a_up_imag, a_dn_real, a_dn_imag;
+  long jgrid,jgur, jgui, jgdr, jgdi;
+  long iur, iui, idr, idi, aur, aui, adr, adi;
   long istate_idx, astate_idx;
   zomplex sumX, sumY, sumZ, tmp;
   double ms, bohr_freq, osc_strength;
   zomplex *Lxpsi, *Lypsi, *Lzpsi;
   zomplex *psi_i, *psi_a;
+  fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi;
+
+  // Allocate memory for multithreaded FFT
+	fftw_init_threads();
+	fftw_plan_with_nthreads(ist->nthreads);
+
+	fftwpsi = fftw_malloc(ist->ngrid*sizeof(fftw_complex));
+  planfw = fftw_plan_dft_3d(grid->nz, grid->ny, grid->nx, fftwpsi, fftwpsi, FFTW_FORWARD, 0);
+  planbw = fftw_plan_dft_3d(grid->nz, grid->ny, grid->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, 0);
 
   // Allocate memory
-  psi_i = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));;
-	psi_a = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));;
+  psi_i = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
 	
 	Lxpsi = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
 	Lypsi = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
@@ -173,12 +198,13 @@ void calc_mag_dipole(xyz_st *mag_dipole, double *psi_qp, double *eig_vals, grid_
     memcpy(&psi_i[0], &psi_qp[istate_idx], ist->nspinngrid*sizeof(psi_i[0]));
 
     //spin up part
-		l_operator(&Lxpsi[0], &Lypsi[0], &Lzpsi[0], &psi_i[0], grid, ist, par);
+		l_operator(&Lxpsi[0], &Lypsi[0], &Lzpsi[0], &psi_i[0], grid, ist, par, planfw, planbw, fftwpsi);
 		//spin dn part
-		l_operator(&Lxpsi[ist->ngrid], &Lypsi[ist->ngrid], &Lzpsi[ist->ngrid], &psi_i[ist->ngrid], grid, ist, par);
+		l_operator(&Lxpsi[ist->ngrid], &Lypsi[ist->ngrid], &Lzpsi[ist->ngrid], &psi_i[ist->ngrid], grid, ist, par, planfw, planbw, fftwpsi);
 
-
+    #pragma omp parallel for private(a, astate_idx, jgrid, bohr_freq, ms, psi_a)
     for (a = ist->lumo_idx; a < ist->lumo_idx+ist->n_elecs; a++) {
+      psi_a = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
       astate_idx = a * ist->complex_idx * ist->nspinngrid;
       
       // Compy state a into psi_a
@@ -196,6 +222,9 @@ void calc_mag_dipole(xyz_st *mag_dipole, double *psi_qp, double *eig_vals, grid_
         sumZ.re += psi_a[jgrid].re * Lzpsi[jgrid].re - psi_a[jgrid].im * Lzpsi[jgrid].im;
         sumZ.im += psi_a[jgrid].re * Lzpsi[jgrid].im - psi_a[jgrid].im * Lzpsi[jgrid].re;
       }
+
+      sumX.re *= par->dv;   sumY.re *= par->dv;   sumZ.re *= par->dv;
+      sumX.im *= par->dv;   sumY.im *= par->dv;   sumZ.im *= par->dv;
 
       mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re =  0.5 * sumX.re;
       mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_re =  0.5 * sumY.re;
@@ -222,14 +251,20 @@ void calc_mag_dipole(xyz_st *mag_dipole, double *psi_qp, double *eig_vals, grid_
         mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_re,
         mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_im,
         mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_re,
-        mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_im);
+        mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_im
+      );
+
+      free(psi_a); 
     }
   }
   fclose(pf); fclose(pf1); fclose(pf2); fclose(pf3);
 
   // Free dynamically allocated memory
-  free(psi_i); free(psi_a); 
+  free(psi_i);
   free(Lxpsi); free(Lypsi); free(Lzpsi);
+  fftw_free(fftwpsi);
+	fftw_destroy_plan(planfw);
+	fftw_destroy_plan(planbw);
 
   return;
 }

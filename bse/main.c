@@ -66,20 +66,19 @@ int main(int argc, char *argv[]){
     strcpy(top, "T\0"); strcpy(bottom, "B\0");
 
     /*************************************************************************/
-    fprintf(stdout, "******************************************************************************\n");
+    if (mpir == 0) fprintf(stdout, "******************************************************************************\n");
     if (mpir == 0) printf("\nRUNNING PROGRAM: BETHE-SALPETHER\n");
     if (mpir == 0) printf("This calculation began at: %s", ctime(&start_time)); 
-    write_separation(stdout, bottom);
+    if (mpir == 0) write_separation(stdout, bottom);
     fflush(stdout);
 
     /*************************************************************************/
     // 1. Initialize job from input file
     
-    write_separation(stdout, top);
-    current_time = time(NULL);
-    c_time_string = ctime(&current_time);
-    if (mpir == 0) printf("\n1.\tINITIALIZING JOB | %s\n", c_time_string);
-    write_separation(stdout, bottom); fflush(stdout);
+    if (mpir == 0) write_separation(stdout, top);
+    
+    if (mpir == 0) printf("\n1.\tINITIALIZING JOB | %s\n", get_time());
+    if (mpir == 0) write_separation(stdout, bottom); fflush(stdout);
 
     /*************************************************************************/
     /*** Read output from filter output.par ***/
@@ -133,43 +132,46 @@ int main(int argc, char *argv[]){
     // ******
     
     // Reallocate the eig_vals and sigma_E arrays to only contain the n_qp states
-    eig_vals = realloc(eig_vals, ist.n_qp * sizeof(eig_vals[0]));
-    sigma_E = realloc(sigma_E, ist.n_qp * sizeof(sigma_E[0]));
+    // eig_vals = realloc(eig_vals, ist.n_qp * sizeof(eig_vals[0]));
+    // sigma_E = realloc(sigma_E, ist.n_qp * sizeof(sigma_E[0]));
     
     // Resize the index arrays to tightly contain the indices of eigenstates in VB/CB
     // The conditional checks whether n_holes saturated the memory block (if so, no need to resize)
     // or if they are not equal, then n_holes is smaller and we should shrink the array
-    if (ist.n_holes != ist.max_hole_states){
-        ist.eval_hole_idxs = realloc(ist.eval_hole_idxs, ist.n_holes * sizeof(long));
-    }
-    if (ist.n_elecs != ist.max_elec_states){
-        ist.eval_elec_idxs = realloc(ist.eval_elec_idxs, ist.n_elecs * sizeof(long));
-    }
-    fprintf(pmem, "alloc ist.eval_hole_idxs %ld B\n", ist.mn_states_tot * sizeof(ist.eval_hole_idxs[0])); mem += ist.mn_states_tot * sizeof(ist.eval_hole_idxs[0]);
-    fprintf(pmem, "alloc ist.eval_elec_idxs %ld B\n", ist.mn_states_tot * sizeof(ist.eval_elec_idxs[0])); mem += ist.mn_states_tot * sizeof(ist.eval_elec_idxs[0]);
+    // if (ist.n_holes != ist.max_hole_states){
+    //     ist.eval_hole_idxs = realloc(ist.eval_hole_idxs, ist.n_holes * sizeof(long));
+    // }
+    // if (ist.n_elecs != ist.max_elec_states){
+    //     ist.eval_elec_idxs = realloc(ist.eval_elec_idxs, ist.n_elecs * sizeof(long));
+    // }
+    // fprintf(pmem, "alloc ist.eval_hole_idxs %ld B\n", ist.mn_states_tot * sizeof(ist.eval_hole_idxs[0])); mem += ist.mn_states_tot * sizeof(ist.eval_hole_idxs[0]);
+    // fprintf(pmem, "alloc ist.eval_elec_idxs %ld B\n", ist.mn_states_tot * sizeof(ist.eval_elec_idxs[0])); mem += ist.mn_states_tot * sizeof(ist.eval_elec_idxs[0]);
     
 
     /*************************************************************************/
     // Allocate memory for the quasiparticle wavefunctions
     
-    if ((psi_qp = (double *) malloc( ist.complex_idx * ist.nspinngrid * (ist.n_holes + ist.n_elecs) * sizeof(double))) == NULL){
+    if ((psi_qp = (double *) malloc( ist.complex_idx * ist.nspinngrid * (ist.n_qp) * sizeof(double))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for psi_qp in main.c\n");
         exit(EXIT_FAILURE);
     }
     
     fprintf(pmem, "alloc psi_qp %ld B", ist.complex_idx * ist.nspinngrid * (ist.n_holes + ist.n_elecs) * sizeof(double)); mem += ist.complex_idx * ist.nspinngrid * (ist.n_holes + ist.n_elecs) * sizeof(double);
-    write_separation(pmem, top);
+    if (mpir == 0) write_separation(pmem, top);
     fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / 1000000 );
-    write_separation(pmem, bottom); fflush(pmem);
+    if (mpir == 0) write_separation(pmem, bottom); fflush(pmem);
 
-    if (mpir == 0) printf("\nTHE HOLES:\n");
-    for (i = 0; i < ist.n_holes; i++){
-        if (mpir == 0) printf("%ld\n", ist.eval_hole_idxs[i]);
-    }
-    if (mpir == 0) printf("\nTHE ELECS:\n");
-    for (i = 0; i < ist.n_elecs; i++){
-        if (mpir == 0) printf("%ld\n", ist.eval_elec_idxs[i]);
-    }
+    // if (mpir == 0){
+    //     printf("\nTHE HOLES:\n");
+    //     for (i = 0; i < ist.n_holes; i++){
+    //         printf("%ld\n", ist.eval_hole_idxs[i]);
+    //     }
+        
+    //     printf("\nTHE ELECS:\n");
+    //     for (i = 0; i < ist.n_elecs; i++){
+    //         printf("%ld\n", ist.eval_elec_idxs[i]);
+    //     }
+    // }
     
     // ******
     // ******
@@ -183,41 +185,45 @@ int main(int argc, char *argv[]){
     // fprintf(pmem, "free psi_hole %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_holes * sizeof(psi_hole[0])); mem -= ist.complex_idx*ist.nspinngrid*ist.n_holes*sizeof(psi_hole[0]);
     // fprintf(pmem, "free psi_elec %ld B\n", ist.complex_idx * ist.nspinngrid * ist.n_elecs * sizeof(psi_elec[0])); mem -= ist.complex_idx*ist.nspinngrid*ist.n_elecs*sizeof(psi_elec[0]);
     fprintf(pmem, "free sigma_E %ld B", ist.mn_states_tot * sizeof(double)); mem -= ist.mn_states_tot * sizeof(double);
-    write_separation(pmem, top);
+    if (mpir == 0) write_separation(pmem, top);
     fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / 1000000 );
-    write_separation(pmem, bottom); fflush(pmem);
+    if (mpir == 0) write_separation(pmem, bottom); fflush(pmem);
 
     
+    // char fileName[50];
+    // rho = (double*) calloc(ist.ngrid, sizeof(double));
+
     if (1 == flag.useSpinors){
-        current_time = time(NULL);
-        c_time_string = ctime(&current_time);
-        if (mpir == 0) printf("\nComputing spin composition of quasiparticle spinors | %s\n", c_time_string); fflush(stdout);
+        if (mpir == 0) printf("\nComputing spin composition of quasiparticle spinors | %s\n", get_time()); fflush(stdout);
         FILE *pf = fopen("qp_spins.dat", "w");
         for (int state  = 0; state < ist.n_qp; state++){
             fprintf(pf, "\nStats on state%d: (E=%lg)\n", state, eig_vals[state]);
             double perUp = 0;
             double perDn = 0;
+            // sprintf(fileName, "qp_%d_up.cube", state);
             for (long jgrid = 0; jgrid < ist.ngrid; jgrid++){
                 jgrid_real = ist.complex_idx * jgrid;
                 jgrid_imag = ist.complex_idx * jgrid + 1;
                 
                 perUp += sqr(psi_qp[state*ist.nspinngrid*ist.complex_idx+jgrid_real])+sqr(psi_qp[state*ist.nspinngrid*ist.complex_idx+jgrid_imag]);
                 perDn += sqr(psi_qp[state*ist.nspinngrid*ist.complex_idx+ist.ngrid*ist.complex_idx+jgrid_real])+sqr(psi_qp[state*ist.nspinngrid*ist.complex_idx+ist.ngrid*ist.complex_idx+jgrid_imag]);
+
+                // rho[jgrid] = sqrt(sqr(psi_qp[state*ist.nspinngrid*ist.complex_idx+jgrid_real])+sqr(psi_qp[state*ist.nspinngrid*ist.complex_idx+jgrid_imag]));
             }
+            // write_cube_file(rho, &grid, fileName);
             fprintf(pf, " Spin up fraction: %f\n", perUp * grid.dv); fflush(pf);
             fprintf(pf, " Spin dn fraction: %f\n", perDn * grid.dv); fflush(pf);
         }
         fclose(pf);
     }
-
+    // free(rho);
     /*************************************************************************/
     // 2. Compute electron-hole interaction potentials
     
-    write_separation(stdout, top);
-    current_time = time(NULL);
-    c_time_string = ctime(&current_time);
-    if (mpir == 0) printf("\n2.\tCOMPUTING ELECTRON-HOLE INTERACTION POTENTIALS | %s\n", c_time_string);
-    write_separation(stdout, bottom); fflush(stdout);
+    if (mpir == 0) write_separation(stdout, top);
+    
+    if (mpir == 0) printf("\n2.\tCOMPUTING ELECTRON-HOLE INTERACTION POTENTIALS | %s\n", get_time());
+    if (mpir == 0) write_separation(stdout, bottom); fflush(stdout);
 
     /*************************************************************************/
     // Allocate memory for the hartree, screened coulomb and bare exchange pots
@@ -253,11 +259,10 @@ int main(int argc, char *argv[]){
     /*************************************************************************/
     // 2. Compute single particle properties
     
-    write_separation(stdout, top);
-    current_time = time(NULL);
-    c_time_string = ctime(&current_time);
-    if (mpir == 0) printf("\n3.\tCOMPUTING SINGLE-PARTICLE PROPERTIES | %s\n", c_time_string);
-    write_separation(stdout, bottom); fflush(stdout);
+    if (mpir == 0) write_separation(stdout, top);
+    
+    if (mpir == 0) printf("\n3.\tCOMPUTING SINGLE-PARTICLE PROPERTIES | %s\n", get_time());
+    if (mpir == 0) write_separation(stdout, bottom); fflush(stdout);
 
     /*************************************************************************/
     if (mpir == 0) printf("Allocating memory for single particle matrix elements... "); fflush(stdout);
@@ -280,9 +285,9 @@ int main(int argc, char *argv[]){
     }
     fprintf(pmem, "alloc rot_strength %ld B\n", ist.n_elecs*ist.n_holes * sizeof(rot_strength[0])); mem += ist.n_elecs*ist.n_holes * sizeof(rot_strength[0]);
     
-    write_separation(pmem, top);
+    if (mpir == 0) write_separation(pmem, top);
     fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / 1000000 );
-    write_separation(pmem, bottom); fflush(pmem);
+    if (mpir == 0) write_separation(pmem, bottom); fflush(pmem);
     if (mpir == 0) printf("done\n"); fflush(stdout);
 
     if (mpir == 0) printf("\nElectric transition dipole moment...\n");
@@ -295,11 +300,11 @@ int main(int argc, char *argv[]){
     /* */
     /* */
     if (1 == flag.SO){
-        write_separation(stdout, top);
+        if (mpir == 0) write_separation(stdout, top);
         current_time = time(NULL);
         c_time_string = ctime(&current_time);
-        if (mpir == 0) printf("\n  -  COMPUTING ANG.MOM. PROPERTIES | %s\n", c_time_string);
-        write_separation(stdout, bottom); fflush(stdout);
+        if (mpir == 0) printf("\n  -  COMPUTING ANG.MOM. PROPERTIES | %s\n", get_time());
+        if (mpir == 0) write_separation(stdout, bottom); fflush(stdout);
 
         l_mom = (xyz_st *) malloc( (ist.n_holes*ist.n_holes + ist.n_elecs*ist.n_elecs) * sizeof(L_mom[0])); //<psi_r|Lx|psi_s>
         l2_mom =(zomplex *) malloc((ist.n_holes*ist.n_holes + ist.n_elecs*ist.n_elecs) * sizeof(L_mom[0])); //<psi_r|Lx|psi_s>
@@ -330,11 +335,9 @@ int main(int argc, char *argv[]){
     //      vjbai and vabji are the coulomb matrix elements need to be used to
     //      generate the spin-depedent matrix elements as described by
     //      the last equation in our codument.  ***/
-    write_separation(stdout, top);
-    current_time = time(NULL);
-    c_time_string = ctime(&current_time);
-    if (mpir == 0) printf("\n4.\tCOMPUTING ELEC-HOLE INTERACTION KERNEL | %s\n", c_time_string);
-    write_separation(stdout, bottom); fflush(stdout);
+    if (mpir == 0) write_separation(stdout, top);
+    if (mpir == 0) printf("\n4.\tCOMPUTING ELEC-HOLE INTERACTION KERNEL | %s\n", get_time());
+    if (mpir == 0) write_separation(stdout, bottom); fflush(stdout);
     
     if (mpir == 0) printf("\nThe number of electron-hole pairs in the exciton basis = %ld\n", ist.n_xton);
 
@@ -344,7 +347,7 @@ int main(int argc, char *argv[]){
     h0mat = (double *) calloc(ist.n_xton * ist.n_xton, sizeof(double)); 
     
     if (1 == flag.isComplex) {
-        calc_eh_kernel_cplx((zomplex*) psi_qp, pot_bare, pot_screened, pot_hartree, bsmat, direct, exchange, h0mat, eig_vals, &ist, &par, &flag, planfw, planbw, fftwpsi, &parallel);
+        calc_eh_kernel_cplx((zomplex*)psi_qp, pot_bare, pot_screened, pot_hartree, bsmat, direct, exchange, h0mat, eig_vals, &ist, &par, &flag, planfw, planbw, fftwpsi, &parallel);
     }
     // else if (0 == flag.isComplex){
     //     calc_eh_kernel_real((zomplex*) psi_qp, pot_bare, pot_screened, pot_hartree, bsmat, direct, exchange, h0mat, eig_vals, &ist, &par, &flag, planfw, planbw, fftwpsi);
@@ -355,7 +358,7 @@ int main(int argc, char *argv[]){
     
     xton_ene = (double *) calloc(ist.n_xton, sizeof(double));
     bs_coeff = (zomplex *) calloc(ist.n_xton*ist.n_xton, sizeof(zomplex));
-    bethe_salpeter(bsmat, direct, exchange, bs_coeff, h0mat, xton_ene, psi_qp, s_mom,l_mom,l2_mom,LdotS, &grid, &ist, &par);
+    bethe_salpeter(bsmat, direct, exchange, bs_coeff, h0mat, xton_ene,(zomplex*) psi_qp, s_mom,l_mom,l2_mom,LdotS, &grid, &ist, &par);
     
     calc_optical_exc(bs_coeff, xton_ene, trans_dipole, mag_dipole, &ist, &par);
     
@@ -364,21 +367,44 @@ int main(int argc, char *argv[]){
     /***********************************************************************/
     free(psi_qp); 
     free(eig_vals); 
-    free(pot_hartree); free(pot_bare); free(pot_screened);
-    free(direct); free(exchange); free(bsmat); free(h0mat);
-    free(trans_dipole); free(mag_dipole); free(rot_strength);
-    free(s_mom); free(l_mom); free(l2_mom);
-    free(planfw); free(planbw);
+    free(grid.x); 
+    free(grid.y); 
+    free(grid.z);
+    free(R);
+    free(pot_hartree);
+    free(pot_bare); 
+    free(pot_screened);
+    free(direct); 
+    free(exchange); 
+    free(bsmat); 
+    free(h0mat);
+    free(trans_dipole); 
+    free(mag_dipole); 
+    free(rot_strength);
+    free(s_mom); 
+    free(l_mom); 
+    free(l2_mom); 
+    free(LdotS);
+    for (i = 0; i < ist.nthreads; i++){
+        fftw_destroy_plan(planfw[i]); 
+        fftw_destroy_plan(planbw[i]);
+    }
+    free(planfw);
+    free(planbw);
+    fftw_free(fftwpsi);
+    free(ist.eval_elec_idxs);
+    free(ist.eval_hole_idxs);
+    free(ist.atom_types);
 
     time_t end_time = time(NULL);
     time_t end_clock = clock();
 
-    write_separation(stdout, top);
+    if (mpir == 0) write_separation(stdout, top);
     if (mpir == 0) printf("\nDONE WITH PROGRAM: BETHE-SALPETHER\n");
     if (mpir == 0) printf("This calculation ended at: %s\n", ctime(&end_time)); 
     if (mpir == 0) printf("Total job CPU time (sec) %.4g, wall run time (sec) %.4g",
             ((double)end_clock - (double)start_clock)/(double)(CLOCKS_PER_SEC), (double)end_time - (double)start_time );fflush(0);
-    write_separation(stdout, bottom);
+    if (mpir == 0) write_separation(stdout, bottom);
     
     free(top); free(bottom);
     MPI_Finalize();

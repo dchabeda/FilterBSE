@@ -25,6 +25,7 @@ void calc_eh_kernel_cplx(
 	
 	FILE   *pf;  
 	long   i, j, a, b, ibs, jbs;
+	long loop_idx;
 	long jgrid, ispingrid;
 	int ispin;
 	int    tid; //ispin; 
@@ -198,19 +199,23 @@ void calc_eh_kernel_cplx(
 			}
 		}
 
-		for (long aux = a; aux < a+1; aux++){
+		for (loop_idx = a; loop_idx < a+1; loop_idx++){
 			for (b = 0; b < ist->n_elecs; b++){
 			for (i = 0; i < ist->n_holes; i++){
 			for (j = 0; j < ist->n_holes; j++){
-				ibs = listibs[(aux - ist->lumo_idx)*ist->n_holes + i];
+				ibs = listibs[(loop_idx - ist->lumo_idx)*ist->n_holes + i];
 				jbs = listibs[b*ist->n_holes + j];
-				fprintf(pf,"%ld %ld %ld %ld %ld %ld %.10f %.10f\n", aux, b, i, j, ibs, jbs, \
+				fprintf(pf,"%ld %ld %ld %ld %ld %ld %.10f %.10f\n", loop_idx, b, i, j, ibs, jbs, \
 				direct[ibs * ist->n_xton + jbs].re, direct[ibs * ist->n_xton + jbs].re);
 			}
 			}
 			}
 		}
 		fflush(0);
+		loop_idx = a - ist->lumo_idx;
+		if ( (loop_idx == 0) || (0 == loop_idx % (ist->n_elecs/4 + 1)) || (loop_idx == (ist->n_elecs - 1)) ){
+			print_progress_bar(loop_idx, ist->n_elecs);
+		}
 	}
 
 	fclose(pf);
@@ -346,11 +351,11 @@ void calc_eh_kernel_cplx(
 			}
 		}
 		
-		for (long aux = a; aux < a+1; aux++){
+		for (loop_idx = a; loop_idx < a+1; loop_idx++){
 			for (b = 0; b < ist->n_elecs; b++){
 			for (i = 0; i < ist->n_holes; i++){
 			for (j = 0; j < ist->n_holes; j++){
-				ibs = listibs[(aux-ist->lumo_idx)*ist->n_holes+i];
+				ibs = listibs[(loop_idx-ist->lumo_idx)*ist->n_holes+i];
 				jbs = listibs[b*ist->n_holes+j];
 			
 				fprintf(pf,"%ld %ld %.10f %.10f\n", ibs, jbs, \
@@ -360,10 +365,14 @@ void calc_eh_kernel_cplx(
 			}
 		}
 		fflush(stdout);
+		loop_idx = a - ist->lumo_idx;
+		if ( (loop_idx == 0) || (0 == loop_idx % (ist->n_elecs/4 + 1)) || (loop_idx == (ist->n_elecs - 1)) ){
+			print_progress_bar(loop_idx, ist->n_elecs);
+		}
 	}
 
 	fclose(pf);
-  printf("  Done computing exchange mat\n"); 
+  	printf("  Done computing exchange mat\n"); 
 	fflush(0);
 
 	} // close mpi rank 2

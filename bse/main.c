@@ -286,9 +286,9 @@ int main(int argc, char *argv[]){
     if (mpir == 0) printf("done\n"); fflush(stdout);
 
     if (mpir == 0) printf("\nElectric transition dipole moment...\n");
-    calc_elec_dipole(trans_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
+    // calc_elec_dipole(trans_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
     if (mpir == 0) printf("\nMagnetic transition dipole moment...\n");
-    calc_mag_dipole(mag_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
+    // calc_mag_dipole(mag_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
     // calc_rot_strength(rs, mux, muy, muz, mx, my, mz, eig_vals, &ist);
     
     /* */
@@ -307,9 +307,9 @@ int main(int argc, char *argv[]){
         LdotS = (zomplex *) malloc( (ist.n_holes*ist.n_holes+ist.n_elecs*ist.n_elecs) * sizeof(LdotS[0])); //<psi_r|L.S|psi_s>
 
         // Compute spin matrix elements, e.g. <j|Sx|i>
-        calc_spin_mtrx(s_mom, psi_qp, &grid, &ist, &par);
+        // calc_spin_mtrx(s_mom, psi_qp, &grid, &ist, &par);
         // Compute angular momentum matrix elements, e.g. <j|Lx|i>
-        calc_ang_mom_mtrx(l_mom, l2_mom, LdotS, psi_qp, &grid, &ist, &par);
+        // calc_ang_mom_mtrx(l_mom, l2_mom, LdotS, psi_qp, &grid, &ist, &par);
     }
     /* */
     /* */

@@ -9,10 +9,10 @@ Linux_DYLIB = -lmkl_intel_ilp64 -lmkl_lapack95_ilp64 -lmkl_blas95_ilp64 -lmkl_in
 LIB = $(Linux_DYLIB) $(Linux_LIB)
 
 # flags ...
-Linux_OPTFLAGS = -DMKL_ILP64
-#Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp -msse4
+Linux_OPTFLAGS = -DMKL_ILP64 -DFFTW_FFT
+Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp -msse4
 #Linux_CFLAGS = -g -qopenmp -O0
-Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
+#Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
 
 MAINNAM = BSE
 

@@ -60,10 +60,10 @@ void calc_eh_kernel_cplx(
 	{
 
 	// Allocate storage for cached potentials (assuming n_elecs is manageable)
-	zomplex **pot_cache = malloc(ist->n_elecs * ist->n_elecs * sizeof(zomplex *));
-	for (i = 0; i < sqr(ist->n_elecs); i++) {
-		pot_cache[i] = calloc(ist->ngrid, sizeof(zomplex));
-	}
+	// zomplex **pot_cache = malloc(ist->n_elecs * ist->n_elecs * sizeof(zomplex *));
+	// for (i = 0; i < sqr(ist->n_elecs); i++) {
+	// 	pot_cache[i] = calloc(ist->ngrid, sizeof(zomplex));
+	// }
 	// Cache for the integrals
 	zomplex Kd_cache[ist->n_elecs][ist->n_elecs][ist->n_holes][ist->n_holes];
 	for (a = 0; a < ist->n_elecs; a++){
@@ -87,9 +87,9 @@ void calc_eh_kernel_cplx(
 			tid = omp_get_thread_num();
 
 			// Check if pot_htree[a][b] was already computed
-			if (pot_cache[(a - ist->lumo_idx)*ist->n_elecs + (b - ist->lumo_idx)][0].re == 0.0 &&
-					pot_cache[(a - ist->lumo_idx)*ist->n_elecs + (b - ist->lumo_idx)][0].im == 0.0) 
-			{
+			// if (pot_cache[(a - ist->lumo_idx)*ist->n_elecs + (b - ist->lumo_idx)][0].re == 0.0 &&
+			// 		pot_cache[(a - ist->lumo_idx)*ist->n_elecs + (b - ist->lumo_idx)][0].im == 0.0) 
+			// {
 			
 				//get joint density \rho_{ab}(r) = \sum_{\sigma} psi_{a}^{*}(r,\sigma) psi_{b}(r,\sigma)
 				for (jgrid = 0; jgrid < ist->ngrid; jgrid++) {
@@ -113,19 +113,19 @@ void calc_eh_kernel_cplx(
 				hartree(&rho[tid*ist->ngrid], pot_screened, &pot_htree[tid*ist->ngrid], ist, planfw[tid], planbw[tid], &fftwpsi[tid*ist->ngrid]);   
 				
 				// Cache the result for ab
-				memcpy(pot_cache[(a - ist->lumo_idx)*ist->n_elecs + (b - ist->lumo_idx)],
-					&pot_htree[tid * ist->ngrid], ist->ngrid * sizeof(zomplex));
-				// Cache the result for (ba)*
-				for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
-					pot_cache[(b - ist->lumo_idx)*ist->n_elecs + (a - ist->lumo_idx)][jgrid].re = pot_htree[tid*ist->ngrid + jgrid].re;
-					pot_cache[(b - ist->lumo_idx)*ist->n_elecs + (a - ist->lumo_idx)][jgrid].re = - pot_htree[tid*ist->ngrid + jgrid].im;
-				}
-			} else {
-				// Reuse the cached value
-				// printf("Reusing cached pot_htree for a = %ld b = %ld\n", (a - ist->lumo_idx), (b - ist->lumo_idx) );
-				memcpy(&pot_htree[tid * ist->ngrid],
-					pot_cache[(a - ist->lumo_idx)*ist->n_elecs + (b - ist->lumo_idx)], ist->ngrid * sizeof(zomplex));
-			}
+				// // memcpy(pot_cache[(a - ist->lumo_idx)*ist->n_elecs + (b - ist->lumo_idx)],
+				// // 	&pot_htree[tid * ist->ngrid], ist->ngrid * sizeof(zomplex));
+				// // Cache the result for (ba)*
+				// for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
+				// 	pot_cache[(b - ist->lumo_idx)*ist->n_elecs + (a - ist->lumo_idx)][jgrid].re = pot_htree[tid*ist->ngrid + jgrid].re;
+				// 	pot_cache[(b - ist->lumo_idx)*ist->n_elecs + (a - ist->lumo_idx)][jgrid].re = - pot_htree[tid*ist->ngrid + jgrid].im;
+				// }
+			// } else {
+			// 	// Reuse the cached value
+			// 	// printf("Reusing cached pot_htree for a = %ld b = %ld\n", (a - ist->lumo_idx), (b - ist->lumo_idx) );
+			// 	memcpy(&pot_htree[tid * ist->ngrid],
+			// 		pot_cache[(a - ist->lumo_idx)*ist->n_elecs + (b - ist->lumo_idx)], ist->ngrid * sizeof(zomplex));
+			// }
 
 			//loop over hole states i
 			for (i = 0; i < ist->n_holes; i++) {
@@ -200,13 +200,13 @@ void calc_eh_kernel_cplx(
 		}
 
 		for (loop_idx = a; loop_idx < a+1; loop_idx++){
-			for (b = 0; b < ist->n_elecs; b++){
+			for (b = ist->lumo_idx; b < ist->lumo_idx + ist->n_elecs; b++){
 			for (i = 0; i < ist->n_holes; i++){
 			for (j = 0; j < ist->n_holes; j++){
 				ibs = listibs[(loop_idx - ist->lumo_idx)*ist->n_holes + i];
-				jbs = listibs[b*ist->n_holes + j];
+				jbs = listibs[(b - ist->lumo_idx)*ist->n_holes + j];
 				fprintf(pf,"%ld %ld %ld %ld %ld %ld %.10f %.10f\n", loop_idx, b, i, j, ibs, jbs, \
-				direct[ibs * ist->n_xton + jbs].re, direct[ibs * ist->n_xton + jbs].re);
+				direct[ibs * ist->n_xton + jbs].re, direct[ibs * ist->n_xton + jbs].im);
 			}
 			}
 			}
@@ -222,10 +222,10 @@ void calc_eh_kernel_cplx(
 	printf("  Done computing direct mat\n"); 
 	fflush(0);
 
-	for (i = 0; i < sqr(ist->n_elecs) ; i++) {
-		free(pot_cache[i]);
-	}
-	free(pot_cache);
+	// for (i = 0; i < sqr(ist->n_elecs) ; i++) {
+	// 	free(pot_cache[i]);
+	// }
+	// free(pot_cache);
 
 	} // end of mpi rank 0
 	

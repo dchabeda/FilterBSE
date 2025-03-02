@@ -193,7 +193,7 @@ void p_spin_orbit_proj_pot(
     }
   }
 
-  // omp_set_num_threads(ham_threads);
+  omp_set_num_threads(ham_threads);
   #pragma omp parallel for private(jat, jat_off, proj, ip, j_p, s_p, m_p, NL_gpt, r_idx, r, r_p, psi_re, psi_im, y1_re, y1_im, SOproj, j, s, m, jtot, LS_loc, PLS)
   for (jat = 0; jat < nNL_at; jat++){
 
@@ -317,7 +317,7 @@ void p_nonlocal_proj_pot(
     }
   }
 
-  // omp_set_num_threads(ham_threads);
+  omp_set_num_threads(ham_threads);
   #pragma omp parallel for private(jatom, jatom_offset, proj, j, s, m, NL_gridpt, r_idx, r, r_p, psi_re, psi_im, y1_re, y1_im, NL_proj, sgn)
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
 

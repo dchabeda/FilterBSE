@@ -29,7 +29,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
   
   if (parallel->mpi_rank == 0) printf("\tMin. required box dimension for each direction (Bohr):\n");
   if (parallel->mpi_rank == 0) printf("\t-----------------------------------------------------\n");
-  if (parallel->mpi_rank == 0) printf("\txd = %lg yd = %lg zd = %lg\n", 2.0*xd, 2.0*yd, 2.0*zd);
+  if (parallel->mpi_rank == 0) printf("\txd = %.2lf yd = %.2lf zd = %.2lf\n", 2.0*xd, 2.0*yd, 2.0*zd);
 
   /***initial parameters for the pot reduce mass, etc. in the x direction ***/
   grid->xmin = -xd;
@@ -40,7 +40,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
     grid->nx = ntmp;
   }
   grid->xmin = -((double)(grid->nx) * grid->dx) / 2.0;
-  grid->xmax = ((double)(grid->nx) * grid->dx) / 2.0;
+  grid->xmax = grid->xmin + ((double)(grid->nx - 1) * grid->dx);
   if (parallel->mpi_rank == 0) printf("\tThe x_min = %lg and x_max %lg\n", grid->xmin, grid->xmax);
   
   grid->dkx = TWOPI / ((double)grid->nx * grid->dx); // reciprocal lattice vector length
@@ -54,7 +54,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
     grid->ny = ntmp;
   }
   grid->ymin = -((double)(grid->ny) * grid->dy) / 2.0;
-  grid->ymax = ((double)(grid->ny) * grid->dy) / 2.0;
+  grid->ymax = grid->ymin + ((double)(grid->ny - 1) * grid->dy);
   if (parallel->mpi_rank == 0) printf("\tThe y_min = %lg and y_max %lg\n", grid->ymin, grid->ymax);
   
   grid->dky = TWOPI / ((double)grid->ny * grid->dy);
@@ -71,7 +71,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
     }
 
     grid->zmin = -((double)(grid->nz) * grid->dz) / 2.0;
-    grid->zmax = ((double)(grid->nz) * grid->dz) / 2.0;
+    grid->zmax = grid->zmin + ((double)(grid->nz - 1) * grid->dz);
     if (parallel->mpi_rank == 0) printf("\tThe z_min = %lg and z_max %lg\n", grid->zmin, grid->zmax);
     
   } 
@@ -100,6 +100,11 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
     exit(EXIT_FAILURE);
   }
   
+  if ( (grid->nx % 2) || (grid->ny % 2) || (grid->nz % 2) ){
+    printf("\n\nWARNING: ODD # OF GRID POINTS -> NO (0.0, 0.0, 0.0) pt\n");
+    printf("WARNING: GRID INCOMPATIBLE WITH HARTREE POT IN BSE\n\n");
+  }
+
   grid->dkz = TWOPI / ((double)grid->nz * grid->dz);
   
   grid->nx_1 = 1.0 / (double)(grid->nx);

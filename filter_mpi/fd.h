@@ -45,6 +45,7 @@ typedef struct flag {
 
   // Output control
   int   printPsiFilt;
+  int   printPsiHam;
   int   printOrtho;
   int   printNorm;
   int   printCubes;

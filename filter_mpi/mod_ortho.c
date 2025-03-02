@@ -67,10 +67,10 @@ void mod_ortho(
   //
   //
   if (1 == flag->isComplex){
-    ist->mn_states_tot = ortho((MKL_Complex16*)psitot, grid->dv, ist, par, flag, parallel);      
+    ist->mn_states_tot = ortho_cplx((MKL_Complex16*)psitot, grid->dv, ist, par, flag, parallel);      
   } 
   else {
-    ist->mn_states_tot = ortho(psitot, grid->dv, ist, par, flag, parallel);
+    ist->mn_states_tot = ortho_real(psitot, grid->dv, ist, par, flag, parallel);
   }
   //
   //

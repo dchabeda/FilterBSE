@@ -139,7 +139,7 @@ void potential_gauss(double *V_mat, double *pot_local, gauss_st *gauss, grid_st 
   long jx, jy, jz, jyz, jxyz;
   double x_max, x_min, y_max, y_min, z_max, z_min;
   double r_thresh, dthresh, r_cut1;
-  int n_grid; // Just to see how many grid points we actually loop over.
+  // int n_grid; // Just to see how many grid points we actually loop over.
 
   pf = fopen("gauss_potential.dat", "w");
 
@@ -199,7 +199,7 @@ void potential_gauss(double *V_mat, double *pot_local, gauss_st *gauss, grid_st 
           i_e = gauss[a].exp[i];
           j_e = gauss[b].exp[j];
 
-          n_grid = 0;
+          // n_grid = 0;
           // Compute numerical integral between the Gauss i and j on the real space grid
           for (jz = 0; jz < grid->nz; jz++){
             z = grid->z[jz];
@@ -221,7 +221,7 @@ void potential_gauss(double *V_mat, double *pot_local, gauss_st *gauss, grid_st 
                     // We won't compute these grid pts; they are outside our orb densities
                     continue;
                 }
-                n_grid++;
+                // n_grid++;
                 jxyz = jyz + jx;
                 // Computing the contribution to the integrand of grid point jgrid
                 dist_a_sqr = ( sqr(x - Rx_a) + sqr(y - Ry_a) + sqr(z - Rz_a) );

@@ -126,7 +126,7 @@ void gen_G_vecs(
   double G_max;
   int jx, jy, jz, jyz, jxyz;
   double KE_pref = sqr(HBAR) / (2*MASS_E);
-  double gx_min, gy_min, gz_min;
+  // double gx_min, gy_min, gz_min;
   double scale_mag;
 
   if ((gx  = (double*)calloc(grid->nx,sizeof(double)))==NULL)nerror("ksqrx");

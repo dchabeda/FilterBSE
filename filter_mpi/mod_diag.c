@@ -23,8 +23,17 @@ void mod_diag(
   /*******************  DECLARE VARIABLES   *******************/
   /************************************************************/
 
-  const int mpir = parallel->mpi_rank;
+  FILE *pf;
 
+  const int mpir = parallel->mpi_rank;
+  
+  unsigned long long psitot_sz;
+  psitot_sz = ist->mn_states_tot * ist->nspinngrid * ist->complex_idx * sizeof(double);
+  
+  unsigned long long st_sz = (long long) ist->complex_idx * ist->nspinngrid * sizeof(double);
+  unsigned long long mem_thresh;
+  mem_thresh = 420ULL * 1024 * 1024 * 1024; // 420GiB RAM threshold
+  
   double init_clock;
   double init_wall;
 
@@ -62,6 +71,11 @@ void mod_diag(
   diag_H(psitot, pot_local, LS, nlc, nl, ksqr, eig_vals, ist, par, flag, parallel);
   normalize_all(&psitot[0],ist->mn_states_tot, ist, par, flag, parallel);
   
+  if (1 == flag->printPsiHam){
+    pf = fopen("psi-ham.dat", "w");
+    fwrite(psitot, ist->mn_states_tot * ist->complex_idx, ist->nspinngrid * sizeof(double), pf);
+    fclose(pf);
+  }
   
   if (mpir == 0) printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",
               ((double)clock()-init_clock)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-init_wall);
@@ -81,7 +95,17 @@ void mod_diag(
     write_separation(stdout, "B"); fflush(stdout);
   }
 
-  calc_sigma_E(psitot, pot_local, LS, nlc, nl, ksqr, sigma_E, ist, par, flag);
+  if (psitot_sz + (ist->nthreads * st_sz) < mem_thresh){
+    // This function parallelizes over states and allocates an additional
+    // nthreads*state_mem to heap. Can be ~40GB overhead!
+    printf("Total mem < Large mem threshold. Parallelizing over states\n"); fflush(0);
+    calc_sigma_E(psitot, pot_local, LS, nlc, nl, ksqr, sigma_E, ist, par, flag);
+  } else{
+    // The large memory compatible function parallelizes the Hamiltonian to
+    // reduce the memory footprint
+    printf("Total mem exceeds large mem threshold. Parallelizing Hamiltonian\n"); fflush(0);
+    calc_sigma_E_lg_mem(psitot, pot_local, LS, nlc, nl, ksqr, sigma_E, ist, par, flag);
+  }
       
   return;
 }

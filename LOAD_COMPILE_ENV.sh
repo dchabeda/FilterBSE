@@ -1,5 +1,4 @@
 #!/bin/sh
 
-module load PrgEnv-intel
-module load cray-mpich
-module load cray-fftw
+module load PrgEnv-intel/8.5.0
+module load cray-fftw/3.3.10.8

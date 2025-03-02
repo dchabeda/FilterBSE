@@ -202,6 +202,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "printOrtho")) {
           flag->printOrtho = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "printPsiHam")) {
+          flag->printPsiHam = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "fftWisdomDir")) {
           strcpy(par->fft_wisdom_dir, tmp);
       } else if (!strcmp(field, "useGaussianBasis")) {
@@ -361,6 +364,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (parallel->mpi_rank == 0) printf("If setSeed = 1, the next entry MUST specify the random seed as an integer \'rand_seed\'\n");
           if (parallel->mpi_rank == 0) printf("printNorm = int, if 1 then norms of wavefunctions are printed every 100 chebyshev iterations\n");
           if (parallel->mpi_rank == 0) printf("printPsiFilt = int, if 1 then filtered wavefunctions are printed\n");
+          if (parallel->mpi_rank == 0) printf("printPsiHam = int, if 1 then diagonalized wavefunctions are printed\n");
           if (parallel->mpi_rank == 0) printf("retryFilter = int, if 1 then if no eigenstates obtained after diag, then filter is restarted.\n");
           if (parallel->mpi_rank == 0) printf("restartFromOrtho = int, if 1 then \'psi-filt.dat\' is read from disk and job starts from ortho.\n");
           if (parallel->mpi_rank == 0) printf("If restartFromOrtho = 1, the next entry MUST specify the total number of states in \'psi-filt.dat\'\n");

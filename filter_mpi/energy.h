@@ -110,4 +110,19 @@ void get_energy_range_k(
 );
 
 void calc_sigma_E_k(double *psitot, double *pot_local, vector *G_vecs, vector *k_vecs, grid_st *grid, zomplex *LS, nlc_st *nlc, long *nl,
-    double *sigma_E,index_st *ist,par_st *par,flag_st *flag);
+    double *sigma_E,index_st *ist,par_st *par,flag_st *flag
+);
+
+void calc_sigma_E_lg_mem(
+    double*         psitot, 
+    double*         pot_local, 
+    zomplex*        LS, 
+    nlc_st*         nlc, 
+    long*           nl, 
+    double*         ksqr,
+    double*         sigma_E, 
+    index_st*       ist, 
+    par_st*         par, 
+    flag_st*        flag
+);
+

@@ -262,6 +262,7 @@ void filter_cycle(
   } else{
     for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
       psi[jgrid].re = psi_rank[ns_block + jgrid];
+      psi[jgrid].im = 0.0;
     }
   }
 

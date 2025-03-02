@@ -8,3 +8,4 @@ void print_progress_bar(int cur, int tot);
 char* format_duration(double elapsed_seconds);
 char* get_time(void);
 int sign(float x);
+

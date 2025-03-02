@@ -82,6 +82,7 @@ void trans_mat(int N, double *U, double *A, double *Ap){
     }
 }
 
+
 /*****************************************************************************/
 
 void diag_mat(double *mat, double *eigv, int n_dim){

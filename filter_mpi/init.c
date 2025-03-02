@@ -17,6 +17,8 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
   * outputs: void                                                  *
   ******************************************************************/
 
+  const int mpir = parallel->mpi_rank;
+
   long ntmp; 
   double xd, yd, zd;
   char *X; X = malloc(2*sizeof(X[0])); strcpy(X, "X");
@@ -27,21 +29,27 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
   yd = rint(0.5 * calc_dot_dimension(R, ist->natoms, Y) + 5.0);
   zd = rint(0.5 * calc_dot_dimension(R, ist->natoms, Z) + 5.0);
   
-  if (parallel->mpi_rank == 0) printf("\tMin. required box dimension for each direction (Bohr):\n");
-  if (parallel->mpi_rank == 0) printf("\t-----------------------------------------------------\n");
-  if (parallel->mpi_rank == 0) printf("\txd = %.2lf yd = %.2lf zd = %.2lf\n", 2.0*xd, 2.0*yd, 2.0*zd);
+  if (mpir == 0) printf("\tMin. required box dimension for each direction (Bohr):\n");
+  if (mpir == 0) printf("\t-----------------------------------------------------\n");
+  if (mpir == 0) printf("\txd = %.2lf yd = %.2lf zd = %.2lf\n", 2.0*xd, 2.0*yd, 2.0*zd);
 
   /***initial parameters for the pot reduce mass, etc. in the x direction ***/
   grid->xmin = -xd;
   grid->xmax = xd - grid->dx; // There is an off-by-one in the grid due to the loop not including the final element. Create odd grid to have same grid points on each side.
   ntmp  = (long)((grid->xmax - grid->xmin) / grid->dx);
   if (ntmp > grid->nx){
-    if (parallel->mpi_rank == 0) printf("\tinput nx insufficient; updating parameter.\n");
+    if (mpir == 0) printf("\tinput nx insufficient; updating parameter.\n");
     grid->nx = ntmp;
+    
+    // Do not let auto-grid generator construct odd grid
+    // If nx is odd, add 1 more grid point to make it even
+    if (grid->nx % 2){
+      grid->nx += 1;
+    }
   }
   grid->xmin = -((double)(grid->nx) * grid->dx) / 2.0;
   grid->xmax = grid->xmin + ((double)(grid->nx - 1) * grid->dx);
-  if (parallel->mpi_rank == 0) printf("\tThe x_min = %lg and x_max %lg\n", grid->xmin, grid->xmax);
+  if (mpir == 0) printf("\tThe x_min = %lg and x_max %lg\n", grid->xmin, grid->xmax);
   
   grid->dkx = TWOPI / ((double)grid->nx * grid->dx); // reciprocal lattice vector length
   
@@ -50,12 +58,17 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
   grid->ymax = yd - grid->dy;
   ntmp  = (long)((grid->ymax - grid->ymin) / grid->dy);
   if (ntmp > grid->ny){
-    if (parallel->mpi_rank == 0) printf("\tinput ny insufficient; updating parameter.\n");
+    if (mpir == 0) printf("\tinput ny insufficient; updating parameter.\n");
     grid->ny = ntmp;
+
+    // If nx is odd, add 1 more grid point to make it even
+    if (grid->ny % 2){
+      grid->ny += 1;
+    }
   }
   grid->ymin = -((double)(grid->ny) * grid->dy) / 2.0;
   grid->ymax = grid->ymin + ((double)(grid->ny - 1) * grid->dy);
-  if (parallel->mpi_rank == 0) printf("\tThe y_min = %lg and y_max %lg\n", grid->ymin, grid->ymax);
+  if (mpir == 0) printf("\tThe y_min = %lg and y_max %lg\n", grid->ymin, grid->ymax);
   
   grid->dky = TWOPI / ((double)grid->ny * grid->dy);
 
@@ -66,19 +79,24 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
     grid->zmax = zd - grid->dz;
     ntmp  = (long)((grid->zmax - grid->zmin) / grid->dz);
     if ( (ntmp > grid->nz) && (0 == flag->periodic) ){
-      if (parallel->mpi_rank == 0) printf("\tinput nz insufficient; updating parameter.\n");
+      if (mpir == 0) printf("\tinput nz insufficient; updating parameter.\n");
       grid->nz = ntmp;
+
+      // If nx is odd, add 1 more grid point to make it even
+      if (grid->nz % 2){
+        grid->nz += 1;
+      }
     }
 
     grid->zmin = -((double)(grid->nz) * grid->dz) / 2.0;
     grid->zmax = grid->zmin + ((double)(grid->nz - 1) * grid->dz);
-    if (parallel->mpi_rank == 0) printf("\tThe z_min = %lg and z_max %lg\n", grid->zmin, grid->zmax);
+    if (mpir == 0) printf("\tThe z_min = %lg and z_max %lg\n", grid->zmin, grid->zmax);
     
   } 
   else if ( (1 == flag->periodic) && (0.0 != par->box_z) ){
     // Generate the box in the periodic z direction
     // Determine if the number of grid points chosen is sufficient for the max grid spacing
-    if (parallel->mpi_rank == 0) printf("\tUsing periodic box of length %lg Bohr in z dim\n", par->box_z);
+    if (mpir == 0) printf("\tUsing periodic box of length %lg Bohr in z dim\n", par->box_z);
     double dz;
     dz = par->box_z / grid->nz;
     if (dz < grid->dz){
@@ -87,22 +105,26 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
       // Increase the number of gridpts to have a grid spacing below grid->dz
       grid->nz = (int)(par->box_z / grid->dz) + 1;
       grid->dz = par->box_z / grid->nz;
-      if (parallel->mpi_rank == 0) printf("\tModify periodic box grid: nz = %ld dz = %lg\n", grid->nz, grid->dz);
+      if (mpir == 0) printf("\tModify periodic box grid: nz = %ld dz = %lg\n", grid->nz, grid->dz);
     }
 
     grid->zmin = - par->box_z / 2;
     grid->zmax = par->box_z / 2;
-    if (parallel->mpi_rank == 0) printf("\t-L/2 = %lg L/2 = %lg\n", grid->zmin, grid->zmax);
+    if (mpir == 0) printf("\t-L/2 = %lg L/2 = %lg\n", grid->zmin, grid->zmax);
   } 
   else {
-    printf("ERROR: periodic flag set but box_z = 0.0!\n");
-    fprintf(stderr, "ERROR: periodic flag set but box_z = 0!\n");
+    if (mpir == 0) {
+      printf("ERROR: periodic flag set but box_z = 0.0!\n");
+      fprintf(stderr, "ERROR: periodic flag set but box_z = 0!\n");
+    }
     exit(EXIT_FAILURE);
   }
   
   if ( (grid->nx % 2) || (grid->ny % 2) || (grid->nz % 2) ){
-    printf("\n\nWARNING: ODD # OF GRID POINTS -> NO (0.0, 0.0, 0.0) pt\n");
-    printf("WARNING: GRID INCOMPATIBLE WITH HARTREE POT IN BSE\n\n");
+    if (mpir == 0) {
+      printf("\n\nWARNING: ODD # OF GRID POINTS -> NO (0.0, 0.0, 0.0) pt\n");
+      printf("WARNING: GRID INCOMPATIBLE WITH HARTREE POT IN BSE\n\n");
+    }
   }
 
   grid->dkz = TWOPI / ((double)grid->nz * grid->dz);
@@ -119,13 +141,14 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
   ist->nx = grid->nx; ist->ny = grid->ny; ist->nz = grid->nz;
   ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx;
 
-  if (parallel->mpi_rank == 0) printf("\n\tFinal grid parameters:\n");
-  if (parallel->mpi_rank == 0) printf("\t----------------------\n");
-  if (parallel->mpi_rank == 0) printf("\txmin = %lf ymin = %lf zmin = %lf\n", grid->xmin, grid->ymin, grid->zmin);
-  if (parallel->mpi_rank == 0) printf("\tdx = %g dy = %g dz = %g dv = %g dr = %g\n", grid->dx, grid->dy, grid->dz, grid->dv, grid->dr);
-  if (parallel->mpi_rank == 0) printf("\tnx = %ld  ny = %ld  nz = %ld\n", ist->nx, ist->ny, ist->nz);
-  if (parallel->mpi_rank == 0) printf("\tngrid = %ld, nspin = %d, nspinngrid = %ld\n", ist->ngrid, ist->nspin, ist->nspinngrid);
-  
+  if (mpir == 0) {
+    printf("\n\tFinal grid parameters:\n");
+    printf("\t----------------------\n");
+    printf("\txmin = %lf ymin = %lf zmin = %lf\n", grid->xmin, grid->ymin, grid->zmin);
+    printf("\tdx = %g dy = %g dz = %g dv = %g dr = %g\n", grid->dx, grid->dy, grid->dz, grid->dv, grid->dr);
+    printf("\tnx = %ld  ny = %ld  nz = %ld\n", ist->nx, ist->ny, ist->nz);
+    printf("\tngrid = %ld, nspin = %d, nspinngrid = %ld\n", ist->ngrid, ist->nspin, ist->nspinngrid);
+  }
 
   free(X); free(Y); free(Z);
   fflush(stdout);

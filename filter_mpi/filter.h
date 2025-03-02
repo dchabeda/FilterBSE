@@ -74,6 +74,16 @@ void time_hamiltonian(
     parallel_st*  parallel
 );
 
+void gather_mpi_filt(
+    double*       psi_rank,
+    double**      psitot,
+    index_st*     ist,
+    par_st*       par,
+    flag_st*      flag,
+    parallel_st*  parallel
+);
+
+
 /*************************************************************/
 
 void run_filter_cycles_k(

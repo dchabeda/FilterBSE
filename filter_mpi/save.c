@@ -76,8 +76,8 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
         fprintf(pf, "\tIntermediate filter wavefunctions will not be output to disk\n");
     }
     
-    if (flag->printOrtho == 1){
-        fprintf(pf, "\tprintOrtho is on. ortho.dat files will be printed\n");
+    if (flag->printPsiOrtho == 1){
+        fprintf(pf, "\tprintPsiOrtho is on. psi-ortho.dat files will be printed\n");
     } else {
         fprintf(pf, "\tOrthogonalized wavefunctions will not be output to disk\n");
     }
@@ -151,6 +151,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     if (flag->restartFromCheckpoint > -1) fprintf(pf, "\tFilter will restart from checkpoint %d\n", flag->restartFromCheckpoint);
     else fprintf(pf, "\tNo checkpoint specified for restart. Job will run in normal sequence.\n");
     if (flag->restartFromOrtho == 1) fprintf(pf, "\tFilter will restart from orthogonalization step!\n");
+    if (flag->restartFromSigma == 1) fprintf(pf, "\tFilter will restart from sigma step!\n");
     
     return;
 }

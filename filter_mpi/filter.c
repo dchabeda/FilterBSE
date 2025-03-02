@@ -518,3 +518,58 @@ void time_hamiltonian(
 
   return;
 }
+
+/*****************************************************************************/
+
+void gather_mpi_filt(
+  double*       psi_rank,
+  double**      psitot,
+  index_st*     ist,
+  par_st*       par,
+  flag_st*      flag,
+  parallel_st*  parallel
+  ){
+
+  /************************************************************/
+  /*******************  DECLARE VARIABLES   *******************/
+  /************************************************************/
+
+  const int mpir = parallel->mpi_rank;
+
+  const long long stlen = ist->complex_idx * ist->nspinngrid;
+  const long long tot_sz =  par->t_rev_factor *  ist->mn_states_tot * stlen;
+  const long long prs =  ist->psi_rank_size;
+
+  /************************************************************/
+  /*******************   ALLOC PSITOT MEM   *******************/
+  /************************************************************/
+
+  if (mpir == 0){ 
+    printf("Allocating mem for psitot\n");
+    ALLOCATE(psitot, tot_sz, "psitot");
+    printf("Gathering psitot from all mpi_ranks\n"); fflush(0);
+  }
+
+  /************************************************************/
+  /******************   GATHER FROM RANKS   *******************/
+  /************************************************************/
+
+  // MPI Gather can only work for arrays with size < MAX_SIZE_INT
+  // Because the API takes ints as the argument
+  // If psi_rank_size > MAX_SIZE_INT, 
+  // then Send/Recv the states one by one
+
+  printf("INT MAX = %d\n", INT_MAX);
+
+  if (prs < INT_MAX){
+    printf("Size of psi_rank < INT_MAX; Calling MPI_Gather\n"); fflush(0);
+    MPI_Gather(psi_rank, prs, MPI_DOUBLE, *psitot, prs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  } else{
+    printf("Size of psi_rank > INT_MAX; Sending states 1-by-1 w MPI_Send/Recv\n"); fflush(0);
+  }
+  
+  if (mpir == 0) printf("Succesfully gathered all states\n"); fflush(0);
+    
+
+  return;
+}

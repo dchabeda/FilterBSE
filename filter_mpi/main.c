@@ -152,23 +152,9 @@ int main(int argc, char *argv[]){
       }
 
       // Gather all psi_rank from MPI ranks into psitot
-      const long long tot_sz = ist.complex_idx * par.t_rev_factor * ist.nspinngrid * ist.mn_states_tot;
-      const long long prs = ist.psi_rank_size;
-
-      if (mpir == 0){ 
-        printf("Allocating mem for psitot\n");
-        ALLOCATE(&psitot, tot_sz, "psitot");
-        printf("Gathering psitot from all mpi_ranks\n"); fflush(0);
-      }
-      
-      // 
-      // 
-      MPI_Gather(psi_rank, prs, MPI_DOUBLE, psitot, prs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+      gather_mpi_filt(psi_rank, &psitot, &ist, &par, &flag, &parallel);
       free(psi_rank);
-      // 
-      // 
-
-      if (mpir == 0) printf("Succesfully gathered all states\n"); fflush(0);
+      
       
       // Save a checkpoint if requested
       if ((1 == flag.saveCheckpoints) && (0 == mpir)){
@@ -219,6 +205,10 @@ int main(int argc, char *argv[]){
 
     // Restart from diagonalization module
     case 2:
+      /************************************************************/
+      /*******************    RUN DIAG MODULE   *******************/
+      /************************************************************/
+
       if (0 == mpir){
 
         mod_diag(psitot, pot_local, eig_vals, sigma_E, &grid, LS, nlc, nl,
@@ -231,6 +221,21 @@ int main(int argc, char *argv[]){
             an, zn, ene_targets, nl, nlc, &grid, &ist, &par, &flag, &parallel);
         }
       } // end [if mpi rank 0]
+    
+    case 3:
+      /************************************************************/
+      /*******************   RUN SIGMA MODULE   *******************/
+      /************************************************************/
+
+      if (0 == mpir){
+        if (1 == flag.restartFromSigma){
+          restart_from_sigma(&psitot, pot_local, eig_vals, &grid, LS, nlc, nl,
+            ksqr, &ist, &par, &flag, &parallel);
+        }
+      
+        mod_sigma(psitot, pot_local, eig_vals, sigma_E, &grid, LS, nlc, nl,
+        ksqr, &ist, &par, &flag, &parallel);
+      }
   } // end switch
   
   /************************************************************/

@@ -45,8 +45,8 @@ typedef struct flag {
 
   // Output control
   int   printPsiFilt;
-  int   printPsiHam;
-  int   printOrtho;
+  int   printPsiDiag;
+  int   printPsiOrtho;
   int   printNorm;
   int   printCubes;
   int   printGaussCubes;
@@ -58,9 +58,10 @@ typedef struct flag {
   int   calcSpinAngStat;
 
   // Restart and checkpointing
-  int   restartFromOrtho;
   int   retryFilter;
   int   alreadyTried;
+  int   restartFromOrtho;
+  int   restartFromSigma;
   int   saveCheckpoints;
   int   restartFromCheckpoint;
   int   saveOutput;
@@ -92,6 +93,7 @@ typedef struct index {
   long  n_filters_per_rank;
   long  n_states_per_rank;
   long  n_states_for_ortho;
+  long  n_states_for_sigma;
   long long  psi_rank_size;
 
   // HOMO-LUMO and energy state indices

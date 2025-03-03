@@ -345,6 +345,9 @@ void calc_sigma_E(
   * outputs: void                                                    *
   ********************************************************************/
 
+  FILE *pf;
+  pf = fopen("eval_aux.dat", "w");
+
   long ims;
   omp_set_num_threads(ist->nthreads);
   // Loop over all M*N states
@@ -440,6 +443,9 @@ void calc_sigma_E(
     // sigma_E is the sqrt of the variance
     sigma_E[ims] = sqrt(fabs(eval2));
 
+    // Print auxiliary eval.dat file because we get it for free
+    fprintf(pf, "%ld %.16lg %.16lg\n", ims, eval, sigma_E[ims]);
+
     // Free dynamically allocated memory
     free(psi); free(phi);
     fftw_destroy_plan(planfw);
@@ -447,8 +453,8 @@ void calc_sigma_E(
     fftw_free(fftwpsi);
     
   }
-
-  
+  fflush(pf);
+  fclose(pf);
 
   return;
 }
@@ -485,6 +491,9 @@ void calc_sigma_E_lg_mem(
   *  [fftwpsi] location to store outcome of Fourier transform        *
   * outputs: void                                                    *
   ********************************************************************/
+
+  FILE *pf;
+  pf = fopen("eval_aux.dat", "w");
 
   long ims;
   omp_set_num_threads(ist->nthreads);
@@ -583,14 +592,19 @@ void calc_sigma_E_lg_mem(
     eval2 -= sqr(eval);
     // sigma_E is the sqrt of the variance
     sigma_E[ims] = sqrt(fabs(eval2));
+
+    // Print auxiliary eval.dat file because we get it for free
+    fprintf(pf, "%ld %.16lg %.16lg\n", ims, eval, sigma_E[ims]);
     
   }
+  fflush(pf);
 
   // Free dynamically allocated memory
   free(psi); free(phi);
   fftw_destroy_plan(planfw);
   fftw_destroy_plan(planbw);
   fftw_free(fftwpsi);
+  fclose(pf);
 
   return;
 }

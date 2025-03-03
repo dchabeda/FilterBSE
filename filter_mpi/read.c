@@ -61,7 +61,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->NL = 0; // computes the non-local terms in the Hamiltonian; automatically on if SO flag on
   ist->nproj = 5; // number of terms to expand projections in. converged by 5
   par->t_rev_factor = 1; // can time rev filt'rd states to get 2X eigst8. mem alloc multiplied by par.t_rev_factor
-  flag->noTimeRev = 0;
+  flag->noTimeRev = 1; // By default, do not time reverse Filtered states
   // Optional output flags
   flag->saveOutput = 1; // By default, write the formatted output file that can be read by BSE to recreate job state
   flag->calcPotOverlap = 0; // Calculates matrix elements of the potential <i|V|j>

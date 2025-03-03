@@ -105,6 +105,9 @@ void p_potential(
   // Calculate the action of the local potential energy part of the Hamiltonian on psi_tmp
   // No openMP atomics necessary for this because all grid indices are unique
   // (no two threads reads/writes the same j/jtmp ever)
+  
+  // TODO: Spinor version should store pot_local twice, contiguously in memory
+  // so that this loop is flat over nspinngrid. Daniel C. 3.2.2025
   if (1 == flag->useSpinors){
     for (j = 0; j < ist->ngrid; j++) {
       psi_out[j].re += (pot_local[j] * psi_tmp[j].re);

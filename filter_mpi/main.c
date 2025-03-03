@@ -232,6 +232,7 @@ int main(int argc, char *argv[]){
           restart_from_sigma(&psitot, pot_local, eig_vals, &grid, LS, nlc, nl,
             ksqr, &ist, &par, &flag, &parallel);
         }
+        printf("Entering mod_sigma\n"); fflush(0);
       
         mod_sigma(psitot, pot_local, eig_vals, sigma_E, &grid, LS, nlc, nl,
         ksqr, &ist, &par, &flag, &parallel);

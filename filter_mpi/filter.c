@@ -493,13 +493,16 @@ void time_hamiltonian(
   clock_gettime(CLOCK_MONOTONIC, &start);
   for (int i = 0; i < n_iter; i++){
     if (1 == flag->useSpinors){
-      for (j = 0; j < ist->ngrid; j++) {
-        psi_out[j].re += (pot_local[j] * psi_tmp[j].re);
-        psi_out[j].im += (pot_local[j] * psi_tmp[j].im);
-        // handle spin down component
-        jtmp = ist->ngrid + j;
-        psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
-        psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
+      for (jspin = 0; jspin < 2; jspin++){
+        for (j = 0; j < ist->ngrid; j++) {
+          jtmp = jspin * ist->ngrid + j;
+          psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
+          psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
+          // // handle spin down component
+          
+          // psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
+          // psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
+        }
       }
     } 
     else if (0 == flag->useSpinors){

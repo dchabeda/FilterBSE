@@ -108,7 +108,7 @@ void restart_from_sigma(
     exit(EXIT_FAILURE);
   }
 
-  fread(*psitot, tot_sz, sizeof(double), pf);
+  fread(*psitot, sizeof(double) , tot_sz, pf);
 
   fclose(pf);
 
@@ -116,8 +116,8 @@ void restart_from_sigma(
   /*******************   CALC ALL ENERGIES   ******************/
   /************************************************************/
 
-  printf("Computing energies of all states | %s", get_time()); fflush(0);
-  energy_all(*psitot, ist->mn_states_tot, pot_local, LS, nlc, nl, ksqr, eig_vals, ist, par, flag, parallel);
+  // printf("Computing energies of all states | %s", get_time()); fflush(0);
+  // energy_all(*psitot, ist->mn_states_tot, pot_local, LS, nlc, nl, ksqr, eig_vals, ist, par, flag, parallel);
 
   return;
 }

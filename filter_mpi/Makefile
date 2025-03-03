@@ -10,7 +10,7 @@ LIB = $(Linux_DYLIB) $(Linux_LIB)
 
 # flags ...
 Linux_OPTFLAGS = -DMKL_ILP64 -DFFTW_FFT
-Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp -msse4 -Wall
+Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp -msse4
 #Linux_CFLAGS = -g -qopenmp -O0 -Wall
 #Linux_CFLAGS = -g -O0 -Wall # uncomment this line to debug/valgrind
 

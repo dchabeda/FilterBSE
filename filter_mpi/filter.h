@@ -83,6 +83,14 @@ void gather_mpi_filt(
     parallel_st*  parallel
 );
 
+void send_recv_lg_data(
+    double*          psi_rank, 
+    double**         psitot, 
+    long             stlen, 
+    long             n_states_per_rank, 
+    int              mpi_rank, 
+    int              mpi_size
+);
 
 /*************************************************************/
 

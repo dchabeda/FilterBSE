@@ -539,9 +539,9 @@ void gather_mpi_filt(
 
   const int mpir = parallel->mpi_rank;
 
-  const long long stlen = ist->complex_idx * ist->nspinngrid;
+  const long stlen = ist->complex_idx * ist->nspinngrid;
   const long long tot_sz =  par->t_rev_factor *  ist->mn_states_tot * stlen;
-  const long long prs =  ist->psi_rank_size;
+  const long prs =  ist->psi_rank_size;
 
   /************************************************************/
   /*******************   ALLOC PSITOT MEM   *******************/
@@ -561,18 +561,98 @@ void gather_mpi_filt(
   // Because the API takes ints as the argument
   // If psi_rank_size > MAX_SIZE_INT, 
   // then Send/Recv the states one by one
+  int max_mpi_sz = INT_MAX;
 
-  printf("INT MAX = %d\n", INT_MAX);
+  if (prs < max_mpi_sz){
+    
+    printf("Size of psi_rank < %d; Calling MPI_Gather\n", max_mpi_sz); fflush(0);
 
-  if (prs < INT_MAX){
-    printf("Size of psi_rank < INT_MAX; Calling MPI_Gather\n"); fflush(0);
     MPI_Gather(psi_rank, prs, MPI_DOUBLE, *psitot, prs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  
   } else{
-    printf("Size of psi_rank > INT_MAX; Sending states 1-by-1 w MPI_Send/Recv\n"); fflush(0);
+    
+    printf("Size of psi_rank %ld > %d\n", ist->n_states_per_rank*stlen, max_mpi_sz);
+    printf("Sending states 1-by-1 w MPI_Send/Recv\n"); fflush(0);
+
+    send_recv_lg_data(psi_rank, psitot, stlen, ist->n_states_per_rank, parallel->mpi_rank, parallel->mpi_size);
+
   }
   
   if (mpir == 0) printf("Succesfully gathered all states\n"); fflush(0);
-    
+  
+  return;
+}
+
+void send_recv_lg_data(
+  double*          psi_rank, 
+  double**         psitot, 
+  long             stlen, 
+  long             n_states_per_rank, 
+  int              mpi_rank, 
+  int              mpi_size
+  ){
+
+  int   max_mpi_sz    = INT_MAX;
+  long  psi_rank_size = n_states_per_rank * stlen;
+  
+  // printf("max_mpi_size = %d\n", max_mpi_sz); fflush(0);
+  // printf("psi_rank_size = %ld\n", psi_rank_size); fflush(0);
+  // printf("stlen = %ld\n", stlen); fflush(0);
+  // Use MPI_Send/MPI_Recv for large data
+  MPI_Status status;
+  int tag;
+  long n_states_max = max_mpi_sz / stlen;
+  if (n_states_max == 0){
+    fprintf(stderr, "ERROR: max MPI size < len of single state. Cannot Send/Recv!\n");
+    MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+  }
+  // printf("n_states_max = %ld\n", n_states_max); fflush(0);
+
+  long n_send_cycles = (n_states_per_rank + n_states_max - 1) / n_states_max; // Ceiling division
+  // printf("n_send_cycles = %ld\n", n_send_cycles); fflush(0);
+  
+  long nbuf = n_states_max * stlen;
+  // printf("nbuf = %ld\n", nbuf); fflush(0);
+  
+   
+  if (mpi_rank == 0) {
+    // Receive data from other ranks
+    for (int j = 1; j < mpi_size; j++) {
+      long rnk_offset = j * psi_rank_size;
+      long remaining_states = n_states_per_rank;
+      // printf("\n***\nrank = %d rnk_offset = %ld\n", j, rnk_offset); fflush(0);
+      for (int i = 0; i < n_send_cycles; i++) {
+        long recv_size = (remaining_states > n_states_max) ? nbuf : remaining_states * stlen;
+        // printf("\nRcv rank %d | i = %d remaining_states = %ld\n", mpi_rank, i, remaining_states); fflush(0);
+        // printf("Rcv rank %d | recv_size = %ld\n", mpi_rank, recv_size); fflush(0);
+        remaining_states -= n_states_max;
+        tag = j * n_send_cycles + i;
+        MPI_Recv((*psitot) + rnk_offset + i * nbuf, recv_size, MPI_DOUBLE, j, tag, MPI_COMM_WORLD, &status);
+      } // end of send cycles
+    } // end of loop over ranks
+
+    printf("Successfully received all states on rank %d\n", mpi_rank); fflush(0);
+    // Copy local data for rank 0
+    memcpy(*psitot, psi_rank, psi_rank_size * sizeof(double));
+    printf("Successfully copied psi_rank to psitot on rank %d\n", mpi_rank); fflush(0);
+
+  } 
+  else {
+      
+    long remaining_states = n_states_per_rank; // Reset per rank
+    // printf("Sending data on rank %d\n", mpi_rank); fflush(0);
+    // Send data in chunks
+    for (int i = 0; i < n_send_cycles; i++) {
+      long send_size = (remaining_states > n_states_max) ? nbuf : remaining_states * stlen;
+      remaining_states -= n_states_max;
+      tag = mpi_rank * n_send_cycles + i;
+      // printf("\nSnd rank %d | i = %d Send size = %ld\n", mpi_rank, i, send_size); fflush(0);
+      // printf("Snd rank %d | i = %d Remaining states = %ld\n", mpi_rank, i, remaining_states); fflush(0);
+      // printf("Snd rank %d | i = %d tag = %d\n", mpi_rank, i, tag); fflush(0);
+      MPI_Send(psi_rank + i * nbuf, send_size, MPI_DOUBLE, 0, tag, MPI_COMM_WORLD);
+    }
+  }
 
   return;
+  
 }

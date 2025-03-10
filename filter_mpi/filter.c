@@ -373,6 +373,7 @@ void p_hnorm(
     par, flag, planfw, planbw, fftwpsi, par->ham_threads
   );
   
+  // Scale eigenvalues to remain within disk of convergence of expansion
   for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
     /*** par->dE_1 = 4.0 / par->dE and therefore I don't multiply by 4 ***/
     psi_out[jgrid].re = par->dE_1 * psi_out[jgrid].re - (2.0 + zn + par->Vmin * par->dE_1) * psi_tmp[jgrid].re;
@@ -418,7 +419,7 @@ void time_hamiltonian(
 
   struct timespec start, end;
   int jspin, j, jtmp;
-  int n_iter = 20;
+  int n_iter = 150;
 
   omp_set_num_threads(par->ham_threads);
 

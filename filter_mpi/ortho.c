@@ -152,7 +152,7 @@ long ortho_cplx(MKL_Complex16 *psitot, double dv, index_st *ist, par_st *par, fl
 
 
 void restart_from_ortho(
-  double*       psitot,
+  double**      psitot,
   index_st*     ist,
   par_st*       par,
   flag_st*      flag,
@@ -182,23 +182,25 @@ void restart_from_ortho(
   
   // Read in the states from psi-filt.dat file
   
+  ALLOCATE(psitot, par->t_rev_factor * tot_sz, "psitot");
+
   ppsi = fopen("psi-filt.dat", "r");
   
   if (ppsi != NULL){
     printf("Reading psi-filt.dat\n"); fflush(stdout);
-    fread(psitot, sizeof(double), tot_sz, ppsi);
+    fread(*psitot, sizeof(double), tot_sz, ppsi);
     fclose(ppsi);
   } else{
     fprintf(stderr, "ERROR: psi-filt.dat could not be opened\n");
     exit(EXIT_FAILURE);
   }
 
-  printf("psitot[max] = %lg\n", psitot[(tot_sz) - 1]);
+  printf("psitot[max] = %lg\n", (*psitot)[(tot_sz) - 1]);
   
   
   printf("\nNormalizing filtered states (for safety)\n"); fflush(stdout);
 
-  normalize_all(psitot, ist->mn_states_tot, ist, par, flag, parallel);
+  normalize_all(*psitot, ist->mn_states_tot, ist, par, flag, parallel);
   
   printf("Done normalizing\n"); fflush(stdout);
   

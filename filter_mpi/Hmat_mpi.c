@@ -1,8 +1,8 @@
 #include "Hmat.h"
 
-/*****************************************************************************/
+/****************************************************************************/
 
-void diag_H(
+void diag_H_mpi(
   double*        psitot, 
   double*        pot_local, 
   zomplex*       LS, 
@@ -42,22 +42,31 @@ void diag_H(
   ********************************************************************/
 
   FILE *pg;
+  
   long ims, jms, jgrid, jgrid_real, jgrid_imag;
+  
   const long long mn_states_tot = (int)ist->mn_states_tot, lwk = 3*ist->mn_states_tot;
   long long info;
+  
   double *rwork, sumre, sumim; zomplex *tpsi;
   double *H, *work;
+
   MKL_Complex16 *H_z, *work_z;
-  time_t current_time;
-  char* c_time_string;
+
   zomplex *psi, *phi;
 
-  const long stlen = ist->nspinngrid * ist->complex_idx;
+  const int   mpir   =  parallel->mpi_rank;
+  const int   mpi_sz =  parallel->mpi_size;
+
+  const unsigned long stlen = ist->nspinngrid * ist->complex_idx;
+
+  unsigned long start, end;
 
   // FFT
   long fft_flags = FFTW_MEASURE;
   fftw_plan_loc planfw, planbw;
   fftw_complex *fftwpsi;
+  
   // Create FFT structs and plans for Fourier transform
   fftw_init_threads();
   fftw_plan_with_nthreads(par->ham_threads);
@@ -86,13 +95,27 @@ void diag_H(
     fprintf(stderr, "\nOUT OF MEMORY: phi in diag_H\n\n"); exit(EXIT_FAILURE);
   }
   
-  printf("Constructing Hamiltonian matrix\n"); fflush(stdout);
+  if (mpir == 0) printf("Constructing Hamiltonian matrix\n"); fflush(stdout);
 
-  omp_set_dynamic(0);
+  omp_set_max_active_levels(1);
   omp_set_num_threads(parallel->nthreads);
   /*** calculate H|psi_i> ***/
   
-  for (ims = 0; ims < ist->mn_states_tot; ims++){
+  printf("Determining the workload for mn_tot = %ld on MPI rank %d\n", ist->mn_states_tot, mpir);
+  double stride = sqrt( (double) mpir / (double) mpi_sz);
+  printf("MPI rank %d sqrt odd/size = %lg\n", mpir, stride);
+  
+  start = (unsigned long) ((double) ist->mn_states_tot * stride);
+  printf("MPI rank %d start = %lu\n", mpir, start);
+  end   = (unsigned long) ( (double) ist->mn_states_tot * sqrt((double) (mpir + 1) /(double) mpi_sz ) );
+  
+  // handle remainder so that all states are assigned to a rank
+  if ( mpir == (mpi_sz - 1) ){
+      end = ist->mn_states_tot;
+  }
+  printf("MPI rank %d end = %lu\n", mpir, end);
+
+  for (ims = start; ims < end; ims++){
     
     if (1 == flag->isComplex){
       for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
@@ -126,30 +149,39 @@ void diag_H(
       }
     }
     
-    if ( (ims == 0) || (0 == (ims % (ist->mn_states_tot/4 + 1))) || (ims == (ist->mn_states_tot - 1))){
-      print_progress_bar(ims, ist->mn_states_tot);
+    // Print out progress
+    if (mpir == 0){
+      if ( (ims == 0) || (0 == (ims % (ist->mn_states_tot/4 + 1))) || (ims == (ist->mn_states_tot - 1))){
+        print_progress_bar(ims, ist->mn_states_tot);
+      }
     }
+    
   }
+
+
+
   // free dynamically allocated memory for psi and phi
   free(psi); free(phi);
 
   // print out Hmat for debugging purposes
-  pg = fopen("hmat.dat" , "w");
-  for (ims = 0; ims < ist->mn_states_tot; ims++){
-    for (jms = 0; jms < ist->mn_states_tot; jms++){
-      if (0 == flag->isComplex){
-        fprintf(pg, "%lg ", H[ims*ist->mn_states_tot + jms]);
+  if (mpir == 0) {
+    pg = fopen("hmat.dat" , "w");
+    for (ims = 0; ims < ist->mn_states_tot; ims++){
+      for (jms = 0; jms < ist->mn_states_tot; jms++){
+        if (0 == flag->isComplex){
+          fprintf(pg, "%lg ", H[ims*ist->mn_states_tot + jms]);
+        }
+        if (1 == flag->isComplex){
+          fprintf(pg, "%lg+i%lg ", H_z[ims*ist->mn_states_tot + jms].real, H_z[ims*ist->mn_states_tot + jms].imag);
+        }
       }
-      if (1 == flag->isComplex){
-        fprintf(pg, "%lg+i%lg ", H_z[ims*ist->mn_states_tot + jms].real, H_z[ims*ist->mn_states_tot + jms].imag);
-      }
+      fprintf(pg, "\n");
     }
-    fprintf(pg, "\n");
+    fclose(pg);
   }
-  fclose(pg);
-
   /*** diagonalize the Hamiltonian H ***/
-  printf("Diagonalizing Hamiltonian | %s\n", get_time());
+  if (mpir == 0) printf("Diagonalizing Hamiltonian | %s\n", get_time());
+  
   // Use real, symmetric diagonalization routine for real wavefunctions
   if (0 == flag->isComplex){
     dsyev_("V", "U", &mn_states_tot, &H[0], &mn_states_tot, &eval[0], &work[0], &lwk, &info);
@@ -157,6 +189,7 @@ void diag_H(
       fprintf(stderr, "error in dsyev_ H\n"); exit(EXIT_FAILURE);
     }
   }
+  
   // Use Hermitian diagonalization routine for complex wavefunctions
   if (1 == flag->isComplex){
     zheev_("V","U", &mn_states_tot, &H_z[0], &mn_states_tot, &eval[0], &work_z[0], &lwk, &(rwork[0]), &info);
@@ -166,7 +199,7 @@ void diag_H(
   }
 
   /*** copy the new function into psitot ***/
-  printf("Diagonalization complete! | %s\n", get_time()); fflush(stdout);
+  if (mpir == 0) printf("Diagonalization complete! | %s\n", get_time()); fflush(stdout);
   
   // The eigenvectors have been computed in the basis of orthogonalized
   // filtered functions (Phi_filter). In order to obtain them in the grid basis
@@ -174,7 +207,9 @@ void diag_H(
   // The matrix H is holding the eigenvectors, so we perform
   // (Psi_grid)_a = SUM_i H_ai * (Phi_filter)_i
   // for each grid point
-  printf("Writing out eigenvectors in the grid basis\n"); 
+  
+  if (mpir == 0) printf("Writing out eigenvectors in the grid basis\n"); 
+  
   for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
     jgrid_real = ist->complex_idx * jgrid;
     jgrid_imag = ist->complex_idx * jgrid + 1;
@@ -212,10 +247,8 @@ void diag_H(
       }
     }
 
-    if (!(jgrid % (ist->nspinngrid / 4) )) {
-      current_time = time(NULL);
-      c_time_string = ctime(&current_time);
-      printf("\tFinished grid point no. %ld | %s\n",jgrid, c_time_string); fflush(stdout);
+    if (!(jgrid % (ist->nspinngrid / 4) ) && (mpir == 0)) {
+      printf("\tFinished grid point no. %ld | %s\n",jgrid, get_time()); fflush(stdout);
     }
   }
   
@@ -230,42 +263,4 @@ void diag_H(
 
   return;
 }
-
-/****************************************************************************/
-
-double dotpreal(zomplex *psi, double *phi, long m, long ngrid, double dv){
   
-  long jgrid;
-  double sum;
-  
-  sum = 0.0;
-  for (jgrid = 0; jgrid < ngrid; jgrid++){
-    sum += (psi[jgrid].re * phi[m*ngrid+jgrid]);
-  }
-  sum *= dv;
-
-  return(sum);
-}
-
-/****************************************************************************/
-
-MKL_Complex16 dotp(zomplex *psi, double *psitot,long m,long ngrid,double dv){
-  
-  long jgrid, jgrid_real, jgrid_imag;
-  MKL_Complex16 sum;
-  
-  sum.real = sum.imag = 0.0;
-  for (jgrid = 0; jgrid < ngrid; jgrid++){
-    jgrid_real = 2*jgrid;
-    jgrid_imag = 2*jgrid + 1;
-
-    sum.real += (psi[jgrid].re * psitot[2*m*ngrid + jgrid_real] + psi[jgrid].im * psitot[2*m*ngrid + jgrid_imag]);
-    sum.imag += (psi[jgrid].re * psitot[2*m*ngrid + jgrid_imag] - psi[jgrid].im * psitot[2*m*ngrid + jgrid_real]);
-  }
-  sum.real *= dv;
-  sum.imag *= dv;
-
-  return(sum);
-}
-
-

@@ -30,7 +30,8 @@ int main(int argc, char *argv[]){
     xyz_st *trans_dipole, *mag_dipole, *rot_strength;
     xyz_st *S_mom = NULL, *L_mom = NULL, *L2_mom = NULL;
     // FFT 
-    fftw_plan_loc *planfw, *planbw; fftw_complex *fftwpsi;
+    fftw_plan_loc planfw, planbw; 
+    fftw_complex *fftwpsi;
     long fft_flags = 0;
     // double arrays
     double *psitot = NULL, *psi_hole = NULL, *psi_elec = NULL, *psi_qp;
@@ -127,7 +128,7 @@ int main(int argc, char *argv[]){
     
     // ******
     // ******
-    get_qp_basis_indices(eig_vals, sigma_E, &ist.eval_hole_idxs, &ist.eval_elec_idxs, &ist, &par, &flag);
+    get_qp_basis_indices(eig_vals, sigma_E, &ist.eval_hole_idxs, &ist.eval_elec_idxs, &ist, &par, &flag, &parallel);
     // ******
     // ******
     
@@ -221,7 +222,6 @@ int main(int argc, char *argv[]){
     // 2. Compute electron-hole interaction potentials
     
     if (mpir == 0) write_separation(stdout, top);
-    
     if (mpir == 0) printf("\n2.\tCOMPUTING ELECTRON-HOLE INTERACTION POTENTIALS | %s\n", get_time());
     if (mpir == 0) write_separation(stdout, bottom); fflush(stdout);
 
@@ -237,88 +237,20 @@ int main(int argc, char *argv[]){
     if (mpir == 0) printf(" done.\n"); fflush(stdout);
 
     // Initialize the FFT arrays for parallel Fourier transform
-    fftwpsi = fftw_malloc(ist.ngrid*parallel.nthreads*sizeof(fftw_complex));
-    fprintf(pmem, "alloc fftwpsi %ld B\n", ist.ngrid*parallel.nthreads*sizeof(fftw_complex)); mem += ist.ngrid*parallel.nthreads*sizeof(fftw_complex);
+    fftwpsi = fftw_malloc(ist.ngrid * sizeof(fftw_complex));
+    fprintf(pmem, "alloc fftwpsi %ld B\n", ist.ngrid*sizeof(fftw_complex)); mem += ist.ngrid*parallel.nthreads*sizeof(fftw_complex);
     
     // Initialize the parallel FFT
     // fftw_plan_with_nthreads(ist.nthreads);
   
-    planfw = (fftw_plan_loc *) malloc(parallel.nthreads * sizeof(fftw_plan_loc));
-    planbw = (fftw_plan_loc *) malloc(parallel.nthreads * sizeof(fftw_plan_loc));
-    for (i = 0; i < ist.nthreads; i++) { 
-        planfw[i] = fftw_plan_dft_3d(grid.nz, grid.ny, grid.nx, &fftwpsi[i*ist.ngrid], 
-                                     &fftwpsi[i*ist.ngrid], FFTW_FORWARD, fft_flags);
-        planbw[i] = fftw_plan_dft_3d(grid.nz, grid.ny, grid.nx, &fftwpsi[i*ist.ngrid],
-                                     &fftwpsi[i*ist.ngrid], FFTW_BACKWARD, fft_flags);
-    }
+    planfw = fftw_plan_dft_3d(grid.nz, grid.ny, grid.nx, fftwpsi,fftwpsi, FFTW_FORWARD, fft_flags);
+    planbw = fftw_plan_dft_3d(grid.nz, grid.ny, grid.nx, fftwpsi,fftwpsi, FFTW_BACKWARD, fft_flags);
+    
     
     if (mpir == 0) printf("Computing interaction potential on grid...\n"); fflush(stdout);
-    init_elec_hole_kernel(pot_bare, pot_screened, &grid, &ist, &par, planfw[0], planbw[0], &fftwpsi[0]);
+    init_elec_hole_kernel(pot_bare, pot_screened, &grid, &ist, &par, &flag, &parallel, planfw, planbw, &fftwpsi[0]);
 
-    /*************************************************************************/
-    /*************************************************************************/
-    // 2. Compute single particle properties
     
-    if (mpir == 0) write_separation(stdout, top);
-    
-    if (mpir == 0) printf("\n3.\tCOMPUTING SINGLE-PARTICLE PROPERTIES | %s\n", get_time());
-    if (mpir == 0) write_separation(stdout, bottom); fflush(stdout);
-
-    /*************************************************************************/
-    if (mpir == 0) printf("Allocating memory for single particle matrix elements... "); fflush(stdout);
-    // trans_dipole def= <psi_i|mu|psi_a>
-    if ((trans_dipole = (xyz_st *) malloc(ist.n_elecs*ist.n_holes * sizeof(trans_dipole[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for trans_dipole in main.c\n");
-        exit(EXIT_FAILURE);
-    }
-    fprintf(pmem, "alloc trans_dipole %ld B\n", ist.n_elecs*ist.n_holes * sizeof(trans_dipole[0])); mem += ist.n_elecs*ist.n_holes * sizeof(trans_dipole[0]);
-    // mag_dipole def= <psi_i|-1/2L|psi_a>
-    if ((mag_dipole = (xyz_st *) malloc(ist.n_elecs*ist.n_holes * sizeof(mag_dipole[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for mag_dipole in main.c\n");
-        exit(EXIT_FAILURE);
-    }
-    fprintf(pmem, "alloc mag_dipole %ld B\n", ist.n_elecs*ist.n_holes * sizeof(mag_dipole[0])); mem += ist.n_elecs*ist.n_holes * sizeof(mag_dipole[0]);
-    // rs def= <psi_i|mu|psi_a><a|m|i>
-    if ((rot_strength = (xyz_st *) malloc(ist.n_elecs*ist.n_holes * sizeof(rot_strength[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for rot_strength in main.c\n");
-        exit(EXIT_FAILURE);
-    }
-    fprintf(pmem, "alloc rot_strength %ld B\n", ist.n_elecs*ist.n_holes * sizeof(rot_strength[0])); mem += ist.n_elecs*ist.n_holes * sizeof(rot_strength[0]);
-    
-    if (mpir == 0) write_separation(pmem, top);
-    fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / 1000000 );
-    if (mpir == 0) write_separation(pmem, bottom); fflush(pmem);
-    if (mpir == 0) printf("done\n"); fflush(stdout);
-
-    if (mpir == 0) printf("\nElectric transition dipole moment...\n");
-    // calc_elec_dipole(trans_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
-    if (mpir == 0) printf("\nMagnetic transition dipole moment...\n");
-    // calc_mag_dipole(mag_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
-    // calc_rot_strength(rs, mux, muy, muz, mx, my, mz, eig_vals, &ist);
-    
-    /* */
-    /* */
-    /* */
-    if (1 == flag.SO){
-        if (mpir == 0) write_separation(stdout, top);
-        current_time = time(NULL);
-        c_time_string = ctime(&current_time);
-        if (mpir == 0) printf("\n  -  COMPUTING ANG.MOM. PROPERTIES | %s\n", get_time());
-        if (mpir == 0) write_separation(stdout, bottom); fflush(stdout);
-
-        l_mom = (xyz_st *) malloc( (ist.n_holes*ist.n_holes + ist.n_elecs*ist.n_elecs) * sizeof(L_mom[0])); //<psi_r|Lx|psi_s>
-        l2_mom =(zomplex *) malloc((ist.n_holes*ist.n_holes + ist.n_elecs*ist.n_elecs) * sizeof(L_mom[0])); //<psi_r|Lx|psi_s>
-        s_mom = (xyz_st *) malloc( (ist.n_holes*ist.n_holes + ist.n_elecs*ist.n_elecs) * sizeof(s_mom[0])); //<psi_r|Sx|psi_s>
-        LdotS = (zomplex *) malloc( (ist.n_holes*ist.n_holes+ist.n_elecs*ist.n_elecs) * sizeof(LdotS[0])); //<psi_r|L.S|psi_s>
-
-        // Compute spin matrix elements, e.g. <j|Sx|i>
-        // calc_spin_mtrx(s_mom, psi_qp, &grid, &ist, &par);
-        // Compute angular momentum matrix elements, e.g. <j|Lx|i>
-        // calc_ang_mom_mtrx(l_mom, l2_mom, LdotS, psi_qp, &grid, &ist, &par);
-    }
-    /* */
-    /* */
-    /* */
     
     // /**************************************************************************/
     // /*** this routine computes the coulomb coupling between
@@ -336,7 +268,7 @@ int main(int argc, char *argv[]){
     //      generate the spin-depedent matrix elements as described by
     //      the last equation in our codument.  ***/
     if (mpir == 0) write_separation(stdout, top);
-    if (mpir == 0) printf("\n4.\tCOMPUTING ELEC-HOLE INTERACTION KERNEL | %s\n", get_time());
+    if (mpir == 0) printf("\n3.\tCOMPUTING ELEC-HOLE INTERACTION KERNEL | %s\n", get_time());
     if (mpir == 0) write_separation(stdout, bottom); fflush(stdout);
     
     if (mpir == 0) printf("\nThe number of electron-hole pairs in the exciton basis = %ld\n", ist.n_xton);
@@ -346,23 +278,109 @@ int main(int argc, char *argv[]){
     bsmat = (zomplex *) calloc(ist.n_xton * ist.n_xton, sizeof(zomplex));
     h0mat = (double *) calloc(ist.n_xton * ist.n_xton, sizeof(double)); 
     
-    if (1 == flag.isComplex) {
-        calc_eh_kernel_cplx((zomplex*)psi_qp, pot_bare, pot_screened, pot_hartree, bsmat, direct, exchange, h0mat, eig_vals, &ist, &par, &flag, planfw, planbw, fftwpsi, &parallel);
+    if (flag.coulombDone){
+        load_coulomb_mat(direct, "direct.dat", &ist);
+        load_coulomb_mat(exchange, "exchange.dat", &ist);
     }
-    // else if (0 == flag.isComplex){
-    //     calc_eh_kernel_real((zomplex*) psi_qp, pot_bare, pot_screened, pot_hartree, bsmat, direct, exchange, h0mat, eig_vals, &ist, &par, &flag, planfw, planbw, fftwpsi);
-    // }
-    MPI_Barrier(MPI_COMM_WORLD);
+    else{
+        if (1 == flag.isComplex) {
+            printf("Computing complex e-h kernel\n"); fflush(0);
+            calc_eh_kernel_cplx((zomplex*)psi_qp, pot_bare, pot_screened, pot_hartree, direct, exchange, &ist, &par, &flag, &parallel);
+        }
+        // else if (0 == flag.isComplex){
+        //     calc_eh_kernel_real((zomplex*) psi_qp, pot_bare, pot_screened, pot_hartree, bsmat, direct, exchange, h0mat, eig_vals, &ist, &par, &flag, planfw, planbw, fftwpsi);
+        // }
+    }
+    
+    
+    if (flag.calcCoulombOnly == 1){
+        printf("Exitng program after computing Coulomb matrix elements | %s\n", get_time());
+        exit(0);
+    }
 
     if (parallel.mpi_rank == 0){
-    
-    xton_ene = (double *) calloc(ist.n_xton, sizeof(double));
-    bs_coeff = (zomplex *) calloc(ist.n_xton*ist.n_xton, sizeof(zomplex));
-    bethe_salpeter(bsmat, direct, exchange, bs_coeff, h0mat, xton_ene,(zomplex*) psi_qp, s_mom,l_mom,l2_mom,LdotS, &grid, &ist, &par);
-    
-    calc_optical_exc(bs_coeff, xton_ene, trans_dipole, mag_dipole, &ist, &par);
-    
-    free(xton_ene); free(bs_coeff);
+        /*************************************************************************/
+        /*************************************************************************/
+        // 2. Compute single particle properties
+        
+        if (mpir == 0) write_separation(stdout, top);
+        if (mpir == 0) printf("\n4.\tCOMPUTING SINGLE-PARTICLE PROPERTIES | %s\n", get_time());
+        if (mpir == 0) write_separation(stdout, bottom); fflush(stdout);
+
+        /*************************************************************************/
+        if (mpir == 0) printf("Allocating memory for single particle matrix elements... "); fflush(stdout);
+        // trans_dipole def= <psi_i|mu|psi_a>
+        if ((trans_dipole = (xyz_st *) malloc(ist.n_elecs*ist.n_holes * sizeof(trans_dipole[0]))) == NULL){
+            fprintf(stderr, "ERROR: allocating memory for trans_dipole in main.c\n");
+            exit(EXIT_FAILURE);
+        }
+        fprintf(pmem, "alloc trans_dipole %ld B\n", ist.n_elecs*ist.n_holes * sizeof(trans_dipole[0])); mem += ist.n_elecs*ist.n_holes * sizeof(trans_dipole[0]);
+        // mag_dipole def= <psi_i|-1/2L|psi_a>
+        if ((mag_dipole = (xyz_st *) malloc(ist.n_elecs*ist.n_holes * sizeof(mag_dipole[0]))) == NULL){
+            fprintf(stderr, "ERROR: allocating memory for mag_dipole in main.c\n");
+            exit(EXIT_FAILURE);
+        }
+        fprintf(pmem, "alloc mag_dipole %ld B\n", ist.n_elecs*ist.n_holes * sizeof(mag_dipole[0])); mem += ist.n_elecs*ist.n_holes * sizeof(mag_dipole[0]);
+        // rs def= <psi_i|mu|psi_a><a|m|i>
+        if ((rot_strength = (xyz_st *) malloc(ist.n_elecs*ist.n_holes * sizeof(rot_strength[0]))) == NULL){
+            fprintf(stderr, "ERROR: allocating memory for rot_strength in main.c\n");
+            exit(EXIT_FAILURE);
+        }
+        fprintf(pmem, "alloc rot_strength %ld B\n", ist.n_elecs*ist.n_holes * sizeof(rot_strength[0])); mem += ist.n_elecs*ist.n_holes * sizeof(rot_strength[0]);
+        
+        if (mpir == 0) write_separation(pmem, top);
+        fprintf(pmem, "\ntotal mem usage %ld MB\n", mem / 1000000 );
+        if (mpir == 0) write_separation(pmem, bottom); fflush(pmem);
+        if (mpir == 0) printf("done\n"); fflush(stdout);
+
+        if (mpir == 0) printf("\nElectric transition dipole moment...\n");
+        calc_elec_dipole(trans_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
+        if (mpir == 0) printf("\nMagnetic transition dipole moment...\n");
+        calc_mag_dipole(mag_dipole, psi_qp, eig_vals, &grid, &ist, &par, &flag);
+        // calc_rot_strength(rs, mux, muy, muz, mx, my, mz, eig_vals, &ist);
+        
+        /* */
+        /* */
+        /* */
+        if (1 == flag.SO){
+            if (mpir == 0) write_separation(stdout, top);
+            current_time = time(NULL);
+            c_time_string = ctime(&current_time);
+            if (mpir == 0) printf("\n  -  COMPUTING ANG.MOM. PROPERTIES | %s\n", get_time());
+            if (mpir == 0) write_separation(stdout, bottom); fflush(stdout);
+
+            l_mom = (xyz_st *) malloc( (ist.n_holes*ist.n_holes + ist.n_elecs*ist.n_elecs) * sizeof(L_mom[0])); //<psi_r|Lx|psi_s>
+            l2_mom =(zomplex *) malloc((ist.n_holes*ist.n_holes + ist.n_elecs*ist.n_elecs) * sizeof(L_mom[0])); //<psi_r|Lx|psi_s>
+            s_mom = (xyz_st *) malloc( (ist.n_holes*ist.n_holes + ist.n_elecs*ist.n_elecs) * sizeof(s_mom[0])); //<psi_r|Sx|psi_s>
+            LdotS = (zomplex *) malloc( (ist.n_holes*ist.n_holes+ist.n_elecs*ist.n_elecs) * sizeof(LdotS[0])); //<psi_r|L.S|psi_s>
+
+            // Compute spin matrix elements, e.g. <j|Sx|i>
+            calc_spin_mtrx(s_mom, psi_qp, &grid, &ist, &par);
+            // Compute angular momentum matrix elements, e.g. <j|Lx|i>
+            calc_ang_mom_mtrx(l_mom, l2_mom, LdotS, psi_qp, &grid, &ist, &par);
+        }
+        /* */
+        /* */
+        /* */
+
+
+        build_BSE_mat(bsmat, direct, exchange, &ist);
+        build_h0_mat(h0mat, eig_vals, &ist);
+        
+        xton_ene = (double *) calloc(ist.n_xton, sizeof(double));
+        bs_coeff = (zomplex *) calloc(ist.n_xton*ist.n_xton, sizeof(zomplex));
+        bethe_salpeter(bsmat, direct, exchange, bs_coeff, h0mat, xton_ene,(zomplex*) psi_qp, s_mom,l_mom,l2_mom,LdotS, &grid, &ist, &par);
+        
+        calc_optical_exc(bs_coeff, xton_ene, trans_dipole, mag_dipole, &ist, &par);
+        
+        free(xton_ene); free(bs_coeff);
+        free(trans_dipole); 
+        free(mag_dipole); 
+        free(rot_strength);
+        free(s_mom); 
+        free(l_mom); 
+        free(l2_mom); 
+        free(LdotS);
     }
     /***********************************************************************/
     free(psi_qp); 
@@ -378,19 +396,8 @@ int main(int argc, char *argv[]){
     free(exchange); 
     free(bsmat); 
     free(h0mat);
-    free(trans_dipole); 
-    free(mag_dipole); 
-    free(rot_strength);
-    free(s_mom); 
-    free(l_mom); 
-    free(l2_mom); 
-    free(LdotS);
-    for (i = 0; i < ist.nthreads; i++){
-        fftw_destroy_plan(planfw[i]); 
-        fftw_destroy_plan(planbw[i]);
-    }
-    free(planfw);
-    free(planbw);
+    fftw_destroy_plan(planfw);
+    fftw_destroy_plan(planbw);
     fftw_free(fftwpsi);
     free(ist.eval_elec_idxs);
     free(ist.eval_hole_idxs);

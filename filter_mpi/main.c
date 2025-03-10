@@ -170,7 +170,13 @@ int main(int argc, char *argv[]){
       /************************************************************/
       /*******************   RUN ORTHO MODULE   *******************/
       /************************************************************/
-      
+      if ( (1 == flag.restartFromOrtho) && (1 == flag.MPIOrtho) ){
+        mod_portho(
+          &psitot, &psi_rank, pot_local, eig_vals, sigma_E, R, LS, nlc, nl,
+          ksqr, &grid, &ist, &par, &flag, &parallel
+        );
+      }
+
       if (mpir == 0) // subsequent modules performed on a single rank
       {
 
@@ -178,14 +184,12 @@ int main(int argc, char *argv[]){
         /*******************  RESTART FROM ORTHO  *******************/
         /************************************************************/
         
-        if (1 == flag.restartFromOrtho){
-          // 
-          long long tot_sz = par.t_rev_factor * ist.complex_idx * ist.nspinngrid * ist.mn_states_tot;
-          
-          ALLOCATE(&psitot, tot_sz, "psitot"); 
-          restart_from_ortho(psitot, &ist, &par, &flag, &parallel);
+        if ( (1 == flag.restartFromOrtho) && (0 == flag.MPIOrtho) ){
+          //
+          restart_from_ortho(&psitot, &ist, &par, &flag, &parallel);
           // 
         } 
+        
 
 
         mod_ortho(
@@ -209,18 +213,18 @@ int main(int argc, char *argv[]){
       /*******************    RUN DIAG MODULE   *******************/
       /************************************************************/
 
-      if (0 == mpir){
+      mod_diag(
+        psitot, pot_local, eig_vals, sigma_E, &grid, LS, nlc, nl,
+        an, zn, ene_targets, ksqr, &ist, &par, &flag, &parallel
+      );
 
-        mod_diag(psitot, pot_local, eig_vals, sigma_E, &grid, LS, nlc, nl,
-        an, zn, ene_targets, ksqr, &ist, &par, &flag, &parallel);
-
-        // Save checkpoint if requested
-        if (3 == flag.saveCheckpoints){
-          save_job_state(
-            "checkpoint_3.dat", par.checkpoint_id, psitot, pot_local, ksqr,
-            an, zn, ene_targets, nl, nlc, &grid, &ist, &par, &flag, &parallel);
-        }
-      } // end [if mpi rank 0]
+      // Save checkpoint if requested
+      if (3 == flag.saveCheckpoints){
+        save_job_state(
+          "checkpoint_3.dat", par.checkpoint_id, psitot, pot_local, ksqr,
+          an, zn, ene_targets, nl, nlc, &grid, &ist, &par, &flag, &parallel);
+      }
+      
     
     case 3:
       /************************************************************/

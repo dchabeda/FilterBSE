@@ -32,12 +32,16 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   par->checkpoint_id = 0;
   // Pseudopotential parameters
   flag->LR = 0; // Long range flag. By default, pseudopotentials are short ranged.
+  
   // Spin-orbit and non-local terms
   flag->useSpinors = 0; // default is to use non-spinor wavefunctions
   flag->isComplex = 0;
   ist->nspin = 1; // turning on the useSpinors flag will set nspin to 2.
   flag->SO = 0; // computes the spin-orbit terms in the Hamiltonian
   flag->NL = 0; // computes the non-local terms in the Hamiltonian; automatically on if SO flag on
+  flag->restartCoulomb = 0;
+  flag->coulombDone = 0;
+  flag->calcCoulombOnly = 0;
   // Optional output flags
   flag->calcDarkStates = 0;
   flag->calcSpinAngStat = 1; // Are angular momentum statistics computed. Only available with SO coupling
@@ -48,6 +52,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->restartFromCheckpoint = -1; // by default do not restart from checkpoint
   flag->printFPDensity=0;
   ist->n_FP_density=0;
+  
 
   // Parse the input file
   if( access( "input.par", F_OK) != -1 ) {
@@ -140,6 +145,15 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "restartFromCheckpoint")) {
           flag->restartFromCheckpoint = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "restartCoulomb")) {
+        flag->restartCoulomb = (int) strtol(tmp, &endptr, 10);
+        if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "coulombDone")) {
+        flag->coulombDone = (int) strtol(tmp, &endptr, 10);
+        if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "calcCoulombOnly")) {
+        flag->calcCoulombOnly = (int) strtol(tmp, &endptr, 10);
+        if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Handle exceptions
@@ -169,6 +183,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("calcSpinAngStat = int (if 1, calculate spin and ang. mom. statistics for eigenstates)\n");
           printf("saveCheckpoints = int, if 1 then save states will be generated along the job run.\n");
           printf("restartFromCheckpoint = int, value is the ID of the checkpoint that the job should restart from.\n");
+          printf("restartCoulomb = int, (if 1, Coulomb matrix elements will be read to restart job).\n");
+          printf("coulombDone = int, (if 1, then Kernel has already been calc'd, will compute BSE).\n");
           
           fflush(stdout);
           exit(EXIT_FAILURE);
@@ -240,17 +256,18 @@ void read_unsafe_input(
     int i = 0;
     char field[1000], tmp[1000], *endptr;
 
-    unsigned long long stlen;
-    unsigned long long j;
-    unsigned long long cntr;
-    unsigned long long itmp;
-    unsigned long long homo_idx;
-    unsigned long long vb_mindex;
-    unsigned long long cb_maxdex;
-    unsigned long long nst_tot;
-    unsigned long long nholes = 0;
-    unsigned long long nelecs = 0;
-    double dbltmp;
+    unsigned long   stlen;
+    unsigned long   j;
+    unsigned long   cntr;
+    unsigned long   itmp;
+    unsigned long   homo_idx;
+    unsigned long   vb_mindex;
+    unsigned long   cb_maxdex;
+    unsigned long   nst_tot;
+    unsigned long   nholes = 0;
+    unsigned long   nelecs = 0;
+
+    double          dbltmp;
     
     if( access( "unsafe_input.par", F_OK) != -1 ) {
         pf = fopen("unsafe_input.par", "r");
@@ -352,11 +369,11 @@ void read_unsafe_input(
 
     printf("Done reading in unsafe_input.par\n\n");
     printf("xmin = %lg ymin = %lg zmin = %lg\n", grid->xmin, grid->ymin, grid->zmin);
-    printf("nx = %llu ny = %llu nz = %llu\n", grid->nx, grid->ny, grid->nz);
+    printf("nx = %ld ny = %ld nz = %ld\n", grid->nx, grid->ny, grid->nz);
     printf("dx = %lg dy = %lg dz = %lg\n", grid->dx, grid->dy, grid->dz);
     printf("grid->dv = %lg \n", grid->dv);
-    printf("natoms = %llu\n", ist->natoms);
-    printf("mn_states_tot = %llu\n", ist->mn_states_tot);
+    printf("natoms = %ld\n", ist->natoms);
+    printf("mn_states_tot = %ld\n", ist->mn_states_tot);
 
     // Allocate memory for grid, psi, eigs, sigma_E, and R
     (*gridx)       =   (double*) calloc(grid->nx, sizeof(double));
@@ -387,7 +404,7 @@ void read_unsafe_input(
         pf = fopen("eval.par", "r");
         
         for (j = 0; j < nst_tot; j++){
-            fscanf(pf, "%ld %lg %lg", &itmp, &((*eig_vals)[j]),  &((*sigma_E)[j]));
+            fscanf(pf, "%lu %lg %lg", &itmp, &((*eig_vals)[j]),  &((*sigma_E)[j]));
         }
 
         fclose(pf);
@@ -407,7 +424,7 @@ void read_unsafe_input(
     vb_mindex = homo_idx - nholes + 1;
     cb_maxdex = vb_mindex + ist->mn_states_tot;
 
-    printf("vb_mindex = %ld cb_maxdex = %ld\n", vb_mindex, cb_maxdex);
+    printf("vb_mindex = %lu cb_maxdex = %lu\n", vb_mindex, cb_maxdex);
 
     if( access( "psi.par", F_OK) != -1 ) {
         pf = fopen("psi.par", "r");
@@ -443,11 +460,11 @@ void read_unsafe_input(
     cntr = 0;
     for (j = 0; j < nst_tot; j++){
         if ( (j >= vb_mindex) && (j < cb_maxdex) ){
-            fscanf(pf, "%ld %lg %lg", &itmp, &((*eig_vals)[cntr]),  &((*sigma_E)[cntr]));
-            printf("eig_vals[j = %ld] = %lg\n",j, ((*eig_vals)[cntr]) );
+            fscanf(pf, "%lu %lg %lg", &itmp, &((*eig_vals)[cntr]),  &((*sigma_E)[cntr]));
+            printf("eig_vals[j = %lu] = %lg\n",j, ((*eig_vals)[cntr]) );
             cntr++;
         } else{
-            fscanf(pf, "%ld %lg %lg", &itmp, &dbltmp,  &dbltmp);
+            fscanf(pf, "%lu %lg %lg", &itmp, &dbltmp,  &dbltmp);
         }
     }
     fclose(pf);
@@ -490,12 +507,12 @@ void read_bseCoeff(int n_xton,int numExcStatesToRead, zomplex* u, FILE* pf){
 /****************************************************************************/
 
 void get_fmo_idxs(
-    double*       eig_vals,
-    double*       sigma_E,
-    double        fermiE,
-    double        secut,
-    unsigned long long          n_elems,
-    unsigned long long*          homo_idx
+    double*          eig_vals,
+    double*          sigma_E,
+    double           fermiE,
+    double           secut,
+    unsigned long    n_elems,
+    unsigned long*   homo_idx
     ){
 
     int i;
@@ -512,7 +529,7 @@ void get_fmo_idxs(
     }
     (*homo_idx) = hidx;
 
-    printf("Found homo_idx = %llu\n", *homo_idx);
+    printf("Found homo_idx = %lu\n", *homo_idx);
 
     return;
 }

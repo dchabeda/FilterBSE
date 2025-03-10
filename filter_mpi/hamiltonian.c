@@ -131,14 +131,19 @@ void potential(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, zomplex *L
   }
   
   // Calculate the action of the local potential energy part of the Hamiltonian on psi_tmp
-  for (jspin = 0; jspin < ist->nspin; jspin++){
-    for (j = 0; j < ist->ngrid; j++) {
-      jtmp = ist->ngrid * jspin + j ; // generalized indexing to handle spinors or spinless wavefuncs
-
-      psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
-      psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
+  if (1 == flag->useSpinors){
+    for (j = 0; j < ist->nspinngrid; j++) {
+      psi_out[j].re += pot_local[j] * psi_tmp[j].re;
+      psi_out[j].im += pot_local[j] * psi_tmp[j].im;
     }
   }
+  else{
+    for (j = 0; j < ist->ngrid; j++) {
+      psi_out[j].re += (pot_local[j] * psi_tmp[j].re);
+      // psi_out[j].im += (pot_local[j] * psi_tmp[j].im);
+    }
+  }
+
   // write_state_dat(psi_out, ist->nspinngrid, "psi_out_loc.dat");
   return;
 }

@@ -26,6 +26,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // NC configuration parameters
   ist->n_max_atom_types = N_MAX_ATOM_TYPES;
   flag->centerConf = 1; // this should honestly always be 1
+  
   // Filter algorithm parameters
   par->KE_max = 20.0; // Increasing this value can improve wavefunctions
   flag->setTargets = 0;
@@ -38,6 +39,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->periodic = 0;
   par->box_z = 0.0;
   flag->useGaussianBasis = 0;
+  flag->inputPsiFilt = 0; // By default, generate initially random states
+  ist->init_psi_start = 0;
+  ist->init_psi_end = 0;
+
   // Pseudopotential parameters
   ist->max_pot_file_len = 8192;
   flag->useStrain = 0; // By default, do not compute strain dependent terms in pseudopotential
@@ -52,6 +57,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   par->psi_zero_cut = 1e-16;
   par->pot_cut_rad2 = 100.0; // All short ranged potentials are decayed to zero by 10.0 Bohr
   par->R_gint_cut2 = 0;
+  
   // Hamiltonian parameters
   // Spin-orbit and non-local terms
   flag->useSpinors = 0; // default is to use non-spinor wavefunctions
@@ -62,6 +68,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->nproj = 5; // number of terms to expand projections in. converged by 5
   par->t_rev_factor = 1; // can time rev filt'rd states to get 2X eigst8. mem alloc multiplied by par.t_rev_factor
   flag->noTimeRev = 1; // By default, do not time reverse Filtered states
+  
   // Optional output flags
   flag->saveOutput = 1; // By default, write the formatted output file that can be read by BSE to recreate job state
   flag->calcPotOverlap = 0; // Calculates matrix elements of the potential <i|V|j>
@@ -74,17 +81,24 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->saveCheckpoints = 0; // by default do not save job checkpoints
   flag->restartFromCheckpoint = 0; // by default do not restart from checkpoint
   flag->calcFilterOnly = 0;
+  
   // Restart job flags
   flag->restartFromOrtho = 0; // When = 1, filtered states are read from disk and job starts from ortho step 
   flag->restartFromSigma = 0; // When = 1, diagged states are read from disk and job starts from sigma step 
   flag->retryFilter = 0; // When = 1, if no eigstates acquired, then retry the filter job 
   flag->alreadyTried = 0; // gets tripped to 1 after the first time retrying a Filter.
+  
   // Parallelization options
   parallel->nestedOMP = 0;
   parallel->n_inner_threads = 1;
   flag->useFastHam = 0;
   flag->useMPIOMP = 0;
   par->ham_threads = 1;
+
+  // Distributed computation parameters
+  flag->MPIOrtho = 0; // By default, orthogonalize on a single node
+  flag->MPIDiag = 0; // By default, do not distribute Hmat tasks
+  flag->parallelSigma = 1; // By default, parallelize sigma over states
 
   // Parse the input file
   if( access( "input.par", F_OK) != -1 ) {
@@ -198,7 +212,13 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           flag->setSeed = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
           if (flag->setSeed == 1){fscanf(pf, "%ld", &par->rand_seed);}
-      } else if (!strcmp(field, "printPsiFilt")) {
+      } else if (!strcmp(field, "inputPsiFilt")) {
+        flag->inputPsiFilt = (int) strtol(tmp, &endptr, 10);
+        if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+        if (flag->inputPsiFilt == 1){
+          fscanf(pf, "%ld %ld", &ist->init_psi_start, &ist->init_psi_end);
+        }
+    } else if (!strcmp(field, "printPsiFilt")) {
           flag->printPsiFilt = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "printPsiOrtho")) {
@@ -240,6 +260,15 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "useMPIOMP")) {
           flag->useMPIOMP = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "MPIOrtho")) {
+        flag->MPIOrtho = (int) strtol(tmp, &endptr, 10);
+        if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "MPIDiag")) {
+        flag->MPIDiag = (int) strtol(tmp, &endptr, 10);
+        if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "parallelSigma")) {
+        flag->parallelSigma = (int) strtol(tmp, &endptr, 10);
+        if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for spin-orbit calculation
@@ -369,6 +398,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
             printf("calcFilterOnly = int (if 1, terminate job after filtering)\n");
             printf("setSeed = int (if 1, set the random seed in for filter to generate exactly reproducible wavefunctions)\n");
             printf("If setSeed = 1, the next entry MUST specify the random seed as an integer \'rand_seed\'\n");
+            printf("inputPsiFilt = int (0 if half/half split of VB/CB targets suffices for your job)\n");
+            printf("If inputPsiFilt = 1, the next two entries MUST be \'init_psi_start & init_psi_end\'\n");
             printf("printNorm = int, if 1 then norms of wavefunctions are printed every 100 chebyshev iterations\n");
             printf("printPsiFilt = int, if 1 then filtered wavefunctions are printed\n");
             printf("printPsiHam = int, if 1 then diagonalized wavefunctions are printed\n");
@@ -379,6 +410,9 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
             printf("saveCheckpoints = int, if 1 then save states will be generated along the job run.\n");
             printf("restartFromCheckpoint = int, value is the ID of the checkpoint that the job should restart from.\n");
             printf("saveOutput = int, if 0 then output.dat will not be printed after job termination.\n");
+            printf("MPIOrtho = int (0 for single node ortho, 1 for distributed)\n");
+            printf("MPIDiag = int (0 for single node diag, 1 for distributed)\n");
+            printf("parallelSigma = int (1 for parallel over states, 0 for parallel H)\n");
             printf("fftWisdomDir = str, directory where fftw_wisdom.dat file is stored.\n");
           }
           fflush(stdout);
@@ -429,6 +463,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   if (1 == flag->restartFromOrtho){
     flag->restartFromCheckpoint = 1;
     ist->mn_states_tot = ist->n_states_for_ortho;
+
+    if (1 == flag->MPIOrtho){
+      ist->n_states_per_rank = ist->n_states_for_ortho;
+    }
   }
   if (1 == flag->restartFromSigma){
     flag->restartFromCheckpoint = 3;

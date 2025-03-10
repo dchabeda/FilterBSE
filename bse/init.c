@@ -2,9 +2,10 @@
 
 #include "fd.h"
 
-/*****************************************************************************//*****************************************************************************/
+/*****************************************************************************/
+/*****************************************************************************/
 
-void init_elec_hole_kernel(zomplex *pot_bare, zomplex *pot_screened, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi){
+void init_elec_hole_kernel(zomplex *pot_bare, zomplex *pot_screened, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi){
   /*******************************************************************
   * This function computes the value of the Coulomb kernel at each   *
   * grid point. The actual calculation of 1/r takes place in k-space *
@@ -23,6 +24,8 @@ void init_elec_hole_kernel(zomplex *pot_bare, zomplex *pot_screened, grid_st *gr
   *  [fftwpsi] location to store outcome of Fourier transform        *
   * outputs: void                                                    *
   ********************************************************************/
+
+  const int mpir = parallel->mpi_rank;
 
   long jx, jy, jz, jyz, jxyz, sx, sy, sz;
   double r, r2, x2, y2, z2, *kx2, *ky2, *kz2, alpha, cosa, sina;
@@ -127,12 +130,12 @@ void init_elec_hole_kernel(zomplex *pot_bare, zomplex *pot_screened, grid_st *gr
   }
 
 
-  printf("\tBare Coulomb potential, v(r, r')...\n");
+  if (mpir == 0) printf("\tBare Coulomb potential, v(r, r')...\n");
   memcpy(&fftwpsi[0], &potr[0], ist->ngrid*sizeof(fftwpsi[0]));
   fftw_execute(planfw);
   memcpy(&pot_bare[0], &fftwpsi[0], ist->ngrid*sizeof(pot_bare[0]));
 
-  printf("\tScreened Coulomb potential, W(r, r')...\n");
+  if (mpir == 0) printf("\tScreened Coulomb potential, W(r, r')...\n");
   memcpy(&fftwpsi[0], &potrx[0], ist->ngrid*sizeof(fftwpsi[0]));
   fftw_execute(planfw);
   memcpy(&pot_screened[0], &fftwpsi[0], ist->ngrid*sizeof(pot_screened[0]));
@@ -175,7 +178,7 @@ void init_elec_hole_kernel(zomplex *pot_bare, zomplex *pot_screened, grid_st *gr
     }
   }
 
-  printf("  Done generating e-h interaction potential.\n");
+  if (mpir == 0) printf("  Done generating e-h interaction potential.\n");
   free(potr);  free(potrx); free(kx2); free(ky2); free(kz2);
 
   return;

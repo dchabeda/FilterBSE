@@ -61,19 +61,28 @@ void mod_diag(
   init_clock = (double)clock(); 
   init_wall = (double)time(NULL);
 
-  diag_H(psitot, pot_local, LS, nlc, nl, ksqr, eig_vals, ist, par, flag, parallel);
-  normalize_all(&psitot[0],ist->mn_states_tot, ist, par, flag, parallel);
-  
-  if (mpir == 0) printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",
-              ((double)clock()-init_clock)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-init_wall);
-  fflush(stdout);
-
-  if (1 == flag->printPsiDiag){
-    pf = fopen("psi-diag.dat", "w");
-    fwrite(psitot, ist->mn_states_tot * ist->complex_idx, ist->nspinngrid * sizeof(double), pf);
-    fclose(pf);
+  // Construct Hamiltonian on single rank
+  if ( (0 == flag->MPIDiag) && (0 == mpir) ){
+    diag_H(psitot, pot_local, LS, nlc, nl, ksqr, eig_vals, ist, par, flag, parallel);
+  } 
+  // Construct and diagonalize Hamiltonian with distributed implementation
+  else if (1 == flag->MPIDiag){
+    diag_H_mpi(psitot, pot_local, LS, nlc, nl, ksqr, eig_vals, ist, par, flag, parallel);
   }
 
+  if (0 == mpir){
+    normalize_all(&psitot[0],ist->mn_states_tot, ist, par, flag, parallel);
+  
+    printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",
+                ((double)clock()-init_clock)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-init_wall);
+    fflush(stdout);
+
+    if (1 == flag->printPsiDiag){
+      pf = fopen("psi-diag.dat", "w");
+      fwrite(psitot, ist->mn_states_tot * ist->complex_idx, ist->nspinngrid * sizeof(double), pf);
+      fclose(pf);
+    }
+  }
       
   return;
 }

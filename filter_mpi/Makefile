@@ -20,13 +20,13 @@ MAINNAM = Filter
 Linux_CC = cc
 
 OBJECTS = \
-	main.o mod_init.o mod_mem.o mod_pot.o mod_filter.o mod_ortho.o mod_diag.o mod_sigma.o mod_output.o\
+	main.o mod_init.o mod_mem.o mod_pot.o mod_filter.o mod_ortho.o mod_diag.o mod_sigma.o mod_output.o mod_portho.o\
 	read.o init.o save.o projectors.o norm.o rand.o interpolate.o strain.o coeff.o \
-	energy.o hamiltonian.o filter.o ortho.o Hmat.o write.o nerror.o integral.o phamiltonian.o \
+	energy.o hamiltonian.o filter.o ortho.o Hmat.o Hmat_mpi.o write.o nerror.o integral.o phamiltonian.o \
 	vector.o aux.o init_periodic.o
 
 CUBEOBJECTS = \
-	makecube.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o vector.o strain.o
+	makecube.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o vector.o strain.o aux.o
 
 # compilation ...
 # compilation rule for all .c files

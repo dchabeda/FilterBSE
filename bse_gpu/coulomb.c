@@ -246,9 +246,9 @@ void calc_eh_kernel_cplx(
       // loop over hole states i, j
       nvtxRangePushA("i,j loop of direct");
       
-      #pragma omp target teams distribute parallel for collapse(2) \
-      map(to: a, b, lidx, nspngr, n_ho, ngrid, n_xton, dv) \
-      map(tofrom: direct[0:n_xton * n_xton])
+      // #pragma omp target teams distribute parallel for collapse(3) \
+      // map(to: a, b, lidx, nspngr, n_ho, ngrid, n_xton, dv) \
+      // map(tofrom: direct[0:n_xton * n_xton])
       for (i = 0; i < n_ho; i++) {
 				for (j = 0; j < n_ho; j++) {
 					//get the matrix indicies for {ai,bj}

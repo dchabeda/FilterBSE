@@ -10,7 +10,7 @@ LIB = $(Linux_DYLIB) $(Linux_LIB)
 
 # flags ...
 Linux_OPTFLAGS = -DMKL_ILP64 -DFFTW_FFT
-Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -msse4 -g -Minfo=accel -gpu=debug -traceback -lineinfo -mp=gpu -lnvToolsExt
+Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -msse4 -g -Minfo=accel -gpu=debug -traceback -lineinfo -mp=gpu -gpu=cc80 -fast -lnvToolsExt
 #Linux_CFLAGS = -g -qopenmp -O0
 #Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
 

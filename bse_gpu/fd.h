@@ -22,7 +22,7 @@ typedef struct flag {
   int setSeed;
   int printFPDensity;
   int calcDarkStates, calcSpinAngStat;
-  int timingSpecs, saveCheckpoints, restartFromCheckpoint, saveOutput;
+  int timingSpecs, saveCheckpoints, restartFromChk, saveOutput;
   int restartCoulomb, coulombDone, calcCoulombOnly;
   int initUnsafe;
 } flag_st;
@@ -104,10 +104,19 @@ typedef struct parallel{
 #define DENE      1.0e-10
 #define N_MAX_ATOM_TYPES 20
 #define PR_LEN 16
+
+// Enum to define supported variable types
+typedef enum { INT_TYPE, LONG_TYPE, DOUBLE_TYPE } VarType;
+
+// memory allocation macro for code readability
+#define ALLOCATE(dblptr, length, message) allocate_memory((void**)(dblptr), (length), sizeof(typeof(**(dblptr))), message)
+
 /*****************************************************************************/
 
 /*#define DEPS  0.02
 #define DENERGY 0.01*/
+
+void allocate_memory(void **ptr, size_t length, size_t type_size, char* message);
 
 // save.c
 void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel);
@@ -118,13 +127,6 @@ void write_cube_file(double *rho, grid_st *grid, char *fileName);
 void write_current_time(FILE *pf);
 void write_separation(FILE *pf, char *top_bttm);
 void write_state_dat(zomplex *psi, long n_elems, char* fileName);
-
-// read.c
-void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);
-
-// basis.c
-void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
-void get_qp_basis(double *psi_qp, double *psitot, double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag);
 
 // init.c
 void init_elec_hole_kernel(zomplex *potq, zomplex *potqx, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
@@ -203,29 +205,7 @@ void calc_optical_exc(zomplex *bs_coeff, double *eval, xyz_st *mu, xyz_st *m, in
 void print_progress_bar(int cur, int tot);
 char* get_time();
 
-void read_unsafe_input(
-  double** psitot,
-  double** eig_vals,
-  double** sigma_E,
-  xyz_st** R, 
-  grid_st *grid,
-  double** gridx,
-  double** gridy,
-  double** gridz,
-  index_st *ist,
-  par_st *par,
-  flag_st *flag,
-  parallel_st *parallel
-  );
 
-void get_fmo_idxs(
-  double*          eig_vals,
-  double*          sigma_E,
-  double           fermiE,
-  double           secut,
-  unsigned long    n_elems,
-  unsigned long*   homo_idx
-);
 
 long load_coulomb_mat(zomplex* mat, char* fileName, index_st* ist);
 void build_h0_mat(double *h0mat, double *eval, index_st* ist);

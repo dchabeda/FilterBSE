@@ -15,7 +15,6 @@
 #include <omp.h>
 #include "unistd.h"
 
-
 /*****************************************************************************/
 typedef struct flag {
   int SO, NL, LR, useSpinors, isComplex;
@@ -116,7 +115,6 @@ typedef enum { INT_TYPE, LONG_TYPE, DOUBLE_TYPE } VarType;
 /*#define DEPS  0.02
 #define DENERGY 0.01*/
 
-void allocate_memory(void **ptr, size_t length, size_t type_size, char* message);
 
 // save.c
 void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel);
@@ -127,10 +125,6 @@ void write_cube_file(double *rho, grid_st *grid, char *fileName);
 void write_current_time(FILE *pf);
 void write_separation(FILE *pf, char *top_bttm);
 void write_state_dat(zomplex *psi, long n_elems, char* fileName);
-
-// init.c
-void init_elec_hole_kernel(zomplex *potq, zomplex *potqx, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
-double calc_coulomb(double dr, double gamma);
 
 // norm.c
 double norm(zomplex *, double,long);
@@ -179,12 +173,6 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchage, zomplex *
 double findmaxabsre(zomplex *dwmat,long n);
 double findmaxabsim(zomplex *dwmat,long n);
 
-// dipole.c
-void calc_elec_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
-void calc_mag_dipole(xyz_st *mag_dipole, double *psi_qp, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, flag_st *flag);
-void calc_rot_strength(xyz_st *rot_strength, xyz_st *trans_dipole, xyz_st *mag_dipole, double *eig_vals, index_st *ist, par_st *par);
-
-
 void print_pz_one(double *psi,double *vz,par_st par,index_st ist,char *str);
 void print_pz(double *psi,double *sige,double *vz,par_st par,index_st ist);
 int z_project(double *vector, double *vz, par_st par, index_st ist, char *fname);
@@ -202,10 +190,6 @@ void p_operator(char* direc, double *kindex, zomplex *psi, zomplex *Lpsi, grid_s
 // optical.c
 void calc_optical_exc(zomplex *bs_coeff, double *eval, xyz_st *mu, xyz_st *m, index_st *ist, par_st *par);
 /*****************************************************************************/
-void print_progress_bar(int cur, int tot);
-char* get_time();
-
-
 
 long load_coulomb_mat(zomplex* mat, char* fileName, index_st* ist);
 void build_h0_mat(double *h0mat, double *eval, index_st* ist);

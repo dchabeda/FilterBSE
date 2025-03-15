@@ -21,7 +21,7 @@ Linux_CC = cc
 
 # obhect files
 OBJECTS = \
-	main.o mod_init.o spin.o write.o save.o read.o basis.o init.o dipole.o coulomb.o\
+	main.o mod_init.o spin.o mod_pot.o mod_dipole.o write.o save.o read.o basis.o init.o dipole.o coulomb.o\
 	hartree.o angular.o bethe-salpeter.o diag.o optical.o aux.o
 
 # compilation ...

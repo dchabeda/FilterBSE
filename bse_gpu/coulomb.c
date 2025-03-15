@@ -2,13 +2,29 @@
 #include <float.h>
 #include <mpi.h>
 #include <nvToolsExt.h>
-/***************************************************************************************/
+#include "aux.h"
+
+  /***************************************************************************************/
+  // /**************************************************************************/
+  // /*** this routine computes the coulomb coupling between
+  //      single excitons.  On input - it requires the eigenstates stored in psi_qp,
+  //      the eigenvalues stored in eval, and pot_hartree computed in init_elec_hole_kernel.
+  //      On output it stores the coulomb matrix elements on the disk
+  //      in the following format: a, i, b, j, ene_ai, ene_bj, vjbai, vabji.
+  //      a - the index of the electron in exciton Sai.
+  //      i - the index of the hole in exciton Sai.
+  //      b - the index of the electron in exciton Sbj.
+  //      j - the index of the hole in exciton Sbj.
+  //      ene_ai - the energy of exciton Sai.
+  //      ene_bj - the energy of exciton Sbj.
+  //      vjbai and vabji are the coulomb matrix elements need to be used to
+  //      generate the spin-depedent matrix elements as described by
+  //      the last equation in our document.  ***/
 
 void calc_eh_kernel_cplx(
-	zomplex       *psi_qp, 
-	zomplex       *pot_bare,
-	zomplex       *pot_screened,
-	zomplex       *pot_htree,
+	double        *psi_qp, 
+	double        *pot_bare,
+	double        *pot_screened,
 	zomplex       *direct,
 	zomplex       *exchange,
 	index_st*     ist,
@@ -34,6 +50,8 @@ void calc_eh_kernel_cplx(
   // zomplex               sum;
   // zomplex               tmp;
 
+  double*      pot_htree;
+
   long         start, ncycles;
   long*        listibs;
 
@@ -47,7 +65,8 @@ void calc_eh_kernel_cplx(
   const long   n_el       = ist->n_elecs;
   const long   n_ho       = ist->n_holes;
   const long   n_xton     = ist->n_xton;
-  // const long   stlen      = nspngr * ist->complex_idx;
+  const long   stlen      = nspngr * ist->complex_idx;
+  const long   cngrid     = ngrid * ist->complex_idx;
 
   const double          dv         = par->dv;
 
@@ -56,6 +75,8 @@ void calc_eh_kernel_cplx(
   rho = (zomplex *) calloc(ist->ngrid, sizeof(zomplex));
 	listibs = (long *) malloc(ist->n_xton * sizeof(long));
 	
+  ALLOCATE(&pot_htree, cngrid, "pot_htree");
+
 	/************************************************************/
   /*******************    INIITIALIZE FFT   *******************/
   /************************************************************/
@@ -79,7 +100,7 @@ void calc_eh_kernel_cplx(
   planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, 
     fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags
   );
-    
+  
   /************************************************************/
   /*******************    HANDLE INDEXING   *******************/
   /************************************************************/

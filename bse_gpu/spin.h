@@ -1,4 +1,5 @@
 #include "fd.h"
+#include "aux.h"
 
 void qp_spin_frac(
     double*          psi_qp,

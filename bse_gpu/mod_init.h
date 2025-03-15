@@ -1,5 +1,6 @@
 #include "fd.h"
 #include "basis.h"
+#include "aux.h"
 
 void mod_init(
     double**        psitot,

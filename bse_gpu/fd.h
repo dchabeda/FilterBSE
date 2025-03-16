@@ -137,18 +137,6 @@ void scalar_product(zomplex *,zomplex *,zomplex *,double,long,long);
 // hartree.c
 void hartree(zomplex *rho,zomplex *potq,zomplex *poth,index_st *ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 
-void calc_eh_kernel_cplx(
-  zomplex       *psi_qp, 
-  zomplex       *pot_bare,
-  zomplex       *pot_screened,
-  zomplex       *pot_htree,
-  zomplex       *direct,
-  zomplex       *exchange,
-  index_st      *ist,
-  par_st        *par,
-  flag_st       *flag,
-  parallel_st   *parallel);
-
 void calc_eh_kernel_real(
   double        *psi_qp, 
   zomplex       *pot_bare,
@@ -179,13 +167,6 @@ int z_project(double *vector, double *vz, par_st par, index_st ist, char *fname)
 void print_cube(double *pgrid,index_st ist,par_st par,char *fName);
 void print_fixed_qp_density(double *psi, double *Cbs, double *vz, index_st ist, par_st par);
 
-//angular.c
-void calc_spin_mtrx(xyz_st *s_mom, double *psi_qp, grid_st *grid, index_st *ist, par_st *par);
-void calc_ang_mom_mtrx(xyz_st* l_mom, zomplex *L2, zomplex *LdotS, zomplex *psi_qp, grid_st *grid, index_st *ist, par_st *par);
-void l_operator(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi_qp, double* g_vecs,
-	grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex* fftwpsi);
-void init_g_vecs(double *kindex, double *kx, double *ky, double *kz, grid_st *grid, index_st *ist, par_st *par);
-void p_operator(char* direc, double *kindex, zomplex *psi, zomplex *Lpsi, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
 
 // optical.c
 void calc_optical_exc(zomplex *bs_coeff, double *eval, xyz_st *mu, xyz_st *m, index_st *ist, par_st *par);

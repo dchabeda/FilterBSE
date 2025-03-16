@@ -83,7 +83,10 @@ void mod_init(
     
     ist->n_xton = ist->n_elecs * ist->n_holes;
     
-    free(*psitot); free(*sigma_E);
+    free(*psitot);                psitot = NULL;
+    free(*sigma_E);               sigma_E = NULL;
+    free(ist->eval_elec_idxs);    ist->eval_elec_idxs = NULL;
+    free(ist->eval_hole_idxs);    ist->eval_hole_idxs = NULL;
     
     return;
 }

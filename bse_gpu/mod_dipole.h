@@ -1,5 +1,6 @@
 #include "fd.h"
 #include "aux.h"
+#include "dipole.h"
 
 void mod_dipole(
     double*      psi_qp,

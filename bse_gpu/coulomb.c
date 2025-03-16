@@ -1,25 +1,21 @@
-#include "fd.h"
-#include <float.h>
-#include <mpi.h>
-#include <nvToolsExt.h>
-#include "aux.h"
+#include "coulomb.h"
 
-  /***************************************************************************************/
-  // /**************************************************************************/
-  // /*** this routine computes the coulomb coupling between
-  //      single excitons.  On input - it requires the eigenstates stored in psi_qp,
-  //      the eigenvalues stored in eval, and pot_hartree computed in init_elec_hole_kernel.
-  //      On output it stores the coulomb matrix elements on the disk
-  //      in the following format: a, i, b, j, ene_ai, ene_bj, vjbai, vabji.
-  //      a - the index of the electron in exciton Sai.
-  //      i - the index of the hole in exciton Sai.
-  //      b - the index of the electron in exciton Sbj.
-  //      j - the index of the hole in exciton Sbj.
-  //      ene_ai - the energy of exciton Sai.
-  //      ene_bj - the energy of exciton Sbj.
-  //      vjbai and vabji are the coulomb matrix elements need to be used to
-  //      generate the spin-depedent matrix elements as described by
-  //      the last equation in our document.  ***/
+/**************************************************************************/
+//      this routine computes the coulomb coupling between
+//      single excitons.  On input - it requires the eigenstates stored in psi_qp,
+//      the eigenvalues stored in eval, and pot_hartree computed in init_elec_hole_kernel.
+//      On output it stores the coulomb matrix elements on the disk
+//      in the following format: a, i, b, j, ene_ai, ene_bj, vjbai, vabji.
+//      a - the index of the electron in exciton Sai.
+//      i - the index of the hole in exciton Sai.
+//      b - the index of the electron in exciton Sbj.
+//      j - the index of the hole in exciton Sbj.
+//      ene_ai - the energy of exciton Sai.
+//      ene_bj - the energy of exciton Sbj.
+//      vjbai and vabji are the coulomb matrix elements need to be used to
+//      generate the spin-depedent matrix elements as described by
+//      the last equation in our document.  ***/
+/**************************************************************************/
 
 void calc_eh_kernel_cplx(
 	double        *psi_qp, 
@@ -37,43 +33,54 @@ void calc_eh_kernel_cplx(
 	/*******************  DECLARE VARIABLES   *******************/
 	/************************************************************/
 
-  FILE*                 pf;
-  char*                 fileName;
-  fileName            = (char*) malloc(30*sizeof(char)+1);
-  fileName[30]        = '\0';
+  FILE*             pf;
 
-  // int                   tid;
-  // int                   ispin;
-  int                   cntr = 0;
+  //                Indices
+  int               cntr = 0;
 
-  zomplex*              rho;
-  // zomplex               sum;
-  // zomplex               tmp;
+  long              i;
+  long              a;
+  long              j;
+  long              b;
+  long              i_st;
+  long              a_st;
+  long              b_st;
+  long              ibs;
+  long              jbs;
+  long              start;
+  long              loop_idx;
+  long              ncycles;
+  long              jgr;    // jgrid
+  long              jgur;   // jgrid_up_real  
+  long              jgui;   // jgrid up imag
+  long              jgdr;   // jgrid_dn_real 
+  long              jgdi;   // jgrid_dn_imag
 
-  double*      pot_htree;
+  const long        nspngr     = ist->nspinngrid;
+  const long        ngrid      = ist->ngrid;
+  const long        cplx_idx   = ist->complex_idx;
+  const long        lidx       = ist->lumo_idx;
+  const long        n_el       = ist->n_elecs;
+  const long        n_ho       = ist->n_holes;
+  const long        n_xton     = ist->n_xton;
+  const long        stlen      = nspngr * cplx_idx;
+  const long        cngrid     = ngrid * cplx_idx;
+  
+  long*             listibs;
 
-  long         start, ncycles;
-  long*        listibs;
+  const int         mpir       = parallel->mpi_rank;
 
-  long         i, j, a, b, ibs, jbs, jgr, jsgr;
-  long         ab, a_st, b_st, i_st, j_st;
-  long         loop_idx;
+  const double      dv         = par->dv;
 
-  const long   nspngr     = ist->nspinngrid;
-  const long   ngrid      = ist->ngrid;
-  const long   lidx       = ist->lumo_idx;
-  const long   n_el       = ist->n_elecs;
-  const long   n_ho       = ist->n_holes;
-  const long   n_xton     = ist->n_xton;
-  const long   stlen      = nspngr * ist->complex_idx;
-  const long   cngrid     = ngrid * ist->complex_idx;
+  double*           rho;
+  double*           pot_htree;
 
-  const double          dv         = par->dv;
+  char*             fileName;
+  fileName          = (char*) malloc(30*sizeof(char)+1);
+  fileName[30]      = '\0';
 
-  const int             mpir       = parallel->mpi_rank;
-
-  rho = (zomplex *) calloc(ist->ngrid, sizeof(zomplex));
-	listibs = (long *) malloc(ist->n_xton * sizeof(long));
+  rho     = (double *)  calloc(cngrid, sizeof(double));
+	listibs = (long *)    calloc(ist->n_xton, sizeof(long));
 	
   ALLOCATE(&pot_htree, cngrid, "pot_htree");
 
@@ -82,9 +89,9 @@ void calc_eh_kernel_cplx(
   /************************************************************/
 
 	// Parallel FFT
-  fftw_plan_loc       planfw;
-  fftw_plan_loc       planbw;
-  fftw_complex*       fftwpsi;
+  fftw_plan_loc     planfw;
+  fftw_plan_loc     planbw;
+  fftw_complex*     fftwpsi;
   long fft_flags    = FFTW_MEASURE;
 
   // Create FFT structs and plans for Fourier transform
@@ -118,7 +125,7 @@ void calc_eh_kernel_cplx(
   // Split MPI communicators into even and odd ranks to simultaneously
   // compute direct and exchange integrals
 
-  int rank_parity = mpir % 2;  
+  int rank_parity   = mpir % 2;  
   MPI_Comm          even_comm = MPI_COMM_NULL;
   MPI_Comm          odd_comm = MPI_COMM_NULL;
   
@@ -159,10 +166,10 @@ void calc_eh_kernel_cplx(
     MPI_Comm_size(even_comm, &even_size);
     odd_comm = MPI_COMM_NULL;
 
+    long        ab;
     long        ab_tot    = n_el * n_el;
     long        ns_p_rank = ab_tot / even_size;
     long       *lista, *listb;
-    // double               stride;
 
     lista   =  (long *) calloc(ab_tot, sizeof(long));
     listb   =  (long *) calloc(ab_tot, sizeof(long));
@@ -237,26 +244,47 @@ void calc_eh_kernel_cplx(
       b = listb[ab];
 
       // Grab indices of electron-electron states a, b
-      a_st = a * nspngr;
-      b_st = b * nspngr;
+      a_st = a * stlen;
+      b_st = b * stlen;
+
+      double psi_aur, psi_aui;
+      double psi_adr, psi_adi;
+      double psi_bur, psi_bui;
+      double psi_bdr, psi_bdi;
 
       // Compute hartree potential for a, b density
       // 1) Compute joint density and store in rho
-      nvtxRangePushA("Computing hartree pot");
+      nvtxRangePushA("Computing ab joint density");
       for (jgr = 0; jgr < ngrid; jgr++){
-        jsgr = jgr + ngrid; // handles the down spin
+        // Index this iteration of the loop
+        jgur = cplx_idx * jgr;           // jgrid up real
+        jgui = jgur + 1;                 // jgrid up imag
+        jgdr = jgur + cplx_idx * ngrid;  // jgrid dn real
+        jgdi = jgdr + 1;                 // jgrid dn imag
+
+        // Load in the values for this iteration of the loop
+        psi_aur = psi_qp[a_st + jgur];
+        psi_aui = psi_qp[a_st + jgui];
+        psi_adr = psi_qp[a_st + jgdr];
+        psi_adi = psi_qp[a_st + jgdi];
+        psi_bur = psi_qp[b_st + jgur];
+        psi_bui = psi_qp[b_st + jgui];
+        psi_bdr = psi_qp[b_st + jgdr];
+        psi_bdi = psi_qp[b_st + jgdi];
 
         // Handle up spin
-        rho[jgr].re = psi_qp[a_st+jgr].re * psi_qp[b_st+jgr].re + psi_qp[a_st+jgr].im * psi_qp[b_st+jgr].im;
-        rho[jgr].im = psi_qp[a_st+jgr].re * psi_qp[b_st+jgr].im - psi_qp[a_st+jgr].im * psi_qp[b_st+jgr].re;
+        rho[jgur] = psi_aur * psi_bur + psi_aui * psi_bui;
+        rho[jgui] = psi_aur * psi_bui - psi_aui * psi_bur;
       
         // Handle down spin
-        rho[jgr].re += psi_qp[a_st+jsgr].re * psi_qp[b_st+jsgr].re + psi_qp[a_st+jsgr].im * psi_qp[b_st+jsgr].im;
-        rho[jgr].im += psi_qp[a_st+jsgr].re * psi_qp[b_st+jsgr].im - psi_qp[a_st+jsgr].im * psi_qp[b_st+jsgr].re;
+        rho[jgur] += psi_adr * psi_bdr + psi_adi * psi_bdi;
+        rho[jgui] += psi_adr * psi_bdi - psi_adi * psi_bdr;
       }
+      nvtxRangePop();
 
       // Compute the hartree potential and store in pot_htree 
       // h_d(r) = \int W(r,r') \rho_{ab}(r') d^3r' via fourier transform
+      nvtxRangePushA("Computing hartree pot");
       hartree(rho, pot_screened, pot_htree, ist, planfw, planbw, fftwpsi);            
       nvtxRangePop();
 
@@ -267,21 +295,21 @@ void calc_eh_kernel_cplx(
       // loop over hole states i, j
       nvtxRangePushA("i,j loop of direct");
       
-      // #pragma omp target teams distribute parallel for collapse(3) \
-      // map(to: a, b, lidx, nspngr, n_ho, ngrid, n_xton, dv) \
-      // map(tofrom: direct[0:n_xton * n_xton])
-      for (i = 0; i < n_ho; i++) {
-				for (j = 0; j < n_ho; j++) {
+      #pragma omp target teams distribute collapse(2) thread_limit(256) \
+      map(to: a, b, lidx, stlen, n_ho, cplx_idx, ngrid, n_xton, dv, psi_qp, pot_htree, listibs) \
+      map(tofrom: direct[0:n_xton * n_xton])
+      for (int i = 0; i < n_ho; i++) {
+				for (int j = 0; j < n_ho; j++) {
 					//get the matrix indicies for {ai,bj}
-          long i_st = i * nspngr;
-          long j_st = j * nspngr;
+          long i_st = i * stlen;
+          long j_st = j * stlen;
           long ibs = listibs[(a - lidx) * n_ho + i];
           long jbs = listibs[(b - lidx) * n_ho + j];
           
           // Compute only the upper triangle to utilize symmetry
           if (ibs < jbs) continue;
 
-          long jgr, jsgr;
+          long   jgr;
           double tmp_re, tmp_im;
           double sum_re, sum_im;
           sum_re = sum_im = 0.0;
@@ -295,41 +323,50 @@ void calc_eh_kernel_cplx(
           
 
           // K^d_{ai,bj}=\int h_d(r) \sum_\sigma psi_{i}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
+          // Parallelize `jgr` using `#pragma omp parallel for`
+          #pragma omp parallel for private(tmp_re, tmp_im) reduction(+:sum_re, sum_im)
           for (jgr = 0; jgr < ngrid; jgr++){
-            jsgr = jgr + ngrid;
+            long jgur = cplx_idx * jgr;
+            long jgui = jgur + 1;
+            long jgdr = jgur + cplx_idx * ngrid;
+            long jgdi = jgdr + 1;
 
             // Grab pot_htree value at this grid point
-            pot_h_re = pot_htree[jgr].re;
-            pot_h_im = pot_htree[jgr].im;
+            double pot_h_re = pot_htree[jgur];
+            double pot_h_im = pot_htree[jgui];
 
             // Set local values for up spin
-            psi_iur = psi_qp[i_st + jgr].re;         psi_iui = psi_qp[i_st + jgr].im;
-            psi_jur = psi_qp[j_st + jgr].re;         psi_jui = psi_qp[j_st + jgr].im;
+            double psi_iur = psi_qp[i_st + jgur];        
+            double psi_iui = psi_qp[i_st + jgui];
+            double psi_jur = psi_qp[j_st + jgur];        
+            double psi_jui = psi_qp[j_st + jgui];
             
             // Set local values for dn spin
-            psi_idr = psi_qp[i_st + jsgr].re;        psi_idi = psi_qp[i_st + jsgr].im;
-            psi_jdr = psi_qp[j_st + jsgr].re;        psi_jdi = psi_qp[j_st + jsgr].im;
+            double psi_idr = psi_qp[i_st + jgdr];        
+            double psi_idi = psi_qp[i_st + jgdi];
+            double psi_jdr = psi_qp[j_st + jgdr];        
+            double psi_jdi = psi_qp[j_st + jgdi];
             
             // Perform integrals for up spin
             tmp_re = (psi_jur * psi_iur + psi_jui * psi_iui);
             tmp_im = (psi_jur * psi_iui - psi_jui * psi_iur);
             
-            sum_re += (pot_h_re * tmp_re -  pot_h_im * tmp_im);
-            sum_im += (pot_h_re * tmp_im +  pot_h_im * tmp_re);
+            sum_re += (pot_h_re * tmp_re - pot_h_im * tmp_im);
+            sum_im += (pot_h_re * tmp_im + pot_h_im * tmp_re);
             
             // Perform integrals for dn spin
             tmp_re = (psi_jdr * psi_idr + psi_jdi * psi_idi);
             tmp_im = (psi_jdr * psi_idi - psi_jdi * psi_idr);
             
-            sum_re += (pot_h_re * tmp_re -  pot_h_im * tmp_im);
-            sum_im += (pot_h_re * tmp_im +  pot_h_im * tmp_re);                              
+            sum_re += (pot_h_re * tmp_re - pot_h_im * tmp_im);
+            sum_im += (pot_h_re * tmp_im + pot_h_im * tmp_re);                              
           }
 
 					sum_re *= dv;
 					sum_im *= dv;
-						
-					direct[ibs * ist->n_xton + jbs].re = sum_re;
-          direct[ibs * ist->n_xton + jbs].im = sum_im;
+					
+					direct[ibs * n_xton + jbs].re = sum_re;
+          direct[ibs * n_xton + jbs].im = sum_im;
 				} // end of j
 			} // end of i
       nvtxRangePop();
@@ -364,14 +401,18 @@ void calc_eh_kernel_cplx(
       }
 		} // end of ab
     
-
 		fclose(pf);
     printf("  Done computing direct mat\n"); 
     fflush(0);
     
+    // Free 
+    free(lista);
+    free(listb);
+
     // Cleanup GPU memory
     #pragma omp target exit data map(delete: psi_qp[0:nspngr*n_ho], listibs[0:n_ho*n_ho], pot_htree[0:ngrid])  // Free after loop
     nvtxRangePop(); // End marker
+
   } // end of even MPI ranks
 
 
@@ -401,7 +442,7 @@ void calc_eh_kernel_cplx(
 
     long  ai;
     long  ai_tot    = n_el * n_ho;
-    long  ns_p_rank = ai_tot / odd_size;
+    // long  ns_p_rank = ai_tot / odd_size;
     long  *lista, *listi;
     
     lista   =  (long *) calloc(ai_tot, sizeof(long));
@@ -440,12 +481,6 @@ void calc_eh_kernel_cplx(
       // Find start value for continuing computation
       start = load_coulomb_mat(exchange, fileName, ist);
 
-      // Find end value for continuing computation
-      // end = start + ns_p_rank;
-      // if ( odd_rank == (odd_size - 1) ){
-      //     end = ai_tot;
-      // }
-
       strcpy(fileName, "exchange_aux.dat");
       printf("Odd rank %d: continuing exchange matrix from a = %lu | %s\n", odd_rank, start, get_time()); fflush(0);
     }
@@ -462,20 +497,38 @@ void calc_eh_kernel_cplx(
       a = lista[ai];
       i = listi[ai];
 
-      a_st = a * nspngr;
-      i_st = i * nspngr;
+      a_st = a * stlen;
+      i_st = i * stlen;
+
+      double psi_aur, psi_aui;
+      double psi_adr, psi_adi;
+      double psi_iur, psi_iui;
+      double psi_idr, psi_idi;
 				
       // 1) Compute joint density and store in rho
       for (jgr = 0; jgr < ngrid; jgr++){
-        jsgr = jgr + ngrid; // handles the down spin
+        jgur = cplx_idx * jgr;
+        jgui = jgur + 1;
+        jgdr = jgur + cplx_idx * ngrid;
+        jgdi = jgdr + 1;
+
+        // Load values for this iteration
+        psi_aur = psi_qp[a_st + jgur]; // up spin
+        psi_aui = psi_qp[a_st + jgui];
+        psi_iur = psi_qp[i_st + jgur];
+        psi_iui = psi_qp[i_st + jgui];
+        psi_adr = psi_qp[a_st + jgdr]; // down spin
+        psi_adi = psi_qp[a_st + jgdi];
+        psi_idr = psi_qp[i_st + jgdr];
+        psi_idi = psi_qp[i_st + jgdi];
 
         // Handle up spin
-        rho[jgr].re = psi_qp[a_st+jgr].re * psi_qp[i_st+jgr].re + psi_qp[a_st+jgr].im * psi_qp[i_st+jgr].im;
-        rho[jgr].im = psi_qp[a_st+jgr].re * psi_qp[i_st+jgr].im - psi_qp[a_st+jgr].im * psi_qp[i_st+jgr].re;
+        rho[jgur] = psi_aur * psi_iur + psi_aui * psi_iui;
+        rho[jgui] = psi_aur * psi_iui - psi_aui * psi_iur;
       
         // Handle down spin
-        rho[jgr].re += psi_qp[a_st+jsgr].re * psi_qp[i_st+jsgr].re + psi_qp[a_st+jsgr].im * psi_qp[i_st+jsgr].im;
-        rho[jgr].im += psi_qp[a_st+jsgr].re * psi_qp[i_st+jsgr].im - psi_qp[a_st+jsgr].im * psi_qp[i_st+jsgr].re;
+        rho[jgur] += psi_adr * psi_idr + psi_adi * psi_idi;
+        rho[jgui] += psi_adr * psi_idi - psi_adi * psi_idr;
       }
 
       // Compute the hartree potential and store in pot_htree 
@@ -483,53 +536,74 @@ void calc_eh_kernel_cplx(
       hartree(rho, pot_bare, pot_htree, ist, planfw, planbw, fftwpsi);            
             
       // loop over electron-hole pairs b, j
-      #pragma omp parallel for private(b, j, ibs, jbs, jgr, jsgr, b_st, j_st)
+      #pragma omp parallel for private(b, j)
       for (b = lidx; b < lidx + n_el; b++) {
         for (j = 0; j < n_ho; j++) {
-          b_st = b * nspngr;
-          j_st = j * nspngr;
-          ibs = listibs[(a-lidx) * n_ho + i];
-          jbs = listibs[(b-lidx) * n_ho + j];
+          long b_st = b * stlen;
+          long j_st = j * stlen;
+          long ibs = listibs[(a-lidx) * n_ho + i];
+          long jbs = listibs[(b-lidx) * n_ho + j];
           
           // Compute only the upper triangle to utilize symmetry
-          if (ibs < jbs){
-            continue;
-          }
-          // printf("b = %lu j = %lu\n", b, j);
+          if (ibs < jbs) continue;
+          
+          long   jgr;
+          double tmp_re, tmp_im;
+          double sum_re, sum_im;
+          sum_re = sum_im = 0.0;
+
+          // Declare local psi_qp values for reduced mem lookup
+          double psi_bur, psi_bui;
+          double psi_jur, psi_jui;
+          double psi_bdr, psi_bdi;
+          double psi_jdr, psi_jdi;
+          double pot_h_re, pot_h_im;
 
           //integrate the effective potential to get K^x_{ai,bj}=\int h_x(r) \sum_\sigma psi_{b}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
-          zomplex sum, tmp;
-          sum.re = sum.im = 0.0;
-
           for (jgr = 0; jgr < ngrid; jgr++){
-            jsgr = jgr + ngrid;
+            jgur = cplx_idx * jgr;
+            jgui = jgur + 1;
+            jgdr = jgur + cplx_idx * ngrid;
+            jgdi = jgdr + 1;
 
-            // Handle up spin
-            tmp.re = (psi_qp[j_st+jgr].re * psi_qp[b_st+jgr].re + psi_qp[j_st+jgr].im * psi_qp[b_st+jgr].im);
-            tmp.im = (psi_qp[j_st+jgr].re * psi_qp[b_st+jgr].im - psi_qp[j_st+jgr].im * psi_qp[b_st+jgr].re);
+            // Grab pot_htree value at this grid point
+            pot_h_re = pot_htree[jgur];
+            pot_h_im = pot_htree[jgui];
+
+            // Set local values for up spin
+            psi_bur = psi_qp[b_st + jgur];         psi_bui = psi_qp[b_st + jgui];
+            psi_jur = psi_qp[j_st + jgur];         psi_jui = psi_qp[j_st + jgui];
             
-            sum.re += (pot_htree[jgr].re * tmp.re -  pot_htree[jgr].im * tmp.im);
-            sum.im += (pot_htree[jgr].re * tmp.im +  pot_htree[jgr].im * tmp.re);
+            // Set local values for dn spin
+            psi_bdr = psi_qp[b_st + jgdr];        psi_bdi = psi_qp[b_st + jgdi];
+            psi_jdr = psi_qp[j_st + jgdr];        psi_jdi = psi_qp[j_st + jgdi];
+            
+            // Perform integrals for up spin
+            tmp_re = (psi_jur * psi_bur + psi_jui * psi_bui);
+            tmp_im = (psi_jur * psi_bui - psi_jui * psi_bur);
+            
+            sum_re += (pot_h_re * tmp_re -  pot_h_im * tmp_im);
+            sum_im += (pot_h_re * tmp_im +  pot_h_im * tmp_re);
             
             // Handle dn spin
-            tmp.re = (psi_qp[j_st+jsgr].re * psi_qp[b_st+jsgr].re + psi_qp[j_st+jsgr].im * psi_qp[b_st+jsgr].im);
-            tmp.im = (psi_qp[j_st+jsgr].re * psi_qp[b_st+jsgr].im - psi_qp[j_st+jsgr].im * psi_qp[b_st+jsgr].re);
+            tmp_re = (psi_jdr * psi_bdr + psi_jdi * psi_bdi);
+            tmp_im = (psi_jdr * psi_bdi - psi_jdi * psi_bdr);
             
-            sum.re += (pot_htree[jgr].re * tmp.re -  pot_htree[jgr].im * tmp.im);
-            sum.im += (pot_htree[jgr].re * tmp.im +  pot_htree[jgr].im * tmp.re);                              
+            sum_re += (pot_h_re * tmp_re -  pot_h_im * tmp_im);
+            sum_im += (pot_h_re * tmp_im +  pot_h_im * tmp_re);                              
           }
                 
-          sum.re *= par->dv;
-          sum.im *= par->dv;
+          sum_re *= par->dv;
+          sum_im *= par->dv;
 
-          exchange[ibs*ist->n_xton+jbs].re = - 1.0 * sum.re;
-          exchange[ibs*ist->n_xton+jbs].im = - 1.0 * sum.im;
+          exchange[ibs * n_xton + jbs].re = - 1.0 * sum_re;
+          exchange[ibs * n_xton + jbs].im = - 1.0 * sum_im;
         } // end of b
       } // end of j
       
       // Print progress
       if (odd_rank == 0){
-        if ( (cntr == 0) || (0 == cntr % (ncycles/8+1)) || (cntr == (ncycles - 1)) ){
+        if ( (cntr == 0) || (0 == cntr % (ncycles/8 + 1)) || (cntr == (ncycles - 1)) ){
             print_progress_bar(cntr, ncycles);
             fflush(0);
         }
@@ -563,6 +637,9 @@ void calc_eh_kernel_cplx(
 	  fclose(pf);
   	printf("  Done computing exchange mat\n"); 
 	  fflush(0);
+
+    free(lista);
+    free(listi);
 
 	} // close mpi rank 2
 
@@ -626,7 +703,11 @@ void calc_eh_kernel_cplx(
 	free(rho); 
   free(listibs);
   free(fileName);
+  free(pot_htree);
 
+  fftw_free(fftwpsi);
+  fftw_destroy_plan(planfw);
+  fftw_destroy_plan(planbw);
 
 	return;
 }

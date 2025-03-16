@@ -6,3 +6,4 @@
 #include "spin.h"
 #include "mod_pot.h"
 #include "mod_dipole.h"
+#include "mod_kernel.h"

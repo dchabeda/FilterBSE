@@ -25,7 +25,6 @@ void mod_output(
   long          jgrid_imag;
   long          jmn;
   
-  const int     mpir   =  parallel->mpi_rank;
   const int     fgas   =  flag->getAllStates;
   long          mn     =  ist->mn_states_tot;
   const long    stlen  =  ist->complex_idx * ist->nspinngrid;

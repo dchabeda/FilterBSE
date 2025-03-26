@@ -32,17 +32,21 @@ void init_elec_hole_kernel(zomplex *pot_bare, zomplex *pot_screened, grid_st *gr
   zomplex *potr, *potrx, tmp;
 
   // Define gamma
-  if ((grid->xmax < grid->ymax) && (grid->xmax < grid->zmax)){
-    minr = grid->xmax;
+  double xmax = fabs(grid->xmin);
+  double ymax = fabs(grid->ymin);
+  double zmax = fabs(grid->zmin);
+  
+  if ((xmax < ymax) && (xmax < zmax)){
+    minr = xmax;
     boxl = (double)grid->nx * grid->dx;
-  } else if ((grid->ymax < grid->zmax) && (grid->ymax < grid->xmax)){
-    minr = grid->ymax;
+  } else if ((ymax < zmax) && (ymax < xmax)){
+    minr = ymax;
     boxl = (double)grid->ny * grid->dy;
   } else {
-    minr = grid->zmax;
+    minr = zmax;
     boxl = (double)grid->nz * grid->dz;
   }
-
+  
   boxl2 = sqr(boxl);
   gamma = 7.0 / (2.0 * minr);
   gamma2 = sqr(gamma);
@@ -118,7 +122,8 @@ void init_elec_hole_kernel(zomplex *pot_bare, zomplex *pot_screened, grid_st *gr
 
   // Zero out the arrays for all potentials
   for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
-    pot_bare[jxyz].re = pot_bare[jxyz].im = pot_screened[jxyz].re = pot_screened[jxyz].im = 0.0;
+    pot_bare[jxyz].re     = pot_bare[jxyz].im     = 0.0;
+    pot_screened[jxyz].re = pot_screened[jxyz].im = 0.0;
   }
 
 

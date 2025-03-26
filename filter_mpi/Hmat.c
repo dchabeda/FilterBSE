@@ -118,21 +118,8 @@ void diag_H(
       }
     }
     
-    if ( (ims == 0) || (0 == (ims % (ist->mn_states_tot/4))) || (ims == (ist->mn_states_tot - 1))){
-      int barWidth = 16; // Width of the progress bar
-      float percent = (float)ims / ist->mn_states_tot* 100;
-      int pos = barWidth * ims / ist->mn_states_tot;
-      // Obtain the current time
-      time_t current_time = time(NULL);
-      // Convert to local time format and print
-      char* c_time_string = ctime(&current_time);
-      printf("\t  [");
-      for (int i = 0; i < barWidth; ++i) {
-          if (i < pos) printf("#");
-          else printf(" ");
-      }
-      printf("] %3.0f%% | %s\n", percent, c_time_string);
-      fflush(stdout);
+    if ( (ims == 0) || (0 == (ims % (ist->mn_states_tot/4 + 1))) || (ims == (ist->mn_states_tot - 1))){
+      print_progress_bar(ims, ist->mn_states_tot);
     }
   }
   // free dynamically allocated memory for psi and phi

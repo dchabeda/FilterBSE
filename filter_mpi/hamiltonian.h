@@ -67,8 +67,7 @@ void time_reverse_all(
 void p_hamiltonian(
     zomplex*        psi_out, 
     zomplex*        psi_tmp, 
-    double*         pot_local, 
-    zomplex*        projs,
+    double*         pot_local,
     zomplex*        LS, 
     nlc_st*         nlc, 
     long*           nl, 
@@ -85,8 +84,7 @@ void p_hamiltonian(
 void p_potential(
     zomplex*        psi_out, 
     zomplex*        psi_tmp, 
-    double*         pot_local, 
-    zomplex*        projs,
+    double*         pot_local,
     zomplex*        LS, 
     nlc_st*         nlc, 
     long*           nl, 
@@ -99,7 +97,6 @@ void p_potential(
 void p_spin_orbit_proj_pot(
     zomplex*        psi_out, 
     zomplex*        psi_tmp,
-    zomplex*        projs,
     zomplex*        LS,
     nlc_st*         nlc, 
     long*           nl, 
@@ -110,8 +107,7 @@ void p_spin_orbit_proj_pot(
 
 void p_nonlocal_proj_pot(
     zomplex*        psi_out, 
-    zomplex*        psi_tmp, 
-    zomplex*        projs,
+    zomplex*        psi_tmp,
     nlc_st*         nlc, 
     long*           nl, 
     index_st*       ist, 

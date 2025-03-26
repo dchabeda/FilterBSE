@@ -224,6 +224,8 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
         exit(EXIT_FAILURE);
     }
 
+    free(eof);
+    free(end_buffer);
     return;
 }
 

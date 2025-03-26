@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# User-defined parameters
+SEGMENT_SIZE_BYTES=$1  # Size of one segment (e.g., 100 million or larger)
+PART1_SEGMENTS=$2  # Number of segments for first part
+PART2_SEGMENTS=$3  # Number of segments for second part
+FILE="psi_new.dat"
+
+# Compute byte sizes
+PART1_SIZE=$(( PART1_SEGMENTS * SEGMENT_SIZE_BYTES ))
+PART2_SIZE=$(( PART2_SEGMENTS * SEGMENT_SIZE_BYTES ))
+
+# Get total file size
+FILE_SIZE_BYTES=$(stat --format="%s" "$FILE")
+
+# Check if sizes are valid
+TOTAL_EXPECTED_SIZE=$(( PART1_SIZE + PART2_SIZE ))
+if [[ $TOTAL_EXPECTED_SIZE -gt $FILE_SIZE_BYTES ]]; then
+    echo "Error: Specified split sizes exceed total file size."
+    exit 1
+fi
+
+# Perform the splitting
+
+echo "Writing $PART1_SIZE bytes to psi_holes.dat..."
+dd if="$FILE" bs=$SEGMENT_SIZE_BYTES count=$PART1_SEGMENTS of="psi-holes.dat" status=progress
+
+echo "Writing $PART2_SIZE bytes to psi_elecs.dat..."
+dd if="$FILE" bs=$SEGMENT_SIZE_BYTES skip=$PART1_SEGMENTS count=$PART2_SEGMENTS of="psi-elecs.dat" status=progress
+
+echo "Splitting complete!"

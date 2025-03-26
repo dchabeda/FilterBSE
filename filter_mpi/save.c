@@ -45,8 +45,8 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\n\tParameters & counters for filter algorithm:\n");
     fprintf(pf, "\t-------------------------------------------\n");
     fprintf(pf, "\tnFilterCycles (# random initial states) = %ld\n", ist->n_filter_cycles);
+    fprintf(pf, "\tnFilterPerRank (# states per MPI rank) = %ld\n", ist->n_filters_per_rank);
     fprintf(pf, "\tmStatesPerFilter (# energy targets) = %ld\n", ist->m_states_per_filter);
-    fprintf(pf, "\tStates per rank (# states on node) = %ld\n", ist->n_states_per_rank);
     fprintf(pf, "\tnCheby = %ld\n", ist->ncheby);
     fprintf(pf, "\tVBmin = %lg, ", par->VBmin);
     fprintf(pf, "VBmax = %lg\n", par->VBmax);
@@ -76,8 +76,8 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
         fprintf(pf, "\tIntermediate filter wavefunctions will not be output to disk\n");
     }
     
-    if (flag->printOrtho == 1){
-        fprintf(pf, "\tprintOrtho is on. ortho.dat files will be printed\n");
+    if (flag->printPsiOrtho == 1){
+        fprintf(pf, "\tprintPsiOrtho is on. psi-ortho.dat files will be printed\n");
     } else {
         fprintf(pf, "\tOrthogonalized wavefunctions will not be output to disk\n");
     }
@@ -92,9 +92,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\t-------------------------------\n");
     fprintf(pf, "\tMPI_SIZE (# MPI ranks) = %d\n", parallel->mpi_size);
     fprintf(pf, "\tnThreads (# OMP threads/rank) = %ld\n", parallel->nthreads);
-    fprintf(pf, "\tnestedOMP = %d\n", parallel->nestedOMP);
     fprintf(pf, "\tham_threads = %d\n", par->ham_threads);
-    fprintf(pf, "\tn_outer_threads = %d\n", parallel->n_outer_threads);
 
     // ****** ****** ****** ****** ****** ****** 
     // Set options for spin-orbit calculation
@@ -115,6 +113,9 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
 
     if (0 == flag->isComplex) fprintf(pf, "\tWavefunctions are REAL valued!\n\t  complex_idx = %d\n", ist->complex_idx);
     else if (1 == flag->isComplex) fprintf(pf, "\tWavefunctions are COMPLEX valued! complex_idx = %d\n", ist->complex_idx); 
+
+    if (1 == par->t_rev_factor) fprintf(pf, "\tWavefunctions will NOT be time reversed before ortho!\n\t  t_rev_factor = %d\n", par->t_rev_factor);
+    else if (2 == par->t_rev_factor) fprintf(pf, "\tWavefunctions will be time reversed before ortho!\n\t t_rev_factor = %d\n", par->t_rev_factor); 
 
     // ****** ****** ****** ****** ****** ****** 
     // Print optional output flags
@@ -150,6 +151,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     if (flag->restartFromCheckpoint > -1) fprintf(pf, "\tFilter will restart from checkpoint %d\n", flag->restartFromCheckpoint);
     else fprintf(pf, "\tNo checkpoint specified for restart. Job will run in normal sequence.\n");
     if (flag->restartFromOrtho == 1) fprintf(pf, "\tFilter will restart from orthogonalization step!\n");
+    if (flag->restartFromSigma == 1) fprintf(pf, "\tFilter will restart from sigma step!\n");
     
     return;
 }

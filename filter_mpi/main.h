@@ -6,6 +6,7 @@
 #include "mod_filter.h"
 #include "mod_ortho.h"
 #include "mod_diag.h"
+#include "mod_sigma.h"
 #include "mod_output.h"
 #include "mod_optional_output.h"
 

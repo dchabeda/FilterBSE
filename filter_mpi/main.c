@@ -35,7 +35,7 @@ int main(int argc, char *argv[]){
   grid.z =        NULL;
   nlc_st*         nlc = NULL;     // Non-local pseudopotential info
 
-  lattice_st      lattice = NULL;
+  lattice_st      lattice;
   vector*         G_vecs  = NULL;
   vector*         k_vecs  = NULL;
   // gauss_st*       gauss;          // Gaussian basis coeffs/exps
@@ -143,32 +143,18 @@ int main(int argc, char *argv[]){
       /************************************************************/
       
       mod_filter(
-        psi_rank, psi, phi, pot_local, &grid, LS, nlc, nl,
-        an, zn, ene_targets, ksqr, &ist, &par, &flag, &parallel);
+        psi_rank, psi, phi, pot_local, &grid, LS, nlc, nl, an, zn,
+        ene_targets, ksqr, &lattice, G_vecs, k_vecs, &ist, &par, &flag, &parallel
+      );
       
       if (1 == flag.calcFilterOnly){
         exit(0);
       }
 
       // Gather all psi_rank from MPI ranks into psitot
-      const long long tot_sz = ist.complex_idx * par.t_rev_factor * ist.nspinngrid * ist.mn_states_tot;
-      const long long prs = ist.psi_rank_size;
-
-      if (mpir == 0){ 
-        printf("Allocating mem for psitot\n");
-        ALLOCATE(&psitot, tot_sz, "psitot");
-        printf("Gathering psitot from all mpi_ranks\n"); fflush(0);
-      }
-      
-      // MPI_Barrier(MPI_COMM_WORLD); // Ensure all ranks synchronize here
-      // 
-      // 
-      MPI_Gather(psi_rank, prs, MPI_DOUBLE, psitot, prs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+      gather_mpi_filt(psi_rank, &psitot, &ist, &par, &flag, &parallel);
       free(psi_rank);
-      // 
-      // 
-
-      if (mpir == 0) printf("Succesfully gathered all states\n"); fflush(0);
+      
       
       // Save a checkpoint if requested
       if ((1 == flag.saveCheckpoints) && (0 == mpir)){
@@ -187,9 +173,25 @@ int main(int argc, char *argv[]){
       
       if (mpir == 0) // subsequent modules performed on a single rank
       {
+
+        /************************************************************/
+        /*******************  RESTART FROM ORTHO  *******************/
+        /************************************************************/
+        
+        if (1 == flag.restartFromOrtho){
+          // 
+          long long tot_sz = par.t_rev_factor * ist.complex_idx * ist.nspinngrid * ist.mn_states_tot;
+          
+          ALLOCATE(&psitot, tot_sz, "psitot"); 
+          restart_from_ortho(psitot, &ist, &par, &flag, &parallel);
+          // 
+        } 
+
+
         mod_ortho(
           psitot, pot_local, &grid, nlc, nl, an, zn, ene_targets,
-          ksqr, &ist, &par, &flag, &parallel);
+          ksqr, &ist, &par, &flag, &parallel
+        );
 
         psitot = realloc(psitot, ist.mn_states_tot*ist.nspinngrid*ist.complex_idx*sizeof(psitot[0]));
 
@@ -203,6 +205,10 @@ int main(int argc, char *argv[]){
 
     // Restart from diagonalization module
     case 2:
+      /************************************************************/
+      /*******************    RUN DIAG MODULE   *******************/
+      /************************************************************/
+
       if (0 == mpir){
 
         mod_diag(psitot, pot_local, eig_vals, sigma_E, &grid, LS, nlc, nl,
@@ -215,6 +221,22 @@ int main(int argc, char *argv[]){
             an, zn, ene_targets, nl, nlc, &grid, &ist, &par, &flag, &parallel);
         }
       } // end [if mpi rank 0]
+    
+    case 3:
+      /************************************************************/
+      /*******************   RUN SIGMA MODULE   *******************/
+      /************************************************************/
+
+      if (0 == mpir){
+        if (1 == flag.restartFromSigma){
+          restart_from_sigma(&psitot, pot_local, eig_vals, &grid, LS, nlc, nl,
+            ksqr, &ist, &par, &flag, &parallel);
+        }
+        printf("Entering mod_sigma\n"); fflush(0);
+      
+        mod_sigma(psitot, pot_local, eig_vals, sigma_E, &grid, LS, nlc, nl,
+        ksqr, &ist, &par, &flag, &parallel);
+      }
   } // end switch
   
   /************************************************************/

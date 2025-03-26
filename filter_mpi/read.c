@@ -17,7 +17,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   FILE *pf;
   int i = 0;
   char field[1000], tmp[1000], *endptr;
-  // long tmp = 0;
+  const int mpir = parallel->mpi_rank;
 
   // ****** ****** ****** ****** ****** ****** 
   // Setting the default behavior 
@@ -30,7 +30,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   par->KE_max = 20.0; // Increasing this value can improve wavefunctions
   flag->setTargets = 0;
   flag->printPsiFilt = 1;
-  flag->printOrtho = 0;
+  flag->printPsiDiag = 0;
+  flag->printPsiOrtho = 0;
   par->checkpoint_id = 1;
   flag->approxEnergyRange = 0;
   strcpy(par->fft_wisdom_dir, ""); //By default try to find fft wisdom in current directory
@@ -60,6 +61,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->NL = 0; // computes the non-local terms in the Hamiltonian; automatically on if SO flag on
   ist->nproj = 5; // number of terms to expand projections in. converged by 5
   par->t_rev_factor = 1; // can time rev filt'rd states to get 2X eigst8. mem alloc multiplied by par.t_rev_factor
+  flag->noTimeRev = 1; // By default, do not time reverse Filtered states
   // Optional output flags
   flag->saveOutput = 1; // By default, write the formatted output file that can be read by BSE to recreate job state
   flag->calcPotOverlap = 0; // Calculates matrix elements of the potential <i|V|j>
@@ -74,6 +76,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->calcFilterOnly = 0;
   // Restart job flags
   flag->restartFromOrtho = 0; // When = 1, filtered states are read from disk and job starts from ortho step 
+  flag->restartFromSigma = 0; // When = 1, diagged states are read from disk and job starts from sigma step 
   flag->retryFilter = 0; // When = 1, if no eigstates acquired, then retry the filter job 
   flag->alreadyTried = 0; // gets tripped to 1 after the first time retrying a Filter.
   // Parallelization options
@@ -91,7 +94,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       // ****** ****** ****** ****** ****** ****** 
       // Set geometry parameters for grid
       // ****** ****** ****** ****** ****** ****** 
-      //if (parallel->mpi_rank == 0) printf("field = %s tmp = %s\n", field, tmp);fflush(0);
+      //if (mpir == 0) printf("field = %s tmp = %s\n", field, tmp);fflush(0);
       if (!strcmp(field, "nx")) {
           grid->nx = strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
@@ -106,17 +109,17 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "dGrid")) {
           grid->dx = strtod(tmp, &endptr);
-          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+          if (*endptr != '\0') {if (mpir == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
           grid->dy = grid->dz = grid->dx; // If the dGrid flag is used, make all grid dimensions equal
       } else if (!strcmp(field, "dx")) {
           grid->dx = strtod(tmp, &endptr);
-          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+          if (*endptr != '\0') {if (mpir == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "dy")) {
           grid->dy = strtod(tmp, &endptr);
-          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+          if (*endptr != '\0') {if (mpir == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "dz")) {
           grid->dz = strtod(tmp, &endptr);
-          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+          if (*endptr != '\0') {if (mpir == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "centerConf")) {
           flag->centerConf = strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
@@ -132,16 +135,16 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       // ****** ****** ****** ****** ****** ******
       else if (!strcmp(field, "useStrain")) {
           flag->useStrain = (int) strtol(tmp, &endptr, 10);
-          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+          if (*endptr != '\0') {if (mpir == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "interpolatePot")) {
           flag->interpolatePot = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "scaleSurfaceCs")) {
           par->scale_surface_Cs = strtod(tmp, &endptr);
-          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+          if (*endptr != '\0') {if (mpir == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "longRange")) {
           flag->LR = (int) strtol(tmp, &endptr, 10);
-          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+          if (*endptr != '\0') {if (mpir == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (0 == strcmp(field, "crystalStructure")) {
           strcpy(par->crystal_structure, tmp);
       } else if (0 == strcmp(field, "outmostMaterial")) {
@@ -166,22 +169,22 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           ist->ncheby = strtol(tmp, &endptr, 10);
       } else if (!strcmp(field, "VBmin")) {
           par->VBmin = strtod(tmp, &endptr);
-          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+          if (*endptr != '\0') {if (mpir == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "VBmax")) {
           par->VBmax = strtod(tmp, &endptr);
-          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+          if (*endptr != '\0') {if (mpir == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "CBmin")) {
           par->CBmin = strtod(tmp, &endptr);
-          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+          if (*endptr != '\0') {if (mpir == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "CBmax")) {
           par->CBmax = strtod(tmp, &endptr);
-          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+          if (*endptr != '\0') {if (mpir == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "KEmax")) {
           par->KE_max = strtod(tmp, &endptr);
-          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+          if (*endptr != '\0') {if (mpir == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "fermiEnergy")) {
           par->fermi_E = strtod(tmp, &endptr);
-          if (*endptr != '\0') {if (parallel->mpi_rank == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+          if (*endptr != '\0') {if (mpir == 0) printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "setTargets")) {
           flag->setTargets = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
@@ -198,8 +201,11 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "printPsiFilt")) {
           flag->printPsiFilt = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-      } else if (!strcmp(field, "printOrtho")) {
-          flag->printOrtho = (int) strtol(tmp, &endptr, 10);
+      } else if (!strcmp(field, "printPsiOrtho")) {
+          flag->printPsiOrtho = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "printPsiDiag")) {
+          flag->printPsiDiag = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       } else if (!strcmp(field, "fftWisdomDir")) {
           strcpy(par->fft_wisdom_dir, tmp);
@@ -247,7 +253,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "NonLocal")) {
           flag->NL = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
-      }
+      } else if (!strcmp(field, "noTimeRev")) {
+        flag->noTimeRev = (int) strtol(tmp, &endptr, 10);
+        if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+    }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for additional output
       // ****** ****** ****** ****** ****** ******
@@ -297,6 +306,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           flag->restartFromOrtho = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
           if (flag->restartFromOrtho == 1){fscanf(pf, "%ld", &ist->n_states_for_ortho);}
+      } else if (!strcmp(field, "restartFromSigma")) {
+          flag->restartFromSigma = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+          if (flag->restartFromSigma == 1){fscanf(pf, "%ld", &ist->n_states_for_sigma);}
       } else if (!strcmp(field, "saveOutput")) {
           flag->saveOutput = (int) strtol(tmp, &endptr, 10);
           if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
@@ -305,72 +318,76 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       // Handle exceptions
       // ****** ****** ****** ****** ****** ******
       else {
-          if (parallel->mpi_rank == 0) printf("\nFIELD NOT RECOGNIZED: %s\n", field);
-          if (parallel->mpi_rank == 0) printf("\nInvalid input field and/ or format -> equal sign required after each field\n");
-          if (parallel->mpi_rank == 0) printf("Only allowed fields are (case-sensitive):\n\n");
-          if (parallel->mpi_rank == 0) printf("nx = int (number of grid points in x direction)\n");
-          if (parallel->mpi_rank == 0) printf("ny = int (number of grid points in y direction)\n");
-          if (parallel->mpi_rank == 0) printf("nz = int (number of grid points in z direction)\n");
-          if (parallel->mpi_rank == 0) printf("dx = double (grid spacing in x direction, units of Bohr)\n");
-          if (parallel->mpi_rank == 0) printf("dy = double (grid spacing in y direction, units of Bohr)\n");
-          if (parallel->mpi_rank == 0) printf("dz = double (grid spacing in z direction, units of Bohr)\n");
-          if (parallel->mpi_rank == 0) printf("box_z = double (dim of periodic box, units of Bohr)\n");
-          if (parallel->mpi_rank == 0) printf("dGrid = double (grid spacing; sets the values of dx, dy, and dz equal)\n");
-          if (parallel->mpi_rank == 0) printf("dGrid = double (grid spacing; sets the values of dx, dy, and dz equal)\n");
-          if (parallel->mpi_rank == 0) printf("periodic = int (0 = 0D, 1 = periodic filter)\n");
-          if (parallel->mpi_rank == 0) printf("nFilterCycles = int (number of filter cycles/number random initial wavefunctions)\n");
-          if (parallel->mpi_rank == 0) printf("nCheby = int (number of terms in the Chebyshev expansion)\n");
-          if (parallel->mpi_rank == 0) printf("VBmin = double (bottom of valence band energy window)\n");
-          if (parallel->mpi_rank == 0) printf("VBmax = double (top of valence band energy window)\n");
-          if (parallel->mpi_rank == 0) printf("CBmin = double (bottom of conduction band energy window)\n");
-          if (parallel->mpi_rank == 0) printf("CBmax = double (top of conduction band energy window)\n");
-          if (parallel->mpi_rank == 0) printf("useStrain = int (if 1, calculate strain dependent pseudopots)\n");
-          if (parallel->mpi_rank == 0) printf("interpolatePot = int (if 1, interpolate between cubic and orthorhombic potentials)\n");
-          if (parallel->mpi_rank == 0) printf("longRange = int (if 1, the pseudopots have long range terms; no truncate)\n");
-          if (parallel->mpi_rank == 0) printf("crystalStructure = string (name of crystal structure e.g. wurtzite)\n");
-          if (parallel->mpi_rank == 0) printf("outmostMaterial = string (name of outmost layer if core-shell e.g. CdS)\n");
-          if (parallel->mpi_rank == 0) printf("readProj = int (if 1, read projector data from files)\n");
-          if (parallel->mpi_rank == 0) printf("scaleSurfaceCs = double (fractional scaling factor of surface Cs to balance charge)\n");
-          if (parallel->mpi_rank == 0) printf("nThreads = 1-128 (number of total OMP threads)\n");
-          if (parallel->mpi_rank == 0) printf("nestedOMP = int (0 for no nested parallelism, 1 for nested)\n");
-          if (parallel->mpi_rank == 0) printf("hamThreads = 1-16 (number of OMP threads to parallelize Ham over)\n");
-          if (parallel->mpi_rank == 0) printf("fermiEnergy = double (fermi_E of the system)\n");
-          if (parallel->mpi_rank == 0) printf("KEmax = double (maximum kinetic energy value considered)\n");
-          if (parallel->mpi_rank == 0) printf("spinOrbit = int (0 for no spinOrbit, 1 for spinOrbit)\n");
-          if (parallel->mpi_rank == 0) printf("NonLocal = int (0 for no non-local, 1 for non-local potential)\n");
-          if (parallel->mpi_rank == 0) printf("approxEnergyRange = int, if 1 then energy range will be appox'd by local pot\n");
-          if (parallel->mpi_rank == 0) printf("setTargets = int (0 if half/half split of VB/CB targets suffices for your job)\n");
-          if (parallel->mpi_rank == 0) printf("If setTargets = 1, the next two entries MUST be \'n_targets_VB n_targets_CB\'\n");
-          if (parallel->mpi_rank == 0) printf("centerConf = int (if 1, center the NC atoms at the COM)\n");
-          if (parallel->mpi_rank == 0) printf("calcPotOverlap = int (calculate matrix overlaps of pseudopotential)\n");
-          if (parallel->mpi_rank == 0) printf("sigmaECut = double, the cutoff std. dev allowed for printed eigenstates/cubes\n");
-          if (parallel->mpi_rank == 0) printf("getAllStates = int (0 to only save states with small variance, 1 to save all)\n");
-          if (parallel->mpi_rank == 0) printf("If getAllStates = 0, the next entry MUST specify the cutoff criteria \'sigma_E_cut\'\n");
-          if (parallel->mpi_rank == 0) printf("timeHamiltonian = int (1 to print timing information, 0 to not)\n");
-          if (parallel->mpi_rank == 0) printf("printCubes = int (1 to print wavefunction cube files, 0 to not)\n");
-          if (parallel->mpi_rank == 0) printf("If printCubes = 1, the next entry MUST specify the number of eigenstates to print\n");
-          if (parallel->mpi_rank == 0) printf("If printGaussCubes = 1, the next 2 entries are the start and end eigenstates to print\n");
-          if (parallel->mpi_rank == 0) printf("calcSpinAngStat = int (calculate spin and ang. mom. statistics for eigenstates)\n");
-          if (parallel->mpi_rank == 0) printf("calcFilterOnly = int (if 1, terminate job after filtering)\n");
-          if (parallel->mpi_rank == 0) printf("setSeed = int (if 1, set the random seed in for filter to generate exactly reproducible wavefunctions)\n");
-          if (parallel->mpi_rank == 0) printf("If setSeed = 1, the next entry MUST specify the random seed as an integer \'rand_seed\'\n");
-          if (parallel->mpi_rank == 0) printf("printNorm = int, if 1 then norms of wavefunctions are printed every 100 chebyshev iterations\n");
-          if (parallel->mpi_rank == 0) printf("printPsiFilt = int, if 1 then filtered wavefunctions are printed\n");
-          if (parallel->mpi_rank == 0) printf("retryFilter = int, if 1 then if no eigenstates obtained after diag, then filter is restarted.\n");
-          if (parallel->mpi_rank == 0) printf("restartFromOrtho = int, if 1 then \'psi-filt.dat\' is read from disk and job starts from ortho.\n");
-          if (parallel->mpi_rank == 0) printf("If restartFromOrtho = 1, the next entry MUST specify the total number of states in \'psi-filt.dat\'\n");
-          if (parallel->mpi_rank == 0) printf("saveCheckpoints = int, if 1 then save states will be generated along the job run.\n");
-          if (parallel->mpi_rank == 0) printf("restartFromCheckpoint = int, value is the ID of the checkpoint that the job should restart from.\n");
-          if (parallel->mpi_rank == 0) printf("saveOutput = int, if 0 then output.dat will not be printed after job termination.\n");
-          if (parallel->mpi_rank == 0) printf("fftWisdomDir = str, directory where fftw_wisdom.dat file is stored.\n");
-          
+          if (mpir == 0){ 
+            printf("\nFIELD NOT RECOGNIZED: %s\n", field);
+            printf("\nInvalid input field and/ or format -> equal sign required after each field\n");
+            printf("Only allowed fields are (case-sensitive):\n\n");
+            printf("nx = int (number of grid points in x direction)\n");
+            printf("ny = int (number of grid points in y direction)\n");
+            printf("nz = int (number of grid points in z direction)\n");
+            printf("dx = double (grid spacing in x direction, units of Bohr)\n");
+            printf("dy = double (grid spacing in y direction, units of Bohr)\n");
+            printf("dz = double (grid spacing in z direction, units of Bohr)\n");
+            printf("box_z = double (dim of periodic box, units of Bohr)\n");
+            printf("dGrid = double (grid spacing; sets the values of dx, dy, and dz equal)\n");
+            printf("dGrid = double (grid spacing; sets the values of dx, dy, and dz equal)\n");
+            printf("periodic = int (0 = 0D, 1 = periodic filter)\n");
+            printf("nFilterCycles = int (number of filter cycles/number random initial wavefunctions)\n");
+            printf("nCheby = int (number of terms in the Chebyshev expansion)\n");
+            printf("VBmin = double (bottom of valence band energy window)\n");
+            printf("VBmax = double (top of valence band energy window)\n");
+            printf("CBmin = double (bottom of conduction band energy window)\n");
+            printf("CBmax = double (top of conduction band energy window)\n");
+            printf("useStrain = int (if 1, calculate strain dependent pseudopots)\n");
+            printf("interpolatePot = int (if 1, interpolate between cubic and orthorhombic potentials)\n");
+            printf("longRange = int (if 1, the pseudopots have long range terms; no truncate)\n");
+            printf("crystalStructure = string (name of crystal structure e.g. wurtzite)\n");
+            printf("outmostMaterial = string (name of outmost layer if core-shell e.g. CdS)\n");
+            printf("readProj = int (if 1, read projector data from files)\n");
+            printf("scaleSurfaceCs = double (fractional scaling factor of surface Cs to balance charge)\n");
+            printf("nThreads = 1-128 (number of total OMP threads)\n");
+            printf("nestedOMP = int (0 for no nested parallelism, 1 for nested)\n");
+            printf("hamThreads = 1-16 (number of OMP threads to parallelize Ham over)\n");
+            printf("fermiEnergy = double (fermi_E of the system)\n");
+            printf("KEmax = double (maximum kinetic energy value considered)\n");
+            printf("spinOrbit = int (0 for no spinOrbit, 1 for spinOrbit)\n");
+            printf("NonLocal = int (0 for no non-local, 1 for non-local potential)\n");
+            printf("noTimeRev = int (0 to time reverse, 1 for no time reversal)\n");
+            printf("approxEnergyRange = int, if 1 then energy range will be appox'd by local pot\n");
+            printf("setTargets = int (0 if half/half split of VB/CB targets suffices for your job)\n");
+            printf("If setTargets = 1, the next two entries MUST be \'n_targets_VB n_targets_CB\'\n");
+            printf("centerConf = int (if 1, center the NC atoms at the COM)\n");
+            printf("calcPotOverlap = int (calculate matrix overlaps of pseudopotential)\n");
+            printf("sigmaECut = double, the cutoff std. dev allowed for printed eigenstates/cubes\n");
+            printf("getAllStates = int (0 to only save states with small variance, 1 to save all)\n");
+            printf("If getAllStates = 0, the next entry MUST specify the cutoff criteria \'sigma_E_cut\'\n");
+            printf("timeHamiltonian = int (1 to print timing information, 0 to not)\n");
+            printf("printCubes = int (1 to print wavefunction cube files, 0 to not)\n");
+            printf("If printCubes = 1, the next entry MUST specify the number of eigenstates to print\n");
+            printf("If printGaussCubes = 1, the next 2 entries are the start and end eigenstates to print\n");
+            printf("calcSpinAngStat = int (calculate spin and ang. mom. statistics for eigenstates)\n");
+            printf("calcFilterOnly = int (if 1, terminate job after filtering)\n");
+            printf("setSeed = int (if 1, set the random seed in for filter to generate exactly reproducible wavefunctions)\n");
+            printf("If setSeed = 1, the next entry MUST specify the random seed as an integer \'rand_seed\'\n");
+            printf("printNorm = int, if 1 then norms of wavefunctions are printed every 100 chebyshev iterations\n");
+            printf("printPsiFilt = int, if 1 then filtered wavefunctions are printed\n");
+            printf("printPsiHam = int, if 1 then diagonalized wavefunctions are printed\n");
+            printf("retryFilter = int, if 1 then if no eigenstates obtained after diag, then filter is restarted.\n");
+            printf("restartFromOrtho = int, if 1 then \'psi-filt.dat\' is read from disk and job starts from ortho.\n");
+            printf("restartFromSigma = int, if 1 then \'psi-diag.dat\' is read from disk and job starts from sigma.\n");
+            printf("If restartFromOrtho = 1, the next entry MUST specify the total number of states in \'psi-filt.dat\'\n");
+            printf("saveCheckpoints = int, if 1 then save states will be generated along the job run.\n");
+            printf("restartFromCheckpoint = int, value is the ID of the checkpoint that the job should restart from.\n");
+            printf("saveOutput = int, if 0 then output.dat will not be printed after job termination.\n");
+            printf("fftWisdomDir = str, directory where fftw_wisdom.dat file is stored.\n");
+          }
           fflush(stdout);
           exit(EXIT_FAILURE);
       }
       i++;
     } 
   } else{
-      if (parallel->mpi_rank == 0) printf("PROGRAM EXITING: input.par does not exist in directory\n");
+      if (mpir == 0) printf("PROGRAM EXITING: input.par does not exist in directory\n");
       fprintf(stderr, "PROGRAM EXITING: input.par does not exist in directory\n");
       exit(EXIT_FAILURE);
   }
@@ -392,6 +409,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
     flag->isComplex = 1;
     ist->nspin = 2; // generate spinor wavefunctions
     par->t_rev_factor = 2; // give double the memory allocation to psitot
+
+    if (flag->noTimeRev) par->t_rev_factor = 1;
   }
   if (flag->interpolatePot == 1) {
     ist->ngeoms = 2; // give double memory to pot.r and pot.pseudo vectors
@@ -400,11 +419,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->nspinngrid = ist->nspin * ist->ngrid;
   ist->complex_idx = flag->isComplex + 1;
   ist->mn_states_tot = ist->n_filter_cycles * ist->m_states_per_filter;
-  ist->n_states_per_rank = ist->mn_states_tot / parallel->mpi_size;
-  ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx;
-  // used only for "filter_fast.c" scheme
   ist->n_filters_per_rank = ist->n_filter_cycles / parallel->mpi_size;
-  // 
+  ist->n_states_per_rank = ist->n_filters_per_rank * ist->m_states_per_filter;
+  ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx;
+
   ist->nthreads = parallel->nthreads;
 
   // Handle flags for restarting filter from checkpoints or other retries
@@ -412,25 +430,11 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
     flag->restartFromCheckpoint = 1;
     ist->mn_states_tot = ist->n_states_for_ortho;
   }
-
-  // Handle nested parallelism
-  parallel->n_outer_threads = parallel->nthreads;
-  if (1 == parallel->nestedOMP){
-    // Check to make sure that ham_threads was also given a >1 value
-    if (par->ham_threads > 1){
-      parallel->n_inner_threads = par->ham_threads;
-      parallel->n_outer_threads = (int) (parallel->nthreads / parallel->n_inner_threads);
-      
-      if ( (parallel->n_outer_threads % ist->m_states_per_filter) != 0){
-        if (parallel->mpi_rank == 0) printf("WARNING: Nested parallel req'd but m_states %ld not factor of n_outer = %d\n", ist->m_states_per_filter, parallel->n_outer_threads);
-        if (parallel->mpi_rank == 0) fprintf(stderr, "WARNING: Nested parallel req'd but m_states %ld not factor of n_outer = %d\n", ist->m_states_per_filter, parallel->n_outer_threads);
-      }
-    }
-    else {
-      if (parallel->mpi_rank == 0) printf("WARNING: Nested parallelism requested but ham_threads = %d\n", par->ham_threads);
-      if (parallel->mpi_rank == 0) fprintf(stderr, "WARNING: Nested parallelism requested but ham_threads = %d\n", par->ham_threads);
-    }
+  if (1 == flag->restartFromSigma){
+    flag->restartFromCheckpoint = 3;
+    ist->mn_states_tot = ist->n_states_for_sigma;
   }
+
 
   // Get the number of atoms (needed to initialize the atom list)
   pf = fopen("conf.par" , "r");

@@ -209,21 +209,22 @@ void get_qp_basis(double *psi_qp, double *psitot, double *eig_vals, double *sigm
   ********************************************************************/
  
   long i, cntr, state_idx;
+  long stlen = ist->complex_idx * ist->nspinngrid;
   
   // Copy the hole states
   cntr = 0;
   for (i = 0; i < ist->n_holes; i++){
     state_idx = ist->eval_hole_idxs[i];
     // printf("psi_qp: reading state %ld\n", state_idx);
-    memcpy(&psi_qp[i * ist->nspinngrid * ist->complex_idx], &psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx * sizeof(psitot[0])) ;
+    memcpy(&psi_qp[i * stlen], &psitot[state_idx * stlen], stlen * sizeof(psitot[0])) ;
     cntr++;
   } 
 
   // Copy the electron states
-  for (i = 0; i < ist->max_elec_states; i++){
+  for (i = 0; i < ist->n_elecs; i++){
     state_idx = ist->eval_elec_idxs[i];
     // printf("psi_qp: reading state %ld\n", state_idx);
-    memcpy(&psi_qp[cntr * ist->nspinngrid * ist->complex_idx], &psitot[state_idx * ist->nspinngrid * ist->complex_idx], ist->nspinngrid * ist->complex_idx * sizeof(psitot[0]));
+    memcpy(&psi_qp[cntr * stlen], &psitot[state_idx * stlen], stlen * sizeof(psitot[0]));
     cntr++;
   } 
 

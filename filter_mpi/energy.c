@@ -279,12 +279,13 @@ void get_energy_range(
     }
     fclose(pf);
   } else if (1 == flag->approxEnergyRange){
-    if (parallel->mpi_rank == 0) printf("\nApproximating energy range of Hamiltonian as [Vmin, Vmax + KE_max]\n");
-    Emin = par->Vmin + 0.5;
-    Emax = par->Vmax + par->KE_max;
-    if (1 == flag->NL){
-      Emax += 3.0;
-    }
+      if (parallel->mpi_rank == 0) printf("\nApproximating energy range of Hamiltonian as [Vmin, Vmax + KE_max]\n");
+      Emin = par->Vmin;
+      Emax = par->Vmax + par->KE_max;
+      if (1 == flag->NL){
+        Emax += 3.0;
+        Emin += 0.4;
+      }
   } else {fprintf(stderr, "ERROR: invalid Hamiltonian energy range strategy selected\n"); exit(EXIT_FAILURE);}
 
 
@@ -344,21 +345,26 @@ void calc_sigma_E(
   * outputs: void                                                    *
   ********************************************************************/
 
+  FILE *pf;
+  pf = fopen("eval_aux.dat", "w");
+
   long ims;
-  
+  omp_set_num_threads(ist->nthreads);
   // Loop over all M*N states
   #pragma omp parallel for private(ims)
   for (ims = 0; ims < ist->mn_states_tot; ims++) {
     long jgrid, jgrid_real, jgrid_imag, jstate;
     double eval, eval2;
+    
+    jstate = ist->complex_idx*ims*ist->nspinngrid;
+    
+    
     int fft_flags = 0;
     fftw_plan_loc planfw, planbw; 
     fftw_complex *fftwpsi;
     // Arrays for hamiltonian evaluation
     zomplex *psi, *phi; 
 
-    jstate = ist->complex_idx*ims*ist->nspinngrid;
-    
     if ((psi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
       fprintf(stderr, "\nOUT OF MEMORY: psi in calc_sigma_E\n\n"); exit(EXIT_FAILURE);
     }
@@ -368,7 +374,7 @@ void calc_sigma_E(
     fftwpsi = fftw_malloc(sizeof (fftw_complex )*ist->ngrid);
     planfw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_FORWARD,fft_flags);
     planbw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,fft_flags);
-  
+
     // select the current state to compute sigma_E for
     if (1 == flag->isComplex){
       for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
@@ -391,6 +397,7 @@ void calc_sigma_E(
 
     memcpy(&phi[0],&psi[0],ist->nspinngrid*sizeof(phi[0]));
     // Apply the Hamiltonian to |psi>: |phi> = H|psi>
+    
     hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
     // Calculate the expectation value of H for wavefunc psi: <psi|H|psi> = <psi|phi> = sum_{jgrid} psi[jgrid] * phi[jgrid] * dv
     eval = 0.0;
@@ -412,6 +419,7 @@ void calc_sigma_E(
     
     // Apply the Hamiltonian again onto phi: H|phi> = H^2|psi>
     memcpy(&psi[0], &phi[0], ist->nspinngrid*sizeof(psi[0]));
+    // p_hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par,flag, planfw, planbw, fftwpsi, ist->nthreads);
     hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par,flag, planfw, planbw, fftwpsi);
     // Calculate the expectation value of H^2: <psi|H^2|psi>
     eval2 = 0.0;
@@ -435,12 +443,168 @@ void calc_sigma_E(
     // sigma_E is the sqrt of the variance
     sigma_E[ims] = sqrt(fabs(eval2));
 
+    // Print auxiliary eval.dat file because we get it for free
+    fprintf(pf, "%ld %.16lg %.16lg\n", ims, eval, sigma_E[ims]);
+
     // Free dynamically allocated memory
     free(psi); free(phi);
     fftw_destroy_plan(planfw);
     fftw_destroy_plan(planbw);
     fftw_free(fftwpsi);
+    
   }
+  fflush(pf);
+  fclose(pf);
+
+  return;
+}
+
+void calc_sigma_E_lg_mem(
+  double*         psitot, 
+  double*         pot_local, 
+  zomplex*        LS, 
+  nlc_st*         nlc, 
+  long*           nl, 
+  double*         ksqr,
+  double*         sigma_E, 
+  index_st*       ist, 
+  par_st*         par, 
+  flag_st*        flag
+  ){
+  /*******************************************************************
+  * This function calculates the quality of the eigenstates by       *
+  * evaluating sigma_E^2 = <psi|H^2|psi> - <psi|H|psi>^2             *
+  * inputs:                                                          *
+  *  [psi] ngrid-long arr of double/zomplex to hold orig. wavefnc    *
+  *  [phi] ngrid-long arr to hold |phi> = H|psi>                     *
+  *  [psitot] m*n*ngrid-long arr holding all wavefuncs               *
+  *  [pot_local] ngrid-long arr holding the value of the local pot   *
+  *  [nlc] nlc struct holding values for computing SO and NL pots    *
+  *  [nl] natom-long arr holding the number of NL gridpts per atom   *
+  *  [ksqr] ngrid-long arr holding the values of k^2 for KE calc     *
+  *  [sigma_E] m*n-long array to store energies of filtered states   *
+  *  [ist] ptr to counters, indices, and lengths                     *
+  *  [par] ptr to par_st holding VBmin, VBmax... params              *
+  *  [flag] ptr to flag_st holding job flags                         *
+  *  [planfw] FFTW3 plan for executing 3D forward DFT                *
+  *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+  *  [fftwpsi] location to store outcome of Fourier transform        *
+  * outputs: void                                                    *
+  ********************************************************************/
+
+  FILE *pf;
+  pf = fopen("eval_aux.dat", "w");
+
+  long ims;
+  omp_set_num_threads(ist->nthreads);
+  
+  fftw_init_threads();
+  fftw_plan_with_nthreads(ist->nthreads);
+
+  int fft_flags = 0;
+  fftw_plan_loc planfw, planbw; 
+  fftw_complex *fftwpsi;
+  // Arrays for hamiltonian evaluation
+  zomplex *psi, *phi; 
+
+  if ((psi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
+    fprintf(stderr, "\nOUT OF MEMORY: psi in calc_sigma_E\n\n"); exit(EXIT_FAILURE);
+  }
+  if ((phi = (zomplex*)calloc(ist->nspinngrid,sizeof(zomplex)))==NULL){ 
+    fprintf(stderr, "\nOUT OF MEMORY: phi in calc_sigma_E\n\n"); exit(EXIT_FAILURE);
+  }
+  fftwpsi = fftw_malloc(sizeof (fftw_complex )*ist->ngrid);
+  planfw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_FORWARD,fft_flags);
+  planbw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,fft_flags);
+
+  
+  // Loop over all M*N states
+  for (ims = 0; ims < ist->mn_states_tot; ims++) {
+    long jgrid, jgrid_real, jgrid_imag, jstate;
+    double eval, eval2;
+    
+    jstate = ist->complex_idx*ims*ist->nspinngrid;
+    
+    // select the current state to compute sigma_E for
+    if (1 == flag->isComplex){
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = ist->complex_idx * jgrid + 1;
+
+        psi[jgrid].re = psitot[jstate+jgrid_real];
+        
+        psi[jgrid].im = psitot[jstate+jgrid_imag];
+      } 
+    }
+    else {
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+      psi[jgrid].re = psitot[jstate + jgrid];
+      
+      psi[jgrid].im = 0.0;
+      } 
+    }
+
+
+    memcpy(&phi[0],&psi[0],ist->nspinngrid*sizeof(phi[0]));
+    // Apply the Hamiltonian to |psi>: |phi> = H|psi>
+    
+    p_hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi, ist->nthreads);
+    // Calculate the expectation value of H for wavefunc psi: <psi|H|psi> = <psi|phi> = sum_{jgrid} psi[jgrid] * phi[jgrid] * dv
+    eval = 0.0;
+    if (1 == flag->isComplex){
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        jgrid_real = ist->complex_idx*jgrid;
+        jgrid_imag = ist->complex_idx*jgrid + 1;
+
+        eval += psitot[jstate+jgrid_real] * phi[jgrid].re;
+        eval += psitot[jstate+jgrid_imag] * phi[jgrid].im;
+      }
+    }
+    else {
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        eval += psitot[jstate+jgrid] * phi[jgrid].re;
+      }
+    }
+    eval *= par->dv;
+    
+    // Apply the Hamiltonian again onto phi: H|phi> = H^2|psi>
+    memcpy(&psi[0], &phi[0], ist->nspinngrid*sizeof(psi[0]));
+    p_hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par,flag, planfw, planbw, fftwpsi, ist->nthreads);
+    
+    // Calculate the expectation value of H^2: <psi|H^2|psi>
+    eval2 = 0.0;
+    if (1 == flag->isComplex){
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        jgrid_real = ist->complex_idx*jgrid;
+        jgrid_imag = ist->complex_idx*jgrid + 1;
+
+        eval2 += psitot[jstate+jgrid_real] * phi[jgrid].re;
+        eval2 += psitot[jstate+jgrid_imag] * phi[jgrid].im;
+      }
+    }
+    else{
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        eval2 += psitot[jstate+jgrid] * phi[jgrid].re;
+      }
+    }
+    eval2 *= par->dv;
+    // var = <psi|H^2|psi> - <psi|H|psi>^2
+    eval2 -= sqr(eval);
+    // sigma_E is the sqrt of the variance
+    sigma_E[ims] = sqrt(fabs(eval2));
+
+    // Print auxiliary eval.dat file because we get it for free
+    fprintf(pf, "%ld %.16lg %.16lg\n", ims, eval, sigma_E[ims]);
+    
+  }
+  fflush(pf);
+
+  // Free dynamically allocated memory
+  free(psi); free(phi);
+  fftw_destroy_plan(planfw);
+  fftw_destroy_plan(planbw);
+  fftw_free(fftwpsi);
+  fclose(pf);
 
   return;
 }

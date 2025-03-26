@@ -23,8 +23,10 @@ void mod_diag(
   /*******************  DECLARE VARIABLES   *******************/
   /************************************************************/
 
-  const int mpir = parallel->mpi_rank;
+  FILE *pf;
 
+  const int mpir = parallel->mpi_rank;
+  
   double init_clock;
   double init_wall;
 
@@ -62,26 +64,16 @@ void mod_diag(
   diag_H(psitot, pot_local, LS, nlc, nl, ksqr, eig_vals, ist, par, flag, parallel);
   normalize_all(&psitot[0],ist->mn_states_tot, ist, par, flag, parallel);
   
-  
   if (mpir == 0) printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",
               ((double)clock()-init_clock)/(double)(CLOCKS_PER_SEC), (double)time(NULL)-init_wall);
   fflush(stdout);
 
-  /************************************************************/
-  /*******************     CALC SIGMA E     *******************/
-  /************************************************************/
-  /************************************************************/
-  /*** calculate the standard deviation of these states     ***/
-  /*** this is used to check if there are ghost states      ***/
-  /************************************************************/
-
-  if (mpir == 0){
-    write_separation(stdout, "T");
-    printf("\n7. CALCULATING VARIANCE OF EIGENVALUES | %s\n", get_time());
-    write_separation(stdout, "B"); fflush(stdout);
+  if (1 == flag->printPsiDiag){
+    pf = fopen("psi-diag.dat", "w");
+    fwrite(psitot, ist->mn_states_tot * ist->complex_idx, ist->nspinngrid * sizeof(double), pf);
+    fclose(pf);
   }
 
-  calc_sigma_E(psitot, pot_local, LS, nlc, nl, ksqr, sigma_E, ist, par, flag);
       
   return;
 }

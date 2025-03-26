@@ -36,16 +36,16 @@ void calc_spin_mtrx(xyz_st *s_mom, double *psi_qp, grid_st *grid, index_st *ist,
   pfx = fopen("sx.dat", "w"); pfy = fopen("sy.dat", "w"); pfz = fopen("sz.dat", "w");
   //calculate spin matrix elements between all occupied (hole) orbitals
 	for(i = 0; i < ist->n_holes; i++){
+        istate_idx = i * ist->nspinngrid * ist->complex_idx;
 		for (j = 0; j < ist->n_holes; j++){
-      zomplex sx, sy, sz;
-      sx.re = sx.im = sy.re = sy.im = sz.re = sz.im = 0.0;
+      		zomplex sx, sy, sz;
+      		sx.re = sx.im = sy.re = sy.im = sz.re = sz.im = 0.0;
 
 			for (jgrid = 0; jgrid < ist->ngrid; jgrid++) {
         jgridup_re = ist->complex_idx * jgrid;
         jgridup_im = jgridup_re + 1;
         jgriddn_re = jgridup_re + ist->ngrid*ist->complex_idx;
         jgriddn_im = jgriddn_re + 1;
-        istate_idx = i * ist->nspinngrid * ist->complex_idx;
         jstate_idx = j * ist->nspinngrid * ist->complex_idx;
         
         //Spin x part
@@ -179,9 +179,18 @@ void calc_ang_mom_mtrx(xyz_st *l_mom, zomplex *l2_mom, zomplex *LdotS, double *p
 	long istate_idx, jstate_idx, astate_idx, bstate_idx; 
 	long jdridup_re, jdridup_im, jgriddn_re, jdriddn_im;
   	long i,j,a,b,jgrid,index, jgridup, jgriddn;
-	
+	fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi;
+
+	// Allocate memory for multithreaded FFT
+	fftw_init_threads();
+	fftw_plan_with_nthreads(ist->nthreads);
+
+	fftwpsi = fftw_malloc(ist->ngrid*sizeof(fftw_complex));
+    planfw = fftw_plan_dft_3d(grid->nz, grid->ny, grid->nx, fftwpsi, fftwpsi, FFTW_FORWARD, 0);
+    planbw = fftw_plan_dft_3d(grid->nz, grid->ny, grid->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, 0);
+
+
 	zomplex *psi1 = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));;
-	zomplex *psi2 = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));;
 	
 	zomplex* Lxpsi = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
 	zomplex* Lypsi = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
@@ -206,30 +215,31 @@ void calc_ang_mom_mtrx(xyz_st *l_mom, zomplex *l2_mom, zomplex *LdotS, double *p
 		memcpy(psi1, &psi_qp[istate_idx], ist->nspinngrid*ist->complex_idx*sizeof(psi_qp[0]));
 		
 		//spin up part
-		l_operator(&Lxpsi[0],&Lypsi[0],&Lzpsi[0], &psi1[0], grid,ist, par);
+		l_operator(&Lxpsi[0],&Lypsi[0],&Lzpsi[0], &psi1[0], grid, ist, par, planfw, planbw, fftwpsi);
 		//spin dn part
-		l_operator(&Lxpsi[ist->ngrid],&Lypsi[ist->ngrid],&Lzpsi[ist->ngrid], &psi1[ist->ngrid], grid,ist, par);
+		l_operator(&Lxpsi[ist->ngrid],&Lypsi[ist->ngrid],&Lzpsi[ist->ngrid], &psi1[ist->ngrid], grid, ist, par, planfw, planbw, fftwpsi);
 
 		//Lxsqr parts
 		//spin up part
-		l_operator(&Lxsqrpsi[0],&temp1[0],&temp2[0], &Lxpsi[0], grid,ist, par);
+		l_operator(&Lxsqrpsi[0],&temp1[0],&temp2[0], &Lxpsi[0], grid, ist, par, planfw, planbw, fftwpsi);
 		//spin dn part
-		l_operator(&Lxsqrpsi[ist->ngrid],&temp1[0],&temp2[0], &Lxpsi[ist->ngrid], grid,ist, par);
+		l_operator(&Lxsqrpsi[ist->ngrid],&temp1[0],&temp2[0], &Lxpsi[ist->ngrid], grid, ist, par, planfw, planbw, fftwpsi);
 
 		//Lysqr parts
 		//spin up part
-		l_operator(&temp1[0],&Lysqrpsi[0],&temp2[0], &Lypsi[0], grid,ist, par);
+		l_operator(&temp1[0],&Lysqrpsi[0],&temp2[0], &Lypsi[0], grid, ist, par, planfw, planbw, fftwpsi);
 		//spin dn part
-		l_operator(&temp1[0],&Lysqrpsi[ist->ngrid],&temp2[0], &Lypsi[ist->ngrid], grid,ist, par);
+		l_operator(&temp1[0],&Lysqrpsi[ist->ngrid],&temp2[0], &Lypsi[ist->ngrid], grid, ist, par, planfw, planbw, fftwpsi);
 
 		//Lzsqr parts
 		//spin up part
-		l_operator(&temp1[0],&temp2[0],&Lzsqrpsi[0], &Lzpsi[0], grid,ist, par);
+		l_operator(&temp1[0],&temp2[0],&Lzsqrpsi[0], &Lzpsi[0], grid, ist, par, planfw, planbw, fftwpsi);
 		//spin dn part
-		l_operator(&temp1[0],&temp2[0],&Lzsqrpsi[ist->ngrid], &Lzpsi[ist->ngrid], grid,ist, par);
+		l_operator(&temp1[0],&temp2[0],&Lzsqrpsi[ist->ngrid], &Lzpsi[ist->ngrid], grid, ist, par, planfw, planbw, fftwpsi);
 
-
+		#pragma omp parallel for private(j, jstate_idx, jgrid, jgridup, jgriddn)
 		for (j = 0; j < ist->n_holes; j++){
+			zomplex *psi2 = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));;
 			zomplex psi_j_tmp;
 			zomplex lx_tmp, ly_tmp, lz_tmp, lsqr_tmp;
 			lx_tmp.re = lx_tmp.im = 0.0;
@@ -329,10 +339,12 @@ void calc_ang_mom_mtrx(xyz_st *l_mom, zomplex *l2_mom, zomplex *LdotS, double *p
 			fprintf(pfy,"%ld\t%ld\t%lf\t%lf\n",i,j,l_mom[i*ist->n_holes+j].y_re,l_mom[i*ist->n_holes+j].y_im);
 			fprintf(pfz,"%ld\t%ld\t%lf\t%lf\n",i,j,l_mom[i*ist->n_holes+j].z_re,l_mom[i*ist->n_holes+j].z_im);
 			fprintf(pfsqr,"%ld\t%ld\t%lf\t%lf\n",i,j,l2_mom[i*ist->n_holes+j].re,l2_mom[i*ist->n_holes+j].im);
-			fprintf(pfls,"%ld\t%ld\t%lf\t%lf\n",i,j,LdotS[i*ist->n_holes+j].re,LdotS[i*ist->n_holes+j].im);
+			fprintf(pfls,"%ld\t%ld\t%lf\t%lf\n",i,j,LdotS[i*ist->n_holes+j].re,LdotS[i*ist->n_holes+j].im); 
 			if(i==j){
 				printf("%ld\t%ld\t%lf\t%lf\t%lf\t%lf\t%lf\n",i,j,l_mom[i*ist->n_holes+j].x_re,l_mom[i*ist->n_holes+j].y_re,l_mom[i*ist->n_holes+j].z_re,l2_mom[i*ist->n_holes+j].re,LdotS[i*ist->n_holes+j].re);
 			}
+
+			free(psi2);
 		}
 	}
 
@@ -343,31 +355,32 @@ void calc_ang_mom_mtrx(xyz_st *l_mom, zomplex *l2_mom, zomplex *LdotS, double *p
 		memcpy(psi1, &psi_qp[astate_idx], ist->nspinngrid*ist->complex_idx*sizeof(psi_qp[0]));
 		
 		//spin up part
-		l_operator(&Lxpsi[0], &Lypsi[0], &Lzpsi[0], &psi1[0], grid,ist, par);
+		l_operator(&Lxpsi[0], &Lypsi[0], &Lzpsi[0], &psi1[0], grid, ist, par, planfw, planbw, fftwpsi);
 		//spin dn part
-		l_operator(&Lxpsi[ist->ngrid],&Lypsi[ist->ngrid],&Lzpsi[ist->ngrid], &psi1[ist->ngrid], grid,ist, par);
+		l_operator(&Lxpsi[ist->ngrid],&Lypsi[ist->ngrid],&Lzpsi[ist->ngrid], &psi1[ist->ngrid], grid, ist, par, planfw, planbw, fftwpsi);
 		
 		//Lxsqr parts
 		//spin up part
-		l_operator(&Lxsqrpsi[0], &temp1[0], &temp2[0], &Lxpsi[0], grid, ist, par);
+		l_operator(&Lxsqrpsi[0], &temp1[0], &temp2[0], &Lxpsi[0], grid, ist, par, planfw, planbw, fftwpsi);
 		//spin dn part
-		l_operator(&Lxsqrpsi[ist->ngrid],&temp1[0],&temp2[0], &Lxpsi[ist->ngrid], grid,ist, par);
+		l_operator(&Lxsqrpsi[ist->ngrid],&temp1[0],&temp2[0], &Lxpsi[ist->ngrid], grid, ist, par, planfw, planbw, fftwpsi);
 
 		//Lysqr parts
 		//spin up part
-		l_operator(&temp1[0], &Lysqrpsi[0], &temp2[0], &Lypsi[0], grid, ist, par);
+		l_operator(&temp1[0], &Lysqrpsi[0], &temp2[0], &Lypsi[0], grid, ist, par, planfw, planbw, fftwpsi);
 		//spin dn part
-		l_operator(&temp1[0],&Lysqrpsi[ist->ngrid],&temp2[0], &Lypsi[ist->ngrid], grid,ist, par);
+		l_operator(&temp1[0],&Lysqrpsi[ist->ngrid],&temp2[0], &Lypsi[ist->ngrid], grid, ist, par, planfw, planbw, fftwpsi);
 
 		//Lzsqr parts
 		//spin up part
-		l_operator(&temp1[0], &temp2[0], &Lzsqrpsi[0], &Lzpsi[0], grid, ist, par);
+		l_operator(&temp1[0], &temp2[0], &Lzsqrpsi[0], &Lzpsi[0], grid, ist, par, planfw, planbw, fftwpsi);
 		//spin dn part
-		l_operator(&temp1[0],&temp2[0],&Lzsqrpsi[ist->ngrid], &Lzpsi[ist->ngrid], grid,ist, par);
+		l_operator(&temp1[0],&temp2[0],&Lzsqrpsi[ist->ngrid], &Lzpsi[ist->ngrid], grid, ist, par, planfw, planbw, fftwpsi);
 		
-
+		#pragma omp parallel for private(b, bstate_idx, jgrid, jgridup, jgriddn, index)
 		for (b = ist->lumo_idx; b < ist->n_elecs+ist->lumo_idx; b++){
 			index = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
+			zomplex *psi2 = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));;
 			zomplex psi_b_tmp;
 			zomplex lx_tmp, ly_tmp, lz_tmp, lsqr_tmp;
 			lx_tmp.re = lx_tmp.im = 0.0;
@@ -472,13 +485,25 @@ void calc_ang_mom_mtrx(xyz_st *l_mom, zomplex *l2_mom, zomplex *LdotS, double *p
 			if(a==b){
 				printf("%ld\t%ld\t%lf\t%lf\t%lf\t%lf\t%lf\n",a,b,l_mom[index].x_re,l_mom[index].y_re,l_mom[index].z_re, l2_mom[index].re, LdotS[index].re);
 			}
+
+			free(psi2);
 		}
 	}
 	
+	fclose(pfx); 
+	fclose(pfy); 
+	fclose(pfz); 
+	fclose(pfsqr); 
+	fclose(pfls);
+	
+	free(psi1);
 	free(Lxpsi); free(Lypsi); free(Lzpsi);
 	free(Lxsqrpsi); free(Lysqrpsi); free(Lzsqrpsi);
 	free(temp1); free(temp2);
 
+	fftw_free(fftwpsi);
+	fftw_destroy_plan(planfw);
+	fftw_destroy_plan(planbw);
 }
 
 
@@ -486,19 +511,14 @@ void calc_ang_mom_mtrx(xyz_st *l_mom, zomplex *l2_mom, zomplex *LdotS, double *p
 //Calculate the three vector components of the action of the L operator on the 
 //spatial part of the grid (no spin part)
 void l_operator(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi_qp, 
-	grid_st *grid, index_st *ist, par_st *par){
+	grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex* fftwpsi){
 	
-	fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi;
 	double *kx, *ky, *kz, *kindex;
 	double density, x, y, z;
 	long jx, jy, jz, jyz, jxyz;
 	zomplex px, py, pz;
 
-	// Allocate memory for FFT
-	fftwpsi = fftw_malloc(ist->ngrid*sizeof(fftw_complex));
-    planfw = fftw_plan_dft_3d(grid->nz, grid->ny, grid->nx, fftwpsi, fftwpsi, FFTW_FORWARD, 0);
-    planbw = fftw_plan_dft_3d(grid->nz, grid->ny, grid->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, 0);
-
+	
 	//generate kx,ky,kz vectors
 	if ((kx = (double *) malloc(grid->nx * sizeof(kx[0]))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for kx in angular.c\n"); exit(EXIT_FAILURE);
@@ -553,6 +573,7 @@ void l_operator(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi_qp,
 	}
 
 	free(kx); free(ky); free(kz); free(kindex);
+
 	return;
 }
 

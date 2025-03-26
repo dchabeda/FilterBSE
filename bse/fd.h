@@ -28,7 +28,7 @@ typedef struct grid {
   double *x, *y, *z; // stores the value of the grid points
   double dx, dy, dz, dr, dv, dkx, dky, dkz;
   double xmin, xmax, ymin, ymax, zmin, zmax;
-  long nx, ny, nz;
+  unsigned long long nx, ny, nz;
   double nx_1, ny_1, nz_1;
   // Redundancies
   long ngrid;
@@ -52,13 +52,13 @@ typedef struct st1 {
 } par_st;
 
 typedef struct st4 {
-  long max_elec_states, max_hole_states, mn_states_tot;
-  long nthreads;
-  long n_qp, n_xton;
-  long nx, ny, nz, ngrid, nspinngrid;
-  long n_atom_types, *atom_types;
-  long natoms, homo_idx, lumo_idx, n_holes, n_elecs;
-  long *eval_hole_idxs, *eval_elec_idxs;
+  unsigned long long max_elec_states, max_hole_states, mn_states_tot;
+  unsigned long long nthreads;
+  unsigned long long n_qp, n_xton;
+  unsigned long long nx, ny, nz, ngrid, nspinngrid;
+  unsigned long long n_atom_types, *atom_types;
+  unsigned long long natoms, homo_idx, lumo_idx, n_holes, n_elecs;
+  unsigned long long *eval_hole_idxs, *eval_elec_idxs;
   double ngrid_1;
   int n_FP_density;
   int printFPDensity; // 0 = False (default) or 1 = True
@@ -193,10 +193,38 @@ void print_fixed_qp_density(double *psi, double *Cbs, double *vz, index_st ist, 
 //angular.c
 void calc_spin_mtrx(xyz_st *s_mom, double *psi_qp, grid_st *grid, index_st *ist, par_st *par);
 void calc_ang_mom_mtrx(xyz_st* l_mom, zomplex *L2, zomplex *LdotS, double *psi_qp, grid_st *grid, index_st *ist, par_st *par);
-void l_operator(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi_qp, grid_st *grid, index_st *ist, par_st *par);
+void l_operator(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi_qp, 
+	grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex* fftwpsi);
 void init_k_vecs(double *kindex, double *kx, double *ky, double *kz, grid_st *grid, index_st *ist, par_st *par);
 void p_operator(char* direc, double *kindex, zomplex *psi, zomplex *Lpsi, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi);
 
 // optical.c
 void calc_optical_exc(zomplex *bs_coeff, double *eval, xyz_st *mu, xyz_st *m, index_st *ist, par_st *par);
 /*****************************************************************************/
+void print_progress_bar(int cur, int tot);
+char* get_time();
+
+void read_unsafe_input(
+  double** psitot,
+  double** eig_vals,
+  double** sigma_E,
+  xyz_st** R, 
+  grid_st *grid,
+  double** gridx,
+  double** gridy,
+  double** gridz,
+  index_st *ist,
+  par_st *par,
+  flag_st *flag,
+  parallel_st *parallel
+  );
+
+void get_fmo_idxs(
+  double*       eig_vals,
+  double*       sigma_E,
+  double        fermiE,
+  double        secut,
+  unsigned long long          n_elems,
+  unsigned long long*          homo_idx
+  );
+

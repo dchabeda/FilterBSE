@@ -15,13 +15,13 @@ int main(int argc, char *argv[]){
   /*************   DECLARE VARIABLES AND STRUCTS   *****************/
   /*****************************************************************/
 
-  // zomplex types
+  //              zomplex types
   zomplex*        psi;            // Wavefunction on the grid
   zomplex*        phi;            // Wavefunction on the grid (helper)
   zomplex*        an;             // Newton interpolation coefficients
   zomplex*        LS = NULL;      // Spin-orbit matrix
   
-  // custom structs 
+  //              custom structs 
   index_st        ist;            // Indexes for the program
   par_st          par;            // Parameters for the program
   flag_st         flag;           // Flags for options in the program
@@ -35,12 +35,12 @@ int main(int argc, char *argv[]){
   grid.z =        NULL;
   nlc_st*         nlc = NULL;     // Non-local pseudopotential info
 
-  lattice_st      lattice = NULL;
+  lattice_st      lattice;
   vector*         G_vecs  = NULL;
   vector*         k_vecs  = NULL;
   // gauss_st*       gauss;          // Gaussian basis coeffs/exps
   
-  // double arrays
+  //              double arrays
   double*         psitot = NULL;  // All filtered states
   double*         psi_rank;       // Filter states for each rank
   double*         pot_local;      // Local pseudopotential on the grid
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]){
   double*         ene_targets;    // Energy targets for filtering
   double*         sigma_E;        // Standard dev. of the energies
   
-  // long int arrays and counters
+  //              long int arrays and counters
   long*           nl = NULL;
 
   // MPI Initialization
@@ -143,8 +143,9 @@ int main(int argc, char *argv[]){
       /************************************************************/
       
       mod_filter(
-        psi_rank, psi, phi, pot_local, &grid, LS, nlc, nl,
-        an, zn, ene_targets, ksqr, &ist, &par, &flag, &parallel);
+        psi_rank, psi, phi, pot_local, &grid, LS, nlc, nl, an, zn,
+        ene_targets, ksqr, &lattice, G_vecs, k_vecs, &ist, &par, &flag, &parallel
+      );
       
       if (1 == flag.calcFilterOnly){
         exit(0);
@@ -187,9 +188,25 @@ int main(int argc, char *argv[]){
       
       if (mpir == 0) // subsequent modules performed on a single rank
       {
+
+        /************************************************************/
+        /*******************  RESTART FROM ORTHO  *******************/
+        /************************************************************/
+        
+        if (1 == flag.restartFromOrtho){
+          // 
+          long long tot_sz = par.t_rev_factor * ist.complex_idx * ist.nspinngrid * ist.mn_states_tot;
+          
+          ALLOCATE(&psitot, tot_sz, "psitot");fflush(0);
+          restart_from_ortho(psitot, &ist, &par, &flag, &parallel);
+          // 
+        } 
+
+
         mod_ortho(
           psitot, pot_local, &grid, nlc, nl, an, zn, ene_targets,
-          ksqr, &ist, &par, &flag, &parallel);
+          ksqr, &ist, &par, &flag, &parallel
+        );
 
         psitot = realloc(psitot, ist.mn_states_tot*ist.nspinngrid*ist.complex_idx*sizeof(psitot[0]));
 
@@ -205,8 +222,8 @@ int main(int argc, char *argv[]){
     case 2:
       if (0 == mpir){
 
-        mod_diag(psitot, pot_local, eig_vals, sigma_E, &grid, LS, nlc, nl,
-        an, zn, ene_targets, ksqr, &ist, &par, &flag, &parallel);
+        mod_diag(psitot, pot_local, eig_vals, sigma_E, G_vecs, k_vecs, &grid, LS, nlc, nl,
+        an, zn, ene_targets, &ist, &par, &flag, &parallel);
 
         // Save checkpoint if requested
         if (3 == flag.saveCheckpoints){

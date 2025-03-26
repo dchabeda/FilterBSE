@@ -75,7 +75,7 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
   //printf("xton_ene[0]=%g\n",xton_ene[0] );
   long *listibs = (long *) calloc(ist->n_xton, sizeof(long));
 
-  for (ibs = 0, a = ist->lumo_idx; a < ist->lumo_idx+ist->n_elecs; a++) {
+  for (ibs = 0, a = ist->lumo_idx; a < ist->lumo_idx + ist->n_elecs; a++) {
       for (i = 0; i < ist->n_holes; i++, ibs++) {
           listibs[(a - ist->lumo_idx) * ist->n_holes + i] = ibs;
           //printf("a:%ld i:%ld ibs:%ld\n",a,i,ibs);
@@ -88,12 +88,13 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
   zomplex spinx, spiny, spinz, spintot;
   zomplex tmpx, tmpy, tmpz, tmp, tmp2;
   long index, indexba, indexji,n;
-  for (n=0;n<ist->n_xton;n++){
+  // printf("\nspins block\n\n"); fflush(0);
+  for (n = 0; n < ist->n_xton; n++){
     spinx.re = spinx.im = 0;
     spiny.re = spiny.im = 0;
     spinz.re = spinz.im = 0;
     spintot.re = spintot.im = 0;
-    for (a = ist->lumo_idx;a<ist->lumo_idx+ist->n_elecs;a++){
+    for (a = ist->lumo_idx; a < ist->lumo_idx + ist->n_elecs; a++){
       for (i = 0; i < ist->n_holes; i++) {
         ibs = listibs[(a - ist->lumo_idx) * ist->n_holes + i];
         
@@ -102,9 +103,9 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
         tmpy.re = tmpy.im = 0;
         tmpz.re = tmpz.im = 0;
         //sum over b
-        for (b = ist->lumo_idx;b<ist->lumo_idx+ist->n_elecs;b++){
+        for (b = ist->lumo_idx; b < ist->lumo_idx + ist->n_elecs; b++){
           jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + i];
-          index = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
+          index = sqr(ist->n_holes) + (a - ist->lumo_idx) * ist->n_elecs + (b - ist->lumo_idx);
           
           //c_bi^* * <b| Sx |a>
           tmpx.re += bs_coeff[jbs*ist->n_xton+n].re*s_mom[index].x_re + bs_coeff[jbs*ist->n_xton+n].im*s_mom[index].x_im;
@@ -196,6 +197,7 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
   zomplex orbitx, orbity, orbitz, orbittot;
 //  zomplex tmpx, tmpy, tmpz, tmp, tmp2;
 //  long index, indexba, indexji,n;
+  // printf("\norbital block\n\n"); fflush(0);
   for (n=0;n<ist->n_xton;n++){
     orbitx.re = orbitx.im = 0;
     orbity.re = orbity.im = 0;
@@ -321,6 +323,7 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
   zomplex lstot;
 //  zomplex tmpx, tmpy, tmpz, tmp, tmp2;
 //  long index, indexba, indexji,n;
+  // printf("\ncouple block\n\n"); fflush(0);
   for (n=0;n<ist->n_xton;n++){
     lstot.re = lstot.im = 0;
     for (a = ist->lumo_idx;a<ist->lumo_idx+ist->n_elecs;a++){
@@ -395,12 +398,13 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
 
 
 
-
+  // printf("\nOMP block 1\n\n"); fflush(0);
   //compute $mat = h \cdot u$
 #pragma omp parallel for private(l,j,k,sum)
   for (l = 0; l < ist->n_xton; l++) {
     for (j = 0; j < ist->n_xton; j++) {
-      for (sum.re=sum.im = 0, k = 0; k < ist->n_xton; k++) {
+      sum.re = sum.im = 0.0;
+      for (k = 0; k < ist->n_xton; k++) {
       	sum.re +=  h[l*ist->n_xton+k].re * bs_coeff[k*ist->n_xton+j].re - h[l*ist->n_xton+k].im * bs_coeff[k*ist->n_xton+j].im;
         sum.im +=  h[l*ist->n_xton+k].im * bs_coeff[k*ist->n_xton+j].re + h[l*ist->n_xton+k].re * bs_coeff[k*ist->n_xton+j].im;
       }
@@ -409,12 +413,13 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
     }
   }
 
-
+  // printf("\nOMP block 2\n\n"); fflush(0);
   //compute $u^\dagger \cdot mat = u^\dagger \cdot h \cdot u$
-#pragma omp parallel for private(i,j,k,sum)
+#pragma omp parallel for private(i,j,l,sum)
   for (i = 0; i < ist->n_xton; i++) {
     for (j = 0; j < ist->n_xton; j++) {
-      for (sum.re=sum.im = 0, l = 0; l < ist->n_xton; l++) {
+      sum.re = sum.im = 0.0;
+      for (l = 0; l < ist->n_xton; l++) {
       	sum.re +=   bs_coeff[l*ist->n_xton+i].re * mat[l*ist->n_xton+j].re + bs_coeff[l*ist->n_xton+i].im * mat[l*ist->n_xton+j].im;
         sum.im +=  -bs_coeff[l*ist->n_xton+i].im * mat[l*ist->n_xton+j].re + bs_coeff[l*ist->n_xton+i].re * mat[l*ist->n_xton+j].im;
       }
@@ -422,7 +427,7 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
       h[i*ist->n_xton+j].im = sum.im;
     }
   }
-
+  // printf("\nOMP block 3\n\n"); fflush(0);
 #pragma omp parallel for private(l,j,k,sum)
   for (l = 0; l < ist->n_xton; l++) {
     for (j = 0; j < ist->n_xton; j++) {
@@ -434,8 +439,8 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
       mat[l*ist->n_xton+j].im = sum.im;
     }
   }
-
-#pragma omp parallel for private(i,l,sum)
+  // printf("\nOMP block 4\n\n"); fflush(0);
+#pragma omp parallel for private(i,j,l,sum)
   for (i = 0; i < ist->n_xton; i++) {
     for (j = 0; j < ist->n_xton; j++) {
       for (sum.re=sum.im = 0, l = 0; l < ist->n_xton; l++) {
@@ -447,11 +452,12 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
     }
   }
 
-
+  // printf("\nOMP block 5\n\n"); fflush(0);
 #pragma omp parallel for private(l,j,k,sum)
   for (l = 0; l < ist->n_xton; l++) {
     for (j = 0; j < ist->n_xton; j++) {
-      for (sum.re=sum.im = 0, k = 0; k < ist->n_xton; k++) {
+      sum.re = sum.im = 0.0;
+      for (k = 0; k < ist->n_xton; k++) {
         sum.re +=  direct[l*ist->n_xton+k].re * bs_coeff[k*ist->n_xton+j].re - direct[l*ist->n_xton+k].im * bs_coeff[k*ist->n_xton+j].im;
         sum.im +=  direct[l*ist->n_xton+k].im * bs_coeff[k*ist->n_xton+j].re + direct[l*ist->n_xton+k].re * bs_coeff[k*ist->n_xton+j].im;
       }
@@ -460,12 +466,13 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
     }
   }
 
-
+  // printf("\nOMP block 6\n\n"); fflush(0);
   //compute $u^\dagger \cdot mat = u^\dagger \cdot h \cdot u$
-#pragma omp parallel for private(i,j,k,sum)
+#pragma omp parallel for private(i,j,l,sum)
   for (i = 0; i < ist->n_xton; i++) {
     for (j = 0; j < ist->n_xton; j++) {
-      for (sum.re=sum.im = 0, l = 0; l < ist->n_xton; l++) {
+      sum.re = sum.im = 0.0;
+      for (l = 0; l < ist->n_xton; l++) {
         sum.re +=   bs_coeff[l*ist->n_xton+i].re * mat[l*ist->n_xton+j].re + bs_coeff[l*ist->n_xton+i].im * mat[l*ist->n_xton+j].im;
         sum.im +=  -bs_coeff[l*ist->n_xton+i].im * mat[l*ist->n_xton+j].re + bs_coeff[l*ist->n_xton+i].re * mat[l*ist->n_xton+j].im;
       }
@@ -473,7 +480,7 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
       direct[i*ist->n_xton+j].im = sum.im;
     }
   }
-
+  // printf("\nOMP block 7\n\n"); fflush(0);
   #pragma omp parallel for private(l,j,k,sum)
   for (l = 0; l < ist->n_xton; l++) {
     for (j = 0; j < ist->n_xton; j++) {
@@ -486,9 +493,9 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
     }
   }
 
-
+  // printf("\nOMP block 8\n\n"); fflush(0);
   //compute $u^\dagger \cdot mat = u^\dagger \cdot h \cdot u$
-#pragma omp parallel for private(i,j,k,sum)
+#pragma omp parallel for private(i,j,l,sum)
   for (i = 0; i < ist->n_xton; i++) {
     for (j = 0; j < ist->n_xton; j++) {
       for (sum.re=sum.im = 0, l = 0; l < ist->n_xton; l++) {
@@ -503,7 +510,7 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
 
 
 
-
+  // printf("\nexciton\n\n"); fflush(0);
   // Print out the energies of the excitonic states
   pf = fopen("exciton.dat" , "w");
   fprintf(pf,"#n \t E_n \t <H> \t <H_dir> \t <H_exc> \t <H_0> \t E_B (eV)\n");
@@ -600,7 +607,8 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
   free(pgrid);
   */
   free(h); free(mat);
-
+  free(listibs);
+  
   return;
 }
 

@@ -82,6 +82,7 @@ void trans_mat(int N, double *U, double *A, double *Ap){
     }
 }
 
+
 /*****************************************************************************/
 
 void diag_mat(double *mat, double *eigv, int n_dim){
@@ -129,16 +130,12 @@ void print_progress_bar(int cur, int tot){
     float percent = (float)cur / tot * 100;
     int pos = barWidth * cur / tot;
 
-    // Obtain the current time
-    time_t current_time = time(NULL);
-    // Convert to local time format and print
-    char* c_time_string = ctime(&current_time);
     printf("\t  [");
     for (int i = 0; i < barWidth; ++i) {
         if (i < pos) printf("#");
         else printf(" ");
     }
-    printf("] %3.0f%% | %s\n", percent, c_time_string);
+    printf("] %3.0f%% | %s\n", percent, get_time());
     fflush(stdout);
 
     return;

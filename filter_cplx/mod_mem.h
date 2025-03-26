@@ -1,0 +1,19 @@
+#include "fd.h"
+
+void mod_mem_alloc(
+    double**      psi_rank,
+    zomplex**     psi,
+    zomplex**     phi,
+    double**      pot_local,
+    zomplex**     LS,
+    nlc_st**      nlc,
+    long**        nl,
+    double**      SO_projectors,
+    zomplex**     an,
+    double**      zn,
+    double**      eig_vals,
+    double**      sigma_E,
+    index_st*     ist,
+    par_st*       par,
+    flag_st*      flag,
+    parallel_st*  parallel);

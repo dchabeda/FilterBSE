@@ -11,7 +11,9 @@
 #include <sys/time.h>
 #include <assert.h>
 #include <fftw3.h>
-#include <lapacke.h>
+#include <lapack.h>
+#include <mpi.h>
+#include <nvToolsExt.h>
 #include <omp.h>
 #include "unistd.h"
 
@@ -61,6 +63,10 @@ typedef struct st4 {
   long n_atom_types, *atom_types;
   long natoms, homo_idx, lumo_idx, n_holes, n_elecs;
   long *eval_hole_idxs, *eval_elec_idxs;
+  long *jgur;
+  long *jgui;
+  long *jgdr;
+  long *jgdi;
   double ngrid_1;
   int n_FP_density;
   int printFPDensity; // 0 = False (default) or 1 = True
@@ -103,12 +109,13 @@ typedef struct parallel{
 #define DENE      1.0e-10
 #define N_MAX_ATOM_TYPES 20
 #define PR_LEN 16
-
+#define BYTE_BOUNDARY 32
 // Enum to define supported variable types
 typedef enum { INT_TYPE, LONG_TYPE, DOUBLE_TYPE } VarType;
 
 // memory allocation macro for code readability
-#define ALLOCATE(dblptr, length, message) allocate_memory((void**)(dblptr), (length), sizeof(typeof(**(dblptr))), message)
+#define ALLOCATE(dblptr, length, message) allocate_aligned_memory((void**)(dblptr), (length), sizeof(typeof(**(dblptr))), message)
+
 
 /*****************************************************************************/
 

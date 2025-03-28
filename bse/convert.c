@@ -1,6 +1,6 @@
 #include "fd.h"
 
-void main(int argc, char *argv[]){
+int main(int argc, char *argv[]){
 	if (argc!=2) {printf("Usage: convert ngrid\n"); exit(EXIT_FAILURE);}
 	long ngrid = atol(argv[1]);
 	long nspinngrid = 2*ngrid;
@@ -61,5 +61,5 @@ void main(int argc, char *argv[]){
 	for (j = 0; j < i; j++) {fprintf (ppsi,"%ld %.16g %g\n", j, eval[j], deval[j]); fprintf (ppsi,"%ld %.16g %g\n", j, eval[j], deval[j]);}
   	fclose(peval);  
 
-
+	return 0;
 }

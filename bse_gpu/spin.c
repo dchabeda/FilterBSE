@@ -1,66 +1,85 @@
 #include "spin.h"
 
 void qp_spin_frac(
-    double*          psi_qp,
-    double*          eig_vals,
-    index_st*        ist,
-    par_st*          par,
-    flag_st*         flag,
-    parallel_st*     parallel
-    ){
+  double *restrict psi_qp, 
+  double*          eig_vals,
+  grid_st*         grid,
+  index_st*        ist,
+  par_st*          par,
+  flag_st*         flag,
+  parallel_st*     parallel
+  ){
 
-    /************************************************************/
+  /************************************************************/
 	/*******************  DECLARE VARIABLES   *******************/
 	/************************************************************/
 
-    FILE*                    pf   = fopen("qp_spins.dat", "w");
+  FILE*                    pf   = fopen("qp_spins.dat", "w");
 
-    const long               stlen = ist->complex_idx * ist->nspinngrid;
+  const long               stlen = ist->complex_idx * ist->nspinngrid;
+  const long               ngrid = ist->ngrid;
+  const long               cplx_idx = ist->complex_idx;
 
-    unsigned long            i;
-    unsigned long            i_st;
-    unsigned long            jgr; // jgrid real
-    unsigned long            jgi; // jgrid imag
-    unsigned long            jsgr; // jspingrid real
-    unsigned long            jsgi; // jspingrid imag
+  unsigned long            i;
+  unsigned long            i_st;
 
-    double                   psi_iur;
-    double                   psi_iui;
-    double                   psi_idr;
-    double                   psi_idi;
-    double                   perUp = 0;
-    double                   perDn = 0;
-
-    /************************************************************/
+  double *restrict         pct_spn;
+  
+  ALLOCATE(&pct_spn, ist->nspin * ist->n_qp, "per_up");
+  
+  /************************************************************/
 	/*******************  COMPUTE SPIN FRAC   *******************/
 	/************************************************************/
 
-    printf("\nComputing spin composition of quasiparticle spinors | %s\n", get_time()); fflush(stdout);
+  printf("\nComputing spin composition of quasiparticle spinors | %s\n", get_time()); 
+  fflush(stdout);
+  
+  double start = omp_get_wtime();
+  #pragma omp parallel for private(i_st)
+  for (i  = 0; i < ist->n_qp; i++){
+    i_st = i * stlen;
     
-    for (i  = 0; i < ist->n_qp; i++){
-        i_st = i * stlen;
-        
-        fprintf(pf, "\nStats on state%d: (E=%lg)\n", i, eig_vals[i]);
+    unsigned long            jg;    // jgrid
+    unsigned long            jgr;   // jgrid real
+    unsigned long            jgi;   // jgrid imag
 
-        for (jgr = 0; jgr < ist->ngrid; jgr++){
-            jgr = ist->complex_idx * jgr;
-            jgi = jgr + 1;
-            jsgr = jgr + ist->ngrid;
-            jsgi = jsgr + 1;
+    double                   psi_i_r;
+    double                   psi_i_i;
+    double                   pct = 0;
+    
+    #pragma omp simd safelen(8) aligned(psi_qp: 32) reduction(+:pct)
+    for (int s = 0; s < 2; s++){
+      pct = 0;
+      for (jg = 0; jg < ngrid; jg++){ 
+        jgr = cplx_idx * (jg + s * ngrid);
+        jgi = jgr + 1;
 
-            psi_iur = psi_qp[i_st + jgr];
-            psi_iui = psi_qp[i_st + jgi];
-            psi_idr = psi_qp[i_st + jsgr];
-            psi_idi = psi_qp[i_st + jsgi];
-            
-            perUp += sqr(psi_iur) + sqr(psi_iui);
-            perDn += sqr(psi_idr) + sqr(psi_idi);
-        }
+        psi_i_r = psi_qp[i_st + jgr];
+        psi_i_i = psi_qp[i_st + jgi];
         
-        fprintf(pf, " Spin up fraction: %f\n", perUp * par->dv); fflush(pf);
-        fprintf(pf, " Spin dn fraction: %f\n", perDn * par->dv); fflush(pf);
+        pct += sqr(psi_i_r) + sqr(psi_i_i);
+      }
+      pct_spn[s * ist->n_qp + i] = pct * par->dv;
+      // sprintf(fileName, "rho%d-%d.cube", i, s);
+      // write_cube_file(rho, grid, fileName);
     }
-    fclose(pf);
+  }
 
-    return;
+  double end = omp_get_wtime();
+
+  printf("\n Time for computing all spins: %lf\n", (end - start));
+
+  
+  for (i = 0; i < ist->n_qp; i++){
+    fprintf(pf, "\nStats on state%d: (E=%lg)\n", i, eig_vals[i]);
+    for (int s = 0; s < 2; s++){
+      fprintf(pf, " Spin %d fraction: %f\n", s, pct_spn[s * ist->n_qp + i]);
+    }
+  }
+  
+  fclose(pf);
+
+  free(pct_spn);
+
+  return;
 }

@@ -138,6 +138,12 @@ void calc_eh_kernel_cplx(
       fprintf(stderr, "ERROR: odd_comm is MPI_COMM_NULL\n");
   }
 
+  // enable odd_comm if only using 1 MPI rank
+  // NOTE: broken, still does not work for just 1 rank
+  if (parallel->mpi_size == 1){
+    MPI_Comm_split(MPI_COMM_WORLD, rank_parity, mpir, &odd_comm);
+  }
+
   // Set the OpenMP parallelization to use nthreads
 	omp_set_max_active_levels(1);
 	omp_set_num_threads(ist->nthreads);
@@ -164,11 +170,13 @@ void calc_eh_kernel_cplx(
     int even_rank, even_size;
     MPI_Comm_rank(even_comm, &even_rank);
     MPI_Comm_size(even_comm, &even_size);
-    odd_comm = MPI_COMM_NULL;
+    if (parallel->mpi_size > 1){
+      odd_comm = MPI_COMM_NULL;
+    }
+    
 
     long        ab;
     long        ab_tot    = n_el * n_el;
-    long        ns_p_rank = ab_tot / even_size;
     long       *lista, *listb;
 
     lista   =  (long *) calloc(ab_tot, sizeof(long));
@@ -176,8 +184,8 @@ void calc_eh_kernel_cplx(
 
     for (a = lidx; a < lidx + n_el; a++){
       for (b = lidx; b < lidx + n_el; b++){
-        lista[ (a-lidx) * n_el + (b-lidx)] = a;
-        listb[ (a-lidx) * n_el + (b-lidx)] = b;
+        lista[ (a-lidx)*n_el + (b-lidx) ] = a;
+        listb[ (a-lidx)*n_el + (b-lidx)] = b;
       }
     }
 
@@ -193,7 +201,6 @@ void calc_eh_kernel_cplx(
     start = even_rank;
     cntr = 0;
     ncycles = ab_tot / even_size;
-    printf("Even %lu Number of states per rank = %lu\n", even_rank, ns_p_rank);
     printf("Even %lu Number of cycles per rank = %lu\n", even_rank, ncycles);
     
     /************************************************************/
@@ -205,13 +212,9 @@ void calc_eh_kernel_cplx(
       // Find start value for continuing computation
       start = load_coulomb_mat(direct, fileName, ist);
 
-      // Find end value for continuing computation
-      // end = start + ns_p_rank;
-      // if (even_rank == (even_size - 1) ){
-      //     end = ab_tot;
-      // }
+      // Print out the new matrix elems to this auxiliary file
       sprintf(fileName, "direct-%d_aux.dat", even_rank);
-      // strcpy(fileName, "direct_aux.dat");
+
       printf("Even rank %d: continuing direct matrix from a = %lu | %s\n", even_rank, start, get_time()); fflush(0);
     }
 
@@ -221,9 +224,6 @@ void calc_eh_kernel_cplx(
 
 
     // First, offload the hole states of psi_qp & listibs onto GPU
-    nvtxRangePushA("Test Marker");
-    printf("NVTX marker added!\n");
-    nvtxRangePop();
     nvtxRangePushA("Offloading hole states to device");
     int dev = omp_get_default_device();
     printf("Offloading to GPU device %d\n", dev);
@@ -255,6 +255,7 @@ void calc_eh_kernel_cplx(
       // Compute hartree potential for a, b density
       // 1) Compute joint density and store in rho
       nvtxRangePushA("Computing ab joint density");
+      #pragma omp simd  
       for (jgr = 0; jgr < ngrid; jgr++){
         // Index this iteration of the loop
         jgur = cplx_idx * jgr;           // jgrid up real
@@ -296,10 +297,12 @@ void calc_eh_kernel_cplx(
       nvtxRangePushA("i,j loop of direct");
       
       #pragma omp target teams distribute collapse(2) thread_limit(256) \
-      map(to: a, b, lidx, stlen, n_ho, cplx_idx, ngrid, n_xton, dv, psi_qp, pot_htree, listibs) \
+      map(to: a, b, i, j, lidx, stlen, n_ho, cplx_idx, ngrid, n_xton, dv, psi_qp, pot_htree, listibs) \
       map(tofrom: direct[0:n_xton * n_xton])
-      for (int i = 0; i < n_ho; i++) {
-				for (int j = 0; j < n_ho; j++) {
+      for (i = 0; i < n_ho; i++) {
+        // int jstart = (a == b) ? i: 0;
+        // printf("a = %ld b = %ld i = %d jstart = %d\n", a, b, i, jstart);
+				for (j = 0; j < n_ho; j++) {
 					//get the matrix indicies for {ai,bj}
           long i_st = i * stlen;
           long j_st = j * stlen;
@@ -313,14 +316,6 @@ void calc_eh_kernel_cplx(
           double tmp_re, tmp_im;
           double sum_re, sum_im;
           sum_re = sum_im = 0.0;
-
-          // Declare local psi_qp values for reduced mem lookup
-          double psi_iur, psi_iui;
-          double psi_jur, psi_jui;
-          double psi_idr, psi_idi;
-          double psi_jdr, psi_jdi;
-          double pot_h_re, pot_h_im;
-          
 
           // K^d_{ai,bj}=\int h_d(r) \sum_\sigma psi_{i}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
           // Parallelize `jgr` using `#pragma omp parallel for`
@@ -425,7 +420,7 @@ void calc_eh_kernel_cplx(
 
 
 
-	if ( rank_parity == 1 ){
+	if ( rank_parity == 1 || parallel->mpi_size == 1 ){
     printf("\nComputing bare exchange matrix, K^x_(ai,bj) on rank %d\n", mpir); fflush(0);
 	
     /************************************************************/
@@ -435,7 +430,10 @@ void calc_eh_kernel_cplx(
     int odd_rank, odd_size;
     MPI_Comm_rank(odd_comm, &odd_rank);
     MPI_Comm_size(odd_comm, &odd_size);
-    even_comm = MPI_COMM_NULL;
+    if (parallel->mpi_size > 1){
+      even_comm = MPI_COMM_NULL;
+    }
+    
 
     omp_set_max_active_levels(1);
     omp_set_num_threads(ist->nthreads);
@@ -681,10 +679,11 @@ void calc_eh_kernel_cplx(
       if (mpir == 0) {
         MPI_Recv(exchange, 2*sqr(ist->n_xton), MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       }
-  } else{
-      printf("ERROR: mpi_size < 1 (how are you using MPI code? u gon seg bruh)\n");
-      exit(EXIT_FAILURE);
-  }
+  } 
+  // else{
+  //     printf("ERROR: mpi_size < 1 (how are you using MPI code? u gon seg bruh)\n");
+  //     exit(EXIT_FAILURE);
+  // }
 
   if (mpir == 0) printf("Successfully sent exchange mat to mpi_rank 0 | %s\n", get_time()); fflush(0);
 

@@ -1,0 +1,518 @@
+simd.x: file format elf64-x86-64 Disassembly of section .init: 0000000000400818 <_init>: 400818: 48 83 ec 08 sub rsp,0x8 
+  40081c: 48 8b 05 bd 37 00 00 mov rax,QWORD PTR [rip+0x37bd] # 403fe0 <__gmon_start__@Base> 400823: 48 85 c0 test 
+  rax,rax 400826: 74 02 je 40082a <_init+0x12> 400828: ff d0 call rax 40082a: 48 83 c4 08 add rsp,0x8 40082e: c3 ret
+Disassembly of section .plt: 0000000000400830 <printf@plt-0x10>: 400830: ff 35 ba 37 00 00 push QWORD PTR [rip+0x37ba] # 
+  403ff0 <_GLOBAL_OFFSET_TABLE_+0x8> 400836: ff 25 bc 37 00 00 jmp QWORD PTR [rip+0x37bc] # 403ff8 
+  <_GLOBAL_OFFSET_TABLE_+0x10> 40083c: 0f 1f 40 00 nop DWORD PTR [rax+0x0]
+0000000000400840 <printf@plt>: 400840: ff 25 ba 37 00 00 jmp QWORD PTR [rip+0x37ba] # 404000 <printf@GLIBC_2.2.5> 400846: 
+  68 00 00 00 00 push 0x0 40084b: e9 e0 ff ff ff jmp 400830 <_init+0x18>
+0000000000400850 <rand@plt>: 400850: ff 25 b2 37 00 00 jmp QWORD PTR [rip+0x37b2] # 404008 <rand@GLIBC_2.2.5> 400856: 68 
+  01 00 00 00 push 0x1 40085b: e9 d0 ff ff ff jmp 400830 <_init+0x18>
+0000000000400860 <memset@plt>: 400860: ff 25 aa 37 00 00 jmp QWORD PTR [rip+0x37aa] # 404010 <memset@GLIBC_2.2.5> 400866: 
+  68 02 00 00 00 push 0x2 40086b: e9 c0 ff ff ff jmp 400830 <_init+0x18>
+0000000000400870 <aligned_alloc@plt>: 400870: ff 25 a2 37 00 00 jmp QWORD PTR [rip+0x37a2] # 404018 
+  <aligned_alloc@GLIBC_2.16> 400876: 68 03 00 00 00 push 0x3 40087b: e9 b0 ff ff ff jmp 400830 <_init+0x18>
+0000000000400880 <free@plt>: 400880: ff 25 9a 37 00 00 jmp QWORD PTR [rip+0x379a] # 404020 <free@GLIBC_2.2.5> 400886: 68 
+  04 00 00 00 push 0x4 40088b: e9 a0 ff ff ff jmp 400830 <_init+0x18>
+0000000000400890 <omp_set_num_threads@plt>: 400890: ff 25 92 37 00 00 jmp QWORD PTR [rip+0x3792] # 404028 
+  <omp_set_num_threads@VERSION> 400896: 68 05 00 00 00 push 0x5 40089b: e9 90 ff ff ff jmp 400830 <_init+0x18>
+00000000004008a0 <puts@plt>: 4008a0: ff 25 8a 37 00 00 jmp QWORD PTR [rip+0x378a] # 404030 <puts@GLIBC_2.2.5> 4008a6: 68 
+  06 00 00 00 push 0x6 4008ab: e9 80 ff ff ff jmp 400830 <_init+0x18>
+00000000004008b0 <atoi@plt>: 4008b0: ff 25 82 37 00 00 jmp QWORD PTR [rip+0x3782] # 404038 <atoi@GLIBC_2.2.5> 4008b6: 68 
+  07 00 00 00 push 0x7 4008bb: e9 70 ff ff ff jmp 400830 <_init+0x18>
+00000000004008c0 <omp_get_wtime@plt>: 4008c0: ff 25 7a 37 00 00 jmp QWORD PTR [rip+0x377a] # 404040 
+  <omp_get_wtime@VERSION> 4008c6: 68 08 00 00 00 push 0x8 4008cb: e9 60 ff ff ff jmp 400830 <_init+0x18>
+Disassembly of section .text: 0000000000400900 <_start-0xe>: 400900: 90 nop 400901: 90 nop 400902: 90 nop 400903: 90 nop 
+  400904: 90 nop 400905: 90 nop 400906: 90 nop 400907: 90 nop 400908: 90 nop 400909: 90 nop 40090a: 90 nop 40090b: 90 nop 
+  40090c: 90 nop 40090d: 90 nop
+000000000040090e <_start>: 40090e: 66 90 xchg ax,ax 400910: 31 ed xor ebp,ebp 400912: 49 89 d1 mov r9,rdx 400915: 5e pop 
+  rsi 400916: 48 89 e2 mov rdx,rsp 400919: 48 83 e4 f0 and rsp,0xfffffffffffffff0 40091d: 50 push rax 40091e: 54 push rsp 
+  40091f: 49 c7 c0 de 1e 40 00 mov r8,0x401ede 400926: 48 c7 c1 5e 1e 40 00 mov rcx,0x401e5e 40092d: 48 c7 c7 00 11 40 00 
+  mov rdi,0x401100 400934: ff 15 9e 36 00 00 call QWORD PTR [rip+0x369e] # 403fd8 <__libc_start_main@GLIBC_2.2.5> 40093a: 
+  f4 hlt 40093b: 0f 1f 44 00 00 nop DWORD PTR [rax+rax*1+0x0]
+0000000000400940 <deregister_tm_clones>: 400940: 55 push rbp 400941: b8 58 40 40 00 mov eax,0x404058 400946: 48 3d 58 40 
+  40 00 cmp rax,0x404058 40094c: 48 89 e5 mov rbp,rsp 40094f: 74 17 je 400968 <deregister_tm_clones+0x28> 400951: b8 00 
+  00 00 00 mov eax,0x0 400956: 48 85 c0 test rax,rax 400959: 74 0d je 400968 <deregister_tm_clones+0x28> 40095b: 5d pop 
+  rbp 40095c: bf 58 40 40 00 mov edi,0x404058 400961: ff e0 jmp rax 400963: 0f 1f 44 00 00 nop DWORD PTR [rax+rax*1+0x0] 
+  400968: 5d pop rbp 400969: c3 ret 40096a: 66 0f 1f 44 00 00 nop WORD PTR [rax+rax*1+0x0]
+0000000000400970 <register_tm_clones>: 400970: be 58 40 40 00 mov esi,0x404058 400975: 55 push rbp 400976: 48 81 ee 58 40 
+  40 00 sub rsi,0x404058 40097d: 48 89 e5 mov rbp,rsp 400980: 48 c1 fe 03 sar rsi,0x3 400984: 48 89 f0 mov rax,rsi 
+  400987: 48 c1 e8 3f shr rax,0x3f 40098b: 48 01 c6 add rsi,rax 40098e: 48 d1 fe sar rsi,1 400991: 74 15 je 4009a8 
+  <register_tm_clones+0x38> 400993: b8 00 00 00 00 mov eax,0x0 400998: 48 85 c0 test rax,rax 40099b: 74 0b je 4009a8 
+  <register_tm_clones+0x38> 40099d: 5d pop rbp 40099e: bf 58 40 40 00 mov edi,0x404058 4009a3: ff e0 jmp rax 4009a5: 0f 
+  1f 00 nop DWORD PTR [rax] 4009a8: 5d pop rbp 4009a9: c3 ret 4009aa: 66 0f 1f 44 00 00 nop WORD PTR [rax+rax*1+0x0]
+00000000004009b0 <__do_global_dtors_aux>: 4009b0: 80 3d b1 36 00 00 00 cmp BYTE PTR [rip+0x36b1],0x0 # 404068 
+  <completed.7000> 4009b7: 75 17 jne 4009d0 <__do_global_dtors_aux+0x20> 4009b9: 55 push rbp 4009ba: 48 89 e5 mov rbp,rsp 
+  4009bd: e8 7e ff ff ff call 400940 <deregister_tm_clones> 4009c2: c6 05 9f 36 00 00 01 mov BYTE PTR [rip+0x369f],0x1 # 
+  404068 <completed.7000> 4009c9: 5d pop rbp 4009ca: c3 ret 4009cb: 0f 1f 44 00 00 nop DWORD PTR [rax+rax*1+0x0] 4009d0: 
+  f3 c3 repz ret 4009d2: 66 66 2e 0f 1f 84 00 data16 cs nop WORD PTR [rax+rax*1+0x0] 4009d9: 00 00 00 00 4009dd: 0f 1f 00 
+  nop DWORD PTR [rax]
+00000000004009e0 <frame_dummy>: 4009e0: 55 push rbp 4009e1: 48 89 e5 mov rbp,rsp 4009e4: 5d pop rbp 4009e5: eb 89 jmp 
+  400970 <register_tm_clones> 4009e7: 66 2e 0f 1f 84 00 00 cs nop WORD PTR [rax+rax*1+0x0] 4009ee: 00 00 00 4009f1: 66 2e 
+  0f 1f 84 00 00 cs nop WORD PTR [rax+rax*1+0x0] 4009f8: 00 00 00 4009fb: 0f 1f 44 00 00 nop DWORD PTR [rax+rax*1+0x0]
+0000000000400a00 <init_arrays>: 400a00: 48 89 f1 mov rcx,rsi 400a03: 48 f7 d1 not rcx 400a06: 48 89 d0 mov rax,rdx 
+  400a09: 48 01 d1 add rcx,rdx 400a0c: 48 83 f9 20 cmp rcx,0x20 400a10: 0f 82 99 02 00 00 jb 400caf <init_arrays+0x2af> 
+  400a16: 48 8d 4f 01 lea rcx,[rdi+0x1] 400a1a: 48 89 f2 mov rdx,rsi 400a1d: 48 29 ca sub rdx,rcx 400a20: 48 83 fa 20 cmp 
+  rdx,0x20 400a24: 0f 82 85 02 00 00 jb 400caf <init_arrays+0x2af> 400a2a: 48 89 c2 mov rdx,rax 400a2d: 48 29 ca sub 
+  rdx,rcx 400a30: 48 83 fa 1f cmp rdx,0x1f 400a34: 0f 86 75 02 00 00 jbe 400caf <init_arrays+0x2af> 400a3a: 48 89 f1 mov 
+  rcx,rsi 400a3d: 48 29 f9 sub rcx,rdi 400a40: 48 83 f9 20 cmp rcx,0x20 400a44: 0f 82 c6 02 00 00 jb 400d10 
+  <init_arrays+0x310> 400a4a: 48 89 c1 mov rcx,rax 400a4d: 48 29 f9 sub rcx,rdi 400a50: 48 83 f9 20 cmp rcx,0x20 400a54: 
+  0f 82 b6 02 00 00 jb 400d10 <init_arrays+0x310> 400a5a: 48 89 c1 mov rcx,rax 400a5d: 48 29 f1 sub rcx,rsi 400a60: 48 83 
+  f9 20 cmp rcx,0x20 400a64: 0f 82 a6 02 00 00 jb 400d10 <init_arrays+0x310> 400a6a: 55 push rbp 400a6b: 41 57 push r15 
+  400a6d: 41 56 push r14 400a6f: 41 55 push r13 400a71: 41 54 push r12 400a73: 53 push rbx 400a74: c5 fd 6f 05 a4 14 00 
+  vmovdqa ymm0,YMMWORD PTR [rip+0x14a4] # 401f20 <_IO_stdin_used+0x20> 400a7b: 00 400a7c: c5 fd 6f 0d bc 14 00 vmovdqa 
+  ymm1,YMMWORD PTR [rip+0x14bc] # 401f40 <_IO_stdin_used+0x40> 400a83: 00 400a84: c4 e2 7d 59 15 f3 14 vpbroadcastq 
+  ymm2,QWORD PTR [rip+0x14f3] # 401f80 <_IO_stdin_used+0x80> 400a8b: 00 00 400a8d: c4 e2 7d 59 1d f2 14 vpbroadcastq 
+  ymm3,QWORD PTR [rip+0x14f2] # 401f88 <_IO_stdin_used+0x88> 400a94: 00 00 400a96: c4 e2 7d 59 2d f1 14 vpbroadcastq 
+  ymm5,QWORD PTR [rip+0x14f1] # 401f90 <_IO_stdin_used+0x90> 400a9d: 00 00 400a9f: 49 bc 0b d7 a3 70 3d movabs 
+  r12,0xa3d70a3d70a3d70b 400aa6: 0a d7 a3 400aa9: 45 31 ff xor r15d,r15d 400aac: c5 d8 57 e4 vxorps xmm4,xmm4,xmm4 
+  400ab0: c4 e3 7d 39 ce 01 vextracti128 xmm6,ymm1,0x1 400ab6: c4 e1 f9 7e c2 vmovq rdx,xmm0 400abb: c4 c3 f9 16 c6 01 
+  vpextrq r14,xmm0,0x1 400ac1: c4 c1 f9 7e ca vmovq r10,xmm1 400ac6: c4 c3 f9 16 c9 01 vpextrq r9,xmm1,0x1 400acc: c4 42 
+  93 f6 ec mulx r13,r13,r12 400ad1: c4 e3 f9 16 f1 01 vpextrq rcx,xmm6,0x1 400ad7: c4 c1 f9 7e f0 vmovq r8,xmm6 400adc: 
+  c4 e3 7d 39 c6 01 vextracti128 xmm6,ymm0,0x1 400ae2: 49 29 d5 sub r13,rdx 400ae5: 4c 89 f2 mov rdx,r14 400ae8: c4 c2 d3 
+  f6 ec mulx rbp,rbp,r12 400aed: c4 41 f9 6e cd vmovq xmm9,r13 400af2: 4c 29 f5 sub rbp,r14 400af5: c4 e1 f9 7e f3 vmovq 
+  rbx,xmm6 400afa: c4 c3 f9 16 f3 01 vpextrq r11,xmm6,0x1 400b00: 48 89 da mov rdx,rbx 400b03: c4 42 8b f6 f4 mulx 
+  r14,r14,r12 400b08: 4c 89 da mov rdx,r11 400b0b: 49 29 de sub r14,rbx 400b0e: c4 c2 e3 f6 dc mulx rbx,rbx,r12 400b13: 
+  4c 89 d2 mov rdx,r10 400b16: 4c 29 db sub rbx,r11 400b19: c4 42 a3 f6 dc mulx r11,r11,r12 400b1e: 4c 89 ca mov rdx,r9 
+  400b21: 4d 29 d3 sub r11,r10 400b24: c4 42 ab f6 d4 mulx r10,r10,r12 400b29: 4c 89 c2 mov rdx,r8 400b2c: c4 41 f9 6e c3 
+  vmovq xmm8,r11 400b31: 4d 29 ca sub r10,r9 400b34: c4 42 b3 f6 cc mulx r9,r9,r12 400b39: 48 89 ca mov rdx,rcx 400b3c: 
+  c4 c2 eb f6 d4 mulx rdx,rdx,r12 400b41: 4d 29 c1 sub r9,r8 400b44: 48 29 ca sub rdx,rcx 400b47: c4 e1 f9 6e f2 vmovq 
+  xmm6,rdx 400b4c: c4 c1 f9 6e f9 vmovq xmm7,r9 400b51: c5 c1 6c f6 vpunpcklqdq xmm6,xmm7,xmm6 400b55: c4 c1 f9 6e fa 
+  vmovq xmm7,r10 400b5a: c5 b9 6c ff vpunpcklqdq xmm7,xmm8,xmm7 400b5e: c4 41 f9 6e c6 vmovq xmm8,r14 400b63: c4 e3 45 38 
+  f6 01 vinserti128 ymm6,ymm7,xmm6,0x1 400b69: c4 e1 f9 6e fb vmovq xmm7,rbx 400b6e: c5 b9 6c ff vpunpcklqdq 
+  xmm7,xmm8,xmm7 400b72: c4 61 f9 6e c5 vmovq xmm8,rbp 400b77: c4 41 31 6c c0 vpunpcklqdq xmm8,xmm9,xmm8 400b7c: c5 f5 d4 
+  f6 vpaddq ymm6,ymm1,ymm6 400b80: c4 e3 3d 38 ff 01 vinserti128 ymm7,ymm8,xmm7,0x1 400b86: c5 bd 72 e6 06 vpsrad 
+  ymm8,ymm6,0x6 400b8b: c5 cd 73 d6 06 vpsrlq ymm6,ymm6,0x6 400b90: c4 c1 3d 73 d0 20 vpsrlq ymm8,ymm8,0x20 400b96: c5 fd 
+  d4 ff vpaddq ymm7,ymm0,ymm7 400b9a: c5 3d f4 c3 vpmuludq ymm8,ymm8,ymm3 400b9e: c5 b5 72 e7 06 vpsrad ymm9,ymm7,0x6 
+  400ba3: c5 c5 73 d7 06 vpsrlq ymm7,ymm7,0x6 400ba8: c4 c1 35 73 d1 20 vpsrlq ymm9,ymm9,0x20 400bae: c5 45 f4 d2 
+  vpmuludq ymm10,ymm7,ymm2 400bb2: c5 c5 f4 fb vpmuludq ymm7,ymm7,ymm3 400bb6: c5 35 f4 cb vpmuludq ymm9,ymm9,ymm3 
+  400bba: c5 c5 d4 f8 vpaddq ymm7,ymm7,ymm0 400bbe: c4 41 2d d4 c9 vpaddq ymm9,ymm10,ymm9 400bc3: c5 4d f4 d2 vpmuludq 
+  ymm10,ymm6,ymm2 400bc7: c5 cd f4 f3 vpmuludq ymm6,ymm6,ymm3 400bcb: c4 c1 35 73 f1 20 vpsllq ymm9,ymm9,0x20 400bd1: c5 
+  b5 d4 ff vpaddq ymm7,ymm9,ymm7 400bd5: c4 41 2d d4 c0 vpaddq ymm8,ymm10,ymm8 400bda: c4 e3 f9 16 f9 01 vpextrq 
+  rcx,xmm7,0x1 400be0: c4 e1 f9 7e fa vmovq rdx,xmm7 400be5: c4 e3 7d 39 ff 01 vextracti128 xmm7,ymm7,0x1 400beb: c5 cd 
+  d4 f1 vpaddq ymm6,ymm6,ymm1 400bef: c5 f5 d4 cd vpaddq ymm1,ymm1,ymm5 400bf3: c4 c1 3d 73 f0 20 vpsllq ymm8,ymm8,0x20 
+  400bf9: c4 61 a2 2a c9 vcvtsi2ss xmm9,xmm11,rcx 400bfe: c5 bd d4 f6 vpaddq ymm6,ymm8,ymm6 400c02: c4 61 a2 2a c2 
+  vcvtsi2ss xmm8,xmm11,rdx 400c07: c4 c1 f9 7e f0 vmovq r8,xmm6 400c0c: c4 e1 f9 7e f9 vmovq rcx,xmm7 400c11: c4 43 39 21 
+  c1 10 vinsertps xmm8,xmm8,xmm9,0x10 400c17: c4 61 a2 2a c9 vcvtsi2ss xmm9,xmm11,rcx 400c1c: c4 e3 f9 16 f9 01 vpextrq 
+  rcx,xmm7,0x1 400c22: c4 e1 a2 2a f9 vcvtsi2ss xmm7,xmm11,rcx 400c27: c4 e3 f9 16 f1 01 vpextrq rcx,xmm6,0x1 400c2d: c4 
+  e3 7d 39 f6 01 vextracti128 xmm6,ymm6,0x1 400c33: c4 43 39 21 c1 20 vinsertps xmm8,xmm8,xmm9,0x20 400c39: c4 61 a2 2a 
+  c9 vcvtsi2ss xmm9,xmm11,rcx 400c3e: c4 e3 39 21 ff 30 vinsertps xmm7,xmm8,xmm7,0x30 400c44: c4 41 a2 2a c0 vcvtsi2ss 
+  xmm8,xmm11,r8 400c49: c4 e1 f9 7e f1 vmovq rcx,xmm6 400c4e: c4 e3 f9 16 f2 01 vpextrq rdx,xmm6,0x1 400c54: c4 e1 a2 2a 
+  f2 vcvtsi2ss xmm6,xmm11,rdx 400c59: c4 43 39 21 c1 10 vinsertps xmm8,xmm8,xmm9,0x10 400c5f: c4 61 a2 2a c9 vcvtsi2ss 
+  xmm9,xmm11,rcx 400c64: c5 fd d4 c5 vpaddq ymm0,ymm0,ymm5 400c68: c4 43 39 21 c1 20 vinsertps xmm8,xmm8,xmm9,0x20 
+  400c6e: c4 e3 39 21 f6 30 vinsertps xmm6,xmm8,xmm6,0x30 400c74: c4 e3 4d 18 f7 01 vinsertf128 ymm6,ymm6,xmm7,0x1 
+  400c7a: c4 a1 7c 11 34 bf vmovups YMMWORD PTR [rdi+r15*4],ymm6 400c80: c5 cc 58 f6 vaddps ymm6,ymm6,ymm6 400c84: c4 a1 
+  7c 11 34 be vmovups YMMWORD PTR [rsi+r15*4],ymm6 400c8a: c4 a1 7c 11 24 b8 vmovups YMMWORD PTR [rax+r15*4],ymm4 400c90: 
+  49 83 c7 08 add r15,0x8 400c94: 49 81 ff 00 ca 9a 3b cmp r15,0x3b9aca00 400c9b: 0f 85 0f fe ff ff jne 400ab0 
+  <init_arrays+0xb0> 400ca1: 5b pop rbx 400ca2: 41 5c pop r12 400ca4: 41 5d pop r13 400ca6: 41 5e pop r14 400ca8: 41 5f 
+  pop r15 400caa: 5d pop rbp 400cab: c5 f8 77 vzeroupper 400cae: c3 ret 400caf: 48 c7 c1 ff ff ff ff mov 
+  rcx,0xffffffffffffffff 400cb6: 48 ba 0b d7 a3 70 3d movabs rdx,0xa3d70a3d70a3d70b 400cbd: 0a d7 a3 400cc0: 45 31 c0 xor 
+  r8d,r8d 400cc3: 45 31 c9 xor r9d,r9d 400cc6: 45 31 d2 xor r10d,r10d 400cc9: 0f 1f 80 00 00 00 00 nop DWORD PTR 
+  [rax+0x0] 400cd0: 4f 8d 1c 0a lea r11,[r10+r9*1] 400cd4: 49 c1 fb 06 sar r11,0x6 400cd8: 4d 6b db 9c imul 
+  r11,r11,0xffffffffffffff9c 400cdc: 4d 01 d3 add r11,r10 400cdf: c4 c1 f2 2a c3 vcvtsi2ss xmm0,xmm1,r11 400ce4: c4 a1 7a 
+  11 04 97 vmovss DWORD PTR [rdi+r10*4],xmm0 400cea: c5 fa 58 c0 vaddss xmm0,xmm0,xmm0 400cee: c4 a1 7a 11 04 96 vmovss 
+  DWORD PTR [rsi+r10*4],xmm0 400cf4: 42 c7 04 90 00 00 00 mov DWORD PTR [rax+r10*4],0x0 400cfb: 00 400cfc: 49 ff c2 inc 
+  r10 400cff: 49 01 d0 add r8,rdx 400d02: 49 11 c9 adc r9,rcx 400d05: 49 81 fa 00 ca 9a 3b cmp r10,0x3b9aca00 400d0c: 75 
+  c2 jne 400cd0 <init_arrays+0x2d0> 400d0e: eb 5e jmp 400d6e <init_arrays+0x36e> 400d10: 48 c7 c1 ff ff ff ff mov 
+  rcx,0xffffffffffffffff 400d17: 48 ba 0b d7 a3 70 3d movabs rdx,0xa3d70a3d70a3d70b 400d1e: 0a d7 a3 400d21: 45 31 c0 xor 
+  r8d,r8d 400d24: 45 31 c9 xor r9d,r9d 400d27: 45 31 d2 xor r10d,r10d 400d2a: 66 0f 1f 44 00 00 nop WORD PTR 
+  [rax+rax*1+0x0] 400d30: 4f 8d 1c 0a lea r11,[r10+r9*1] 400d34: 49 c1 fb 06 sar r11,0x6 400d38: 4d 6b db 9c imul 
+  r11,r11,0xffffffffffffff9c 400d3c: 4d 01 d3 add r11,r10 400d3f: c4 c1 f2 2a c3 vcvtsi2ss xmm0,xmm1,r11 400d44: c4 a1 7a 
+  11 04 97 vmovss DWORD PTR [rdi+r10*4],xmm0 400d4a: c5 fa 58 c0 vaddss xmm0,xmm0,xmm0 400d4e: c4 a1 7a 11 04 96 vmovss 
+  DWORD PTR [rsi+r10*4],xmm0 400d54: 42 c7 04 90 00 00 00 mov DWORD PTR [rax+r10*4],0x0 400d5b: 00 400d5c: 49 ff c2 inc 
+  r10 400d5f: 49 01 d0 add r8,rdx 400d62: 49 11 c9 adc r9,rcx 400d65: 49 81 fa 00 ca 9a 3b cmp r10,0x3b9aca00 400d6c: 75 
+  c2 jne 400d30 <init_arrays+0x330> 400d6e: c3 ret 400d6f: 66 66 66 66 66 66 2e data16 data16 data16 data16 data16 cs nop 
+  WORD PTR [rax+rax*1+0x0] 400d76: 0f 1f 84 00 00 00 00 400d7d: 00 400d7e: 66 90 xchg ax,ax
+0000000000400d80 <init_rand_arrays>: 400d80: 41 57 push r15 400d82: 41 56 push r14 400d84: 53 push rbx 400d85: 48 89 f3 
+  mov rbx,rsi 400d88: 49 89 fe mov r14,rdi 400d8b: 45 31 ff xor r15d,r15d 400d8e: 66 90 xchg ax,ax 400d90: e8 bb fa ff ff 
+  call 400850 <rand@plt> 400d95: c5 fa 10 0d 67 11 00 vmovss xmm1,DWORD PTR [rip+0x1167] # 401f04 <_IO_stdin_used+0x4> 
+  400d9c: 00 400d9d: c5 e2 2a c0 vcvtsi2ss xmm0,xmm3,eax 400da1: c5 fa 10 15 5f 11 00 vmovss xmm2,DWORD PTR [rip+0x115f] 
+  # 401f08 <_IO_stdin_used+0x8>
+  400da8: 00 400da9: c5 fa 58 c0 vaddss xmm0,xmm0,xmm0 400dad: c5 fa 59 c1 vmulss xmm0,xmm0,xmm1 400db1: c5 fa 58 c2 
+  vaddss xmm0,xmm0,xmm2 400db5: c4 81 7a 11 04 be vmovss DWORD PTR [r14+r15*4],xmm0 400dbb: e8 90 fa ff ff call 400850 
+  <rand@plt> 400dc0: c5 e2 2a c0 vcvtsi2ss xmm0,xmm3,eax 400dc4: c5 fa 58 c0 vaddss xmm0,xmm0,xmm0 400dc8: c5 fa 59 05 34 
+  11 00 vmulss xmm0,xmm0,DWORD PTR [rip+0x1134] # 401f04 <_IO_stdin_used+0x4> 400dcf: 00 400dd0: c5 fa 58 05 30 11 00 
+  vaddss xmm0,xmm0,DWORD PTR [rip+0x1130] # 401f08 <_IO_stdin_used+0x8> 400dd7: 00 400dd8: c4 a1 7a 11 04 bb vmovss DWORD 
+  PTR [rbx+r15*4],xmm0 400dde: 49 ff c7 inc r15 400de1: 49 81 ff 00 ca 9a 3b cmp r15,0x3b9aca00 400de8: 75 a6 jne 400d90 
+  <init_rand_arrays+0x10> 400dea: 5b pop rbx 400deb: 41 5e pop r14 400ded: 41 5f pop r15 400def: c3 ret 400df0: 66 66 66 
+  66 66 66 2e data16 data16 data16 data16 data16 cs nop WORD PTR [rax+rax*1+0x0] 400df7: 0f 1f 84 00 00 00 00 400dfe: 00 
+  400dff: 90 nop
+0000000000400e00 <multiply_arrays>: 400e00: b8 20 00 00 00 mov eax,0x20 400e05: b9 01 ca 9a 3b mov ecx,0x3b9aca01 400e0a: 
+  66 0f 1f 44 00 00 nop WORD PTR [rax+rax*1+0x0] 400e10: c5 fc 10 44 06 e0 vmovups ymm0,YMMWORD PTR [rsi+rax*1-0x20] 
+  400e16: c5 fc 10 0c 06 vmovups ymm1,YMMWORD PTR [rsi+rax*1] 400e1b: 48 83 c1 f0 add rcx,0xfffffffffffffff0 400e1f: c5 
+  fc 59 44 07 e0 vmulps ymm0,ymm0,YMMWORD PTR [rdi+rax*1-0x20] 400e25: c5 f4 59 0c 07 vmulps ymm1,ymm1,YMMWORD PTR 
+  [rdi+rax*1] 400e2a: c5 fc 11 44 02 e0 vmovups YMMWORD PTR [rdx+rax*1-0x20],ymm0 400e30: c5 fc 11 0c 02 vmovups YMMWORD 
+  PTR [rdx+rax*1],ymm1 400e35: 48 83 c0 40 add rax,0x40 400e39: 48 83 f9 10 cmp rcx,0x10 400e3d: 77 d1 ja 400e10 
+  <multiply_arrays+0x10> 400e3f: c5 f8 77 vzeroupper 400e42: c3 ret 400e43: 66 66 66 66 66 66 2e data16 data16 data16 
+  data16 data16 cs nop WORD PTR [rax+rax*1+0x0] 400e4a: 0f 1f 84 00 00 00 00 400e51: 00 400e52: 66 66 66 66 66 66 2e 
+  data16 data16 data16 data16 data16 cs nop WORD PTR [rax+rax*1+0x0] 400e59: 0f 1f 84 00 00 00 00 400e60: 00 400e61: 66 
+  66 66 66 66 66 2e data16 data16 data16 data16 data16 cs nop WORD PTR [rax+rax*1+0x0] 400e68: 0f 1f 84 00 00 00 00 
+  400e6f: 00 400e70: 66 66 66 66 66 66 2e data16 data16 data16 data16 data16 cs nop WORD PTR [rax+rax*1+0x0] 400e77: 0f 
+  1f 84 00 00 00 00 400e7e: 00 400e7f: 90 nop
+0000000000400e80 <multiply_arrays_simd>: 400e80: 48 c7 c0 b0 29 23 fe mov rax,0xfffffffffe2329b0 400e87: b9 60 00 00 00 
+  mov ecx,0x60 400e8c: 0f 1f 40 00 nop DWORD PTR [rax+0x0] 400e90: c5 fa 10 44 0e a0 vmovss xmm0,DWORD PTR 
+  [rsi+rcx*1-0x60] 400e96: c5 fa 59 44 0f a0 vmulss xmm0,xmm0,DWORD PTR [rdi+rcx*1-0x60] 400e9c: c5 fa 11 44 0a a0 vmovss 
+  DWORD PTR [rdx+rcx*1-0x60],xmm0 400ea2: c5 fa 10 44 0e c0 vmovss xmm0,DWORD PTR [rsi+rcx*1-0x40] 400ea8: c5 fa 59 44 0f 
+  c0 vmulss xmm0,xmm0,DWORD PTR [rdi+rcx*1-0x40] 400eae: c5 fa 11 44 0a c0 vmovss DWORD PTR [rdx+rcx*1-0x40],xmm0 400eb4: 
+  c5 fa 10 44 0e e0 vmovss xmm0,DWORD PTR [rsi+rcx*1-0x20] 400eba: c5 fa 59 44 0f e0 vmulss xmm0,xmm0,DWORD PTR 
+  [rdi+rcx*1-0x20] 400ec0: c5 fa 11 44 0a e0 vmovss DWORD PTR [rdx+rcx*1-0x20],xmm0 400ec6: c5 fa 10 04 0e vmovss 
+  xmm0,DWORD PTR [rsi+rcx*1] 400ecb: c5 fa 59 04 0f vmulss xmm0,xmm0,DWORD PTR [rdi+rcx*1] 400ed0: c5 fa 11 04 0a vmovss 
+  DWORD PTR [rdx+rcx*1],xmm0 400ed5: 48 83 e9 80 sub rcx,0xffffffffffffff80 400ed9: 48 ff c0 inc rax 400edc: 75 b2 jne 
+  400e90 <multiply_arrays_simd+0x10> 400ede: c3 ret 400edf: 66 66 66 66 66 66 2e data16 data16 data16 data16 data16 cs 
+  nop WORD PTR [rax+rax*1+0x0] 400ee6: 0f 1f 84 00 00 00 00 400eed: 00 400eee: 66 66 66 66 66 66 2e data16 data16 data16 
+  data16 data16 cs nop WORD PTR [rax+rax*1+0x0] 400ef5: 0f 1f 84 00 00 00 00 400efc: 00 400efd: 0f 1f 00 nop DWORD PTR 
+  [rax]
+0000000000400f00 <multiply_arrays_omp>: 400f00: b8 20 00 00 00 mov eax,0x20 400f05: b9 01 ca 9a 3b mov ecx,0x3b9aca01 
+  400f0a: 66 0f 1f 44 00 00 nop WORD PTR [rax+rax*1+0x0] 400f10: c5 fc 10 44 06 e0 vmovups ymm0,YMMWORD PTR 
+  [rsi+rax*1-0x20] 400f16: c5 fc 10 0c 06 vmovups ymm1,YMMWORD PTR [rsi+rax*1] 400f1b: 48 83 c1 f0 add 
+  rcx,0xfffffffffffffff0 400f1f: c5 fc 59 44 07 e0 vmulps ymm0,ymm0,YMMWORD PTR [rdi+rax*1-0x20] 400f25: c5 f4 59 0c 07 
+  vmulps ymm1,ymm1,YMMWORD PTR [rdi+rax*1] 400f2a: c5 fc 11 44 02 e0 vmovups YMMWORD PTR [rdx+rax*1-0x20],ymm0 400f30: c5 
+  fc 11 0c 02 vmovups YMMWORD PTR [rdx+rax*1],ymm1 400f35: 48 83 c0 40 add rax,0x40 400f39: 48 83 f9 10 cmp rcx,0x10 
+  400f3d: 77 d1 ja 400f10 <multiply_arrays_omp+0x10> 400f3f: c5 f8 77 vzeroupper 400f42: c3 ret 400f43: 66 66 66 66 66 66 
+  2e data16 data16 data16 data16 data16 cs nop WORD PTR [rax+rax*1+0x0] 400f4a: 0f 1f 84 00 00 00 00 400f51: 00 400f52: 
+  66 66 66 66 66 66 2e data16 data16 data16 data16 data16 cs nop WORD PTR [rax+rax*1+0x0] 400f59: 0f 1f 84 00 00 00 00 
+  400f60: 00 400f61: 66 66 66 66 66 66 2e data16 data16 data16 data16 data16 cs nop WORD PTR [rax+rax*1+0x0] 400f68: 0f 
+  1f 84 00 00 00 00 400f6f: 00 400f70: 66 66 66 66 66 66 2e data16 data16 data16 data16 data16 cs nop WORD PTR 
+  [rax+rax*1+0x0] 400f77: 0f 1f 84 00 00 00 00 400f7e: 00 400f7f: 90 nop
+0000000000400f80 <complex_dot>: 400f80: b8 20 00 00 00 mov eax,0x20 400f85: 41 b8 01 65 cd 1d mov r8d,0x1dcd6501 400f8b: 
+  c5 f8 57 c0 vxorps xmm0,xmm0,xmm0 400f8f: c5 f0 57 c9 vxorps xmm1,xmm1,xmm1 400f93: 66 66 66 66 2e 0f 1f data16 data16 
+  data16 cs nop WORD PTR [rax+rax*1+0x0] 400f9a: 84 00 00 00 00 00 400fa0: c5 fc 10 54 06 e0 vmovups ymm2,YMMWORD PTR 
+  [rsi+rax*1-0x20] 400fa6: c5 fc 10 1c 06 vmovups ymm3,YMMWORD PTR [rsi+rax*1] 400fab: c5 fc 10 2c 07 vmovups 
+  ymm5,YMMWORD PTR [rdi+rax*1] 400fb0: 49 83 c0 f8 add r8,0xfffffffffffffff8 400fb4: c5 ec c6 e3 88 vshufps 
+  ymm4,ymm2,ymm3,0x88 400fb9: c5 ec c6 d3 dd vshufps ymm2,ymm2,ymm3,0xdd 400fbe: c5 fc 10 5c 07 e0 vmovups ymm3,YMMWORD 
+  PTR [rdi+rax*1-0x20] 400fc4: 48 83 c0 40 add rax,0x40 400fc8: c4 e3 fd 01 d2 d8 vpermpd ymm2,ymm2,0xd8 400fce: c4 e3 fd 
+  01 e4 d8 vpermpd ymm4,ymm4,0xd8 400fd4: c5 e4 c6 f5 88 vshufps ymm6,ymm3,ymm5,0x88 400fd9: c5 e4 c6 dd dd vshufps 
+  ymm3,ymm3,ymm5,0xdd 400fde: c4 e3 fd 01 db d8 vpermpd ymm3,ymm3,0xd8 400fe4: c4 e3 fd 01 f6 d8 vpermpd ymm6,ymm6,0xd8 
+  400fea: c5 ec 59 eb vmulps ymm5,ymm2,ymm3 400fee: c5 cc 59 d2 vmulps ymm2,ymm6,ymm2 400ff2: c4 e2 4d b8 ec vfmadd231ps 
+  ymm5,ymm6,ymm4 400ff7: c4 e2 5d ba d3 vfmsub231ps ymm2,ymm4,ymm3 400ffc: c5 f4 58 cd vaddps ymm1,ymm1,ymm5 401000: c5 
+  fc 58 c2 vaddps ymm0,ymm0,ymm2 401004: 49 83 f8 08 cmp r8,0x8 401008: 77 96 ja 400fa0 <complex_dot+0x20> 40100a: c4 e3 
+  7d 19 ca 01 vextractf128 xmm2,ymm1,0x1 401010: c5 f0 58 ca vaddps xmm1,xmm1,xmm2 401014: c5 f1 c6 d1 01 vshufpd 
+  xmm2,xmm1,xmm1,0x1 401019: c5 f0 58 ca vaddps xmm1,xmm1,xmm2 40101d: c5 fa 16 d1 vmovshdup xmm2,xmm1 401021: c5 f2 58 
+  ca vaddss xmm1,xmm1,xmm2 401025: c4 e3 7d 19 c2 01 vextractf128 xmm2,ymm0,0x1 40102b: c5 fa 11 0a vmovss DWORD PTR 
+  [rdx],xmm1 40102f: c5 f8 58 c2 vaddps xmm0,xmm0,xmm2 401033: c5 f9 c6 d0 01 vshufpd xmm2,xmm0,xmm0,0x1 401038: c5 f8 58 
+  c2 vaddps xmm0,xmm0,xmm2 40103c: c5 fa 16 d0 vmovshdup xmm2,xmm0 401040: c5 fa 58 c2 vaddss xmm0,xmm0,xmm2 401044: c5 
+  fa 11 01 vmovss DWORD PTR [rcx],xmm0 401048: c5 f8 77 vzeroupper 40104b: c3 ret 40104c: 66 66 66 66 66 66 2e data16 
+  data16 data16 data16 data16 cs nop WORD PTR [rax+rax*1+0x0] 401053: 0f 1f 84 00 00 00 00 40105a: 00 40105b: 66 66 66 66 
+  66 66 2e data16 data16 data16 data16 data16 cs nop WORD PTR [rax+rax*1+0x0] 401062: 0f 1f 84 00 00 00 00 401069: 00 
+  40106a: 66 66 66 66 66 66 2e data16 data16 data16 data16 data16 cs nop WORD PTR [rax+rax*1+0x0] 401071: 0f 1f 84 00 00 
+  00 00 401078: 00 401079: 0f 1f 80 00 00 00 00 nop DWORD PTR [rax+0x0]
+0000000000401080 <complex_dot_simd>: 401080: c4 e2 7d 19 0d 0f 0f vbroadcastsd ymm1,QWORD PTR [rip+0xf0f] # 401f98 
+  <_IO_stdin_used+0x98> 401087: 00 00 401089: b8 40 59 73 07 mov eax,0x7735940 40108e: c5 f8 57 c0 vxorps xmm0,xmm0,xmm0 
+  401092: 45 31 c0 xor r8d,r8d 401095: c5 e8 57 d2 vxorps xmm2,xmm2,xmm2 401099: 0f 1f 80 00 00 00 00 nop DWORD PTR 
+  [rax+0x0] 4010a0: c4 a1 7c 10 1c 07 vmovups ymm3,YMMWORD PTR [rdi+r8*1] 4010a6: c4 a1 7c 10 24 06 vmovups ymm4,YMMWORD 
+  PTR [rsi+r8*1] 4010ac: 49 83 c0 20 add r8,0x20 4010b0: 48 ff c8 dec rax 4010b3: c5 e4 59 ec vmulps ymm5,ymm3,ymm4 
+  4010b7: c5 dc c6 e4 b1 vshufps ymm4,ymm4,ymm4,0xb1 4010bc: c5 dc 59 e1 vmulps ymm4,ymm4,ymm1 4010c0: c5 ec 58 d5 vaddps 
+  ymm2,ymm2,ymm5 4010c4: c5 e4 59 dc vmulps ymm3,ymm3,ymm4 4010c8: c5 fc 58 c3 vaddps ymm0,ymm0,ymm3 4010cc: 75 d2 jne 
+  4010a0 <complex_dot_simd+0x20> 4010ce: c5 ef 7c ca vhaddps ymm1,ymm2,ymm2 4010d2: c5 ff 7c c0 vhaddps ymm0,ymm0,ymm0 
+  4010d6: c5 f7 7c c9 vhaddps ymm1,ymm1,ymm1 4010da: c5 ff 7c c0 vhaddps ymm0,ymm0,ymm0 4010de: c4 e3 7d 19 ca 01 
+  vextractf128 xmm2,ymm1,0x1 4010e4: c5 f2 58 ca vaddss xmm1,xmm1,xmm2 4010e8: c5 fa 11 0a vmovss DWORD PTR [rdx],xmm1 
+  4010ec: c4 e3 7d 19 c1 01 vextractf128 xmm1,ymm0,0x1 4010f2: c5 fa 58 c1 vaddss xmm0,xmm0,xmm1 4010f6: c5 fa 11 01 
+  vmovss DWORD PTR [rcx],xmm0 4010fa: c5 f8 77 vzeroupper 4010fd: c3 ret 4010fe: 66 90 xchg ax,ax
+0000000000401100 <main>: 401100: 55 push rbp 401101: 41 57 push r15 401103: 41 56 push r14 401105: 41 55 push r13 401107: 
+  41 54 push r12 401109: 53 push rbx 40110a: 48 83 ec 78 sub rsp,0x78 40110e: 49 89 f4 mov r12,rsi 401111: bf 40 00 00 00 
+  mov edi,0x40 401116: be 00 28 6b ee mov esi,0xee6b2800 40111b: e8 50 f7 ff ff call 400870 <aligned_alloc@plt> 401120: 
+  bf 40 00 00 00 mov edi,0x40 401125: be 00 28 6b ee mov esi,0xee6b2800 40112a: 48 89 c3 mov rbx,rax 40112d: e8 3e f7 ff 
+  ff call 400870 <aligned_alloc@plt> 401132: bf 40 00 00 00 mov edi,0x40 401137: be 00 28 6b ee mov esi,0xee6b2800 
+  40113c: 49 89 c6 mov r14,rax 40113f: e8 2c f7 ff ff call 400870 <aligned_alloc@plt> 401144: ba 00 28 6b ee mov 
+  edx,0xee6b2800 401149: 49 89 c7 mov r15,rax 40114c: 31 ed xor ebp,ebp 40114e: 48 89 c7 mov rdi,rax 401151: 31 f6 xor 
+  esi,esi 401153: e8 08 f7 ff ff call 400860 <memset@plt> 401158: c5 fd 6f 05 c0 0d 00 vmovdqa ymm0,YMMWORD PTR 
+  [rip+0xdc0] # 401f20 <_IO_stdin_used+0x20> 40115f: 00 401160: c5 fd 6f 0d d8 0d 00 vmovdqa ymm1,YMMWORD PTR [rip+0xdd8] 
+  # 401f40 <_IO_stdin_used+0x40>
+  401167: 00 401168: c4 e2 7d 59 3d 0f 0e vpbroadcastq ymm7,QWORD PTR [rip+0xe0f] # 401f80 <_IO_stdin_used+0x80> 40116f: 
+  00 00 401171: c4 62 7d 59 05 0e 0e vpbroadcastq ymm8,QWORD PTR [rip+0xe0e] # 401f88 <_IO_stdin_used+0x88> 401178: 00 00 
+  40117a: c4 62 7d 59 0d 0d 0e vpbroadcastq ymm9,QWORD PTR [rip+0xe0d] # 401f90 <_IO_stdin_used+0x90> 401181: 00 00 
+  401183: 49 bd 0b d7 a3 70 3d movabs r13,0xa3d70a3d70a3d70b 40118a: 0a d7 a3 40118d: 0f 1f 00 nop DWORD PTR [rax] 
+  401190: c4 e1 f9 7e c2 vmovq rdx,xmm0 401195: c4 e3 7d 39 c3 01 vextracti128 xmm3,ymm0,0x1 40119b: c4 c3 f9 16 c1 01 
+  vpextrq r9,xmm0,0x1 4011a1: c4 e1 f9 7e ce vmovq rsi,xmm1 4011a6: c4 e3 7d 39 ca 01 vextracti128 xmm2,ymm1,0x1 4011ac: 
+  c4 e3 f9 16 c9 01 vpextrq rcx,xmm1,0x1 4011b2: c4 42 ab f6 d5 mulx r10,r10,r13 4011b7: 49 29 d2 sub r10,rdx 4011ba: 4c 
+  89 ca mov rdx,r9 4011bd: c4 42 a3 f6 dd mulx r11,r11,r13 4011c2: c4 c1 f9 7e d8 vmovq r8,xmm3 4011c7: c4 e3 f9 16 df 01 
+  vpextrq rdi,xmm3,0x1 4011cd: c4 e3 f9 16 d0 01 vpextrq rax,xmm2,0x1 4011d3: 4c 89 c2 mov rdx,r8 4011d6: c4 c1 f9 6e ea 
+  vmovq xmm5,r10 4011db: 4d 29 cb sub r11,r9 4011de: c4 42 b3 f6 cd mulx r9,r9,r13 4011e3: 48 89 fa mov rdx,rdi 4011e6: 
+  4d 29 c1 sub r9,r8 4011e9: c4 42 bb f6 c5 mulx r8,r8,r13 4011ee: 48 89 f2 mov rdx,rsi 4011f1: 49 29 f8 sub r8,rdi 
+  4011f4: c4 c2 c3 f6 fd mulx rdi,rdi,r13 4011f9: 48 89 ca mov rdx,rcx 4011fc: 48 29 f7 sub rdi,rsi 4011ff: c4 c2 cb f6 
+  f5 mulx rsi,rsi,r13 401204: c4 e1 f9 7e d2 vmovq rdx,xmm2 401209: c4 e1 f9 6e e7 vmovq xmm4,rdi 40120e: 48 29 ce sub 
+  rsi,rcx 401211: c4 c2 f3 f6 cd mulx rcx,rcx,r13 401216: 48 29 d1 sub rcx,rdx 401219: 48 89 c2 mov rdx,rax 40121c: c4 c2 
+  eb f6 d5 mulx rdx,rdx,r13 401221: c4 e1 f9 6e d9 vmovq xmm3,rcx 401226: 48 29 c2 sub rdx,rax 401229: c4 e1 f9 6e d2 
+  vmovq xmm2,rdx 40122e: c5 e1 6c d2 vpunpcklqdq xmm2,xmm3,xmm2 401232: c4 e1 f9 6e de vmovq xmm3,rsi 401237: c5 d9 6c db 
+  vpunpcklqdq xmm3,xmm4,xmm3 40123b: c4 c1 f9 6e e1 vmovq xmm4,r9 401240: c4 e3 65 38 d2 01 vinserti128 
+  ymm2,ymm3,xmm2,0x1 401246: c4 c1 f9 6e d8 vmovq xmm3,r8 40124b: c5 d9 6c db vpunpcklqdq xmm3,xmm4,xmm3 40124f: c4 c1 f9 
+  6e e3 vmovq xmm4,r11 401254: c5 d1 6c e4 vpunpcklqdq xmm4,xmm5,xmm4 401258: c5 f5 d4 d2 vpaddq ymm2,ymm1,ymm2 40125c: 
+  c4 e3 5d 38 db 01 vinserti128 ymm3,ymm4,xmm3,0x1 401262: c5 dd 72 e2 06 vpsrad ymm4,ymm2,0x6 401267: c5 ed 73 d2 06 
+  vpsrlq ymm2,ymm2,0x6 40126c: c5 dd 73 d4 20 vpsrlq ymm4,ymm4,0x20 401271: c5 6d f4 d7 vpmuludq ymm10,ymm2,ymm7 401275: 
+  c5 bd f4 d2 vpmuludq ymm2,ymm8,ymm2 401279: c5 fd d4 db vpaddq ymm3,ymm0,ymm3 40127d: c5 bd f4 e4 vpmuludq 
+  ymm4,ymm8,ymm4 401281: c5 d5 72 e3 06 vpsrad ymm5,ymm3,0x6 401286: c5 e5 73 d3 06 vpsrlq ymm3,ymm3,0x6 40128b: c5 d5 73 
+  d5 20 vpsrlq ymm5,ymm5,0x20 401290: c5 e5 f4 f7 vpmuludq ymm6,ymm3,ymm7 401294: c5 bd f4 db vpmuludq ymm3,ymm8,ymm3 
+  401298: c5 ed d4 d1 vpaddq ymm2,ymm2,ymm1 40129c: c5 b5 d4 c9 vpaddq ymm1,ymm9,ymm1 4012a0: c5 bd f4 ed vpmuludq 
+  ymm5,ymm8,ymm5 4012a4: c5 ad d4 e4 vpaddq ymm4,ymm10,ymm4 4012a8: c5 dd 73 f4 20 vpsllq ymm4,ymm4,0x20 4012ad: c5 e5 d4 
+  d8 vpaddq ymm3,ymm3,ymm0 4012b1: c5 ed d4 d4 vpaddq ymm2,ymm2,ymm4 4012b5: c5 cd d4 ed vpaddq ymm5,ymm6,ymm5 4012b9: c4 
+  e1 f9 7e d1 vmovq rcx,xmm2 4012be: c5 d5 73 f5 20 vpsllq ymm5,ymm5,0x20 4012c3: c5 e5 d4 dd vpaddq ymm3,ymm3,ymm5 
+  4012c7: c4 e3 f9 16 d8 01 vpextrq rax,xmm3,0x1 4012cd: c4 e1 f9 7e da vmovq rdx,xmm3 4012d2: c4 e3 7d 39 db 01 
+  vextracti128 xmm3,ymm3,0x1 4012d8: c4 e1 a2 2a e0 vcvtsi2ss xmm4,xmm11,rax 4012dd: c4 e1 a2 2a ea vcvtsi2ss 
+  xmm5,xmm11,rdx 4012e2: c4 e1 f9 7e d8 vmovq rax,xmm3 4012e7: c4 e3 51 21 e4 10 vinsertps xmm4,xmm5,xmm4,0x10 4012ed: c4 
+  e1 a2 2a e8 vcvtsi2ss xmm5,xmm11,rax 4012f2: c4 e3 f9 16 d8 01 vpextrq rax,xmm3,0x1 4012f8: c4 e3 59 21 dd 20 vinsertps 
+  xmm3,xmm4,xmm5,0x20 4012fe: c4 e1 a2 2a e0 vcvtsi2ss xmm4,xmm11,rax 401303: c4 e3 f9 16 d0 01 vpextrq rax,xmm2,0x1 
+  401309: c4 e3 7d 39 d2 01 vextracti128 xmm2,ymm2,0x1 40130f: c4 e1 a2 2a e9 vcvtsi2ss xmm5,xmm11,rcx 401314: c4 e3 61 
+  21 dc 30 vinsertps xmm3,xmm3,xmm4,0x30 40131a: c4 e1 a2 2a e0 vcvtsi2ss xmm4,xmm11,rax 40131f: c4 e1 f9 7e d0 vmovq 
+  rax,xmm2 401324: c4 e3 51 21 e4 10 vinsertps xmm4,xmm5,xmm4,0x10 40132a: c4 e1 a2 2a e8 vcvtsi2ss xmm5,xmm11,rax 
+  40132f: c4 e3 f9 16 d0 01 vpextrq rax,xmm2,0x1 401335: c4 e3 59 21 d5 20 vinsertps xmm2,xmm4,xmm5,0x20 40133b: c4 e1 a2 
+  2a e0 vcvtsi2ss xmm4,xmm11,rax 401340: c5 b5 d4 c0 vpaddq ymm0,ymm9,ymm0 401344: c4 e3 69 21 d4 30 vinsertps 
+  xmm2,xmm2,xmm4,0x30 40134a: c4 e3 6d 18 d3 01 vinsertf128 ymm2,ymm2,xmm3,0x1 401350: c5 fc 29 14 ab vmovaps YMMWORD PTR 
+  [rbx+rbp*4],ymm2 401355: c5 ec 58 d2 vaddps ymm2,ymm2,ymm2 401359: c4 c1 7c 29 14 ae vmovaps YMMWORD PTR 
+  [r14+rbp*4],ymm2 40135f: 48 83 c5 08 add rbp,0x8 401363: 48 81 fd 00 ca 9a 3b cmp rbp,0x3b9aca00 40136a: 0f 85 20 fe ff 
+  ff jne 401190 <main+0x90> 401370: 49 8b 7c 24 08 mov rdi,QWORD PTR [r12+0x8] 401375: c5 7e 7f 4c 24 30 vmovdqu YMMWORD 
+  PTR [rsp+0x30],ymm9 40137b: c5 7e 7f 44 24 50 vmovdqu YMMWORD PTR [rsp+0x50],ymm8 401381: c5 fe 7f 7c 24 10 vmovdqu 
+  YMMWORD PTR [rsp+0x10],ymm7 401387: c5 f8 77 vzeroupper 40138a: e8 21 f5 ff ff call 4008b0 <atoi@plt> 40138f: bf aa 20 
+  40 00 mov edi,0x4020aa 401394: 89 c5 mov ebp,eax 401396: 89 c6 mov esi,eax 401398: 31 c0 xor eax,eax 40139a: e8 a1 f4 
+  ff ff call 400840 <printf@plt> 40139f: 89 ef mov edi,ebp 4013a1: e8 ea f4 ff ff call 400890 <omp_set_num_threads@plt> 
+  4013a6: 41 bc 20 00 00 00 mov r12d,0x20 4013ac: bd 01 ca 9a 3b mov ebp,0x3b9aca01 4013b1: e8 0a f5 ff ff call 4008c0 
+  <omp_get_wtime@plt> 4013b6: c5 f9 d6 44 24 08 vmovq QWORD PTR [rsp+0x8],xmm0 4013bc: 0f 1f 40 00 nop DWORD PTR 
+  [rax+0x0] 4013c0: c4 81 7c 10 44 26 e0 vmovups ymm0,YMMWORD PTR [r14+r12*1-0x20] 4013c7: 48 83 c5 f0 add 
+  rbp,0xfffffffffffffff0 4013cb: c4 a1 7c 59 44 23 e0 vmulps ymm0,ymm0,YMMWORD PTR [rbx+r12*1-0x20] 4013d2: c4 81 7c 11 
+  44 27 e0 vmovups YMMWORD PTR [r15+r12*1-0x20],ymm0 4013d9: c4 81 7c 10 04 26 vmovups ymm0,YMMWORD PTR [r14+r12*1] 
+  4013df: c4 a1 7c 59 04 23 vmulps ymm0,ymm0,YMMWORD PTR [rbx+r12*1] 4013e5: c4 81 7c 11 04 27 vmovups YMMWORD PTR 
+  [r15+r12*1],ymm0 4013eb: 49 83 c4 40 add r12,0x40 4013ef: 48 83 fd 10 cmp rbp,0x10 4013f3: 77 cb ja 4013c0 <main+0x2c0> 
+  4013f5: c5 f8 77 vzeroupper 4013f8: e8 c3 f4 ff ff call 4008c0 <omp_get_wtime@plt> 4013fd: c5 fb 5c 44 24 08 vsubsd 
+  xmm0,xmm0,QWORD PTR [rsp+0x8] 401403: bf 7d 20 40 00 mov edi,0x40207d 401408: b0 01 mov al,0x1 40140a: e8 31 f4 ff ff 
+  call 400840 <printf@plt> 40140f: bf cb 20 40 00 mov edi,0x4020cb 401414: e8 87 f4 ff ff call 4008a0 <puts@plt> 401419: 
+  c4 c1 7a 10 07 vmovss xmm0,DWORD PTR [r15] 40141e: c4 c1 7a 10 8f 38 13 vmovss xmm1,DWORD PTR [r15+0x1338] 401425: 00 
+  00 401427: c4 c1 7a 10 97 dc 4f vmovss xmm2,DWORD PTR [r15+0x1d4fdc] 40142e: 1d 00 401430: bf 56 20 40 00 mov 
+  edi,0x402056 401435: b0 03 mov al,0x3 401437: c5 fa 5a c0 vcvtss2sd xmm0,xmm0,xmm0 40143b: c5 f2 5a c9 vcvtss2sd 
+  xmm1,xmm1,xmm1 40143f: c5 ea 5a d2 vcvtss2sd xmm2,xmm2,xmm2 401443: e8 f8 f3 ff ff call 400840 <printf@plt> 401448: ba 
+  00 28 6b ee mov edx,0xee6b2800 40144d: 45 31 e4 xor r12d,r12d 401450: 4c 89 ff mov rdi,r15 401453: 31 f6 xor esi,esi 
+  401455: e8 06 f4 ff ff call 400860 <memset@plt> 40145a: c5 fd 6f 05 be 0a 00 vmovdqa ymm0,YMMWORD PTR [rip+0xabe] # 
+  401f20 <_IO_stdin_used+0x20> 401461: 00 401462: c5 fd 6f 0d d6 0a 00 vmovdqa ymm1,YMMWORD PTR [rip+0xad6] # 401f40 
+  <_IO_stdin_used+0x40> 401469: 00 40146a: c5 fe 6f 7c 24 10 vmovdqu ymm7,YMMWORD PTR [rsp+0x10] 401470: c5 7e 6f 44 24 
+  50 vmovdqu ymm8,YMMWORD PTR [rsp+0x50] 401476: c5 7e 6f 4c 24 30 vmovdqu ymm9,YMMWORD PTR [rsp+0x30] 40147c: 0f 1f 40 
+  00 nop DWORD PTR [rax+0x0] 401480: c4 e1 f9 7e c2 vmovq rdx,xmm0 401485: c4 e3 7d 39 c3 01 vextracti128 xmm3,ymm0,0x1 
+  40148b: c4 c3 f9 16 c1 01 vpextrq r9,xmm0,0x1 401491: c4 e3 7d 39 ca 01 vextracti128 xmm2,ymm1,0x1 401497: c4 e1 f9 7e 
+  ce vmovq rsi,xmm1 40149c: c4 e3 f9 16 c9 01 vpextrq rcx,xmm1,0x1 4014a2: c4 42 ab f6 d5 mulx r10,r10,r13 4014a7: 49 29 
+  d2 sub r10,rdx 4014aa: 4c 89 ca mov rdx,r9 4014ad: c4 42 a3 f6 dd mulx r11,r11,r13 4014b2: c4 c1 f9 7e d8 vmovq r8,xmm3 
+  4014b7: c4 e3 f9 16 df 01 vpextrq rdi,xmm3,0x1 4014bd: c4 e3 f9 16 d0 01 vpextrq rax,xmm2,0x1 4014c3: 4c 89 c2 mov 
+  rdx,r8 4014c6: c4 c1 f9 6e ea vmovq xmm5,r10 4014cb: 4d 29 cb sub r11,r9 4014ce: c4 42 b3 f6 cd mulx r9,r9,r13 4014d3: 
+  48 89 fa mov rdx,rdi 4014d6: 4d 29 c1 sub r9,r8 4014d9: c4 42 bb f6 c5 mulx r8,r8,r13 4014de: 48 89 f2 mov rdx,rsi 
+  4014e1: 49 29 f8 sub r8,rdi 4014e4: c4 c2 c3 f6 fd mulx rdi,rdi,r13 4014e9: 48 89 ca mov rdx,rcx 4014ec: 48 29 f7 sub 
+  rdi,rsi 4014ef: c4 c2 cb f6 f5 mulx rsi,rsi,r13 4014f4: c4 e1 f9 7e d2 vmovq rdx,xmm2 4014f9: c4 c2 d3 f6 ed mulx 
+  rbp,rbp,r13 4014fe: c4 e1 f9 6e e7 vmovq xmm4,rdi 401503: 48 29 ce sub rsi,rcx 401506: 48 29 d5 sub rbp,rdx 401509: 48 
+  89 c2 mov rdx,rax 40150c: c4 c2 eb f6 d5 mulx rdx,rdx,r13 401511: c4 e1 f9 6e dd vmovq xmm3,rbp 401516: 48 29 c2 sub 
+  rdx,rax 401519: c4 e1 f9 6e d2 vmovq xmm2,rdx 40151e: c5 e1 6c d2 vpunpcklqdq xmm2,xmm3,xmm2 401522: c4 e1 f9 6e de 
+  vmovq xmm3,rsi 401527: c5 d9 6c db vpunpcklqdq xmm3,xmm4,xmm3 40152b: c4 c1 f9 6e e1 vmovq xmm4,r9 401530: c4 e3 65 38 
+  d2 01 vinserti128 ymm2,ymm3,xmm2,0x1 401536: c4 c1 f9 6e d8 vmovq xmm3,r8 40153b: c5 d9 6c db vpunpcklqdq 
+  xmm3,xmm4,xmm3 40153f: c4 c1 f9 6e e3 vmovq xmm4,r11 401544: c5 d1 6c e4 vpunpcklqdq xmm4,xmm5,xmm4 401548: c5 f5 d4 d2 
+  vpaddq ymm2,ymm1,ymm2 40154c: c4 e3 5d 38 db 01 vinserti128 ymm3,ymm4,xmm3,0x1 401552: c5 dd 72 e2 06 vpsrad 
+  ymm4,ymm2,0x6 401557: c5 ed 73 d2 06 vpsrlq ymm2,ymm2,0x6 40155c: c5 dd 73 d4 20 vpsrlq ymm4,ymm4,0x20 401561: c5 6d f4 
+  d7 vpmuludq ymm10,ymm2,ymm7 401565: c5 bd f4 d2 vpmuludq ymm2,ymm8,ymm2 401569: c5 fd d4 db vpaddq ymm3,ymm0,ymm3 
+  40156d: c5 bd f4 e4 vpmuludq ymm4,ymm8,ymm4 401571: c5 d5 72 e3 06 vpsrad ymm5,ymm3,0x6 401576: c5 e5 73 d3 06 vpsrlq 
+  ymm3,ymm3,0x6 40157b: c5 d5 73 d5 20 vpsrlq ymm5,ymm5,0x20 401580: c5 e5 f4 f7 vpmuludq ymm6,ymm3,ymm7 401584: c5 bd f4 
+  db vpmuludq ymm3,ymm8,ymm3 401588: c5 ed d4 d1 vpaddq ymm2,ymm2,ymm1 40158c: c5 b5 d4 c9 vpaddq ymm1,ymm9,ymm1 401590: 
+  c5 bd f4 ed vpmuludq ymm5,ymm8,ymm5 401594: c5 ad d4 e4 vpaddq ymm4,ymm10,ymm4 401598: c5 dd 73 f4 20 vpsllq 
+  ymm4,ymm4,0x20 40159d: c5 e5 d4 d8 vpaddq ymm3,ymm3,ymm0 4015a1: c5 ed d4 d4 vpaddq ymm2,ymm2,ymm4 4015a5: c5 cd d4 ed 
+  vpaddq ymm5,ymm6,ymm5 4015a9: c4 e1 f9 7e d1 vmovq rcx,xmm2 4015ae: c5 d5 73 f5 20 vpsllq ymm5,ymm5,0x20 4015b3: c5 e5 
+  d4 dd vpaddq ymm3,ymm3,ymm5 4015b7: c4 e3 f9 16 d8 01 vpextrq rax,xmm3,0x1 4015bd: c4 e1 f9 7e da vmovq rdx,xmm3 
+  4015c2: c4 e3 7d 39 db 01 vextracti128 xmm3,ymm3,0x1 4015c8: c4 e1 a2 2a e0 vcvtsi2ss xmm4,xmm11,rax 4015cd: c4 e1 a2 
+  2a ea vcvtsi2ss xmm5,xmm11,rdx 4015d2: c4 e1 f9 7e d8 vmovq rax,xmm3 4015d7: c4 e3 51 21 e4 10 vinsertps 
+  xmm4,xmm5,xmm4,0x10 4015dd: c4 e1 a2 2a e8 vcvtsi2ss xmm5,xmm11,rax 4015e2: c4 e3 f9 16 d8 01 vpextrq rax,xmm3,0x1 
+  4015e8: c4 e3 59 21 dd 20 vinsertps xmm3,xmm4,xmm5,0x20 4015ee: c4 e1 a2 2a e0 vcvtsi2ss xmm4,xmm11,rax 4015f3: c4 e3 
+  f9 16 d0 01 vpextrq rax,xmm2,0x1 4015f9: c4 e3 7d 39 d2 01 vextracti128 xmm2,ymm2,0x1 4015ff: c4 e1 a2 2a e9 vcvtsi2ss 
+  xmm5,xmm11,rcx 401604: c4 e3 61 21 dc 30 vinsertps xmm3,xmm3,xmm4,0x30 40160a: c4 e1 a2 2a e0 vcvtsi2ss xmm4,xmm11,rax 
+  40160f: c4 e1 f9 7e d0 vmovq rax,xmm2 401614: c4 e3 51 21 e4 10 vinsertps xmm4,xmm5,xmm4,0x10 40161a: c4 e1 a2 2a e8 
+  vcvtsi2ss xmm5,xmm11,rax 40161f: c4 e3 f9 16 d0 01 vpextrq rax,xmm2,0x1 401625: c4 e3 59 21 d5 20 vinsertps 
+  xmm2,xmm4,xmm5,0x20 40162b: c4 e1 a2 2a e0 vcvtsi2ss xmm4,xmm11,rax 401630: c5 b5 d4 c0 vpaddq ymm0,ymm9,ymm0 401634: 
+  c4 e3 69 21 d4 30 vinsertps xmm2,xmm2,xmm4,0x30 40163a: c4 e3 6d 18 d3 01 vinsertf128 ymm2,ymm2,xmm3,0x1 401640: c4 a1 
+  7c 29 14 a3 vmovaps YMMWORD PTR [rbx+r12*4],ymm2 401646: c5 ec 58 d2 vaddps ymm2,ymm2,ymm2 40164a: c4 81 7c 29 14 a6 
+  vmovaps YMMWORD PTR [r14+r12*4],ymm2 401650: 49 83 c4 08 add r12,0x8 401654: 49 81 fc 00 ca 9a 3b cmp r12,0x3b9aca00 
+  40165b: 0f 85 1f fe ff ff jne 401480 <main+0x380> 401661: 41 bc 01 ca 9a 3b mov r12d,0x3b9aca01 401667: bd 20 00 00 00 
+  mov ebp,0x20 40166c: c5 f8 77 vzeroupper 40166f: e8 4c f2 ff ff call 4008c0 <omp_get_wtime@plt> 401674: c5 f9 d6 44 24 
+  08 vmovq QWORD PTR [rsp+0x8],xmm0 40167a: 66 0f 1f 44 00 00 nop WORD PTR [rax+rax*1+0x0] 401680: c4 c1 7c 10 44 2e e0 
+  vmovups ymm0,YMMWORD PTR [r14+rbp*1-0x20] 401687: 49 83 c4 f0 add r12,0xfffffffffffffff0 40168b: c5 fc 59 44 2b e0 
+  vmulps ymm0,ymm0,YMMWORD PTR [rbx+rbp*1-0x20] 401691: c4 c1 7c 11 44 2f e0 vmovups YMMWORD PTR [r15+rbp*1-0x20],ymm0 
+  401698: c4 c1 7c 10 04 2e vmovups ymm0,YMMWORD PTR [r14+rbp*1] 40169e: c5 fc 59 04 2b vmulps ymm0,ymm0,YMMWORD PTR 
+  [rbx+rbp*1] 4016a3: c4 c1 7c 11 04 2f vmovups YMMWORD PTR [r15+rbp*1],ymm0 4016a9: 48 83 c5 40 add rbp,0x40 4016ad: 49 
+  83 fc 10 cmp r12,0x10 4016b1: 77 cd ja 401680 <main+0x580> 4016b3: c5 f8 77 vzeroupper 4016b6: e8 05 f2 ff ff call 
+  4008c0 <omp_get_wtime@plt> 4016bb: c5 fb 5c 44 24 08 vsubsd xmm0,xmm0,QWORD PTR [rsp+0x8] 4016c1: bf 2b 20 40 00 mov 
+  edi,0x40202b 4016c6: b0 01 mov al,0x1 4016c8: e8 73 f1 ff ff call 400840 <printf@plt> 4016cd: bf cb 20 40 00 mov 
+  edi,0x4020cb 4016d2: e8 c9 f1 ff ff call 4008a0 <puts@plt> 4016d7: c4 c1 7a 10 07 vmovss xmm0,DWORD PTR [r15] 4016dc: 
+  c4 c1 7a 10 8f 38 13 vmovss xmm1,DWORD PTR [r15+0x1338] 4016e3: 00 00 4016e5: c4 c1 7a 10 97 dc 4f vmovss xmm2,DWORD 
+  PTR [r15+0x1d4fdc] 4016ec: 1d 00 4016ee: bf 56 20 40 00 mov edi,0x402056 4016f3: b0 03 mov al,0x3 4016f5: c5 fa 5a c0 
+  vcvtss2sd xmm0,xmm0,xmm0 4016f9: c5 f2 5a c9 vcvtss2sd xmm1,xmm1,xmm1 4016fd: c5 ea 5a d2 vcvtss2sd xmm2,xmm2,xmm2 
+  401701: e8 3a f1 ff ff call 400840 <printf@plt> 401706: ba 00 28 6b ee mov edx,0xee6b2800 40170b: 45 31 e4 xor 
+  r12d,r12d 40170e: 4c 89 ff mov rdi,r15 401711: 31 f6 xor esi,esi 401713: e8 48 f1 ff ff call 400860 <memset@plt> 
+  401718: c5 fd 6f 05 00 08 00 vmovdqa ymm0,YMMWORD PTR [rip+0x800] # 401f20 <_IO_stdin_used+0x20> 40171f: 00 401720: c5 
+  fd 6f 0d 18 08 00 vmovdqa ymm1,YMMWORD PTR [rip+0x818] # 401f40 <_IO_stdin_used+0x40> 401727: 00 401728: c5 fe 6f 7c 24 
+  10 vmovdqu ymm7,YMMWORD PTR [rsp+0x10] 40172e: c5 7e 6f 44 24 50 vmovdqu ymm8,YMMWORD PTR [rsp+0x50] 401734: c5 7e 6f 
+  4c 24 30 vmovdqu ymm9,YMMWORD PTR [rsp+0x30] 40173a: 66 0f 1f 44 00 00 nop WORD PTR [rax+rax*1+0x0] 401740: c4 e1 f9 7e 
+  c2 vmovq rdx,xmm0 401745: c4 e3 7d 39 c3 01 vextracti128 xmm3,ymm0,0x1 40174b: c4 c3 f9 16 c1 01 vpextrq r9,xmm0,0x1 
+  401751: c4 e3 7d 39 ca 01 vextracti128 xmm2,ymm1,0x1 401757: c4 e1 f9 7e ce vmovq rsi,xmm1 40175c: c4 e3 f9 16 c9 01 
+  vpextrq rcx,xmm1,0x1 401762: c4 42 ab f6 d5 mulx r10,r10,r13 401767: 49 29 d2 sub r10,rdx 40176a: 4c 89 ca mov rdx,r9 
+  40176d: c4 42 a3 f6 dd mulx r11,r11,r13 401772: c4 c1 f9 7e d8 vmovq r8,xmm3 401777: c4 e3 f9 16 df 01 vpextrq 
+  rdi,xmm3,0x1 40177d: c4 e3 f9 16 d0 01 vpextrq rax,xmm2,0x1 401783: 4c 89 c2 mov rdx,r8 401786: c4 c1 f9 6e ea vmovq 
+  xmm5,r10 40178b: 4d 29 cb sub r11,r9 40178e: c4 42 b3 f6 cd mulx r9,r9,r13 401793: 48 89 fa mov rdx,rdi 401796: 4d 29 
+  c1 sub r9,r8 401799: c4 42 bb f6 c5 mulx r8,r8,r13 40179e: 48 89 f2 mov rdx,rsi 4017a1: 49 29 f8 sub r8,rdi 4017a4: c4 
+  c2 c3 f6 fd mulx rdi,rdi,r13 4017a9: 48 89 ca mov rdx,rcx 4017ac: 48 29 f7 sub rdi,rsi 4017af: c4 c2 cb f6 f5 mulx 
+  rsi,rsi,r13 4017b4: c4 e1 f9 7e d2 vmovq rdx,xmm2 4017b9: c4 c2 d3 f6 ed mulx rbp,rbp,r13 4017be: c4 e1 f9 6e e7 vmovq 
+  xmm4,rdi 4017c3: 48 29 ce sub rsi,rcx 4017c6: 48 29 d5 sub rbp,rdx 4017c9: 48 89 c2 mov rdx,rax 4017cc: c4 c2 eb f6 d5 
+  mulx rdx,rdx,r13 4017d1: c4 e1 f9 6e dd vmovq xmm3,rbp 4017d6: 48 29 c2 sub rdx,rax 4017d9: c4 e1 f9 6e d2 vmovq 
+  xmm2,rdx 4017de: c5 e1 6c d2 vpunpcklqdq xmm2,xmm3,xmm2 4017e2: c4 e1 f9 6e de vmovq xmm3,rsi 4017e7: c5 d9 6c db 
+  vpunpcklqdq xmm3,xmm4,xmm3 4017eb: c4 c1 f9 6e e1 vmovq xmm4,r9 4017f0: c4 e3 65 38 d2 01 vinserti128 
+  ymm2,ymm3,xmm2,0x1 4017f6: c4 c1 f9 6e d8 vmovq xmm3,r8 4017fb: c5 d9 6c db vpunpcklqdq xmm3,xmm4,xmm3 4017ff: c4 c1 f9 
+  6e e3 vmovq xmm4,r11 401804: c5 d1 6c e4 vpunpcklqdq xmm4,xmm5,xmm4 401808: c5 f5 d4 d2 vpaddq ymm2,ymm1,ymm2 40180c: 
+  c4 e3 5d 38 db 01 vinserti128 ymm3,ymm4,xmm3,0x1 401812: c5 dd 72 e2 06 vpsrad ymm4,ymm2,0x6 401817: c5 ed 73 d2 06 
+  vpsrlq ymm2,ymm2,0x6 40181c: c5 dd 73 d4 20 vpsrlq ymm4,ymm4,0x20 401821: c5 6d f4 d7 vpmuludq ymm10,ymm2,ymm7 401825: 
+  c5 bd f4 d2 vpmuludq ymm2,ymm8,ymm2 401829: c5 fd d4 db vpaddq ymm3,ymm0,ymm3 40182d: c5 bd f4 e4 vpmuludq 
+  ymm4,ymm8,ymm4 401831: c5 d5 72 e3 06 vpsrad ymm5,ymm3,0x6 401836: c5 e5 73 d3 06 vpsrlq ymm3,ymm3,0x6 40183b: c5 d5 73 
+  d5 20 vpsrlq ymm5,ymm5,0x20 401840: c5 e5 f4 f7 vpmuludq ymm6,ymm3,ymm7 401844: c5 bd f4 db vpmuludq ymm3,ymm8,ymm3 
+  401848: c5 ed d4 d1 vpaddq ymm2,ymm2,ymm1 40184c: c5 b5 d4 c9 vpaddq ymm1,ymm9,ymm1 401850: c5 bd f4 ed vpmuludq 
+  ymm5,ymm8,ymm5 401854: c5 ad d4 e4 vpaddq ymm4,ymm10,ymm4 401858: c5 dd 73 f4 20 vpsllq ymm4,ymm4,0x20 40185d: c5 e5 d4 
+  d8 vpaddq ymm3,ymm3,ymm0 401861: c5 ed d4 d4 vpaddq ymm2,ymm2,ymm4 401865: c5 cd d4 ed vpaddq ymm5,ymm6,ymm5 401869: c4 
+  e1 f9 7e d1 vmovq rcx,xmm2 40186e: c5 d5 73 f5 20 vpsllq ymm5,ymm5,0x20 401873: c5 e5 d4 dd vpaddq ymm3,ymm3,ymm5 
+  401877: c4 e3 f9 16 d8 01 vpextrq rax,xmm3,0x1 40187d: c4 e1 f9 7e da vmovq rdx,xmm3 401882: c4 e3 7d 39 db 01 
+  vextracti128 xmm3,ymm3,0x1 401888: c4 e1 a2 2a e0 vcvtsi2ss xmm4,xmm11,rax 40188d: c4 e1 a2 2a ea vcvtsi2ss 
+  xmm5,xmm11,rdx 401892: c4 e1 f9 7e d8 vmovq rax,xmm3 401897: c4 e3 51 21 e4 10 vinsertps xmm4,xmm5,xmm4,0x10 40189d: c4 
+  e1 a2 2a e8 vcvtsi2ss xmm5,xmm11,rax 4018a2: c4 e3 f9 16 d8 01 vpextrq rax,xmm3,0x1 4018a8: c4 e3 59 21 dd 20 vinsertps 
+  xmm3,xmm4,xmm5,0x20 4018ae: c4 e1 a2 2a e0 vcvtsi2ss xmm4,xmm11,rax 4018b3: c4 e3 f9 16 d0 01 vpextrq rax,xmm2,0x1 
+  4018b9: c4 e3 7d 39 d2 01 vextracti128 xmm2,ymm2,0x1 4018bf: c4 e1 a2 2a e9 vcvtsi2ss xmm5,xmm11,rcx 4018c4: c4 e3 61 
+  21 dc 30 vinsertps xmm3,xmm3,xmm4,0x30 4018ca: c4 e1 a2 2a e0 vcvtsi2ss xmm4,xmm11,rax 4018cf: c4 e1 f9 7e d0 vmovq 
+  rax,xmm2 4018d4: c4 e3 51 21 e4 10 vinsertps xmm4,xmm5,xmm4,0x10 4018da: c4 e1 a2 2a e8 vcvtsi2ss xmm5,xmm11,rax 
+  4018df: c4 e3 f9 16 d0 01 vpextrq rax,xmm2,0x1 4018e5: c4 e3 59 21 d5 20 vinsertps xmm2,xmm4,xmm5,0x20 4018eb: c4 e1 a2 
+  2a e0 vcvtsi2ss xmm4,xmm11,rax 4018f0: c5 b5 d4 c0 vpaddq ymm0,ymm9,ymm0 4018f4: c4 e3 69 21 d4 30 vinsertps 
+  xmm2,xmm2,xmm4,0x30 4018fa: c4 e3 6d 18 d3 01 vinsertf128 ymm2,ymm2,xmm3,0x1 401900: c4 a1 7c 29 14 a3 vmovaps YMMWORD 
+  PTR [rbx+r12*4],ymm2 401906: c5 ec 58 d2 vaddps ymm2,ymm2,ymm2 40190a: c4 81 7c 29 14 a6 vmovaps YMMWORD PTR 
+  [r14+r12*4],ymm2 401910: 49 83 c4 08 add r12,0x8 401914: 49 81 fc 00 ca 9a 3b cmp r12,0x3b9aca00 40191b: 0f 85 1f fe ff 
+  ff jne 401740 <main+0x640> 401921: 41 bc 60 00 00 00 mov r12d,0x60 401927: 49 c7 c5 b0 29 23 fe mov 
+  r13,0xfffffffffe2329b0 40192e: c5 f8 77 vzeroupper 401931: e8 8a ef ff ff call 4008c0 <omp_get_wtime@plt> 401936: c5 f9 
+  d6 44 24 10 vmovq QWORD PTR [rsp+0x10],xmm0 40193c: 0f 1f 40 00 nop DWORD PTR [rax+0x0] 401940: c4 81 7a 10 44 26 a0 
+  vmovss xmm0,DWORD PTR [r14+r12*1-0x60] 401947: c4 a1 7a 59 44 23 a0 vmulss xmm0,xmm0,DWORD PTR [rbx+r12*1-0x60] 40194e: 
+  c4 81 7a 11 44 27 a0 vmovss DWORD PTR [r15+r12*1-0x60],xmm0 401955: c4 81 7a 10 44 26 c0 vmovss xmm0,DWORD PTR 
+  [r14+r12*1-0x40] 40195c: c4 a1 7a 59 44 23 c0 vmulss xmm0,xmm0,DWORD PTR [rbx+r12*1-0x40] 401963: c4 81 7a 11 44 27 c0 
+  vmovss DWORD PTR [r15+r12*1-0x40],xmm0 40196a: c4 81 7a 10 44 26 e0 vmovss xmm0,DWORD PTR [r14+r12*1-0x20] 401971: c4 
+  a1 7a 59 44 23 e0 vmulss xmm0,xmm0,DWORD PTR [rbx+r12*1-0x20] 401978: c4 81 7a 11 44 27 e0 vmovss DWORD PTR 
+  [r15+r12*1-0x20],xmm0 40197f: c4 81 7a 10 04 26 vmovss xmm0,DWORD PTR [r14+r12*1] 401985: c4 a1 7a 59 04 23 vmulss 
+  xmm0,xmm0,DWORD PTR [rbx+r12*1] 40198b: c4 81 7a 11 04 27 vmovss DWORD PTR [r15+r12*1],xmm0 401991: 49 83 ec 80 sub 
+  r12,0xffffffffffffff80 401995: 49 ff c5 inc r13 401998: 75 a6 jne 401940 <main+0x840> 40199a: e8 21 ef ff ff call 
+  4008c0 <omp_get_wtime@plt> 40199f: c5 fb 5c 44 24 10 vsubsd xmm0,xmm0,QWORD PTR [rsp+0x10] 4019a5: bf 02 20 40 00 mov 
+  edi,0x402002 4019aa: b0 01 mov al,0x1 4019ac: e8 8f ee ff ff call 400840 <printf@plt> 4019b1: bf cb 20 40 00 mov 
+  edi,0x4020cb 4019b6: e8 e5 ee ff ff call 4008a0 <puts@plt> 4019bb: c4 c1 7a 10 07 vmovss xmm0,DWORD PTR [r15] 4019c0: 
+  c4 c1 7a 10 8f 38 13 vmovss xmm1,DWORD PTR [r15+0x1338] 4019c7: 00 00 4019c9: c4 c1 7a 10 97 dc 4f vmovss xmm2,DWORD 
+  PTR [r15+0x1d4fdc] 4019d0: 1d 00 4019d2: bf 56 20 40 00 mov edi,0x402056 4019d7: b0 03 mov al,0x3 4019d9: c5 fa 5a c0 
+  vcvtss2sd xmm0,xmm0,xmm0 4019dd: c5 f2 5a c9 vcvtss2sd xmm1,xmm1,xmm1 4019e1: c5 ea 5a d2 vcvtss2sd xmm2,xmm2,xmm2 
+  4019e5: e8 56 ee ff ff call 400840 <printf@plt> 4019ea: 45 31 e4 xor r12d,r12d 4019ed: 0f 1f 00 nop DWORD PTR [rax] 
+  4019f0: e8 5b ee ff ff call 400850 <rand@plt> 4019f5: c5 fa 10 0d 07 05 00 vmovss xmm1,DWORD PTR [rip+0x507] # 401f04 
+  <_IO_stdin_used+0x4> 4019fc: 00 4019fd: c5 c2 2a c0 vcvtsi2ss xmm0,xmm7,eax 401a01: c5 fa 10 15 ff 04 00 vmovss 
+  xmm2,DWORD PTR [rip+0x4ff] # 401f08 <_IO_stdin_used+0x8> 401a08: 00 401a09: c5 fa 58 c0 vaddss xmm0,xmm0,xmm0 401a0d: 
+  c5 fa 59 c1 vmulss xmm0,xmm0,xmm1 401a11: c5 fa 58 c2 vaddss xmm0,xmm0,xmm2 401a15: c4 a1 7a 11 04 a3 vmovss DWORD PTR 
+  [rbx+r12*4],xmm0 401a1b: e8 30 ee ff ff call 400850 <rand@plt> 401a20: c5 c2 2a c0 vcvtsi2ss xmm0,xmm7,eax 401a24: c5 
+  fa 58 c0 vaddss xmm0,xmm0,xmm0 401a28: c5 fa 59 05 d4 04 00 vmulss xmm0,xmm0,DWORD PTR [rip+0x4d4] # 401f04 
+  <_IO_stdin_used+0x4> 401a2f: 00 401a30: c5 fa 58 05 d0 04 00 vaddss xmm0,xmm0,DWORD PTR [rip+0x4d0] # 401f08 
+  <_IO_stdin_used+0x8> 401a37: 00 401a38: c4 81 7a 11 04 a6 vmovss DWORD PTR [r14+r12*4],xmm0 401a3e: 49 ff c4 inc r12 
+  401a41: 49 81 fc 00 ca 9a 3b cmp r12,0x3b9aca00 401a48: 75 a6 jne 4019f0 <main+0x8f0> 401a4a: 41 bc 7c 00 00 00 mov 
+  r12d,0x7c 401a50: 41 bd 01 65 cd 1d mov r13d,0x1dcd6501 401a56: e8 65 ee ff ff call 4008c0 <omp_get_wtime@plt> 401a5b: 
+  c5 fb 11 44 24 10 vmovsd QWORD PTR [rsp+0x10],xmm0 401a61: c4 41 39 ef c0 vpxor xmm8,xmm8,xmm8 401a66: c5 f8 57 c0 
+  vxorps xmm0,xmm0,xmm0 401a6a: 66 0f 1f 44 00 00 nop WORD PTR [rax+rax*1+0x0] 401a70: c4 81 7a 10 4c 26 88 vmovss 
+  xmm1,DWORD PTR [r14+r12*1-0x78] 401a77: c4 81 7a 10 64 26 a8 vmovss xmm4,DWORD PTR [r14+r12*1-0x58] 401a7e: c4 81 7a 10 
+  54 26 84 vmovss xmm2,DWORD PTR [r14+r12*1-0x7c] 401a85: c4 81 7a 10 5c 26 a4 vmovss xmm3,DWORD PTR [r14+r12*1-0x5c] 
+  401a8c: c4 a1 7a 10 6c 23 88 vmovss xmm5,DWORD PTR [rbx+r12*1-0x78] 401a93: c4 a1 7a 10 74 23 a4 vmovss xmm6,DWORD PTR 
+  [rbx+r12*1-0x5c] 401a9a: c4 a1 7a 10 7c 23 a8 vmovss xmm7,DWORD PTR [rbx+r12*1-0x58] 401aa1: 49 83 c5 f0 add 
+  r13,0xfffffffffffffff0 401aa5: c4 83 59 21 64 26 b0 vinsertps xmm4,xmm4,DWORD PTR [r14+r12*1-0x50],0x10 401aac: 10 
+  401aad: c4 83 71 21 4c 26 90 vinsertps xmm1,xmm1,DWORD PTR [r14+r12*1-0x70],0x10 401ab4: 10 401ab5: c4 83 61 21 5c 26 
+  ac vinsertps xmm3,xmm3,DWORD PTR [r14+r12*1-0x54],0x10 401abc: 10 401abd: c4 83 69 21 54 26 8c vinsertps 
+  xmm2,xmm2,DWORD PTR [r14+r12*1-0x74],0x10 401ac4: 10 401ac5: c4 a3 49 21 74 23 ac vinsertps xmm6,xmm6,DWORD PTR 
+  [rbx+r12*1-0x54],0x10 401acc: 10 401acd: c4 a3 51 21 6c 23 90 vinsertps xmm5,xmm5,DWORD PTR [rbx+r12*1-0x70],0x10 
+  401ad4: 10 401ad5: c4 83 71 21 4c 26 98 vinsertps xmm1,xmm1,DWORD PTR [r14+r12*1-0x68],0x20 401adc: 20 401add: c4 83 59 
+  21 64 26 b8 vinsertps xmm4,xmm4,DWORD PTR [r14+r12*1-0x48],0x20 401ae4: 20 401ae5: c4 83 69 21 54 26 94 vinsertps 
+  xmm2,xmm2,DWORD PTR [r14+r12*1-0x6c],0x20 401aec: 20 401aed: c4 83 61 21 5c 26 b4 vinsertps xmm3,xmm3,DWORD PTR 
+  [r14+r12*1-0x4c],0x20 401af4: 20 401af5: c4 a3 51 21 6c 23 98 vinsertps xmm5,xmm5,DWORD PTR [rbx+r12*1-0x68],0x20 
+  401afc: 20 401afd: c4 a3 49 21 74 23 b4 vinsertps xmm6,xmm6,DWORD PTR [rbx+r12*1-0x4c],0x20 401b04: 20 401b05: c4 83 59 
+  21 64 26 c0 vinsertps xmm4,xmm4,DWORD PTR [r14+r12*1-0x40],0x30 401b0c: 30 401b0d: c4 83 71 21 4c 26 a0 vinsertps 
+  xmm1,xmm1,DWORD PTR [r14+r12*1-0x60],0x30 401b14: 30 401b15: c4 83 61 21 5c 26 bc vinsertps xmm3,xmm3,DWORD PTR 
+  [r14+r12*1-0x44],0x30 401b1c: 30 401b1d: c4 83 69 21 54 26 9c vinsertps xmm2,xmm2,DWORD PTR [r14+r12*1-0x64],0x30 
+  401b24: 30 401b25: c4 a3 49 21 74 23 bc vinsertps xmm6,xmm6,DWORD PTR [rbx+r12*1-0x44],0x30 401b2c: 30 401b2d: c4 a3 51 
+  21 6c 23 a0 vinsertps xmm5,xmm5,DWORD PTR [rbx+r12*1-0x60],0x30 401b34: 30 401b35: c4 e3 75 18 cc 01 vinsertf128 
+  ymm1,ymm1,xmm4,0x1 401b3b: c4 a1 7a 10 64 23 84 vmovss xmm4,DWORD PTR [rbx+r12*1-0x7c] 401b42: c4 e3 6d 18 d3 01 
+  vinsertf128 ymm2,ymm2,xmm3,0x1 401b48: c4 a3 41 21 5c 23 b0 vinsertps xmm3,xmm7,DWORD PTR [rbx+r12*1-0x50],0x10 401b4f: 
+  10 401b50: c4 a3 59 21 64 23 8c vinsertps xmm4,xmm4,DWORD PTR [rbx+r12*1-0x74],0x10 401b57: 10 401b58: c4 a3 61 21 5c 
+  23 b8 vinsertps xmm3,xmm3,DWORD PTR [rbx+r12*1-0x48],0x20 401b5f: 20 401b60: c4 a3 59 21 64 23 94 vinsertps 
+  xmm4,xmm4,DWORD PTR [rbx+r12*1-0x6c],0x20 401b67: 20 401b68: c4 a3 61 21 5c 23 c0 vinsertps xmm3,xmm3,DWORD PTR 
+  [rbx+r12*1-0x40],0x30 401b6f: 30 401b70: c4 a3 59 21 64 23 9c vinsertps xmm4,xmm4,DWORD PTR [rbx+r12*1-0x64],0x30 
+  401b77: 30 401b78: c4 e3 55 18 db 01 vinsertf128 ymm3,ymm5,xmm3,0x1 401b7e: c4 e3 5d 18 e6 01 vinsertf128 
+  ymm4,ymm4,xmm6,0x1 401b84: c4 a1 7a 10 74 23 c8 vmovss xmm6,DWORD PTR [rbx+r12*1-0x38] 401b8b: c5 f4 59 eb vmulps 
+  ymm5,ymm1,ymm3 401b8f: c4 a3 49 21 74 23 d0 vinsertps xmm6,xmm6,DWORD PTR [rbx+r12*1-0x30],0x10 401b96: 10 401b97: c5 
+  dc 59 c9 vmulps ymm1,ymm4,ymm1 401b9b: c4 a3 49 21 74 23 d8 vinsertps xmm6,xmm6,DWORD PTR [rbx+r12*1-0x28],0x20 401ba2: 
+  20 401ba3: c4 a3 49 21 74 23 e0 vinsertps xmm6,xmm6,DWORD PTR [rbx+r12*1-0x20],0x30 401baa: 30 401bab: c4 e2 5d b8 ea 
+  vfmadd231ps ymm5,ymm4,ymm2 401bb0: c4 a1 7a 10 64 23 c4 vmovss xmm4,DWORD PTR [rbx+r12*1-0x3c] 401bb7: c4 e2 6d ba cb 
+  vfmsub231ps ymm1,ymm2,ymm3 401bbc: c4 81 7a 10 54 26 e8 vmovss xmm2,DWORD PTR [r14+r12*1-0x18] 401bc3: c4 81 7a 10 5c 
+  26 c8 vmovss xmm3,DWORD PTR [r14+r12*1-0x38] 401bca: c4 a3 59 21 64 23 cc vinsertps xmm4,xmm4,DWORD PTR 
+  [rbx+r12*1-0x34],0x10 401bd1: 10 401bd2: c4 83 69 21 54 26 f0 vinsertps xmm2,xmm2,DWORD PTR [r14+r12*1-0x10],0x10 
+  401bd9: 10 401bda: c4 83 61 21 5c 26 d0 vinsertps xmm3,xmm3,DWORD PTR [r14+r12*1-0x30],0x10 401be1: 10 401be2: c4 a3 59 
+  21 64 23 d4 vinsertps xmm4,xmm4,DWORD PTR [rbx+r12*1-0x2c],0x20 401be9: 20 401bea: c4 83 61 21 5c 26 d8 vinsertps 
+  xmm3,xmm3,DWORD PTR [r14+r12*1-0x28],0x20 401bf1: 20 401bf2: c4 83 69 21 54 26 f8 vinsertps xmm2,xmm2,DWORD PTR 
+  [r14+r12*1-0x8],0x20 401bf9: 20 401bfa: c4 a3 59 21 64 23 dc vinsertps xmm4,xmm4,DWORD PTR [rbx+r12*1-0x24],0x30 
+  401c01: 30 401c02: c4 83 69 21 14 26 30 vinsertps xmm2,xmm2,DWORD PTR [r14+r12*1],0x30 401c09: c4 83 61 21 5c 26 e0 
+  vinsertps xmm3,xmm3,DWORD PTR [r14+r12*1-0x20],0x30 401c10: 30 401c11: c5 fc 58 c5 vaddps ymm0,ymm0,ymm5 401c15: c4 81 
+  7a 10 6c 26 c4 vmovss xmm5,DWORD PTR [r14+r12*1-0x3c] 401c1c: c4 83 51 21 6c 26 cc vinsertps xmm5,xmm5,DWORD PTR 
+  [r14+r12*1-0x34],0x10 401c23: 10 401c24: c5 bc 58 c9 vaddps ymm1,ymm8,ymm1 401c28: c4 83 51 21 6c 26 d4 vinsertps 
+  xmm5,xmm5,DWORD PTR [r14+r12*1-0x2c],0x20 401c2f: 20 401c30: c4 83 51 21 6c 26 dc vinsertps xmm5,xmm5,DWORD PTR 
+  [r14+r12*1-0x24],0x30 401c37: 30 401c38: c4 e3 65 18 d2 01 vinsertf128 ymm2,ymm3,xmm2,0x1 401c3e: c4 a1 7a 10 5c 23 e4 
+  vmovss xmm3,DWORD PTR [rbx+r12*1-0x1c] 401c45: c4 a3 61 21 5c 23 ec vinsertps xmm3,xmm3,DWORD PTR [rbx+r12*1-0x14],0x10 
+  401c4c: 10 401c4d: c4 a3 61 21 5c 23 f4 vinsertps xmm3,xmm3,DWORD PTR [rbx+r12*1-0xc],0x20 401c54: 20 401c55: c4 a3 61 
+  21 5c 23 fc vinsertps xmm3,xmm3,DWORD PTR [rbx+r12*1-0x4],0x30 401c5c: 30 401c5d: c4 e3 5d 18 db 01 vinsertf128 
+  ymm3,ymm4,xmm3,0x1 401c63: c4 81 7a 10 64 26 e4 vmovss xmm4,DWORD PTR [r14+r12*1-0x1c] 401c6a: c4 83 59 21 64 26 ec 
+  vinsertps xmm4,xmm4,DWORD PTR [r14+r12*1-0x14],0x10 401c71: 10 401c72: c4 83 59 21 64 26 f4 vinsertps xmm4,xmm4,DWORD 
+  PTR [r14+r12*1-0xc],0x20 401c79: 20 401c7a: c4 83 59 21 64 26 fc vinsertps xmm4,xmm4,DWORD PTR [r14+r12*1-0x4],0x30 
+  401c81: 30 401c82: c4 e3 55 18 e4 01 vinsertf128 ymm4,ymm5,xmm4,0x1 401c88: c4 a1 7a 10 6c 23 e8 vmovss xmm5,DWORD PTR 
+  [rbx+r12*1-0x18] 401c8f: c4 a3 51 21 6c 23 f0 vinsertps xmm5,xmm5,DWORD PTR [rbx+r12*1-0x10],0x10 401c96: 10 401c97: c4 
+  a3 51 21 6c 23 f8 vinsertps xmm5,xmm5,DWORD PTR [rbx+r12*1-0x8],0x20 401c9e: 20 401c9f: c4 a3 51 21 2c 23 30 vinsertps 
+  xmm5,xmm5,DWORD PTR [rbx+r12*1],0x30 401ca6: 49 83 ec 80 sub r12,0xffffffffffffff80 401caa: c4 e3 4d 18 ed 01 
+  vinsertf128 ymm5,ymm6,xmm5,0x1 401cb0: c5 ec 59 f5 vmulps ymm6,ymm2,ymm5 401cb4: c5 e4 59 d2 vmulps ymm2,ymm3,ymm2 
+  401cb8: c4 e2 65 b8 f4 vfmadd231ps ymm6,ymm3,ymm4 401cbd: c4 e2 5d ba d5 vfmsub231ps ymm2,ymm4,ymm5 401cc2: c5 fc 58 c6 
+  vaddps ymm0,ymm0,ymm6 401cc6: c5 74 58 c2 vaddps ymm8,ymm1,ymm2 401cca: 49 83 fd 10 cmp r13,0x10 401cce: 0f 87 9c fd ff 
+  ff ja 401a70 <main+0x970> 401cd4: c4 e3 7d 19 c1 01 vextractf128 xmm1,ymm0,0x1 401cda: c5 f8 58 c1 vaddps 
+  xmm0,xmm0,xmm1 401cde: c5 f9 c6 c8 01 vshufpd xmm1,xmm0,xmm0,0x1 401ce3: c5 f8 58 c1 vaddps xmm0,xmm0,xmm1 401ce7: c5 
+  fa 16 c8 vmovshdup xmm1,xmm0 401ceb: c5 fa 58 c1 vaddss xmm0,xmm0,xmm1 401cef: c5 fa 11 44 24 50 vmovss DWORD PTR 
+  [rsp+0x50],xmm0 401cf5: c4 63 7d 19 c0 01 vextractf128 xmm0,ymm8,0x1 401cfb: c5 b8 58 c0 vaddps xmm0,xmm8,xmm0 401cff: 
+  c5 f9 c6 c8 01 vshufpd xmm1,xmm0,xmm0,0x1 401d04: c5 f8 58 c1 vaddps xmm0,xmm0,xmm1 401d08: c5 fa 16 c8 vmovshdup 
+  xmm1,xmm0 401d0c: c5 fa 58 c1 vaddss xmm0,xmm0,xmm1 401d10: c5 fa 11 44 24 30 vmovss DWORD PTR [rsp+0x30],xmm0 401d16: 
+  c5 f8 77 vzeroupper 401d19: e8 a2 eb ff ff call 4008c0 <omp_get_wtime@plt> 401d1e: c5 fb 5c 44 24 10 vsubsd 
+  xmm0,xmm0,QWORD PTR [rsp+0x10] 401d24: bf dd 1f 40 00 mov edi,0x401fdd 401d29: b0 01 mov al,0x1 401d2b: e8 10 eb ff ff 
+  call 400840 <printf@plt> 401d30: c5 fa 10 44 24 50 vmovss xmm0,DWORD PTR [rsp+0x50] 401d36: c5 fa 10 4c 24 30 vmovss 
+  xmm1,DWORD PTR [rsp+0x30] 401d3c: bf cc 1f 40 00 mov edi,0x401fcc 401d41: b0 02 mov al,0x2 401d43: c5 fa 5a c0 
+  vcvtss2sd xmm0,xmm0,xmm0 401d47: c5 f2 5a c9 vcvtss2sd xmm1,xmm1,xmm1 401d4b: e8 f0 ea ff ff call 400840 <printf@plt> 
+  401d50: 41 bc 40 59 73 07 mov r12d,0x7735940 401d56: 45 31 ed xor r13d,r13d 401d59: e8 62 eb ff ff call 4008c0 
+  <omp_get_wtime@plt> 401d5e: c5 fb 11 44 24 10 vmovsd QWORD PTR [rsp+0x10],xmm0 401d64: c4 e2 7d 19 05 2b 02 
+  vbroadcastsd ymm0,QWORD PTR [rip+0x22b] # 401f98 <_IO_stdin_used+0x98> 401d6b: 00 00 401d6d: c5 d0 57 ed vxorps 
+  xmm5,xmm5,xmm5 401d71: c5 f0 57 c9 vxorps xmm1,xmm1,xmm1 401d75: 66 66 2e 0f 1f 84 00 data16 cs nop WORD PTR 
+  [rax+rax*1+0x0] 401d7c: 00 00 00 00 401d80: c4 a1 7c 28 14 2b vmovaps ymm2,YMMWORD PTR [rbx+r13*1] 401d86: c4 81 7c 28 
+  1c 2e vmovaps ymm3,YMMWORD PTR [r14+r13*1] 401d8c: 49 83 c5 20 add r13,0x20 401d90: 49 ff cc dec r12 401d93: c5 ec 59 
+  e3 vmulps ymm4,ymm2,ymm3 401d97: c5 e4 c6 db b1 vshufps ymm3,ymm3,ymm3,0xb1 401d9c: c5 e4 59 d8 vmulps ymm3,ymm3,ymm0 
+  401da0: c5 f4 58 cc vaddps ymm1,ymm1,ymm4 401da4: c5 ec 59 d3 vmulps ymm2,ymm2,ymm3 401da8: c5 d4 58 ea vaddps 
+  ymm5,ymm5,ymm2 401dac: 75 d2 jne 401d80 <main+0xc80> 401dae: c5 f7 7c c1 vhaddps ymm0,ymm1,ymm1 401db2: c5 d7 7c cd 
+  vhaddps ymm1,ymm5,ymm5 401db6: c5 ff 7c c0 vhaddps ymm0,ymm0,ymm0 401dba: c5 f7 7c c9 vhaddps ymm1,ymm1,ymm1 401dbe: c4 
+  e3 7d 19 c2 01 vextractf128 xmm2,ymm0,0x1 401dc4: c5 fa 58 c2 vaddss xmm0,xmm0,xmm2 401dc8: c5 fa 11 44 24 50 vmovss 
+  DWORD PTR [rsp+0x50],xmm0 401dce: c4 e3 7d 19 c8 01 vextractf128 xmm0,ymm1,0x1 401dd4: c5 f2 58 c0 vaddss 
+  xmm0,xmm1,xmm0 401dd8: c5 fa 11 44 24 30 vmovss DWORD PTR [rsp+0x30],xmm0 401dde: c5 f8 77 vzeroupper 401de1: e8 da ea 
+  ff ff call 4008c0 <omp_get_wtime@plt> 401de6: c5 fb 5c 44 24 10 vsubsd xmm0,xmm0,QWORD PTR [rsp+0x10] 401dec: bf a0 1f 
+  40 00 mov edi,0x401fa0 401df1: b0 01 mov al,0x1 401df3: e8 48 ea ff ff call 400840 <printf@plt> 401df8: c5 fa 10 44 24 
+  50 vmovss xmm0,DWORD PTR [rsp+0x50] 401dfe: c5 fa 10 4c 24 30 vmovss xmm1,DWORD PTR [rsp+0x30] 401e04: bf cc 1f 40 00 
+  mov edi,0x401fcc 401e09: b0 02 mov al,0x2 401e0b: c5 fa 5a c0 vcvtss2sd xmm0,xmm0,xmm0 401e0f: c5 f2 5a c9 vcvtss2sd 
+  xmm1,xmm1,xmm1 401e13: e8 28 ea ff ff call 400840 <printf@plt> 401e18: 48 89 df mov rdi,rbx 401e1b: e8 60 ea ff ff call 
+  400880 <free@plt> 401e20: 4c 89 f7 mov rdi,r14 401e23: e8 58 ea ff ff call 400880 <free@plt> 401e28: 4c 89 ff mov 
+  rdi,r15 401e2b: e8 50 ea ff ff call 400880 <free@plt> 401e30: 31 c0 xor eax,eax 401e32: 48 83 c4 78 add rsp,0x78 
+  401e36: 5b pop rbx 401e37: 41 5c pop r12 401e39: 41 5d pop r13 401e3b: 41 5e pop r14 401e3d: 41 5f pop r15 401e3f: 5d 
+  pop rbp 401e40: c3 ret 401e41: 66 2e 0f 1f 84 00 00 cs nop WORD PTR [rax+rax*1+0x0] 401e48: 00 00 00 401e4b: 0f 1f 44 
+  00 00 nop DWORD PTR [rax+rax*1+0x0] 401e50: 90 nop 401e51: 90 nop 401e52: 90 nop 401e53: 90 nop 401e54: 90 nop 401e55: 
+  90 nop 401e56: 90 nop 401e57: 90 nop 401e58: 90 nop 401e59: 90 nop 401e5a: 90 nop 401e5b: 90 nop 401e5c: 90 nop 401e5d: 
+  90 nop
+0000000000401e5e <__libc_csu_init>: 401e5e: 90 nop 401e5f: 90 nop 401e60: 41 57 push r15 401e62: 41 56 push r14 401e64: 
+  49 89 d7 mov r15,rdx 401e67: 41 55 push r13 401e69: 41 54 push r12 401e6b: 4c 8d 25 de 1e 00 00 lea r12,[rip+0x1ede] # 
+  403d50 <__frame_dummy_init_array_entry> 401e72: 55 push rbp 401e73: 48 8d 2d f6 1e 00 00 lea rbp,[rip+0x1ef6] # 403d70 
+  <__do_global_dtors_aux_fini_array_entry> 401e7a: 53 push rbx 401e7b: 41 89 fd mov r13d,edi 401e7e: 49 89 f6 mov r14,rsi 
+  401e81: 4c 29 e5 sub rbp,r12 401e84: 48 83 ec 08 sub rsp,0x8 401e88: 48 c1 fd 03 sar rbp,0x3 401e8c: e8 87 e9 ff ff 
+  call 400818 <_init> 401e91: 48 85 ed test rbp,rbp 401e94: 74 20 je 401eb6 <__libc_csu_init+0x58> 401e96: 31 db xor 
+  ebx,ebx 401e98: 0f 1f 84 00 00 00 00 nop DWORD PTR [rax+rax*1+0x0] 401e9f: 00 401ea0: 4c 89 fa mov rdx,r15 401ea3: 4c 
+  89 f6 mov rsi,r14 401ea6: 44 89 ef mov edi,r13d 401ea9: 41 ff 14 dc call QWORD PTR [r12+rbx*8] 401ead: 48 83 c3 01 add 
+  rbx,0x1 401eb1: 48 39 dd cmp rbp,rbx 401eb4: 75 ea jne 401ea0 <__libc_csu_init+0x42> 401eb6: 48 83 c4 08 add rsp,0x8 
+  401eba: 5b pop rbx 401ebb: 5d pop rbp 401ebc: 41 5c pop r12 401ebe: 41 5d pop r13 401ec0: 41 5e pop r14 401ec2: 41 5f 
+  pop r15 401ec4: c3 ret 401ec5: 66 66 2e 0f 1f 84 00 data16 cs nop WORD PTR [rax+rax*1+0x0] 401ecc: 00 00 00 00 401ed0: 
+  90 nop 401ed1: 90 nop 401ed2: 90 nop 401ed3: 90 nop 401ed4: 90 nop 401ed5: 90 nop 401ed6: 90 nop 401ed7: 90 nop 401ed8: 
+  90 nop 401ed9: 90 nop 401eda: 90 nop 401edb: 90 nop 401edc: 90 nop 401edd: 90 nop
+0000000000401ede <__libc_csu_fini>: 401ede: 90 nop 401edf: 90 nop 401ee0: f3 c3 repz ret Disassembly of section .fini: 
+0000000000401ee4 <_fini>:
+  401ee4: 48 83 ec 08 sub rsp,0x8 401ee8: 48 83 c4 08 add rsp,0x8 401eec: c3 ret

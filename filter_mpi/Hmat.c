@@ -159,7 +159,7 @@ void diag_H(
   }
   // Use Hermitian diagonalization routine for complex wavefunctions
   if (1 == flag->isComplex){
-    zheev_("V","U", &mn_states_tot, &H_z[0], &mn_states_tot, &eval[0], &work_z[0], &lwk, &(rwork[0]), &info);
+    zheev_("V","U", &mn_states_tot, &H_z[0], &mn_states_tot, &eval[0], &work_z[0], &lwk, &rwork[0], &info);
     if (info){
       fprintf(stderr, "error in zheev_ H\n"); exit(EXIT_FAILURE);
     }

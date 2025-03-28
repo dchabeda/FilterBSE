@@ -1,10 +1,20 @@
 /*****************************************************************************/
 
-#include "fd.h"
+#include "basis.h"
 
 /*****************************************************************************/
 
-void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+void get_qp_basis_indices(
+  double*         eig_vals, 
+  double*         sigma_E, 
+  long**          eval_hole_idxs, 
+  long**          eval_elec_idxs, 
+  index_st*       ist, 
+  par_st*         par, 
+  flag_st*        flag, 
+  parallel_st*    parallel
+  ){
+  
   /*******************************************************************
   * This function determines the indices of the electron and hole    *
   * states that will be used in the quasiparticle basis. The eigen-  *
@@ -213,7 +223,16 @@ void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_id
 
 /*****************************************************************************//*****************************************************************************/
 
-void get_qp_basis(double *psi_qp, double *psitot, double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag){
+void get_qp_basis(
+  double*         psi_qp, 
+  double*         psitot, 
+  double*         eig_vals, 
+  double*         sigma_E, 
+  index_st*       ist, 
+  par_st*         par, 
+  flag_st*        flag
+  ){
+  
   /*******************************************************************
   * This function copies the wavefunctions for the elec and hole     *
   * states for the quasiparticle basis into psi_hole and psi_elec.   *

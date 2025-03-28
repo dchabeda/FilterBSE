@@ -1,7 +1,5 @@
 #include "fd.h"
 #include <float.h>
-#include <mpi.h>
-#include <nvToolsExt.h>
 #include "aux.h"
 
 void calc_eh_kernel_cplx(

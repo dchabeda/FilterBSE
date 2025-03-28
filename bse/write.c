@@ -111,23 +111,18 @@ void write_separation(FILE *pf, char *top_bttm) {
   * outputs: void                                                  *
   ******************************************************************/
 
-  char *top_key; top_key = malloc(2*sizeof(top_key[0]));
-  char *bttm_key; bttm_key = malloc(2*sizeof(bttm_key[0]));
-  
-  strcpy(top_key, "T");
-  strcpy(bttm_key, "B");
+  const char top_key[] = "T";
+  const char bttm_key[] = "B";
 
-  if ( 0 == strcmp(top_bttm, (const char *) top_key) ){
+  if (strcmp(top_bttm, top_key) == 0) {
     fprintf(pf, "\n\n******************************************************************************\n");
-  } else if ( 0 == strcmp(top_bttm, (const char *) bttm_key) ){
+  } else if (strcmp(top_bttm, bttm_key) == 0) {
     fprintf(pf, "\n******************************************************************************\n");
   } else {
     fprintf(stderr, "Invalid string supplied to write_separation. Exiting!\n");
     exit(EXIT_FAILURE);
   }
 
-  free(top_key); free(bttm_key);
-  
   return;
 }
 

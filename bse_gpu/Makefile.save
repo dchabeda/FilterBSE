@@ -4,7 +4,8 @@ OS=Linux
 
 # libraries ...
 FFTW_PREFIX = $(CRAY_FFTW_PREFIX)/x86_64
-Linux_LIB = -lpthread -L$(FFTW_PREFIX)/lib/ -lfftw3 -lfftw3_threads -lfftw3_omp -L$(CRAY_LIBSCI_PREFIX_DIR)/lib -lsci_nvidia
+FFTW_LIB = -L$(FFTW_PREFIX)/lib/ -lfftw3 -lfftw3_threads -lfftw3_omp
+Linux_LIB = -lpthread $(FFTW_LIB) -L$(CRAY_LIBSCI_PREFIX_DIR)/lib -lsci_nvidia
 Linux_DYLIB = -lm
 FFTW_INCLUDE = -I$(CRAY_FFTW_PREFIX)/x86_64/include/
 
@@ -22,7 +23,7 @@ Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -g -Minfo=all -mp=gpu -gpu=cc80 -fast -lnvT
 MAINNAM = BSE
 
 # compiler ...
-Linux_CC = cc
+Linux_CC = nvc
 
 # obhect files
 OBJECTS = \

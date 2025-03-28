@@ -47,7 +47,10 @@ void calc_eh_kernel_cplx(
   const unsigned long   hidx       = ist->homo_idx;
   const unsigned long   n_el       = ist->n_elecs;
   const unsigned long   n_ho       = ist->n_holes;
+  const unsigned long   n_xton     = ist->n_xton;
   const unsigned long   stlen      = nspngr * ist->complex_idx;
+
+  const double          dv         = par->dv;
 
   const int             mpir       = parallel->mpi_rank;
 
@@ -137,6 +140,7 @@ void calc_eh_kernel_cplx(
     odd_comm = MPI_COMM_NULL;
 
     unsigned long        ab_tot    = n_el * n_el;
+    unsigned long        ij_tot    = n_ho * n_ho;
     unsigned long        ns_p_rank = ab_tot / even_size;
     unsigned long        b_p;
     unsigned long       *lista, *listb;
@@ -144,13 +148,25 @@ void calc_eh_kernel_cplx(
 
     lista   =  (unsigned long *) calloc(ab_tot, sizeof(unsigned long));
     listb   =  (unsigned long *) calloc(ab_tot, sizeof(unsigned long));
+    listi   =  (unsigned long *) calloc(ij_tot, sizeof(unsigned long));
+    listj   =  (unsigned long *) calloc(ij_tot, sizeof(unsigned long));
 
+    // Construct unique indices a, b, i, j to compute only upper triangle
+    // of K^d matrix
     for (a = lidx; a < lidx + n_el; a++){
       for (b = lidx; b < lidx + n_el; b++){
         lista[ (a-lidx) * n_el + (b-lidx)] = a;
         listb[ (a-lidx) * n_el + (b-lidx)] = b;
+        for (i = 0; i < n_ho; i++){
+          int jstart = (a == b) ? i: 0;
+          for (j = jstart; j < n_ho; j++){
+            listi[]
+          }
+        }
       }
     }
+
+
 
     /************************************************************/
     /******************    ASSIGN WORKLOADS   *******************/
@@ -190,6 +206,9 @@ void calc_eh_kernel_cplx(
     /******************    DO K^D INTEGRAL    *******************/
     /************************************************************/
 
+    // First, offload the hole states of psi_qp & listibs onto GPU
+    // Allocate pot_htree once before ab loop
+
     pf = fopen(fileName , "w");
     printf("Starting at ab = %lu on even rank %d\n", start, even_rank); fflush(0);
     for (ab = start; ab < ab_tot; ab += even_size) {
@@ -217,57 +236,70 @@ void calc_eh_kernel_cplx(
       // Compute the hartree potential and store in pot_htree 
       // h_d(r) = \int W(r,r') \rho_{ab}(r') d^3r' via fourier transform
       hartree(rho, pot_screened, pot_htree, ist, planfw, planbw, fftwpsi);            
-          
-      // Parallelize the inner density calculations
+
+      
       // loop over hole states i, j
-      #pragma omp parallel for private(i, j, ibs, jbs, jgr, jsgr, i_st, j_st)
-			for (i = 0; i < n_ho; i++) {
+      #pragma omp parallel for private(j)
+      for (i = 0; i < n_ho; i++) {
 				for (j = 0; j < n_ho; j++) {
+
 					//get the matrix indicies for {ai,bj}
-          i_st = i * nspngr;
-          j_st = j * nspngr;
-					ibs = listibs[(a - lidx) * n_ho + i];
-					jbs = listibs[(b - lidx) * n_ho + j];
+          unsigned long i_st = i * nspngr;
+          unsigned long j_st = j * nspngr;
+          unsigned long ibs = listibs[(a - lidx) * n_ho + i];
+          unsigned long jbs = listibs[(b - lidx) * n_ho + j];
+          
+          // Compute only the upper triangle to utilize symmetry
+          if (ibs < jbs) continue;
 
-          // Compute only the lower triangle due to symmetry
-          if (ibs < jbs){
-            continue;
-          }
+          unsigned long jgr, jsgr;
+          double tmp_re, tmp_im;
+          double sum_re, sum_im;
+          sum_re = sum_im = 0.0;
 
-					//integrate eff pot: K^d_{ai,bj}=\int h_d(r) \sum_\sigma psi_{i}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
-          zomplex sum, tmp;
-          sum.re = sum.im = 0.0;
+          // Declare local psi_qp values for reduced mem lookup
+          double psi_iur, psi_iui;
+          double psi_jur, psi_jui;
+          double psi_idr, psi_idi;
+          double psi_jdr, psi_jdi;
+          double pot_h_re, pot_h_im;
 
-          for (jgr = 0;jgr < ngrid; jgr++){
+          // K^d_{ai,bj}=\int h_d(r) \sum_\sigma psi_{i}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
+          for (jgr = 0; jgr < ngrid; jgr++){
             jsgr = jgr + ngrid;
 
-            // Handle up spin
-            tmp.re = (psi_qp[j_st+jgr].re * psi_qp[i_st+jgr].re + psi_qp[j_st+jgr].im * psi_qp[i_st+jgr].im);
-            tmp.im = (psi_qp[j_st+jgr].re * psi_qp[i_st+jgr].im - psi_qp[j_st+jgr].im * psi_qp[i_st+jgr].re);
+            // Grab pot_htree value at this grid point
+            pot_h_re = pot_htree[jgr].re;
+            pot_h_im = pot_htree[jgr].im;
+
+            // Set local values for up spin
+            psi_iur = psi_qp[i_st + jgr].re;         psi_iui = psi_qp[i_st + jgr].im;
+            psi_jur = psi_qp[j_st + jgr].re;         psi_jui = psi_qp[j_st + jgr].im;
             
-            sum.re += (pot_htree[jgr].re * tmp.re -  pot_htree[jgr].im * tmp.im);
-            sum.im += (pot_htree[jgr].re * tmp.im +  pot_htree[jgr].im * tmp.re);
+            // Set local values for dn spin
+            psi_idr = psi_qp[i_st + jsgr].re;        psi_idi = psi_qp[i_st + jsgr].im;
+            psi_jdr = psi_qp[j_st + jsgr].re;        psi_jdi = psi_qp[j_st + jsgr].im;
             
-            // Handle dn spin
-            tmp.re = (psi_qp[j_st+jsgr].re * psi_qp[i_st+jsgr].re + psi_qp[j_st+jsgr].im * psi_qp[i_st+jsgr].im);
-            tmp.im = (psi_qp[j_st+jsgr].re * psi_qp[i_st+jsgr].im - psi_qp[j_st+jsgr].im * psi_qp[i_st+jsgr].re);
+            // Perform integrals for up spin
+            tmp_re = (psi_jur * psi_iur + psi_jui * psi_iui);
+            tmp_im = (psi_jur * psi_iui - psi_jui * psi_iur);
             
-            sum.re += (pot_htree[jgr].re * tmp.re -  pot_htree[jgr].im * tmp.im);
-            sum.im += (pot_htree[jgr].re * tmp.im +  pot_htree[jgr].im * tmp.re);                              
+            sum_re += (pot_h_re * tmp_re -  pot_h_im * tmp_im);
+            sum_im += (pot_h_re * tmp_im +  pot_h_im * tmp_re);
+            
+            // Perform integrals for dn spin
+            tmp_re = (psi_jdr * psi_idr + psi_jdi * psi_idi);
+            tmp_im = (psi_jdr * psi_idi - psi_jdi * psi_idr);
+            
+            sum_re += (pot_h_re * tmp_re -  pot_h_im * tmp_im);
+            sum_im += (pot_h_re * tmp_im +  pot_h_im * tmp_re);                              
           }
 
-					sum.re *= par->dv;
-					sum.im *= par->dv;
+					sum_re *= dv;
+					sum_im *= dv;
 						
-					direct[ibs * ist->n_xton + jbs].re = sum.re;
-          direct[ibs * ist->n_xton + jbs].im = sum.im;
-
-          // Print output
-          
-          // fprintf(pf,"%03lu %03lu %03lu %03lu %lu %lu %.16g %.16g\n", a, b, i, j, ibs, jbs, \
-          //     direct[ibs * ist->n_xton + jbs].re, direct[ibs * ist->n_xton + jbs].im
-          // );
-          
+					direct[ibs * ist->n_xton + jbs].re = sum_re;
+          direct[ibs * ist->n_xton + jbs].im = sum_im;
 				} // end of j
 			} // end of i
 
@@ -303,7 +335,9 @@ void calc_eh_kernel_cplx(
 		fclose(pf);
     printf("  Done computing direct mat\n"); 
     fflush(0);
-
+    
+    // Cleanup GPU memory
+    
 	} // end of even MPI ranks
 
 

@@ -183,13 +183,27 @@ int main(int argc, char *argv[]){
       s_mom, l_mom, l2_mom, ldots, &grid, &ist, &par, &flag, &parallel
     );
     
+    if (mpir == 0) {
+      write_separation(stdout, "T");
+      printf("\n  -  COMPUTING XTON OPTICAL PROPERTIES | %s\n", get_time());
+      write_separation(stdout, "B"); fflush(stdout);
+    }
     calc_optical_exc(bs_coeff, xton_ene, elec_dip, mag_dip, &ist, &par);
+
+    if (mpir == 0) {
+      write_separation(stdout, "T");
+      printf("\n  -  COMPUTING XTON ANG MOM | %s\n", get_time());
+      write_separation(stdout, "B"); fflush(stdout);
+    }
+
+    calc_xton_spin_mtrx(bs_coeff, s_mom, &ist, &par, &flag, &parallel);
+    calc_xton_ang_mom_mtrx(bs_coeff, l_mom, l2_mom, ldots, &ist, &par, &flag, &parallel);
     
     free(xton_ene); 
     free(bs_coeff);
     free(elec_dip); 
     free(mag_dip); 
-  //   free(rot_strength);
+    // free(rot_strength);
     free(s_mom); 
     free(l_mom); 
     free(l2_mom); 

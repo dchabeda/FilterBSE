@@ -18,6 +18,27 @@ void calc_qp_ang_mom_mtrx(
 	par_st*                  par
 );
 
+void calc_xton_spin_mtrx(
+  double complex* bs_coeff,
+  xyz_st*         s_mom,
+  index_st*       ist,
+  par_st*         par,
+  flag_st*        flag,
+  parallel_st*    parallel
+);
+
+void calc_xton_ang_mom_mtrx(
+  double complex* bs_coeff,
+  xyz_st*         l_mom,
+  xyz_st*         l2_mom,
+  double complex* ldots,
+  index_st*       ist,
+  par_st*         par,
+  flag_st*        flag,
+  parallel_st*    parallel
+);
+
+
 void l_operator(
   double complex* Lxpsi, 
   double complex* Lypsi, 

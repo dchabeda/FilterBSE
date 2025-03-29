@@ -54,9 +54,9 @@ void calc_qp_spin_mtrx(
   long             jsg;
 	long             idx;
   	
-	const long       n_ho   = ist->n_holes;
-	const long       n_el   = ist->n_elecs;
-	const long       lidx   = ist->lumo_idx;
+	const long       n_ho   = n_ho;
+	const long       n_el   = n_el;
+	const long       lidx   = lidx;
 	const long       ngrid  = ist->ngrid;
 	const long       nspngr = ist->nspinngrid;
 	
@@ -250,9 +250,9 @@ void calc_qp_ang_mom_mtrx(
   long             jsg;
 	long             idx;
   	
-	const long       n_ho   = ist->n_holes;
-	const long       n_el   = ist->n_elecs;
-	const long       lidx   = ist->lumo_idx;
+	const long       n_ho   = n_ho;
+	const long       n_el   = n_el;
+	const long       lidx   = lidx;
 	const long       ngrid  = ist->ngrid;
 	const long       nspngr = ist->nspinngrid;
 	
@@ -670,321 +670,352 @@ void calc_qp_ang_mom_mtrx(
 
 /******************************************************************************************/
 
-// void calc_xton_spin_mtrx(){
-//   //compute spins:
-//   FILE* spinpf =fopen("spins.dat", "w");  
-//   //printf("Spins:\n");
-//   double complex spinx, spiny, spinz, spintot;
-//   double complex tmpx, tmpy, tmpz, tmp;
-//   long index, indexba, indexji,n;
-//   // printf("\nspins block\n\n"); fflush(0);
-//   for (n = 0; n < n_xton; n++){
-//     spinx.re = spinx.im = 0;
-//     spiny.re = spiny.im = 0;
-//     spinz.re = spinz.im = 0;
-//     spintot.re = spintot.im = 0;
-//     for (a = ist->lumo_idx; a < ist->lumo_idx + ist->n_elecs; a++){
-//       for (i = 0; i < ist->n_holes; i++) {
-//         ibs = listibs[(a - ist->lumo_idx) * ist->n_holes + i];
-        
+void calc_xton_spin_mtrx(
+  double complex* bs_coeff,
+  xyz_st*         s_mom,
+  index_st*       ist,
+  par_st*         par,
+  flag_st*        flag,
+  parallel_st*    parallel
+  ){
 
-//         tmpx.re = tmpx.im = 0;
-//         tmpy.re = tmpy.im = 0;
-//         tmpz.re = tmpz.im = 0;
-//         //sum over b
-//         for (b = ist->lumo_idx; b < ist->lumo_idx + ist->n_elecs; b++){
-//           jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + i];
-//           index = sqr(ist->n_holes) + (a - ist->lumo_idx) * ist->n_elecs + (b - ist->lumo_idx);
+  /************************************************************/
+	/*******************  DECLARE VARIABLES   *******************/
+	/************************************************************/
+
+  FILE*              pf;
+  
+  const int          mpir = parallel->mpi_rank;
+
+  unsigned long      i;
+	unsigned long      j;
+	unsigned long      a;
+	unsigned long      b;
+	unsigned long      ibs;
+  unsigned long      jbs;
+
+  unsigned long      n;
+  unsigned long      index;
+  unsigned long      indexba;
+  unsigned long      indexji;
+  unsigned long*     listibs;
+
+  const long         n_xton = ist->n_xton;
+  const long         n_ho   = ist->n_holes;
+	const long         n_el   = ist->n_elecs;
+	const long         lidx   = ist->lumo_idx;
+	const long         ngrid  = ist->ngrid;
+	const long         nspngr = ist->nspinngrid;
+	
+	const double       dv     = grid->dv;
+
+  double complex     spintot;
+  double complex     tmp;
+
+  xyz_st             spin;
+  xyz_st             stmp;
+  
+
+  ALLOCATE(&listibs, n_xton, "listibs in angular spins");
+
+  for (ibs = 0, a = lidx; a < lidx + n_el; a++) {
+		for (i = 0; i < n_ho; i++, ibs++) {
+			listibs[(a - lidx) * n_ho + i] = ibs;
+		}
+	}
+
+  /************************************************************/
+	/*******************    CALC XTON SPIN    *******************/
+	/************************************************************/
+  
+  pf = fopen("spins.dat", "w");
+
+  for (n = 0; n < n_xton; n++){
+    spin.x = spin.y = spin.z = 0.0 + 0.0 * I;
+    spintot = 0.0 + 0.0 * I;
+
+    for (a = lidx; a < lidx + n_el; a++){
+      for (i = 0; i < n_ho; i++) {
+        ibs = listibs[(a - lidx) * n_ho + i];
+        
+        stmp.x = stmp.y = stmp.z = 0.0 + 0.0 * I;
+
+        //sum over b
+        for (b = lidx; b < lidx + n_el; b++){
+          jbs = listibs[(b - lidx) * n_ho + i];
+          index = sqr(n_ho) + (a - lidx) * n_el + (b - lidx);
           
-//           //c_bi^* * <b| Sx |a>
-//           tmpx.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].x_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].x_im;
-//           tmpx.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].x_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].x_re;
+          //c_bi^* * <b| Sx |a>
+          stmp.x += conjmul(bs_coeff[jbs*n_xton+n], s_mom[index].x);
 
-//           //c_bi^* * <b| Sy |a>
-//           tmpy.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].y_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].y_im;
-//           tmpy.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].y_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].y_re;
-
-//           //c_bi^* * <b| Sz |a>
-//           tmpz.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].z_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].z_im;
-//           tmpz.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].z_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].z_re;
-//         }
+          //c_bi^* * <b| Sy |a>
+          stmp.y += conjmul(bs_coeff[jbs*n_xton+n], s_mom[index].y);
+          
+          //c_bi^* * <b| Sz |a>
+          stmp.z += conjmul(bs_coeff[jbs*n_xton+n], s_mom[index].z);
+        }
         
-//         //sum over j
-//         for (j = 0; j < ist->n_holes; j++) {
-//           jbs = listibs[(a - ist->lumo_idx) * ist->n_holes + j];
-//           index = i*ist->n_holes+j;
+        //sum over j
+        for (j = 0; j < n_ho; j++) {
+          jbs = listibs[(a - lidx) * n_ho + j];
+          index = i*n_ho+j;
 
-//           //c_aj^* * <j| Sx |i> 
-//           tmpx.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].x_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].x_im;
-//           tmpx.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].x_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].x_re;
+          //c_aj^* * <j| Sx |i>
+          stmp.x += conjmul(bs_coeff[jbs*n_xton+n], s_mom[index].x);
 
-//           //c_aj^* * <j| Sy |i> 
-//           tmpy.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].y_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].y_im;
-//           tmpy.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].y_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].y_re;
+          //c_aj^* * <j| Sy |i> 
+          stmp.y += conjmul(bs_coeff[jbs*n_xton+n], s_mom[index].y);
 
-//           //c_aj^* * <j| Sz |i> 
-//           tmpz.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].z_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].z_im;
-//           tmpz.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].z_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].z_re;
+          //c_aj^* * <j| Sz |i> 
+          stmp.z += conjmul(bs_coeff[jbs*n_xton+n], s_mom[index].z);
+        }
 
-//         }
-
-//         //multiply by the c_ai coeff
-//         spinx.re += tmpx.re * bs_coeff[ibs*n_xton+n].re - tmpx.im * bs_coeff[ibs*n_xton+n].im;
-//         spinx.im += tmpx.im * bs_coeff[ibs*n_xton+n].re + tmpx.re * bs_coeff[ibs*n_xton+n].im;
-
-//         spiny.re += tmpy.re * bs_coeff[ibs*n_xton+n].re - tmpy.im * bs_coeff[ibs*n_xton+n].im;
-//         spiny.im += tmpy.im * bs_coeff[ibs*n_xton+n].re + tmpy.re * bs_coeff[ibs*n_xton+n].im;
-
-//         spinz.re += tmpz.re * bs_coeff[ibs*n_xton+n].re - tmpz.im * bs_coeff[ibs*n_xton+n].im;
-//         spinz.im += tmpz.im * bs_coeff[ibs*n_xton+n].re + tmpz.re * bs_coeff[ibs*n_xton+n].im;
+        //multiply by the c_ai coeff
+        spin.x += bs_coeff[ibs*n_xton+n] * stmp.x;
+        spin.y += bs_coeff[ibs*n_xton+n] * stmp.y;
+        spin.z += bs_coeff[ibs*n_xton+n] * stmp.z;
         
+        for (b = lidx; b < lidx + n_el; b++){
+          for (j = 0; j < n_ho; j++) {
+            indexba = sqr(n_ho)+(a-lidx)*n_el+(b-lidx);
+            indexji = i*n_ho+j;
 
-//         for (b = ist->lumo_idx;b<ist->lumo_idx+ist->n_elecs;b++){
-//           for (j = 0; j < ist->n_holes; j++) {
+            jbs = listibs[(b - lidx) * n_ho + j];
+
+            tmp = conjmul(bs_coeff[jbs*n_xton+n], bs_coeff[ibs*n_xton+n]);
             
-//             indexba = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
-//             indexji = i*ist->n_holes+j;
+            stmp.x = (
+              (s_mom[indexba].x * s_mom[indexji].x) + 
+              (s_mom[indexba].y * s_mom[indexji].y) +
+              (s_mom[indexba].z * s_mom[indexji].z)
+            );
+            
+            spintot += tmp * stmp.x;
+          } // end of j
+        } // end of b
+      } // end of i
+    } // end of a
 
-//             jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + j];
-//             tmp.re=bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].re
-//                   + bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].im;
+    fprintf(pf,"%ld\t%-10.5lf\t%-10.5lf\t%-10.5lf\t", n, creal(spin.x), creal(spin.y), creal(spin.z));
+    fprintf(pf,"%-10.5lf\t (%-10.5lf)\n",1.5+2.0*creal(spintot), 2.0*cimag(spintot));
+  } // end of n
 
-//             tmp.im=bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].re
-//                   - bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].im;
+  fclose(pf);
 
-//             tmpx.re=s_mom[indexba].x_re*s_mom[indexji].x_re-s_mom[indexba].x_im*s_mom[indexji].x_im
-//              + s_mom[indexba].y_re*s_mom[indexji].y_re-s_mom[indexba].y_im*s_mom[indexji].y_im
-//              + s_mom[indexba].z_re*s_mom[indexji].z_re-s_mom[indexba].z_im*s_mom[indexji].z_im;
+  free(listibs);
 
-//             tmpx.im=s_mom[indexba].x_im*s_mom[indexji].x_re+s_mom[indexba].x_re*s_mom[indexji].x_im
-//             + s_mom[indexba].y_im*s_mom[indexji].y_re+s_mom[indexba].y_re*s_mom[indexji].y_im
-//             + s_mom[indexba].z_im*s_mom[indexji].z_re+s_mom[indexba].z_re*s_mom[indexji].z_im;   
-
-
-//             spintot.re+=tmp.re*tmpx.re-tmp.im*tmpx.im;
-//             spintot.im+=tmp.im*tmpx.re+tmp.re*tmpx.im;
-
-
-//           }
-
-//         }
-
-
-
-//       }
-
-//     }
-//     fprintf(spinpf,"%ld\t%-10.5lf\t%-10.5lf\t%-10.5lf\t",n,spinx.re,spiny.re, spinz.re);
-//     fprintf(spinpf,"%-10.5lf\t (%-10.5lf)\n",1.5+2.0*spintot.re, 2.0*spintot.im);
-//   }
-//   fclose(spinpf);
-// }
+  return;
+}
 
 /******************************************************************************************/
 
-// void calc_xton_ang_mom_mtrx(){
-//   //compute orbital momentum
-//   FILE* orbitpf =fopen("orbital.dat", "w");  
-//   //printf("Spins:\n");
-//   double complex orbitx, orbity, orbitz, orbittot;
-// //  double complex tmpx, tmpy, tmpz, tmp, tmp2;
-// //  long index, indexba, indexji,n;
-//   // printf("\norbital block\n\n"); fflush(0);
-//   for (n=0;n<n_xton;n++){
-//     orbitx.re = orbitx.im = 0;
-//     orbity.re = orbity.im = 0;
-//     orbitz.re = orbitz.im = 0;
-//     orbittot.re = orbittot.im = 0;
-//     for (a = ist->lumo_idx;a<ist->lumo_idx+ist->n_elecs;a++){
-//       for (i = 0; i < ist->n_holes; i++) {
-//         ibs = listibs[(a - ist->lumo_idx) * ist->n_holes + i];
-        
+void calc_xton_ang_mom_mtrx(
+  double complex* bs_coeff,
+  xyz_st*         l_mom,
+  xyz_st*         l2_mom,
+  double complex* ldots,
+  index_st*       ist,
+  par_st*         par,
+  flag_st*        flag,
+  parallel_st*    parallel
+  ){
 
-//         tmpx.re = tmpx.im = 0;
-//         tmpy.re = tmpy.im = 0;
-//         tmpz.re = tmpz.im = 0;
-//         //sum over b
-//         for (b = ist->lumo_idx;b<ist->lumo_idx+ist->n_elecs;b++){
-//           jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + i];
-//           index = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
+  /************************************************************/
+	/*******************  DECLARE VARIABLES   *******************/
+	/************************************************************/
+
+  FILE*              pf;
+  FILE*              lspf;
+  
+  const int          mpir = parallel->mpi_rank;
+
+  unsigned long      i;
+	unsigned long      j;
+	unsigned long      a;
+	unsigned long      b;
+	unsigned long      ibs;
+  unsigned long      jbs;
+
+  unsigned long      n;
+  unsigned long      index;
+  unsigned long      indexba;
+  unsigned long      indexji;
+
+  unsigned long*     listibs;
+
+  const long         n_xton = ist->n_xton;
+  const long         n_ho   = ist->n_holes;
+	const long         n_el   = ist->n_elecs;
+	const long         lidx   = ist->lumo_idx;
+	const long         ngrid  = ist->ngrid;
+	const long         nspngr = ist->nspinngrid;
+	
+	const double       dv     = grid->dv;
+
+  double complex     orbittot;
+  double complex     lstot;
+  double complex     lstmp;
+  double complex     ctmp;
+
+  xyz_st             orbit;
+  xyz_st             ltmp;
+  
+
+  ALLOCATE(&listibs, n_xton, "listibs in angular spins");
+
+  for (ibs = 0, a = lidx; a < lidx + n_el; a++) {
+		for (i = 0; i < n_ho; i++, ibs++) {
+			listibs[(a - lidx) * n_ho + i] = ibs;
+		}
+	}
+
+  /************************************************************/
+	/*******************   CALC XTON L, L2   ********************/
+	/************************************************************/
+
+  pf = fopen("orbital.dat", "w");  
+  
+  #pragma omp parallel for private(a, b, i, j, ibs, jbs, indexba, indexji, ltmp, ctmp, orbit, orbittot)
+  for (n = 0; n < n_xton; n++){
+
+    orbit.x = orbit.y = orbit.z = 0.0 + 0.0*I;
+    orbittot = 0.0 + 0.0*I;
+
+    for (a = lidx; a < lidx + n_el; a++){
+      for (i = 0; i < n_ho; i++) {
+        ibs = listibs[(a - lidx) * n_ho + i];
+        ltmp.x = ltmp.y = ltmp.z = 0.0 + 0.0*I;
+
+        //sum over b
+        for (b = lidx; b < lidx + n_el; b++){
+          jbs = listibs[(b - lidx) * n_ho + i];
+          index = sqr(n_ho)+(a-lidx)*n_el+(b-lidx);
           
-//           //c_bi^* * <b| Lx |a>
-//           tmpx.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].x_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].x_im;
-//           tmpx.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].x_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].x_re;
-
-//           //c_bi^* * <b| Ly |a>
-//           tmpy.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].y_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].y_im;
-//           tmpy.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].y_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].y_re;
-
-//           //c_bi^* * <b| Lz |a>
-//           tmpz.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].z_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].z_im;
-//           tmpz.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].z_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].z_re;
-//         }
+          //c_bi^* * <b| Lx |a>
+          ltmp.x += conjmul(bs_coeff[jbs*n_xton+n], l_mom[index].x);
+          
+          //c_bi^* * <b| Ly |a>
+          ltmp.y += conjmul(bs_coeff[jbs*n_xton+n], l_mom[index].y);
+          
+          //c_bi^* * <b| Lz |a>
+          ltmp.z += conjmul(bs_coeff[jbs*n_xton+n], l_mom[index].z);
+        } // end of b
         
-//         //sum over j
-//         for (j = 0; j < ist->n_holes; j++) {
-//           jbs = listibs[(a - ist->lumo_idx) * ist->n_holes + j];
-//           index = i*ist->n_holes+j;
+        //sum over j
+        for (j = 0; j < n_ho; j++) {
+          jbs = listibs[(a - lidx) * n_ho + j];
+          index = i*n_ho+j;
 
-//           //c_aj^* * <j| Lx |i> 
-//           tmpx.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].x_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].x_im;
-//           tmpx.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].x_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].x_re;
+          //c_aj^* * <j| Lx |i>
+          ltmp.x += conjmul(bs_coeff[jbs*n_xton+n], l_mom[index].x);
 
-//           //c_aj^* * <j| Ly |i> 
-//           tmpy.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].y_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].y_im;
-//           tmpy.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].y_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].y_re;
+          //c_aj^* * <j| Ly |i> 
+          ltmp.y += conjmul(bs_coeff[jbs*n_xton+n], l_mom[index].y);
 
-//           //c_aj^* * <j| Lz |i> 
-//           tmpz.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].z_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].z_im;
-//           tmpz.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].z_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].z_re;
+          //c_aj^* * <j| Lz |i> 
+          ltmp.z += conjmul(bs_coeff[jbs*n_xton+n], l_mom[index].z);
+        }
 
-//         }
+        //multiply by the c_ai coeff
+        orbit.x += bs_coeff[ibs*n_xton + n] * ltmp.x;
+        orbit.y += bs_coeff[ibs*n_xton + n] * ltmp.y;
+        orbit.z += bs_coeff[ibs*n_xton + n] * ltmp.z;
 
-//         //multiply by the c_ai coeff
-//         orbitx.re += tmpx.re * bs_coeff[ibs*n_xton+n].re - tmpx.im * bs_coeff[ibs*n_xton+n].im;
-//         orbitx.im += tmpx.im * bs_coeff[ibs*n_xton+n].re + tmpx.re * bs_coeff[ibs*n_xton+n].im;
+        //Lsqr part
+        for (b = lidx; b < lidx + n_el; b++){
+          for (j = 0; j < n_ho; j++) {
+            indexba = sqr(n_ho)+(a-lidx)*n_el+(b-lidx);
+            indexji = i*n_ho + j;
 
-//         orbity.re += tmpy.re * bs_coeff[ibs*n_xton+n].re - tmpy.im * bs_coeff[ibs*n_xton+n].im;
-//         orbity.im += tmpy.im * bs_coeff[ibs*n_xton+n].re + tmpy.re * bs_coeff[ibs*n_xton+n].im;
-
-//         orbitz.re += tmpz.re * bs_coeff[ibs*n_xton+n].re - tmpz.im * bs_coeff[ibs*n_xton+n].im;
-//         orbitz.im += tmpz.im * bs_coeff[ibs*n_xton+n].re + tmpz.re * bs_coeff[ibs*n_xton+n].im;
-        
-//         //Lsqr part
-//         for (b = ist->lumo_idx;b<ist->lumo_idx+ist->n_elecs;b++){
-//           for (j = 0; j < ist->n_holes; j++) {
+            jbs = listibs[(b - lidx) * n_ho + j];
             
-//             indexba = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
-//             indexji = i*ist->n_holes+j;
+            //c_{ai}^n * (c_{bj}^n)^*
+            ctmp = conjmul(bs_coeff[jbs*n_xton+n], bs_coeff[ibs*n_xton+n]);
 
-//             jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + j];
+            ltmp.x = (
+              (l_mom[indexba].x * l_mom[indexji].x) + 
+              (l_mom[indexba].y * l_mom[indexji].y) + 
+              (l_mom[indexba].z * l_mom[indexji].z)
+            );
+
+            ltmp.x *= 2.0;
             
-//             //c_{ai}^n * (c_{bj}^n)^*
-//             tmp.re=bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].re
-//                   + bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].im;
+            if (i==j){
+              ltmp.x += l2_mom[indexba];
+            }
 
-//             tmp.im=bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].re
-//                   - bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].im;
-
-
-//             tmpx.re=l_mom[indexba].x_re*l_mom[indexji].x_re-l_mom[indexba].x_im*l_mom[indexji].x_im
-//              + l_mom[indexba].y_re*l_mom[indexji].y_re-l_mom[indexba].y_im*l_mom[indexji].y_im
-//              + l_mom[indexba].z_re*l_mom[indexji].z_re-l_mom[indexba].z_im*l_mom[indexji].z_im;
-
-//             tmpx.im=l_mom[indexba].x_im*l_mom[indexji].x_re+l_mom[indexba].x_re*l_mom[indexji].x_im
-//             + l_mom[indexba].y_im*l_mom[indexji].y_re+l_mom[indexba].y_re*l_mom[indexji].y_im
-//             + l_mom[indexba].z_im*l_mom[indexji].z_re+l_mom[indexba].z_re*l_mom[indexji].z_im;   
-
-//             tmpx.re*=2.0; tmpx.im*=2.0;
+            if (a==b){
+              ltmp.x += l2_mom[indexji];
+            }
             
+            orbittot += ctmp * ltmp.x;
+          } // end of j
+        } // end of b
+      } // end of i
+    } // end of a
+    fprintf(pf,"%ld\t%-10.5lf\t%-10.5lf\t%-10.5lf\t", n, creal(orbit.x), creal(orbit.y), creal(orbit.z));
+    fprintf(pf,"%-10.5lf\t (%-10.5lf)\n", orbittot);
+  }
+
+  fclose(pf);
+
+
+  /************************************************************/
+	/*******************   CALC XTON LdotS   ********************/
+	/************************************************************/
+
+  lspf = fopen("couple.dat", "w");  
+
+  #pragma omp parallel for private(a, b, i, j, ibs, jbs, indexba, indexji, lstmp, ctmp, lstot)
+  for (n = 0; n < n_xton; n++){
+    lstot = 0.0 + 0.0*I;
+    for (a = lidx; a < lidx + n_el; a++){
+      for (i = 0; i < n_ho; i++) {
+        ibs = listibs[(a - lidx) * n_ho + i];
+        for (b = lidx; b < lidx + n_el; b++){
+          for (j = 0; j < n_ho; j++) {
+            jbs = listibs[(b - lidx) * n_ho + j];
+            indexba = sqr(n_ho)+(a-lidx)*n_el+(b-lidx);
+            indexji = i*n_ho+j;
+
+            lstmp = 0.0 + 0.0*I;
+
+            //c_{ai}^n * (c_{bj}^n)^*
+            ctmp = conjmul(bs_coeff[jbs*n_xton+n].im, bs_coeff[ibs*n_xton+n].im);
             
-//             if (i==j){
-//               tmpx.re+=l2_mom[indexba].re; tmpx.im+=l2_mom[indexba].im;
-//             }
+            // <a|L|b>*<j|S|i>
+            lstmp += (
+              (l_mom[indexba].x * s_mom[indexji].x) +
+              (l_mom[indexba].y * s_mom[indexji].y) +
+              (l_mom[indexba].z * s_mom[indexji].z)
+            );
 
-//             if (a==b){
-//               tmpx.re+=l2_mom[indexji].re; tmpx.im+=l2_mom[indexji].im;
-//             }
+            // <a|S|b>*<j|L|i>
+            lstmp += (
+              (s_mom[indexba].x * l_mom[indexji].x) +
+              (s_mom[indexba].y * l_mom[indexji].y) +
+              (s_mom[indexba].z * l_mom[indexji].z)
+            );
             
-//             //printf("a:%ld b:%ld i:%ld j:%ld    tmpx: (%lf, %lf)\n", a,b,i,j,tmpx.re, tmpx.im);
-
-//             orbittot.re+=tmp.re*tmpx.re-tmp.im*tmpx.im;
-//             orbittot.im+=tmp.im*tmpx.re+tmp.re*tmpx.im;
-
-
-//           }
-
-//         }
-
-
-
-//       }
-
-//     }
-//     fprintf(orbitpf,"%ld\t%-10.5lf\t%-10.5lf\t%-10.5lf\t",n,orbitx.re,orbity.re, orbitz.re);
-//     fprintf(orbitpf,"%-10.5lf\t (%-10.5lf)\n",orbittot.re, orbittot.im);
-//   }
-//   fclose(orbitpf);
-
-
-
-
-//   //compute ls momentum
-//   FILE* lspf =fopen("couple.dat", "w");  
-//   //printf("Spins:\n");
-//   double complex lstot;
-// //  double complex tmpx, tmpy, tmpz, tmp, tmp2;
-// //  long index, indexba, indexji,n;
-//   // printf("\ncouple block\n\n"); fflush(0);
-//   for (n=0;n<n_xton;n++){
-//     lstot.re = lstot.im = 0;
-//     for (a = ist->lumo_idx;a<ist->lumo_idx+ist->n_elecs;a++){
-//       for (i = 0; i < ist->n_holes; i++) {
-//         ibs = listibs[(a - ist->lumo_idx) * ist->n_holes + i];
-//         for (b = ist->lumo_idx;b<ist->lumo_idx+ist->n_elecs;b++){
-//           for (j = 0; j < ist->n_holes; j++) {
+            //delta ij part
+            if (i==j){
+              lstmp += ldots[indexba];
+            }
+            //delta ab part
+            if (a==b){
+              lstmp += ldots[indexji];
+            }
             
-//             tmpx.re = 0.0;tmpx.im = 0.0;
+            lstot += ctmp * lstmp;
+          } // end of j
+        } // end of b
+      } // end of i
+    } // end of a
+    fprintf(lspf,"%ld\t%-10.5lf\t (%-10.5lf)\n", n, lstot);
+  } // end of n
+  fclose(lspf);
+  
+  free(listibs);
 
-//             indexba = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
-//             indexji = i*ist->n_holes+j;
-
-//             jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + j];
-            
-//             //c_{ai}^n * (c_{bj}^n)^*
-//             tmp.re=bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].re
-//                   + bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].im;
-
-//             tmp.im=bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].re
-//                   - bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].im;
-
-            
-//             // <a|L|b>*<j|S|i>
-//             tmpx.re=l_mom[indexba].x_re*s_mom[indexji].x_re-l_mom[indexba].x_im*s_mom[indexji].x_im
-//                   + l_mom[indexba].y_re*s_mom[indexji].y_re-l_mom[indexba].y_im*s_mom[indexji].y_im
-//                   + l_mom[indexba].z_re*s_mom[indexji].z_re-l_mom[indexba].z_im*s_mom[indexji].z_im;
-
-//             tmpx.im=l_mom[indexba].x_im*s_mom[indexji].x_re+l_mom[indexba].x_re*s_mom[indexji].x_im
-//                   + l_mom[indexba].y_im*s_mom[indexji].y_re+l_mom[indexba].y_re*s_mom[indexji].y_im
-//                   + l_mom[indexba].z_im*s_mom[indexji].z_re+l_mom[indexba].z_re*s_mom[indexji].z_im;
-
-//             // <a|S|b>*<j|L|i>
-//             tmpx.re+=s_mom[indexba].x_re*l_mom[indexji].x_re-s_mom[indexba].x_im*l_mom[indexji].x_im
-//                    + s_mom[indexba].y_re*l_mom[indexji].y_re-s_mom[indexba].y_im*l_mom[indexji].y_im
-//                    + s_mom[indexba].z_re*l_mom[indexji].z_re-s_mom[indexba].z_im*l_mom[indexji].z_im;
-
-//             tmpx.im+=s_mom[indexba].x_im*l_mom[indexji].x_re+s_mom[indexba].x_re*l_mom[indexji].x_im
-//                    + s_mom[indexba].y_im*l_mom[indexji].y_re+s_mom[indexba].y_re*l_mom[indexji].y_im
-//                    + s_mom[indexba].z_im*l_mom[indexji].z_re+s_mom[indexba].z_re*l_mom[indexji].z_im;    
-
-            
-            
-//             //delta ij part
-//             if (i==j){
-//               tmpx.re+=LdotS[indexba].re; tmpx.im+=LdotS[indexba].im;
-              
-//             }
-//             //delta ab part
-//             if (a==b){
-//               tmpx.re+=LdotS[indexji].re; tmpx.im+=LdotS[indexji].im;
-//             }
-            
-//             //printf("a:%ld b:%ld i:%ld j:%ld    tmpx: (%lf, %lf)\n", a,b,i,j,tmpx.re, tmpx.im);
-
-//             lstot.re+=tmp.re*tmpx.re-tmp.im*tmpx.im;
-//             lstot.im+=tmp.im*tmpx.re+tmp.re*tmpx.im;
-
-
-//           }
-
-//         }
-
-
-
-//       }
-
-//     }
-//     fprintf(lspf,"%ld\t%-10.5lf\t (%-10.5lf)\n",n,lstot.re, lstot.im);
-//   }
-//   fclose(lspf);
-// }
+  return;
+}

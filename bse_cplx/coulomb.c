@@ -116,7 +116,6 @@ void calc_eh_kernel_cplx(
 		}
 	}
 
-  
   /************************************************************/
   /*******************   CONFIG PARALLEL    *******************/
   /************************************************************/
@@ -175,16 +174,32 @@ void calc_eh_kernel_cplx(
     
 
     long        ab;
-    long        ab_tot    = n_el * n_el;
-    long       *lista, *listb;
+    long        ij;
+    long        ab_tot = n_el * n_el;
+    long        ij_tot = n_ho * n_ho;
+    long       *lista;
+    long       *listb;
+    long       *listi;
+    long       *listj;
 
-    lista   =  (long *) calloc(ab_tot, sizeof(long));
-    listb   =  (long *) calloc(ab_tot, sizeof(long));
+    ALLOCATE(&lista, ab_tot, "lista");
+    ALLOCATE(&listb, ab_tot, "listb");
+    ALLOCATE(&listi, ab_tot, "listi");
+    ALLOCATE(&listj, ab_tot, "listj");
 
+    ab_tot = 0;
     for (a = lidx; a < lidx + n_el; a++){
-      for (b = lidx; b < lidx + n_el; b++){
-        lista[ (a-lidx)*n_el + (b-lidx) ] = a;
-        listb[ (a-lidx)*n_el + (b-lidx)] = b;
+      for (b = lidx + a + 1; b < lidx + n_el; b++){
+        lista[ (a-lidx)*n_el + (b-lidx-a-1) ] = a;
+        listb[ (a-lidx)*n_el + (b-lidx-a-1) ] = b;
+        ab_tot++;
+      }
+    }
+
+    for (i = 0; i < n_ho; i++){
+      for (j = 0; j < n_ho; j++){
+        listi[ i*n_ho + j ] = i;
+        listj[ i*n_el + j ] = j;
       }
     }
 
@@ -259,34 +274,31 @@ void calc_eh_kernel_cplx(
       // loop over hole states i, j
       nvtxRangePushA("i,j loop of direct");
       
-      #pragma omp parallel for private (j, jsg)
-      for (i = 0; i < n_ho; i++) {
-        for (j = 0; j < n_ho; j++) {
-					//get the matrix indicies for {ai,bj}
+      #pragma omp parallel for private (i, j)
+      for (ij = 0; i < ij_tot; ij++) {
+          i = listi[ij];
+          j = listj[ij];
+					
+          //get the matrix indicies for {ai,bj}
           long i_st = i * nspngr;
           long j_st = j * nspngr;
           long ibs = listibs[(a - lidx) * n_ho + i];
           long jbs = listibs[(b - lidx) * n_ho + j];
           
-          // Compute only the upper triangle to utilize symmetry
-          if (ibs < jbs) continue;
+          long           jg;
 
-          long   jg;
           double complex sum;
           sum = 0.0 + 0.0 * I;
  
           // K^d_{ai,bj}=\int h_d(r) \sum_\sigma psi_{i}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
-          
           #pragma omp simd safelen(8) aligned(psi_qp, pot_htree: BYTE_BOUNDARY) reduction(+: sum)
           for (jg = 0; jg < nspngr; jg++){
             sum += pot_htree[jg] * conjmul(psi_qp[j_st + jg], psi_qp[i_st + jg]);                          
           }
-          
 					sum *= dv;
 					
 					direct[ibs * n_xton + jbs] = sum;
-				} // end of j
-			} // end of i
+			} // end of ij
       nvtxRangePop();
 
       for (loop_idx = ab; loop_idx < ab + 1; loop_idx++){
@@ -319,6 +331,115 @@ void calc_eh_kernel_cplx(
       }
 		} // end of ab
     
+    /****** A==B ***** A==B ***** A==B ***** A==B ***** A==B ******/
+
+    // Compute a == b segment of the direct matrix
+    // computation is split between a < b and a == b segments
+    // in order to have determinate loop trip counts for ij,
+    // eliminating the need for conditional statements in the innermost
+    // loop while computing only the upper triangle of the matrix.
+
+    // Generate new indices for i, j pairs
+    ij_tot = 0;
+    for (i = 0; i < n_ho; i++){
+      for (j = i; j < n_ho; j++){
+        listi[ i*n_ho + (j-i) ] = i;
+        listj[ i*n_el + (j-i) ] = j;
+        ij_tot++;
+      }
+    }
+
+    for (a = start; a < n_el; a += even_size) {
+      b = a; // This is the a == b segment of the direct mat.
+
+      // Grab indices of electron-electron states a, b
+      a_st = a * nspngr;
+      b_st = b * nspngr;
+
+      // Compute hartree potential for a, b density
+      // 1) Compute joint density and store in rho
+      nvtxRangePushA("Computing ab joint density");
+
+      #pragma omp simd safelen(8) aligned(rho, psi_qp: BYTE_BOUNDARY)
+      for (jg = 0; jg < ngrid; jg++){
+        rho[jg] = conjmul(psi_qp[a_st + jg], psi_qp[b_st + jg]);
+      }
+      for (jg = 0; jg < ngrid; jg++){
+        jsg = jg + ngrid;
+        rho[jg] += conjmul(psi_qp[a_st + jsg], psi_qp[b_st + jsg]);
+      }
+      
+      nvtxRangePop();
+
+      // Compute the hartree potential and store in pot_htree 
+      // h_d(r) = \int W(r,r') \rho_{ab}(r') d^3r' via fourier transform
+      nvtxRangePushA("Computing hartree pot");
+      hartree(rho, pot_screened, pot_htree, ist, planfw, planbw, fftwpsi);            
+      nvtxRangePop();
+      
+      // Copy the "up" component of pot_htree to the "dn" for seamless integration
+      memcpy(&pot_htree[ngrid], &pot_htree[0], ngrid * sizeof(pot_htree[0]));
+      
+      // loop over hole states i, j
+      nvtxRangePushA("i,j loop of direct");
+      
+      #pragma omp parallel for private (i, j)
+      for (ij = 0; i < ij_tot; ij++) {
+          i = listi[ij];
+          j = listj[ij];
+					
+          //get the matrix indicies for {ai,bj}
+          long i_st = i * nspngr;
+          long j_st = j * nspngr;
+          long ibs = listibs[(a - lidx) * n_ho + i];
+          long jbs = listibs[(b - lidx) * n_ho + j];
+          
+          long           jg;
+
+          double complex sum;
+          sum = 0.0 + 0.0 * I;
+ 
+          // K^d_{ai,bj}=\int h_d(r) \sum_\sigma psi_{i}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
+          #pragma omp simd safelen(8) aligned(psi_qp, pot_htree: BYTE_BOUNDARY) reduction(+: sum)
+          for (jg = 0; jg < nspngr; jg++){
+            sum += pot_htree[jg] * conjmul(psi_qp[j_st + jg], psi_qp[i_st + jg]);                          
+          }
+					sum *= dv;
+					
+					direct[ibs * n_xton + jbs] = sum;
+			} // end of ij
+      nvtxRangePop();
+
+      for (loop_idx = ab; loop_idx < ab + 1; loop_idx++){
+        a = lista[loop_idx];
+        b = listb[loop_idx];
+        for (i = 0; i < n_ho; i++){
+          for (j = 0; j < n_ho; j++){
+            ibs = listibs[(a - lidx) * n_ho + i];
+            jbs = listibs[(b - lidx) * n_ho + j];
+            if (ibs < jbs){
+              continue;
+            }
+
+            fprintf(pf,"%lu %lu %lu %lu %lu %lu %.16g %.16g\n", a, b, i, j, ibs, jbs, \
+                direct[ibs * ist->n_xton + jbs]
+            );
+          }
+        }
+      }
+      fflush(0);
+      
+
+      // Print progress
+      if (even_rank == 0){
+        if ( (cntr == 0) || (0 == cntr % (ncycles/8+1)) || (cntr == (ncycles - 1)) ){
+          print_progress_bar(cntr, ncycles);
+          fflush(0);
+        }
+        cntr++;
+      }
+		} // end of ab
+
 		fclose(pf);
     printf("  Done computing direct mat\n"); 
     fflush(0);
@@ -326,9 +447,9 @@ void calc_eh_kernel_cplx(
     // Free 
     free(lista);
     free(listb);
+    free(listi);
+    free(listj);
 
-    // Cleanup GPU memory
-    #pragma omp target exit data map(delete: psi_qp[0:nspngr*n_ho], listibs[0:n_ho*n_ho], pot_htree[0:ngrid])  // Free after loop
     nvtxRangePop(); // End marker
 
   } // end of even MPI ranks
@@ -365,17 +486,32 @@ void calc_eh_kernel_cplx(
     omp_set_num_threads(ist->nthreads);
 
     long  ai;
-    long  ai_tot    = n_el * n_ho;
-    // long  ns_p_rank = ai_tot / odd_size;
-    long  *lista, *listi;
+    long  bj;
+    long  ai_tot  = n_el * n_ho;
+    long  bj_tot  = n_el * n_ho;
+    long  *lista;
+    long  *listi;
+    long  *listb;
+    long  *listj;
     
-    lista   =  (long *) calloc(ai_tot, sizeof(long));
-    listi   =  (long *) calloc(ai_tot, sizeof(long));
+    ALLOCATE(&lista, ai_tot, "lista");
+    ALLOCATE(&listi, ai_tot, "listi");
+    ALLOCATE(&listb, ai_tot, "listb");
+    ALLOCATE(&listj, ai_tot, "listj");
 
     for (a = lidx; a < lidx + n_el; a++){
       for (i = 0; i < n_ho; i++){
         lista[ (a-lidx) * n_ho + i] = a;
         listi[ (a-lidx) * n_ho + i] = i;
+        bj_tot = 0;
+        for (b = lidx + a + 1; b < n_el; b++){
+          long jstart = (a == b) ? i: 0;
+          for (j = jstart; j < n_ho; j++){
+            listb[ (b-lidx-a-1) * n_ho + (j-jstart)] = b;
+            listj[ (b-lidx-a-1) * n_ho + (j-jstart)] = j;
+            bj_tot;
+          }
+        }
       }
     }
 
@@ -444,31 +580,26 @@ void calc_eh_kernel_cplx(
 
       // loop over electron-hole pairs b, j
       #pragma omp parallel for private(b, j)
-      for (b = lidx; b < lidx + n_el; b++) {
-        for (j = 0; j < n_ho; j++) {
-          long b_st = b * nspngr;
-          long j_st = j * nspngr;
-          long ibs = listibs[(a-lidx) * n_ho + i];
-          long jbs = listibs[(b-lidx) * n_ho + j];
-          
-          // Compute only the upper triangle to utilize symmetry
-          if (ibs < jbs) continue;
-          
-          long   jg;
-          long   jsg;
-          double complex sum;
-          sum = 0.0 + 0.0 * I;
+      for (bj = 0; bj < bj_tot; bj++) {
+        b = listb[bj];
+        j = listj[bj];
+        long b_st = b * nspngr;
+        long j_st = j * nspngr;
+        long ibs = listibs[(a-lidx) * n_ho + i];
+        long jbs = listibs[(b-lidx) * n_ho + j];
+        
+        long           jg;
 
-          //integrate the effective potential to get K^x_{ai,bj}=\int h_x(r) \sum_\sigma psi_{b}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
-          
-          for (jg = 0; jg < nspngr; jg++){
-            sum += pot_htree[jg] * conjmul(psi_qp[j_st + jg], psi_qp[b_st + jg]);                            
-          }
-                
-          sum *= dv;
+        double complex sum;
+        sum = 0.0 + 0.0 * I;
 
-          exchange[ibs * n_xton + jbs] = - sum;
-        } // end of b
+        // K^x_{ai,bj}=\int h_x(r) \sum_\sigma psi_{b}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
+        for (jg = 0; jg < nspngr; jg++){
+          sum += pot_htree[jg] * conjmul(psi_qp[j_st + jg], psi_qp[b_st + jg]);                            
+        }
+        sum *= dv;
+
+        exchange[ibs * n_xton + jbs] = - sum;
       } // end of j
       
       // Print progress
@@ -510,6 +641,8 @@ void calc_eh_kernel_cplx(
 
     free(lista);
     free(listi);
+    free(listb);
+    free(listj);
 
 	} // close mpi rank 2
 

@@ -1,0 +1,13 @@
+xmin = -11.0
+ymin = -11.0
+zmin = -11.0
+nx = 44
+ny = 44
+nz = 44
+dx = 0.5
+dy = 0.5
+dz = 0.5
+mnStatesTot = 181
+nHoles = 2
+nElecs = 2
+nAtoms = 15

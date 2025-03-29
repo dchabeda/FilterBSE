@@ -108,20 +108,16 @@ void p_potential(
   
   // TODO: Spinor version should store pot_local twice, contiguously in memory
   // so that this loop is flat over nspinngrid. Daniel C. 3.2.2025
+  // NOTE: parallelizing over grid points here is not efficient. Not worthwhile
   if (1 == flag->useSpinors){
-    for (j = 0; j < ist->ngrid; j++) {
+    // #pragma omp parallel for private(j)
+    for (j = 0; j < ist->nspinngrid; j++) {
       psi_out[j].re += (pot_local[j] * psi_tmp[j].re);
       psi_out[j].im += (pot_local[j] * psi_tmp[j].im);
-      // handle spin down component
-      jtmp = ist->ngrid + j;
-      psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
-      psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
     }
   }
   else if (0 == flag->useSpinors){
-    //#pragma omp parallel for private(j)
     for (j = 0; j < ist->ngrid; j++) {
-      // #pragma omp atomic
       psi_out[j].re += (pot_local[j] * psi_tmp[j].re);
     }
   } else {

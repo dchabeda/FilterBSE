@@ -3,7 +3,7 @@ echo $cwd
 scratchDir="${PSCRATCH}/filter_bse/$1"
 
 ## declare an array of directories
-declare -a dirs=("bse_2_2" "bse_8_8" "bse_16_16" "bse_24_24" "bse_32_32" "bse_40_60")
+declare -a dirs=("bse_2_2" "bse_8_8" "bse_16_16" "bse_24_24" "bse_32_32" "bse_40_60" "bse_48_80" "bse_48_96" "bse_64_64")
 
 ## now loop through the above array
 for i in "${dirs[@]}"

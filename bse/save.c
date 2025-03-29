@@ -14,7 +14,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\tdx = %lg, ", grid->dx);
     fprintf(pf, "dy = %lg, ", grid->dy);
     fprintf(pf, "dz = %lg\n", grid->dz);
-    fprintf(pf, "\tngrid = %ld nspin = %d\n", ist->ngrid, ist->nspin);
+    fprintf(pf, "\tngrid = %ld nspin = %d nspinngrid = %ld\n", ist->ngrid, ist->nspin, ist->nspinngrid);
 
     // ****** ****** ****** ****** ****** ****** 
     // Set parameters & counters for BSE algorithm
@@ -108,7 +108,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     if (flag->saveCheckpoints == 1) fprintf(pf, "\tFilter will save checkpoints along the job run\n");
     else fprintf(pf, "\tNo checkpoint saves requested\n");
     
-    if (flag->restartFromCheckpoint > -1) fprintf(pf, "\tFilter will restart from checkpoint %d\n", flag->restartFromCheckpoint);
+    if (flag->restartFromChk > -1) fprintf(pf, "\tFilter will restart from checkpoint %d\n", flag->restartFromChk);
     else fprintf(pf, "\tNo checkpoint specified for restart. Job will run in normal sequence.\n");
     
     return;

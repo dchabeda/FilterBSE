@@ -1,7 +1,7 @@
 /*****************************************************************************/
 // Main file for cube printing utility.
 #include "fd.h"
-
+#include "aux.h"
 /*****************************************************************************/
 int countlines(char *filename);
 
@@ -48,10 +48,11 @@ int main(int argc, char *argv[])
 
 
   /*** read initial setup from input.par ***/
-  printf("\nReading job specifications from input.par:\n");
+  printf("\nReading job specifications from input.par:\n"); fflush(0);
   read_input(&flag, &grid, &ist, &par, &parallel);
 
   /*** allocating memory ***/
+  printf("Allocating memory\n"); fflush(0);
   // the positions of the atoms in the x, y, and z directions 
   if ((R = (xyz_st *) calloc(ist.natoms, sizeof(xyz_st))) == NULL) nerror("R");
   // the atom specific information 
@@ -112,7 +113,7 @@ int main(int argc, char *argv[])
           jgrid_real = i * ist.complex_idx;
           jgrid_imag = jgrid_real + 1;
           // sqrt is not physical, just to make values larger for visualization
-          rho[i] = sqrt( sqr(psi[ist.ngrid*ist.complex_idx + jgrid_real]) + sqr(psi[ist.ngrid*ist.complex_idx + jgrid_imag]) );    
+          rho[i] = sqrt( fabs(psi[ist.ngrid*ist.complex_idx + jgrid_real]) + fabs(psi[ist.ngrid*ist.complex_idx + jgrid_imag]) );    
         }
         sprintf(filename, "rhoDn%i.cube", j);
         write_cube_file(rho, &grid, filename);

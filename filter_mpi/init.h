@@ -1,4 +1,6 @@
 #include "fd.h"
+#include "aux.h"
+#include "vector.h"
 
 void init_grid_params(
     grid_st*      grid,

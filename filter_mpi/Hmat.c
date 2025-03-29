@@ -52,11 +52,15 @@ void diag_H(
   char* c_time_string;
   zomplex *psi, *phi;
 
+  const long stlen = ist->nspinngrid * ist->complex_idx;
+
   // FFT
   long fft_flags = FFTW_MEASURE;
   fftw_plan_loc planfw, planbw;
   fftw_complex *fftwpsi;
   // Create FFT structs and plans for Fourier transform
+  fftw_init_threads();
+  fftw_plan_with_nthreads(par->ham_threads);
   fftwpsi = fftw_malloc(sizeof (fftw_complex) * ist->ngrid);
   planfw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_FORWARD,fft_flags);
   planbw = fftw_plan_dft_3d(ist->nz,ist->ny,ist->nx,fftwpsi,fftwpsi,FFTW_BACKWARD,fft_flags);
@@ -90,20 +94,24 @@ void diag_H(
   
   for (ims = 0; ims < ist->mn_states_tot; ims++){
     
-    for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-      jgrid_real = ist->complex_idx * jgrid;
-      jgrid_imag = ist->complex_idx * jgrid + 1;
+    if (1 == flag->isComplex){
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = jgrid_real + 1;
 
-      psi[jgrid].re = psitot[ist->complex_idx*ims*ist->nspinngrid + jgrid_real];
-      
-      if (1 == flag->isComplex){
-        psi[jgrid].im = psitot[ist->complex_idx*ims*ist->nspinngrid+jgrid_imag];
-      } else if (0 == flag->isComplex){
+        psi[jgrid].re = psitot[ims * stlen + jgrid_real];
+        psi[jgrid].im = psitot[ims * stlen + jgrid_imag];
+      }
+    }
+    else if (0 == flag->isComplex){
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        psi[jgrid].re = psitot[ims * stlen + jgrid];
         psi[jgrid].im = 0.0;
       }
     }
+
     memcpy(&phi[0],&psi[0],ist->nspinngrid*sizeof(phi[0]));
-    hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi);
+    p_hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par, flag, planfw, planbw, fftwpsi, par->ham_threads);
 
     /*** calculate <psi_j|H|psi_i> ***/
     #pragma omp parallel for private(jms, jgrid, jgrid_real, jgrid_imag) shared(H, H_z)
@@ -141,9 +149,7 @@ void diag_H(
   fclose(pg);
 
   /*** diagonalize the Hamiltonian H ***/
-  current_time = time(NULL);
-  c_time_string = ctime(&current_time);
-  printf("Diagonalizing Hamiltonian | %s\n", c_time_string);
+  printf("Diagonalizing Hamiltonian | %s\n", get_time());
   // Use real, symmetric diagonalization routine for real wavefunctions
   if (0 == flag->isComplex){
     dsyev_("V", "U", &mn_states_tot, &H[0], &mn_states_tot, &eval[0], &work[0], &lwk, &info);
@@ -153,16 +159,14 @@ void diag_H(
   }
   // Use Hermitian diagonalization routine for complex wavefunctions
   if (1 == flag->isComplex){
-    zheev_("V","U", &mn_states_tot, &H_z[0], &mn_states_tot, &eval[0], &work_z[0], &lwk, &(rwork[0]), &info);
+    zheev_("V","U", &mn_states_tot, &H_z[0], &mn_states_tot, &eval[0], &work_z[0], &lwk, &rwork[0], &info);
     if (info){
       fprintf(stderr, "error in zheev_ H\n"); exit(EXIT_FAILURE);
     }
   }
 
   /*** copy the new function into psitot ***/
-  current_time = time(NULL);
-  c_time_string = ctime(&current_time);
-  printf("Diagonalization complete! | %s\n", c_time_string); fflush(stdout);
+  printf("Diagonalization complete! | %s\n", get_time()); fflush(stdout);
   
   // The eigenvectors have been computed in the basis of orthogonalized
   // filtered functions (Phi_filter). In order to obtain them in the grid basis

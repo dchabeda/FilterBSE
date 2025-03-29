@@ -114,6 +114,32 @@ void diag_mat(double *mat, double *eigv, int n_dim){
 
 /*****************************************************************************/
 
+void read_psi_dat(FILE* pf, double* psi, long start, long end, long len, int n_every){
+    
+    long i;
+    long cntr;
+    const long st_mem = len * sizeof(psi[0]);
+    const long offset = (const long) (n_every - 1) * st_mem;
+
+    // Move the file pointer to the start of the requested region
+    fseek(pf, start * st_mem, SEEK_SET);
+
+    // Read in "len" bytes of data, strided so that degenerate states
+    // are not included
+    cntr = 0;
+    for (i = start; i < end; i += n_every){
+        printf("Reading state %ld from psi-init.dat\n", i);
+        fseek(pf, offset, SEEK_CUR);
+        fread(&psi[cntr * len], sizeof(psi[0]), len, pf);
+        cntr++;
+    }
+
+    printf("Exiting read_psi_dat\n"); fflush(0);
+    return;
+}
+
+/*****************************************************************************/
+
 // void mpi_print(const char *message) {
 //     int rank;
 //     MPI_Comm_rank(MPI_COMM_WORLD, &rank);

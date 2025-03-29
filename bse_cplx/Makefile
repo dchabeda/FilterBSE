@@ -1,83 +1,47 @@
-# Makefile Configuration
-
-# Shell and OS
 SHELL = /bin/sh
-OS = Linux
 
-# Compiler
-ARCHFLAGS = -arch arm64
-CC = clang $(ARCHFLAGS)
+OS=Linux
 
-# Optimization Flags
-OPTFLAGS = -O3 -march=native
-CFLAGS = $(OPTFLAGS) -Xclang -fopenmp
+# libraries ...
+FFTW_PREFIX = $(CRAY_FFTW_PREFIX)/x86_64
+Linux_LIB = -lpthread -L$(FFTW_PREFIX)/lib/ -lfftw3 -lfftw3_threads -lfftw3_omp -L$(CRAY_LIBSCI_PREFIX_DIR)/lib -lsci_nvidia
+Linux_DYLIB = -lm
+FFTW_INCLUDE = -I$(CRAY_FFTW_PREFIX)/x86_64/include/
 
-# Include and Lib Directories (customize these paths)
-# With library paths and flags
-HOMEBREW_CELLAR  = /opt/homebrew/Cellar
+LIB = $(Linux_DYLIB) $(Linux_LIB)
 
-# OpenMP
-OPENMP_INCLUDE   = $(HOMEBREW_CELLAR)/libomp/20.1.1/include/
-OPENMP_LIB       = $(HOMEBREW_CELLAR)/libomp/20.1.1/lib/
-OPENMP_CFLAGS    = -I$(OPENMP_INCLUDE)
-OPENMP_LDFLAGS   = -L$(OPENMP_LIB) -lomp
+# flags ...
+FFT_FLAGS = -I$(CRAY_FFTW_PREFIX)/x86_64/include
 
-# OpenMPI
-OPENMPI_INCLUDE  = $(HOMEBREW_CELLAR)/open-mpi/5.0.7/include/
-OPENMPI_LIB      = $(HOMEBREW_CELLAR)/open-mpi/5.0.7/lib/
-OPENMPI_CFLAGS   = -I$(OPENMPI_INCLUDE)
-OPENMPI_LDFLAGS  = -L$(OPENMPI_LIB) -lmpi
+Linux_OPTFLAGS = -DMKL_ILP64 -DFFTW_FFT -Mvect=simd -march=native
+Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -g -Minfo=loop,vect -mp -fast -lnvToolsExt $(FFT_FLAGS)
+#Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -march=native -Mvect=simd -g -Minfo=all -gpu=debug -traceback -lineinfo -mp=gpu -gpu=cc80 -fast -target-accel=nvidia80 -lnvToolsExt
+#Linux_CFLAGS = -g -qopenmp -O0
+#Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
 
-# LAPACK (Linear Algebra subroutines)
-LAPACK_INCLUDE   = $(HOMEBREW_CELLAR)/lapack/3.12.1/include/
-LAPACK_LIB       = $(HOMEBREW_CELLAR)/lapack/3.12.1/lib/
-LAPACK_CFLAGS    = -I$(LAPACK_INCLUDE)
-LAPACK_LDFLAGS   = -L$(LAPACK_LIB) -llapacke
-
-# FFTW (Fast Fourier Transform)
-FFTW_INCLUDE     = $(HOMEBREW_CELLAR)/fftw/3.3.10_2/include/
-FFTW_LIB         = $(HOMEBREW_CELLAR)/fftw/3.3.10_2/lib/
-FFTW_CFLAGS      = -I$(FFTW_INCLUDE)
-FFTW_LDFLAGS     = -L$(FFTW_LIB) -lfftw3 -lfftw3_omp -lfftw3_threads 
-
-# Other Linux Libraries
-LINUX_LIBS = -lpthread -lm
-
-# Combine all flags and libraries
-ALL_CFLAGS = $(CFLAGS) $(OPENMP_CFLAGS) $(OPENMPI_CFLAGS) $(LAPACK_CFLAGS) $(FFTW_CFLAGS)
-ALL_LDFLAGS = $(OPENMP_LDFLAGS) $(OPENMPI_LDFLAGS) $(LAPACK_LDFLAGS) $(FFTW_LDFLAGS)
-ALL_LIBS = $(ALL_LDFLAGS) $(LINUX_LIBS)
-
-# Object files
-OBJECTS = \
-	main.o \
-	write.o \
-	save.o \
-	read.o \
-	basis.o \
-	init.o \
-	dipole.o \
-	coulomb.o \
-	hartree.o \
-	angular.o \
-	bethe-salpeter.o \
-	diag.o \
-	optical.o
-
-# Main target
 MAINNAM = BSE
 
-# Compilation rules
-.SUFFIXES: .c .o
+# compiler ...
+Linux_CC = cc
 
+# obhect files
+OBJECTS = \
+	main.o aux.o read.o write.o init.o basis.o save.o \
+	mod_init.o spin.o mod_dipole.o dipole.o angular.o ang_mom_operators.o \
+	mod_pot.o coulomb.o hartree.o mod_kernel.o \
+	mod_bse.o bethe-salpeter.o diag.o optical.o
+# mod_pot.o mod_dipole.o mod_kernel.o write.o save.o read.o basis.o init.o dipole.o coulomb.o\
+#	hartree.o angular.o bethe-salpeter.o diag.o optical.o aux.o
+
+# compilation ...
+# compilation rule for all .c files
 .c.o:
-	$(CC) $(ALL_CFLAGS) -c $*.c
+	$(Linux_CC) -DOS_$(OS) $(Linux_CFLAGS) -c $*.c 
 
-$(MAINNAM).x: $(OBJECTS)
-	$(CC) -o $@ $(OBJECTS) $(ALL_LIBS)
 
-# Phony targets
-.PHONY: clean
+# Compile the main executable BSE.x and link libraries
+$(MAINNAM): $(OBJECTS) 
+	$(Linux_CC) -o $(MAINNAM).x $(OBJECTS) $(LIB) -lnvToolsExt $(FFTW_INCLUDE)
 
 clean:
-	/bin/rm -f *.o *.x
+	/bin/rm *.o *.x

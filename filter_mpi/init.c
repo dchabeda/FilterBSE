@@ -1,5 +1,5 @@
-#include "fd.h"
-#include "vector.h"
+#include "init.h"
+
 
 /*****************************************************************************/
 
@@ -468,7 +468,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
             );
           }
         }
-        pot_local[jxyz] = sum;
+        pot_local[jxyz] = pot_local[ist->ngrid + jxyz] = sum;
       }
     }
   } 
@@ -769,6 +769,7 @@ void init_filter_states(
   parallel_st*  parallel){
   
   FILE*         pseed;
+  FILE*         ppsi;
   char          str[20];
   
   int           jspin; 
@@ -781,6 +782,46 @@ void init_filter_states(
   long          ns_block;
   long          stlen = ist->complex_idx * ist->nspinngrid;
   
+
+  // If the user wants to read in starting wavefunctions for the filter
+  // Then read them in and do not randomly generate states
+  // There must be at least ist->mn_states_tot states available in the file
+  // psi-init.dat
+
+  if (1 == flag->inputPsiFilt){
+    int n_every;
+    n_every = (1 == flag->useSpinors) ? 2 : 1;
+
+    ppsi = fopen("psi-init.dat", "r");
+    
+    read_psi_dat(ppsi, psi_rank, ist->init_psi_start, ist->init_psi_end, stlen, n_every);
+    
+    // For debugging, print out cube files of the psi's that were read in:
+    printf("Writing cube output\n"); fflush(0);
+    double* rho = (double*) calloc(ist->ngrid, sizeof(double));
+    printf("Allocated rho\n"); fflush(0);
+    for (jns = 0; jns < ist->mn_states_tot; jns++){
+      printf("Reading state %ld\n", jns); fflush(0);
+      jstate = jns * stlen;
+      for (jgrid = 0; jgrid < ist->ngrid; jgrid++){
+        jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = jgrid_real + 1;
+
+        rho[jgrid] = sqr(psi_rank[jstate + jgrid_real]) + sqr(psi_rank[jstate + jgrid_imag]);
+      }
+      sprintf(str, "psi-init-%ld.cube", jns);
+      write_cube_file(rho, grid, str);
+    }
+    printf("Done writing cubes\n"); fflush(0);
+
+    free(rho);
+
+    fclose(ppsi);
+    return;
+  }
+  
+
+
   // Print out the random seeds for debugging purposes
   sprintf(str, "seed-%d.dat", parallel->mpi_rank);
   pseed = fopen(str, "w");
@@ -798,26 +839,23 @@ void init_filter_states(
     
     ns_block = jns * (ist->m_states_per_filter * stlen);
     
-    for (jms = 0; jms < ist->m_states_per_filter; jms++){
-      jstate = ns_block + jms * stlen;
-
-      if (1 == flag->isComplex){
-        for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-          // handle indexing of real and imaginary components if complex
-          // ist->complex_idx = (flag->isComplex + 1) = 2 when complex valued functions are in use, 1 if real
-          jgrid_real = ist->complex_idx * jgrid;
-          jgrid_imag = jgrid_real + 1;
-          
-          psi_rank[jstate + jgrid_real] = psi[jgrid].re;
-          psi_rank[jstate + jgrid_imag] = psi[jgrid].im;
-          // the imaginary components will be stored one double away (16 bytes, or IMAG_IDX) in memory from the real component
-        } 
-      }
-      else{
-        for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-          // if the wavefunction is real-valued, then only the real component is stored
-          psi_rank[jstate + jgrid] = psi[jgrid].re;
-        }
+    // Add the initial random psi to the start of the ns_block for psi_rank
+    if (1 == flag->isComplex){
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        // handle indexing of real and imaginary components if complex
+        // ist->complex_idx = (flag->isComplex + 1) = 2 when complex valued functions are in use, 1 if real
+        jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = jgrid_real + 1;
+        
+        psi_rank[ns_block + jgrid_real] = psi[jgrid].re;
+        psi_rank[ns_block + jgrid_imag] = psi[jgrid].im;
+        // the imaginary components will be stored one double away (16 bytes, or IMAG_IDX) in memory from the real component
+      } 
+    }
+    else{
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
+        // if the wavefunction is real-valued, then only the real component is stored
+        psi_rank[jstate + jgrid] = psi[jgrid].re;
       }
     }
   }

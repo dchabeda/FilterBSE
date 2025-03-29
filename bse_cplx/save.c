@@ -14,7 +14,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\tdx = %lg, ", grid->dx);
     fprintf(pf, "dy = %lg, ", grid->dy);
     fprintf(pf, "dz = %lg\n", grid->dz);
-    fprintf(pf, "\tngrid = %ld nspin = %d\n", ist->ngrid, ist->nspin);
+    fprintf(pf, "\tngrid = %ld nspin = %d nspinngrid = %ld\n", ist->ngrid, ist->nspin, ist->nspinngrid);
 
     // ****** ****** ****** ****** ****** ****** 
     // Set parameters & counters for BSE algorithm
@@ -108,13 +108,13 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     if (flag->saveCheckpoints == 1) fprintf(pf, "\tFilter will save checkpoints along the job run\n");
     else fprintf(pf, "\tNo checkpoint saves requested\n");
     
-    if (flag->restartFromCheckpoint > -1) fprintf(pf, "\tFilter will restart from checkpoint %d\n", flag->restartFromCheckpoint);
+    if (flag->restartFromChk > -1) fprintf(pf, "\tFilter will restart from checkpoint %d\n", flag->restartFromChk);
     else fprintf(pf, "\tNo checkpoint specified for restart. Job will run in normal sequence.\n");
     
     return;
 }
 
-void read_filter_output(char *file_name, double **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag){
+void read_filter_output(char *file_name, double complex **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag){
 
     FILE *pf;
     long j;
@@ -206,13 +206,13 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
     fread(*sigma_E, sizeof(*sigma_E[0]), ist->mn_states_tot, pf);
 
     // Read psitot
-    if ((*psitot = malloc(ist->complex_idx * ist->mn_states_tot * ist->nspinngrid * sizeof(psitot[0]))) == NULL){
+    if ((*psitot = malloc(ist->mn_states_tot * ist->nspinngrid * sizeof(psitot[0]))) == NULL){
         fprintf(stderr, "ERROR: allocating memory for psitot in read_filter_output\n");
         exit(EXIT_FAILURE);
     }
 
     printf("\tpsitot from filter...\n"); fflush(stdout);
-    fread(*psitot, sizeof(psitot[0]), ist->mn_states_tot * ist->nspinngrid * ist->complex_idx, pf);
+    fread(*psitot, sizeof(psitot[0]), ist->mn_states_tot * ist->nspinngrid, pf);
     // The psitot will not be read in yet because there is no allocated memory for it.
     fseek(pf, 1 , SEEK_CUR);
     fscanf(pf, "%3s", end_buffer); 
@@ -224,6 +224,8 @@ void read_filter_output(char *file_name, double **psitot, double **eig_vals, dou
         exit(EXIT_FAILURE);
     }
 
+    free(eof);
+    free(end_buffer);
     return;
 }
 

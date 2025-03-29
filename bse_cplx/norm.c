@@ -5,7 +5,7 @@
 /*****************************************************************************/
 
 
-double norm(zomplex *psi, double dr,long ngrid)
+double norma(zomplex *psi, double dr,long ngrid)
 {
   long i;
   double norm = 0.0;
@@ -18,7 +18,7 @@ double norm(zomplex *psi, double dr,long ngrid)
 
 double normalize_zomplex(zomplex *psi, double dr, long ngrid) {
 	long i;
-	double N = norm(psi, dr, ngrid);
+	double N = norma(psi, dr, ngrid);
 
 	for (i = 0; i < ngrid; i++) {
 		psi[i].re /= N;

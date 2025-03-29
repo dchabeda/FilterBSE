@@ -1,15 +1,23 @@
 /****************************************************************************/
 
-#include "fd.h"
+#include "dipole.h"
 
 /****************************************************************************/
 
-void calc_elec_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, flag_st *flag){
+void calc_elec_dipole(
+  xyz_st*         elec_dip,
+  double complex* psi_qp,
+  double*         eig_vals,
+  grid_st*        grid,
+  index_st*       ist, 
+  par_st*         par, 
+  flag_st*        flag
+  ){
   /*******************************************************************
   * This function computes the electric transition dipole matrix     *
   * matrix elements.                                                 *
   * inputs:                                                          *
-  *  [trans_dipole] array to hold matrix elems in x, y, z direction  *
+  *  [elec_dip] array to hold matrix elems in x, y, z direction  *
   *  [psi_qp] array holding all qp_basis states                      *
   *  [eig_vals] array holding the quasiparticle orbital energies     *
   *  [grid] grid_st instance holding values of all grid points       *
@@ -18,218 +26,304 @@ void calc_elec_dipole(xyz_st *trans_dipole, double *psi_qp, double *eig_vals, gr
   * outputs: void                                                    *
   ********************************************************************/
 
-  FILE *pf1, *pf2, *pf3, *pf; 
-  long a, i, jx, jy, jz, jyz; 
-  long jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
-  long i_up_real, i_up_imag, i_dn_real, i_dn_imag, a_up_real, a_up_imag, a_dn_real, a_dn_imag;
-  zomplex sumX, sumY, sumZ, tmp;
-  double z, y, x, bohr_freq, osc_strength;
+  /************************************************************/
+	/*******************  DECLARE VARIABLES   *******************/
+	/************************************************************/
+
+  FILE*             pf; 
+
+  //                Indices
+  unsigned long     i;
+  unsigned long     a;
+  unsigned long     i_st;
+  unsigned long     a_st;
+  unsigned long     idx;
+
+  //                Scalars
+  double            z;  
+  double            y;  
+  double            x;  
+  double            E_ia;  
+  double            mu2;  
+
+  //                Constants
+  const long        nspngr    = ist->nspinngrid;
+  const long        ngrid     = ist->ngrid;
+  const long        lidx      = ist->lumo_idx;
+  const long        n_el      = ist->n_elecs;
+  const long        n_ho      = ist->n_holes;
+
+  const double      dv        = par->dv;
   
   // Output will be written to these files
   pf = fopen("OS0.dat" , "w"); 
-  fprintf(pf, "i  a   sqrt(mu2)     Ea-Ei 	  f_osc       mu_x.re     mu_y.re     mu_z.re");
-  if (flag->useSpinors){
-    fprintf(pf, "     mu_x.im     mu_y.im     mu_z.im");
-  }
-  //pf1 = fopen("mu_x.dat", "w"); pf2 = fopen("mu_y.dat", "w"); pf3 = fopen("mu_z.dat", "w");
+  
+  
+  fprintf(pf, "i  a   sqrt(mu2)     Ea-Ei 	  f_osc       mu_x.re     mu_x.im     mu_y.re     mu_y.im     mu_z.re     mu_z.im");
 
-  // Make sure mu_x, mu_y and mu_z are zero to begin with
-  // for (i = 0; i < ist->n_elecs*ist->n_holes; i++) mux[i].re = muy[i].re = muz[i].re = mux[i].im = muy[i].im = muz[i].im = 0.0;
+  
+  /************************************************************/
+	/*******************   CALC ELEC DIPOLE   *******************/
+	/************************************************************/
 
-  // Main computional work of function performed here - must loop over all electron-hole (i-a) pairs
-  // compute $$\vec{\mu} = <a|\vec{r}|i> = \int dr \sum_\simga \psi_{a}^{*}(r,\sigma) \vec{r} \psi_i(r,\sigma)$$
+  double start = omp_get_wtime();
 
-  for (i = 0; i < ist->n_holes; i++){
-    // fprintf(pf1,"\n"); fprintf(pf2,"\n"); fprintf(pf3,"\n");
-    for (a = ist->lumo_idx; a < ist->lumo_idx+ist->n_elecs; a++) {
-      sumX.re = sumY.re = sumZ.re = sumX.im = sumY.im = sumZ.im = 0.0;
+  nvtxRangePushA("Calc elec dipole");
+  #pragma omp parallel collapse(2) for private(a, i_st, a_st, x, y, z, idx)
+  for (i = 0; i < n_ho; i++){
+    for (a = lidx; a < lidx + n_el; a++) {
+      // nvtxRangePushA("loop over a");
+      i_st = i * nspngr;
+      a_st = a * nspngr;
+
+      long              jx;  
+      long              jy;
+      long              jyz;
+      long              jz;  
+      long              jg;
+      long              jsg;
+      
+      double complex mu_x;
+      double complex mu_y;
+      double complex mu_z;
+      double complex tmp; 
+
+      mu_x = mu_y = mu_z = 0.0 + 0.0*I;
+
+      // If using spinors, integrate cplx psi over two spins
+      // Loop over the grid
       for (jz = 0; jz < ist->nz; jz++) {
         z = grid->z[jz];
         for (jy = 0; jy < ist->ny; jy++) {
           y = grid->y[jy];
           jyz = ist->nx * (ist->ny * jz + jy);
-          for (jx = 0; jx < ist->nx; jx++) {
+          #pragma omp simd safelen(8) aligned(psi_qp, grid->x: BYTE_BOUNDARY) reduction(+: mu_x, mu_y, mu_z)
+          for (jx = 0; jx < ist->nx; jx++){
             x = grid->x[jx];
-            // If the wavefunctions are scalar, only one of these indices is necessary (jgridup_real)
-            // If psi_qp are spinors, then all four indices are necessary
-            jgridup_real = ist->complex_idx * (jyz + jx);
-            i_up_real = i*ist->nspinngrid*ist->complex_idx+jgridup_real;
-            a_up_real = a*ist->nspinngrid*ist->complex_idx+jgridup_real;
-            
-            // compute matrix element with real, scalar wavefuntions
-      	    tmp.re = psi_qp[a_up_real] * psi_qp[i_up_real];
-            // sumX.re += tmp.re * x; sumY.re += tmp.re * y; sumZ.re += tmp.re * z;
+            jg = jyz + jx;
+              for (int s = 0; s < 2; s++){
+              jsg = jg + s * ngrid;
 
-            // If using spinors, add the down component of the integral (and the remaining imaginary piece from the up spin)
-            if (1 == flag->useSpinors){
-              // get indices for computing matrix elem with spinor
-              jgridup_imag = ist->complex_idx * (jyz + jx) + 1;
-              jgriddn_real = jgridup_real + ist->ngrid*ist->complex_idx;
-              jgriddn_imag = jgridup_imag + ist->ngrid*ist->complex_idx;
-              i_up_imag = i*ist->nspinngrid*ist->complex_idx+jgridup_imag; a_up_imag = a*ist->nspinngrid*ist->complex_idx+jgridup_imag;
-              i_dn_real = i*ist->nspinngrid*ist->complex_idx+jgriddn_real; a_dn_real = a*ist->nspinngrid*ist->complex_idx+jgriddn_real;
-              i_dn_imag = i*ist->nspinngrid*ist->complex_idx+jgriddn_imag; a_dn_imag = a*ist->nspinngrid*ist->complex_idx+jgriddn_imag;
-
-              // REAL PART OF MATRIX ELEM CONTINUED
-              // imaginary component of up spin contribution
-              tmp.re += psi_qp[a_up_imag] * psi_qp[i_up_imag];
-              // and down spin contribution
-              tmp.re += psi_qp[a_dn_real] * psi_qp[i_dn_real]  + psi_qp[a_dn_imag] * psi_qp[i_dn_imag];
-
-              // IMAG PART OF MATRIX ELEM
-              tmp.im = psi_qp[a_up_imag] * psi_qp[i_up_real] + psi_qp[a_dn_imag] * psi_qp[i_dn_real]
-                     - psi_qp[a_up_real] * psi_qp[i_up_imag] - psi_qp[a_dn_real] * psi_qp[i_dn_imag];
-            
-              sumX.im +=  tmp.im * x; sumY.im +=  tmp.im * y; sumZ.im +=  tmp.im * z;
+              // MATRIX ELEM
+              tmp = conjmul(psi_qp[i_st + jsg], psi_qp[a_st + jsg]);
+              mu_x += tmp * x;
+              mu_y += tmp * y;
+              mu_z += tmp * z;
             }
-            //
-            //
-            sumX.re += tmp.re * x; sumY.re += tmp.re * y; sumZ.re += tmp.re * z;
-            //
-            //
           }
         }
       }
-      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re = par->dv * sumX.re;  
-      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_re = par->dv * sumY.re; 
-      trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_re = par->dv * sumZ.re; 
-      osc_strength = sqr(par->dv) * (sqr(sumX.re) + sqr(sumY.re) + sqr(sumZ.re));
-       
-      if (1 == flag->useSpinors){
-        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_im = par->dv * sumX.im; 
-        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_im = par->dv * sumY.im;
-        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_im = par->dv * sumZ.im;
-        osc_strength += sqr(par->dv) * (sqr(sumX.im) + sqr(sumY.im) + sqr(sumZ.im));
-      }
-      // fprintf (pf1,"%ld %ld %g %g\n",i,a,mux[i*ist->n_elecs+(a-ist->lumo_idx)].re, mux[i*ist->n_elecs+(a-ist->lumo_idx)].im);
-      // fprintf (pf2,"%ld %ld %g %g\n",i,a,muy[i*ist->n_elecs+(a-ist->lumo_idx)].re, muy[i*ist->n_elecs+(a-ist->lumo_idx)].im);
-      // fprintf (pf3,"%ld %ld %g %g\n",i,a,muz[i*ist->n_elecs+(a-ist->lumo_idx)].re, muz[i*ist->n_elecs+(a-ist->lumo_idx)].im);
+      // Place these values into alloc'd memory
+      idx = i * n_el + (a - lidx);
 
-      bohr_freq = eig_vals[a] - eig_vals[i];
-      fprintf(pf,"\n%ld % ld  %.8f %.12f % .8f % .8f % .8f % .8f", i, a, sqrt(osc_strength), bohr_freq, (2.0/3.0)*bohr_freq*osc_strength, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re,
-        trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_re, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_re);
-
-      if (1 == flag->useSpinors){
-        fprintf(pf," %.8f %.8f %.8f", trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_im, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_im, trans_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_im);
-      }
+      elec_dip[idx].x = dv * mu_x;
+      elec_dip[idx].y = dv * mu_y; 
+      elec_dip[idx].z = dv * mu_z;
     }
   }
-  fclose(pf); // fclose(pf1); fclose(pf2); fclose(pf3);
 
+  double end = omp_get_wtime();
+  printf("Speed of computing dipole: %f\n", (end - start)/(n_el * n_ho));
+  nvtxRangePop();
+
+
+  /************************************************************/
+	/*******************     PRINT VALUES     *******************/
+	/************************************************************/
+
+  for (i = 0; i < n_ho; i++){
+    for (a = lidx; a < lidx + n_el; a++){
+      idx = i * n_el + (a - lidx);
+
+      E_ia = eig_vals[a] - eig_vals[i];
+      mu2 = cnorm(elec_dip[idx].x) + cnorm(elec_dip[idx].y) + cnorm(elec_dip[idx].z);
+
+      fprintf(pf,"\n%ld % ld  %.8f %.12f % .8f % .8f % .8f % .8f % .8f % .8f % .8f", 
+        i, a, sqrt(mu2), E_ia, (2.0/3.0) * E_ia * mu2, 
+        elec_dip[idx].x,
+        elec_dip[idx].y,
+        elec_dip[idx].z
+      );
+    }
+  }
+  fclose(pf); 
+  
   return;
 }
 
 /****************************************************************************/
-// This function calculates the magnetic dipole matrix elements between the
-// single-particle electron (a) and hole (i) states: <psi_a|m|psi_i>
-// where m = -1/2*L = -1/2*r x p where x is the cross product.
 
+void calc_mag_dipole(
+  xyz_st*          mag_dip, 
+  double complex*  psi_qp, 
+  double*          eig_vals, 
+  grid_st*         grid, 
+  index_st*        ist, 
+  par_st*          par, 
+  flag_st*         flag
+  ){
+  // This function calculates the magnetic dipole matrix elements between the
+  // single-particle electron (a) and hole (i) states: <psi_a|m|psi_i>
+  // where m = -1/2*L = -1/2 * (r x p) where x is the cross product.
 
-void calc_mag_dipole(xyz_st *mag_dipole, double *psi_qp, double *eig_vals, grid_st *grid, index_st *ist, par_st *par, flag_st *flag)
-{
-  FILE *pf1, *pf2, *pf3, *pf; 
-  long a, i, jx, jy, jz, jyz; 
-  long jgrid,jgridup_real, jgridup_imag, jgriddn_real, jgriddn_imag;
-  long i_up_real, i_up_imag, i_dn_real, i_dn_imag, a_up_real, a_up_imag, a_dn_real, a_dn_imag;
-  long istate_idx, astate_idx;
-  zomplex sumX, sumY, sumZ, tmp;
-  double ms, bohr_freq, osc_strength;
-  zomplex *Lxpsi, *Lypsi, *Lzpsi;
-  zomplex *psi_i, *psi_a;
+  /************************************************************/
+	/*******************  DECLARE VARIABLES   *******************/
+	/************************************************************/
+
+  //                File pointers  
+  FILE*             pf;
+
+  //                Indices and states  
+  long              i;
+  long              a;
+  long              i_st;  
+  long              a_st; 
+  long              idx;
+  long              jg;
+
+  //                Constants
+  const long        nspngr    = ist->nspinngrid;
+  const long        ngrid     = ist->ngrid;
+  const long        lidx      = ist->lumo_idx;
+  const long        n_el      = ist->n_elecs;
+  const long        n_ho      = ist->n_holes;
+
+  const double      dv        = par->dv;  
+
+  //                Double values
+  double            E_ia;
+  double            ms;
+
+  //                k-space grid vectors  
+  double*           gx;  
+  double*           gy;  
+  double*           gz;  
+  double*           g_vecs;  
+
+  //                Complex arrays
+  double complex*   Lxpsi;  
+  double complex*   Lypsi;  
+  double complex*   Lzpsi;
+
+  // FFTW  
+  fftw_plan_loc     planfw;  
+  fftw_plan_loc     planbw;  
+  fftw_complex*     fftwpsi;  
+  
+
+  // Allocate memory for multithreaded FFT
+	fftw_init_threads();
+	fftw_plan_with_nthreads(ist->nthreads);
+
+	fftwpsi = fftw_malloc(ngrid * sizeof(fftw_complex));
+  planfw = fftw_plan_dft_3d(grid->nz, grid->ny, grid->nx, fftwpsi, fftwpsi, FFTW_FORWARD, 0);
+  planbw = fftw_plan_dft_3d(grid->nz, grid->ny, grid->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, 0);
+
+  /************************************************************/
+	/*********************     INIT G VECS    *******************/
+	/************************************************************/
+
+	// G vectors for derivatives in k space
+  ALLOCATE(&gx, grid->nx, "gx in mag_dipole");
+  ALLOCATE(&gy, grid->ny, "gy in mag_dipole");
+  ALLOCATE(&gz, grid->nz, "gz in mag_dipole");
+  ALLOCATE(&g_vecs, 3 * ngrid, "g_vecs in mag_dipole");
+	
+  // Initializing the G vectors
+  init_g_vecs(g_vecs, gx, gy, gz, grid, ist, par);
 
   // Allocate memory
-  psi_i = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));;
-	psi_a = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));;
-	
-	Lxpsi = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
-	Lypsi = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
-	Lzpsi = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
+  ALLOCATE(&Lxpsi, nspngr, "Lxpsi in mag_dipole");
+  ALLOCATE(&Lypsi, nspngr, "Lypsi in mag_dipole");
+  ALLOCATE(&Lzpsi, nspngr, "Lzpsi in mag_dipole");
   
-  // Output will be written to these files
+  // Output will be written to this file
   pf = fopen("M0.dat" , "w"); 
   fprintf(pf, "  i   a    sqrt(ms)       Ea-Ei         m_x.re      m_x.im      m_y.re      m_y.im      m_z.re      m_z.im\n");
-  // if (flag->useSpinors){
-  //   fprintf(pf, "     m_x.im     m_y.im     m_z.im\n");
-  // }
   
-  
-  // Output will be written to these files
-  pf1 = fopen("mx.dat", "w"); 
-  pf2 = fopen("my.dat", "w"); 
-  pf3 = fopen("mz.dat", "w");
+  /************************************************************/
+	/********************     CALC MAG DIP    *******************/
+	/************************************************************/
+  nvtxRangePushA("Calc mag dipole");
+  for (i = 0; i < n_ho; i++){
+    nvtxRangePushA("loop over i");
+    i_st = i * nspngr;
 
-  // Make sure mx, my and mz are zero to begin with
-  for (i = 0; i < ist->n_xton; i++) {
-    mag_dipole[i].x_re = mag_dipole[i].y_re = mag_dipole[i].z_re = 0.0;
-    mag_dipole[i].x_im = mag_dipole[i].y_im = mag_dipole[i].z_im = 0.0;
-  }
-  
-  // Main computional work of function performed here - must loop over all electron-hole (i-a) pairs
-  for (i = 0; i < ist->n_holes; i++) {
-    fprintf(pf1,"\n"),fprintf(pf2,"\n"),fprintf(pf3,"\n");
-    
-    istate_idx = i * ist->nspinngrid * ist->complex_idx;
-    // Compute the angular momentum of this qp state
-    memcpy(&psi_i[0], &psi_qp[istate_idx], ist->nspinngrid*sizeof(psi_i[0]));
-
+    nvtxRangePushA("Compute L by FFTs");
     //spin up part
-		l_operator(&Lxpsi[0], &Lypsi[0], &Lzpsi[0], &psi_i[0], grid, ist, par);
-		//spin dn part
-		l_operator(&Lxpsi[ist->ngrid], &Lypsi[ist->ngrid], &Lzpsi[ist->ngrid], &psi_i[ist->ngrid], grid, ist, par);
+		l_operator(&Lxpsi[0], &Lypsi[0], &Lzpsi[0], &psi_qp[i_st], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
+    //spin dn part
+    l_operator(&Lxpsi[ngrid], &Lypsi[ngrid], &Lzpsi[ngrid], &psi_qp[i_st + ngrid], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
+    nvtxRangePop();
 
-
-    for (a = ist->lumo_idx; a < ist->lumo_idx+ist->n_elecs; a++) {
-      astate_idx = a * ist->complex_idx * ist->nspinngrid;
+    #pragma omp parallel for private(a, a_st, jg, idx)
+    for (a = lidx; a < lidx + n_el; a++) {
+      nvtxRangePushA("loop over a");
+      a_st = a * nspngr;
       
-      // Compy state a into psi_a
-      memcpy(&psi_a[0], &psi_qp[astate_idx], ist->nspinngrid*sizeof(psi_i[0]));
+      double complex m_x; // <a|m|i>_x
+      double complex m_y; // <a|m|i>_y
+      double complex m_z; // <a|m|i>_z
 
-      sumX.re = sumY.re = sumZ.re = 0.0;
-      sumX.im = sumY.im = sumZ.im = 0.0;
-      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++) {
-        sumX.re += psi_a[jgrid].re * Lxpsi[jgrid].re - psi_a[jgrid].im * Lxpsi[jgrid].im;
-        sumX.im += psi_a[jgrid].re * Lxpsi[jgrid].im - psi_a[jgrid].im * Lxpsi[jgrid].re;
+      m_x = m_y = m_z = 0.0 + 0.0*I;
 
-        sumY.re += psi_a[jgrid].re * Lypsi[jgrid].re - psi_a[jgrid].im * Lypsi[jgrid].im;
-        sumY.im += psi_a[jgrid].re * Lypsi[jgrid].im - psi_a[jgrid].im * Lypsi[jgrid].re;
-
-        sumZ.re += psi_a[jgrid].re * Lzpsi[jgrid].re - psi_a[jgrid].im * Lzpsi[jgrid].im;
-        sumZ.im += psi_a[jgrid].re * Lzpsi[jgrid].im - psi_a[jgrid].im * Lzpsi[jgrid].re;
+      #pragma omp simd safelen(8) aligned(psi_qp, Lxpsi, Lypsi, Lzpsi: BYTE_BOUNDARY) reduction(+:m_x, m_y, m_z)
+      for (jg = 0; jg < nspngr; jg++) { 
+        m_x += conjmul(psi_qp[a_st + jg], Lxpsi[jg]);
+        m_y += conjmul(psi_qp[a_st + jg], Lxpsi[jg]);
+        m_z += conjmul(psi_qp[a_st + jg], Lxpsi[jg]);
       }
+      
 
-      mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re =  0.5 * sumX.re;
-      mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_re =  0.5 * sumY.re;
-      mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_re =  0.5 * sumZ.re;
+      m_x *= 0.5 * dv;
+      m_y *= 0.5 * dv;
+      m_z *= 0.5 * dv;
 
-      mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_im =  0.5 * sumX.im;
-      mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_im =  0.5 * sumY.im;
-      mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_im =  0.5 * sumZ.im;
+      idx = i * n_el + (a - lidx);
 
-      fprintf(pf1,"%ld %ld %g %g\n",i, a, sumX.re, sumX.im);
-      fprintf(pf2,"%ld %ld %g %g\n",i, a, sumY.re, sumY.im);
-      fprintf(pf3,"%ld %ld %g %g\n",i, a, sumZ.re, sumZ.im);
+      mag_dip[idx].x = m_x;
+      mag_dip[idx].y = m_y;
+      mag_dip[idx].z = m_z;
+      nvtxRangePop();
+    }
+    nvtxRangePop();
+  }
+  nvtxRangePop();
 
-      ms = \
-      ( sqr(mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re) + sqr(mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_im) 
-      + sqr(mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_re) + sqr(mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_im)
-      + sqr(mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_re) + sqr(mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_im) );
+  /************************************************************/
+	/*******************     PRINT VALUES     *******************/
+	/************************************************************/
 
-      bohr_freq = eig_vals[a] - eig_vals[i];
+  for (i = 0; i < n_ho; i++){
+    for (a = lidx; a < lidx + n_el; a++){
+      idx = i*n_el+(a-lidx);
 
-      fprintf(pf,"%3ld %3ld  %+.8f %+.12f %+.8f %+.8f %+.8f %+.8f %+.8f %+.8f\n", i, a, sqrt(ms), bohr_freq,
-        mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_re,
-        mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].x_im,
-        mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_re,
-        mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].y_im,
-        mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_re,
-        mag_dipole[i*ist->n_elecs+(a-ist->lumo_idx)].z_im);
+      ms = cnorm(mag_dip[idx].x) + cnorm(mag_dip[idx].y) + cnorm(mag_dip[idx].z);
+
+      E_ia = eig_vals[a] - eig_vals[i];
+
+      fprintf(pf,"%3ld %3ld  %+.8f %+.12f %+.8f %+.8f %+.8f %+.8f %+.8f %+.8f\n", i, a, sqrt(ms), E_ia,
+        mag_dip[idx].x,
+        mag_dip[idx].y,
+        mag_dip[idx].z
+      );
     }
   }
-  fclose(pf); fclose(pf1); fclose(pf2); fclose(pf3);
+  fclose(pf);
 
   // Free dynamically allocated memory
-  free(psi_i); free(psi_a); 
-  free(Lxpsi); free(Lypsi); free(Lzpsi);
+  free(Lxpsi);
+  free(Lypsi);
+  free(Lzpsi);
+
+  fftw_free(fftwpsi);
+	fftw_destroy_plan(planfw);
+	fftw_destroy_plan(planbw);
+
+  free(gx);
+  free(gy);
+  free(gz);
+  free(g_vecs);
 
   return;
 }
@@ -243,8 +337,8 @@ void calc_mag_dipole(xyz_st *mag_dipole, double *psi_qp, double *eig_vals, grid_
 
 //   pf = fopen("rs0.dat", "w");
 //   for (i = 0; i < ist->n_holes; i++) {
-//     for (a = ist->lumo_idx; a < ist->lumo_idx+ist->n_elecs; a++) {
-//       index = i*ist->n_elecs + (a-ist->lumo_idx);
+//     for (a = ist->lumo_idx; a < ist->lumo_idx+n_el; a++) {
+//       index = i*n_el + (a-ist->lumo_idx);
 //       rs[index] = mux[index]*mx[index] + muy[index]*my[index] + muz[index]*mz[index];
 //       fprintf(pf, "%d %d %.12f  %.16f\n", i, a, eig_vals[a] - eig_vals[i], rs[index]);
 //     }

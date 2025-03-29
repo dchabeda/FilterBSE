@@ -30,7 +30,7 @@ void mod_sigma(
   
   unsigned long long st_sz = (long long) ist->complex_idx * ist->nspinngrid * sizeof(double);
   unsigned long long mem_thresh;
-  mem_thresh = 380ULL * 1024 * 1024 * 1024; // 380GiB RAM threshold
+  mem_thresh = 400ULL * 1024 * 1024 * 1024; // 400GiB RAM threshold
   
   
   /************************************************************/
@@ -47,7 +47,7 @@ void mod_sigma(
     write_separation(stdout, "B"); fflush(stdout);
   }
 
-  if (psitot_sz + (ist->nthreads * st_sz) < mem_thresh){
+  if ( (psitot_sz + (3 * ist->nthreads * st_sz) < mem_thresh) && (1 == flag->parallelSigma) ){
     // This function parallelizes over states and allocates an additional
     // nthreads*state_mem to heap. Can be ~40GB overhead!
     printf("Total mem < Large mem threshold. Parallelizing over states\n"); fflush(0);

@@ -43,6 +43,9 @@ typedef struct flag {
   int   useSpinors;
   int   isComplex;
 
+  // Input control
+  int   inputPsiFilt;
+
   // Output control
   int   printPsiFilt;
   int   printPsiDiag;
@@ -75,6 +78,9 @@ typedef struct flag {
   // Performance and parallelization
   int   useFastHam;
   int   useMPIOMP;
+  int   MPIOrtho;
+  int   MPIDiag;
+  int   parallelSigma;
 
   // Structural settings
   int   periodic;
@@ -95,6 +101,8 @@ typedef struct index {
   long  n_states_for_ortho;
   long  n_states_for_sigma;
   long long  psi_rank_size;
+  long  init_psi_start;
+  long  init_psi_end;
 
   // HOMO-LUMO and energy state indices
   long  homo_idx;

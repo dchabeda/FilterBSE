@@ -1,0 +1,61 @@
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:xpmem_make
+   fun:MPIDI_CRAY_XPMEM_mpi_init_hook
+   fun:MPIDI_SHMI_mpi_init_hook
+   fun:MPID_Init
+   fun:MPIR_Init_thread
+   fun:PMPI_Init
+   fun:PMPI_Init
+   fun:main
+}
+
+{
+   MPI_Leak
+   Memcheck:Cond
+   fun:MPIDI_CRAY_XPMEM_mpi_init_hook
+   fun:MPIDI_SHMI_mpi_init_hook
+   fun:MPID_Init
+   fun:MPIR_Init_thread
+   fun:PMPI_Init
+   fun:PMPI_Init
+   fun:main
+}
+
+
+{
+   MPI_Finalize
+   Memcheck:Cond
+   fun:MPIDI_SHMI_progress
+   fun:MPIR_Waitall_impl
+   fun:MPIR_Waitall
+   fun:PMPI_Waitall
+   fun:ADIOI_CRAY_Calc_others_req
+   fun:ADIOI_CRAY_WriteStridedColl
+   fun:MPIOI_File_write_all
+   fun:PMPI_File_write_at_all
+   fun:PMPI_File_write_at_all
+   fun:darshan_log_append
+   fun:darshan_log_write_name_record_hash
+   fun:darshan_core_shutdown
+   fun:PMPI_Finalize
+}
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:MPIDI_SHMI_progress
+   fun:PMPI_Isend
+   fun:ADIOI_CRAY_Calc_others_req
+   fun:ADIOI_CRAY_WriteStridedColl
+   fun:MPIOI_File_write_all
+   fun:PMPI_File_write_at_all
+   fun:PMPI_File_write_at_all
+   fun:darshan_log_append
+   fun:darshan_core_shutdown
+   fun:PMPI_Finalize
+   fun:main
+}
+

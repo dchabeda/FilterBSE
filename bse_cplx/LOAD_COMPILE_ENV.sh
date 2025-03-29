@@ -1,4 +1,7 @@
 #!/bin/sh
 
-module load PrgEnv-intel/8.5.0
-module load cray-fftw/3.3.10.6
+module load PrgEnv-nvidia
+module load cray-fftw
+module load cray-libsci
+#module load cudatoolkit
+#module load craype-accel-nvidia80

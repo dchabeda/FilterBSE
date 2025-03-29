@@ -8,11 +8,9 @@
 void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex *bs_coeff, double *h0mat, double *xton_ene, zomplex *psi, 
 					xyz_st *s_mom, xyz_st *l_mom, zomplex* l2_mom, zomplex* LdotS, grid_st *grid, index_st *ist, par_st *par)
 {
-  FILE *pf, *pf1, *pf2; 
-  long a, b, i, j, k, l, ibs, jbs, jgamma, jgrid;
-  double   *ev;
-  char str[100]; 
-  zomplex sum, *mat,*h, sumx, sumy, sumz;
+  FILE *pf; 
+  long a, b, i, j, k, l, ibs, jbs; 
+  zomplex sum, *mat,*h;
 
   mat = (zomplex *) calloc(ist->n_xton*ist->n_xton, sizeof(zomplex));
   h = (zomplex *) calloc(ist->n_xton*ist->n_xton, sizeof(zomplex));
@@ -25,7 +23,18 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
   
   //
   // Diagonalize the BSE matrix to obtain the coefficients
-  diag((int)ist->n_xton, ist->nthreads, bs_coeff, xton_ene);
+  // But first, convert from row major to column major order
+  
+  diag((int)ist->n_xton, ist->nthreads,(double _Complex*) bs_coeff, xton_ene);
+  zomplex *tmp_psi = calloc(ist->n_xton * ist->n_xton, sizeof(zomplex));
+  memcpy(tmp_psi, bs_coeff, ist->n_xton * ist->n_xton * sizeof(zomplex));
+  for (ibs = 0; ibs < ist->n_xton; ibs++){
+    for (jbs = 0; jbs < ist->n_xton; jbs++){
+      bs_coeff[jbs*ist->n_xton + ibs].re = tmp_psi[ibs*ist->n_xton + jbs].re;
+      bs_coeff[jbs*ist->n_xton + ibs].im = -tmp_psi[ibs*ist->n_xton + jbs].im;
+    }
+  }
+  free(tmp_psi);
   //
   //
 
@@ -49,12 +58,19 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
   long numExcStatesToPrint = 100;
   if (ist->n_xton < numExcStatesToPrint) numExcStatesToPrint = ist->n_xton;
 
-  pf = fopen("BSEcoeff.dat", "w");
-  for (i = 0; i < ist->n_xton; i++) {
+  pf = fopen("BSEcoeffRE.dat", "w");
+  for (i = 0; i < ist->n_xton; i++, fprintf(pf,"\n")) {
     for (j = 0; j < ist->n_xton; j++) {  
-	  fprintf (pf,"%.*g, %.*g\n", PR_LEN, bs_coeff[i*ist->n_xton+j].re, PR_LEN, bs_coeff[i*ist->n_xton+j].im);
-    } 
-    fprintf (pf,"\n");	
+	  fprintf (pf,"%.*g\t", PR_LEN, bs_coeff[i*ist->n_xton+j].re);
+    }
+  }
+  fclose(pf);
+
+  pf = fopen("BSEcoeffIM.dat", "w");
+  for (i = 0; i < ist->n_xton; i++, fprintf(pf,"\n")) {
+    for (j = 0; j < ist->n_xton; j++) {  
+	  fprintf (pf,"%.*g\t", PR_LEN, bs_coeff[i*ist->n_xton+j].im);
+    }
   }
   fclose(pf);
 
@@ -86,7 +102,7 @@ void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchange, zomplex 
   FILE* spinpf =fopen("spins.dat", "w");  
   //printf("Spins:\n");
   zomplex spinx, spiny, spinz, spintot;
-  zomplex tmpx, tmpy, tmpz, tmp, tmp2;
+  zomplex tmpx, tmpy, tmpz, tmp;
   long index, indexba, indexji,n;
   // printf("\nspins block\n\n"); fflush(0);
   for (n = 0; n < ist->n_xton; n++){

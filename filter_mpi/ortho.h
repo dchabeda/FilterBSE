@@ -21,7 +21,7 @@ long ortho_cplx(
 );
 
 void restart_from_ortho(
-    double*       psitot,
+    double**      psitot,
     index_st*     ist,
     par_st*       par,
     flag_st*      flag,

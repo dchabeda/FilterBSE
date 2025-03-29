@@ -1,10 +1,17 @@
 /****************************************************************************/
 
-#include "fd.h"
+#include "angular.h"
 
 /****************************************************************************/
 
-void calc_spin_mtrx(xyz_st *s_mom, double *psi_qp, grid_st *grid, index_st *ist, par_st *par){
+void calc_qp_spin_mtrx(
+  double complex* restrict psi_qp,
+	xyz_st *restrict         s_mom,  
+	grid_st*                 grid, 
+	index_st*                ist, 
+	par_st*                  par
+  ){
+	
   /*******************************************************************
   * This function computes the value of the spin projection operator *
   * between the electron and hole quasiparticle states. The spin     *
@@ -15,7 +22,7 @@ void calc_spin_mtrx(xyz_st *s_mom, double *psi_qp, grid_st *grid, index_st *ist,
   * and we compute the matrix elements <i|Sx|j> as                   *
   * sum_r psi_i(r, s) * Sx * psi_j(r, s)                             *
   * inputs:                                                          *
-  *  [s_mom] array to hold components of the spin projection mat elems   *
+  *  [s_mom] array to hold components of the spin projection elems   *
   *  [psi_qp] array holding all qp_basis states                      *
   *  [grid] grid_st instance holding values of all grid points       *
   *  [ist] ptr to counters, indices, and lengths                     *
@@ -27,145 +34,187 @@ void calc_spin_mtrx(xyz_st *s_mom, double *psi_qp, grid_st *grid, index_st *ist,
   * outputs: void                                                    *
   ********************************************************************/
  
-  long a, i, b, j;
-  long astate_idx, istate_idx, bstate_idx, jstate_idx;
-  long jgrid, jgridup_re, jgridup_im, jgriddn_re, jgriddn_im; 
-  long mtrx_idx;
-  FILE *pfx, *pfy, *pfz;
+  /************************************************************/
+	/*******************  DECLARE VARIABLES   *******************/
+	/************************************************************/
+	
+  FILE*            pfx;
+  FILE*            pfy;
+  FILE*            pfz;
 
-  pfx = fopen("sx.dat", "w"); pfy = fopen("sy.dat", "w"); pfz = fopen("sz.dat", "w");
-  //calculate spin matrix elements between all occupied (hole) orbitals
-	for(i = 0; i < ist->n_holes; i++){
-		for (j = 0; j < ist->n_holes; j++){
-      zomplex sx, sy, sz;
-      sx.re = sx.im = sy.re = sy.im = sz.re = sz.im = 0.0;
+	long             i;
+	long             j;
+	long             a;
+	long             b;
+	long             i_st;
+	long             j_st;
+	long             a_st;
+	long             b_st;
+	long             jg;
+  long             jsg;
+	long             idx;
+  	
+	const long       n_ho   = ist->n_holes;
+	const long       n_el   = ist->n_elecs;
+	const long       lidx   = ist->lumo_idx;
+	const long       ngrid  = ist->ngrid;
+	const long       nspngr = ist->nspinngrid;
+	
+	const double     dv     = grid->dv;
+  
+  pfx = fopen("sx.dat", "w");
+  pfy = fopen("sy.dat", "w"); 
+  pfz = fopen("sz.dat", "w");
+  
+  write_state_dat(psi_qp, 4*nspngr, "psi_qp_all.dat");
+  /************************************************************/
+	/*******************    CALC HOLE SPINS   *******************/
+	/************************************************************/
 
-			for (jgrid = 0; jgrid < ist->ngrid; jgrid++) {
-        jgridup_re = ist->complex_idx * jgrid;
-        jgridup_im = jgridup_re + 1;
-        jgriddn_re = jgridup_re + ist->ngrid*ist->complex_idx;
-        jgriddn_im = jgriddn_re + 1;
-        istate_idx = i * ist->nspinngrid * ist->complex_idx;
-        jstate_idx = j * ist->nspinngrid * ist->complex_idx;
+  nvtxRangePushA("Calc qp hole spin mat elems");
+  #pragma omp parallel for private(i, j, i_st, j_st, jg, jsg)
+	for(i = 0; i < n_ho; i++){
+		for (j = 0; j < n_ho; j++){
+      nvtxRangePushA("loop ij");
+      i_st = i * nspngr;
+      j_st = j * nspngr;
+      
+      double complex sx;
+      double complex sy;
+      double complex sz;
+
+      sx = sy = sz = 0.0 + 0.0*I;
+      
+      jsg = ngrid;
+      #pragma omp simd safelen(8) aligned(psi_qp: BYTE_BOUNDARY) reduction(+:sx, sy, sz)
+			for (jg = 0; jg < ngrid; jg++, jsg++){
+        // Handle indexing
         
-        //Spin x part
-        //<j|r,dn> * <r,up|i>
-        sx.re += psi_qp[jstate_idx+jgriddn_re] * psi_qp[istate_idx+jgridup_re]
-                + psi_qp[jstate_idx+jgriddn_im] * psi_qp[istate_idx+jgridup_im];
-        sx.im += psi_qp[jstate_idx+jgriddn_re] * psi_qp[istate_idx+jgridup_im]
-                - psi_qp[jstate_idx+jgriddn_im] * psi_qp[istate_idx+jgridup_re];
-        //<j|r,up> * <r,dn|i>
-        sx.re += psi_qp[jstate_idx+jgridup_re] * psi_qp[istate_idx+jgriddn_re]
-                + psi_qp[jstate_idx+jgridup_im] * psi_qp[istate_idx+jgriddn_im];
-        sx.im += psi_qp[jstate_idx+jgridup_re] * psi_qp[istate_idx+jgriddn_im]
-                - psi_qp[jstate_idx+jgridup_im] * psi_qp[istate_idx+jgriddn_re];
+        // S_x component
+        // <j|r,dn> * <r,up|i>
+        sx += conjmul(psi_qp[j_st + jsg], psi_qp[i_st + jg]);
+        // printf("\n%lu\n", jg);
+        // printf("psi[jdn] = %g %g psi[iup] = %g %g\n", psi_qp[j_st + jsg], psi_qp[i_st + jg] );
+        // printf("conjmul  = %g %g\n", conjmul(psi_qp[j_st + jsg], psi_qp[i_st + jg]) );
+        // printf("sx       = %g %g\n", sx);
+        // <j|r,up> * <r,dn|i>
+        sx += conjmul(psi_qp[j_st + jg], psi_qp[i_st + jsg]);
+        // printf("psi[jup] = %g %g psi[idn] = %g %g\n", psi_qp[j_st + jg], psi_qp[i_st + jsg] );
+        // printf("conjmul  = %g %g\n", conjmul(psi_qp[j_st + jg], psi_qp[i_st + jsg]) );
+        // printf("sx       = %g %g\n", sx);
         
-        //Spin y part
-        //i*<j|r,dn> * <r,up|i>
-        sy.im += psi_qp[jstate_idx+jgriddn_re] * psi_qp[istate_idx+jgridup_re]
-                + psi_qp[jstate_idx+jgriddn_im] * psi_qp[istate_idx+jgridup_im];
-        sy.re -= psi_qp[jstate_idx+jgriddn_re] * psi_qp[istate_idx+jgridup_im]
-                - psi_qp[jstate_idx+jgriddn_im] * psi_qp[istate_idx+jgridup_re];
-        //-i*<j|r,up> * <r,dn|i>
-        sy.im -= psi_qp[jstate_idx+jgridup_re] * psi_qp[istate_idx+jgriddn_re]
-                + psi_qp[jstate_idx+jgridup_im] * psi_qp[istate_idx+jgriddn_im];
-        sy.re += psi_qp[jstate_idx+jgridup_re] * psi_qp[istate_idx+jgriddn_im]
-                - psi_qp[jstate_idx+jgridup_im] * psi_qp[istate_idx+jgriddn_re];
+        // S_y component
+        // i*<j|r,dn> * <r,up|i>
+        sy += I * conjmul(psi_qp[j_st + jsg], psi_qp[i_st + jg]);
+        // -i*<j|r,up> * <r,dn|i>
+        sy -= I * conjmul(psi_qp[j_st + jg], psi_qp[i_st + jsg]);
         
-        //Spin z part
-        //<j|r,up> * <r,up|i>
-        sz.re += psi_qp[jstate_idx+jgridup_re] * psi_qp[istate_idx+jgridup_re]
-                + psi_qp[jstate_idx+jgridup_im] * psi_qp[istate_idx+jgridup_im];
-        sz.im += psi_qp[jstate_idx+jgridup_re] * psi_qp[istate_idx+jgridup_im]
-                - psi_qp[jstate_idx+jgridup_im] * psi_qp[istate_idx+jgridup_re];
-        //<j|r,dn> * <r,dn|i>
-        sz.re -= psi_qp[jstate_idx+jgriddn_re] * psi_qp[istate_idx+jgriddn_re]
-                + psi_qp[jstate_idx+jgriddn_im] * psi_qp[istate_idx+jgriddn_im];
-        sz.im -= psi_qp[jstate_idx+jgriddn_re] * psi_qp[istate_idx+jgriddn_im]
-                - psi_qp[jstate_idx+jgriddn_im] * psi_qp[istate_idx+jgriddn_re];
+        // S_z component
+        // <j|r,up> * <r,up|i>
+        sz += conjmul(psi_qp[j_st + jg], psi_qp[i_st + jg]);
+        
+			  // - <j|r,dn> * <r,dn|i>
+        sz -= conjmul(psi_qp[j_st + jsg], psi_qp[i_st + jsg]);
+        
+        
 		  }
-			
-			//multiply all by (1/2)*dV and complex conjugate bc holes are time reversed
-			s_mom[i*ist->n_holes+j].x_re = -0.5 * sx.re * grid->dv;
-			s_mom[i*ist->n_holes+j].x_im =  0.5 * sx.im * grid->dv;
-			s_mom[i*ist->n_holes+j].y_re = -0.5 * sy.re * grid->dv;
-			s_mom[i*ist->n_holes+j].y_im =  0.5 * sy.im * grid->dv;
-			s_mom[i*ist->n_holes+j].z_re = -0.5 * sz.re * grid->dv;
-			s_mom[i*ist->n_holes+j].z_im =  0.5 * sz.im * grid->dv;
-
-			fprintf (pfx,"%ld %ld % .10g % .10g\n",i,j,s_mom[i*ist->n_holes+j].x_re, s_mom[i*ist->n_holes+j].x_im); fflush(pfx);
-      fprintf (pfy,"%ld %ld % .10g % .10g\n",i,j,s_mom[i*ist->n_holes+j].y_re, s_mom[i*ist->n_holes+j].y_im); fflush(pfy);
-      fprintf (pfz,"%ld %ld % .10g % .10g\n",i,j,s_mom[i*ist->n_holes+j].z_re, s_mom[i*ist->n_holes+j].z_im); fflush(pfz);
+      
+			// multiply all by (1/2)*dV and minus-conjugate bc holes are time reversed
+			s_mom[i*n_ho + j].x = - 0.5 * conj(sx) * dv;
+			s_mom[i*n_ho + j].y = - 0.5 * conj(sy) * dv;
+			s_mom[i*n_ho + j].z = - 0.5 * conj(sz) * dv;
+      
+     
+      nvtxRangePop();
 		}
 	}
+  nvtxRangePop();
+  /************************************************************/
+	/*******************   PRINT HOLE OUTPUT  *******************/
+	/************************************************************/
 
-  //calculate spin matrix elements between all unoccupied (electron) orbitals
-	for (a = ist->lumo_idx; a < ist->lumo_idx+ist->n_elecs; a++){
-		for (b = ist->lumo_idx; b < ist->lumo_idx+ist->n_elecs; b++){
-			zomplex sx, sy, sz;
-      sx.re = sx.im = sy.re = sy.im = sz.re = sz.im = 0.0;
+  for (i = 0; i < n_ho; i++){
+    for (j = 0; j < n_ho; j++){
+      idx = i * n_ho + j;
+      fprintf (pfx,"%ld %ld % .10g % .10g\n", i, j, s_mom[idx].x); 
+      fprintf (pfy,"%ld %ld % .10g % .10g\n", i, j, s_mom[idx].y);
+      fprintf (pfz,"%ld %ld % .10g % .10g\n", i, j, s_mom[idx].z);
+    }
+  }
+  fflush(pfx);
+  fflush(pfy);
+  fflush(pfz);
 
-			for (jgrid = 0; jgrid < ist->ngrid; jgrid++) {
-        jgridup_re = ist->complex_idx * jgrid;
-        jgridup_im = jgridup_re + 1;
-        jgriddn_re = jgridup_re + ist->ngrid*ist->complex_idx;
-        jgriddn_im = jgriddn_re + 1;
-        astate_idx = a * ist->nspinngrid * ist->complex_idx;
-        bstate_idx = b * ist->nspinngrid * ist->complex_idx;
-						
+  /************************************************************/
+	/*******************    CALC ELEC SPINS   *******************/
+	/************************************************************/
+
+  nvtxRangePushA("Calc qp elec spins");
+  #pragma omp parallel for collapse(2) private(a, b, a_st, b_st, idx, jg, jsg)
+	for (a = lidx; a < lidx + n_el; a++){
+		for (b = lidx; b < lidx + n_el; b++){
+      nvtxRangePop();
+      a_st = a * nspngr;
+      b_st = b * nspngr;
+
+			double complex sx;
+      double complex sy;
+      double complex sz;
+
+      sx = sy = sz = 0.0 + 0.0 * I;
+      
+      #pragma omp simd safelen(8) aligned(psi_qp: BYTE_BOUNDARY) reduction(+:sx, sy, sz)
+			for (jg = 0; jg < ngrid; jg++) {
+        // Handle indexing
+        jsg = jg + ngrid;
+        
         //Spin x part
         //<b|r,dn> * <r,up|a>
-        sx.re += psi_qp[bstate_idx+jgriddn_re] * psi_qp[astate_idx+jgridup_re]
-                + psi_qp[bstate_idx+jgriddn_im] * psi_qp[astate_idx+jgridup_im];
-        sx.im += psi_qp[bstate_idx+jgriddn_re] * psi_qp[astate_idx+jgridup_im]
-                - psi_qp[bstate_idx+jgriddn_im] * psi_qp[astate_idx+jgridup_re];
+        sx += conjmul(psi_qp[b_st + jsg], psi_qp[a_st + jg]);
         //<b|r,up> * <r,dn|a>
-        sx.re += psi_qp[bstate_idx+jgridup_re] * psi_qp[astate_idx+jgriddn_re]
-                + psi_qp[bstate_idx+jgridup_im] * psi_qp[astate_idx+jgriddn_im];
-        sx.im += psi_qp[bstate_idx+jgridup_re] * psi_qp[astate_idx+jgriddn_im]
-                - psi_qp[bstate_idx+jgridup_im] * psi_qp[astate_idx+jgriddn_re];
+        sx += conjmul(psi_qp[b_st + jg], psi_qp[a_st + jsg]);
         
         //Spin y part
         //i*<b|r,dn> * <r,up|a>
-        sy.im += psi_qp[bstate_idx+jgriddn_re] * psi_qp[astate_idx+jgridup_re]
-                + psi_qp[bstate_idx+jgriddn_im] * psi_qp[astate_idx+jgridup_im];
-        sy.re -= psi_qp[bstate_idx+jgriddn_re] * psi_qp[astate_idx+jgridup_im]
-                - psi_qp[bstate_idx+jgriddn_im] * psi_qp[astate_idx+jgridup_re];
+        sy += I * conjmul(psi_qp[b_st + jsg], psi_qp[a_st + jg]);
         //-i*<b|r,up> * <r,dn|a>
-        sy.im -= psi_qp[bstate_idx+jgridup_re] * psi_qp[astate_idx+jgriddn_re]
-                + psi_qp[bstate_idx+jgridup_im] * psi_qp[astate_idx+jgriddn_im];
-        sy.re += psi_qp[bstate_idx+jgridup_re] * psi_qp[astate_idx+jgriddn_im]
-                - psi_qp[bstate_idx+jgridup_im] * psi_qp[astate_idx+jgriddn_re];
+        sy -= I * conjmul(psi_qp[b_st + jg], psi_qp[a_st + jsg]);
         
         //Spin z part
         //<b|r,up> * <r,up|a>
-        sz.re += psi_qp[bstate_idx+jgridup_re] * psi_qp[astate_idx+jgridup_re]
-                + psi_qp[bstate_idx+jgridup_im] * psi_qp[astate_idx+jgridup_im];
-        sz.im += psi_qp[bstate_idx+jgridup_re] * psi_qp[astate_idx+jgridup_im]
-                - psi_qp[bstate_idx+jgridup_im] * psi_qp[astate_idx+jgridup_re];
+        sz += conjmul(psi_qp[b_st + jg], psi_qp[a_st + jg]);
         //<b|r,dn> * <r,dn|a>
-        sz.re -= psi_qp[bstate_idx+jgriddn_re] * psi_qp[astate_idx+jgriddn_re]
-                + psi_qp[bstate_idx+jgriddn_im] * psi_qp[astate_idx+jgriddn_im];
-        sz.im -= psi_qp[bstate_idx+jgriddn_re] * psi_qp[astate_idx+jgriddn_im]
-                - psi_qp[bstate_idx+jgriddn_im] * psi_qp[astate_idx+jgriddn_re];
+        sz -= conjmul(psi_qp[b_st + jsg], psi_qp[a_st + jsg]);
 			}
 
-      mtrx_idx = sqr(ist->n_holes) + (a-ist->lumo_idx)*ist->n_elecs + (b-ist->lumo_idx);
+      idx = sqr(n_ho) + (a - lidx)*n_el + (b - lidx);
       
-			//divide all by 2
-			s_mom[mtrx_idx].x_re = 0.5 * sx.re * grid->dv;
-			s_mom[mtrx_idx].x_im = 0.5 * sx.im * grid->dv;
-			s_mom[mtrx_idx].y_re = 0.5 * sy.re * grid->dv;
-			s_mom[mtrx_idx].y_im = 0.5 * sy.im * grid->dv;
-			s_mom[mtrx_idx].z_re = 0.5 * sz.re * grid->dv;
-			s_mom[mtrx_idx].z_im = 0.5 * sz.im * grid->dv;
-      
-			fprintf (pfx,"%ld %ld % .10g % .10g\n",a,b,s_mom[mtrx_idx].x_re, s_mom[mtrx_idx].x_im);
-      fprintf (pfy,"%ld %ld % .10g % .10g\n",a,b,s_mom[mtrx_idx].y_re, s_mom[mtrx_idx].y_im);
-      fprintf (pfz,"%ld %ld % .10g % .10g\n",a,b,s_mom[mtrx_idx].z_re, s_mom[mtrx_idx].z_im);
+			// Divide all by 2 and normalize
+			s_mom[idx].x = 0.5 * sx * dv;
+			s_mom[idx].y = 0.5 * sy * dv;
+			s_mom[idx].z = 0.5 * sz * dv;
+      nvtxRangePop();
 		}
 	}
+  nvtxRangePop();
+  /************************************************************/
+	/*******************   PRINT ELEC OUTPUT  *******************/
+	/************************************************************/
+
+  for (a = lidx; a < lidx + n_el; a++){
+    for (b = lidx; b < lidx + n_el; b++){
+      idx = sqr(n_ho) + (a-lidx)*n_el + (b-lidx);
+      fprintf (pfx, "%ld %ld % .10g % .10g\n", a, b, s_mom[idx].x);
+      fprintf (pfy, "%ld %ld % .10g % .10g\n", a, b, s_mom[idx].y);
+      fprintf (pfz, "%ld %ld % .10g % .10g\n", a, b, s_mom[idx].z);
+    }
+  }
+  fflush(pfx);
+  fflush(pfy);
+  fflush(pfz);
+
   // Free memory allocated to FILE pointers
+
 	fclose(pfx);
 	fclose(pfy);
 	fclose(pfz);
@@ -173,481 +222,769 @@ void calc_spin_mtrx(xyz_st *s_mom, double *psi_qp, grid_st *grid, index_st *ist,
 	return;
 }
 
-/****************************************************************************/
+// /****************************************************************************/
 
-void calc_ang_mom_mtrx(xyz_st *l_mom, zomplex *l2_mom, zomplex *LdotS, double *psi_qp, grid_st *grid, index_st *ist, par_st *par){
-	long istate_idx, jstate_idx, astate_idx, bstate_idx; 
-	long jdridup_re, jdridup_im, jgriddn_re, jdriddn_im;
-  	long i,j,a,b,jgrid,index, jgridup, jgriddn;
+void calc_qp_ang_mom_mtrx(
+  double complex* restrict psi_qp, 
+  xyz_st* restrict         l_mom,
+	double complex* restrict l2_mom,
+	double complex* restrict ldots,
+	grid_st*                 grid,
+	index_st*                ist,
+	par_st*                  par
+  ){
 	
-	zomplex *psi1 = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));;
-	zomplex *psi2 = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));;
+	/************************************************************/
+	/*******************  DECLARE VARIABLES   *******************/
+	/************************************************************/
 	
-	zomplex* Lxpsi = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
-	zomplex* Lypsi = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
-	zomplex* Lzpsi = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
+	long             i;
+	long             j;
+	long             a;
+	long             b;
+	long             i_st;
+	long             j_st;
+	long             a_st;
+	long             b_st;
+	long             jg;
+  long             jsg;
+	long             idx;
+  	
+	const long       n_ho   = ist->n_holes;
+	const long       n_el   = ist->n_elecs;
+	const long       lidx   = ist->lumo_idx;
+	const long       ngrid  = ist->ngrid;
+	const long       nspngr = ist->nspinngrid;
+	
+	const double     dv     = grid->dv;
 
-	zomplex* Lxsqrpsi = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
-	zomplex* Lysqrpsi = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
-	zomplex* Lzsqrpsi = (zomplex*) calloc(ist->nspinngrid, sizeof(zomplex));
-	zomplex* temp1 = (zomplex*) calloc(ist->ngrid, sizeof(zomplex));
-	zomplex* temp2 = (zomplex*) calloc(ist->ngrid, sizeof(zomplex));
+	double*          gx;
+	double*          gy;
+	double*          gz;
+	double*          g_vecs;
+
+  double complex*  Lxpsi;
+  double complex*  Lypsi;
+  double complex*  Lzpsi;
+  double complex*  Lx2psi;
+  double complex*  Ly2psi;
+  double complex*  Lz2psi;
+  double complex*  temp1;
+  double complex*  temp2;
+
+	fftw_plan_loc    planfw;
+	fftw_plan_loc    planbw; 
+	fftw_complex*    fftwpsi;
+
+	/************************************************************/
+	/*******************    INITIALIZE FFT    *******************/
+	/************************************************************/
+	
+	// Note: parallelize FFT to achieve fast performance; 
+	// do not parallelize over states! - Daniel C 3.13.25
+	// Best strategy:
+	//    - Use hybrid MPI/OpenMP to distribute initial states i/a 
+	//    - Compute FFT with threads
+	//    - Perform integrals on GPU
+
+	fftw_init_threads();
+	fftw_plan_with_nthreads(ist->nthreads);
+
+	// Allocate memory for multithreaded FFT
+	fftwpsi    = fftw_malloc(ist->ngrid*sizeof(fftw_complex));
+  planfw     = fftw_plan_dft_3d(grid->nz, grid->ny, grid->nx, fftwpsi, fftwpsi, FFTW_FORWARD, 0);
+	planbw     = fftw_plan_dft_3d(grid->nz, grid->ny, grid->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, 0);
+
+	/************************************************************/
+	/*******************    INIT G vecs   *******************/
+	/************************************************************/
+
+	// G vectors for derivatives in k space
+  ALLOCATE(&gx, grid->nx, "gx");
+  ALLOCATE(&gy, grid->ny, "gy");
+  ALLOCATE(&gz, grid->nz, "gz");
+	ALLOCATE(&g_vecs, 3 * ngrid, "g_vecs");
+
+  // Initializing the G vectors
+  init_g_vecs(g_vecs, gx, gy, gz, grid, ist, par);
+
+	/************************************************************/
+	/*******************    ALLOC L OP MEM    *******************/
+	/************************************************************/
+
+  ALLOCATE(&Lxpsi, nspngr, "Lxpsi");
+  ALLOCATE(&Lypsi, nspngr, "Lypsi");
+  ALLOCATE(&Lzpsi, nspngr, "Lzpsi");
+	
+  ALLOCATE(&Lx2psi, nspngr, "Lx2psi");
+	ALLOCATE(&Ly2psi, nspngr, "Ly2psi");
+  ALLOCATE(&Lz2psi, nspngr, "Lz2psi");
+
+  ALLOCATE(&temp1, ngrid, "temp1");
+  ALLOCATE(&temp2, ngrid, "temp2");
 	
 	FILE* pfx = fopen("lx.dat", "w"); 
 	FILE* pfy = fopen("ly.dat", "w"); 
 	FILE* pfz = fopen("lz.dat", "w"); 
 	FILE* pfsqr = fopen("lsqr.dat", "w");
 	FILE* pfls = fopen("ls.dat", "w");
+
+	/************************************************************/
+	/******************    CALC HOLE <L>     ********************/
+	/************************************************************/
+
+  printf("Hole States:\n");
+	printf("i       j         Lx.re           Ly.re           Lz.re          L^2.re           L.S.re\n"); 
+	fflush(0);
 	
-  	printf("Hole States:\n");
-	printf("i       j         Lx.re           Ly.re           Lz.re          L^2.re           L.S.re\n");
-	for (i = 0; i < ist->n_holes; i++){
-		istate_idx = i * ist->nspinngrid * ist->complex_idx;
-		memcpy(psi1, &psi_qp[istate_idx], ist->nspinngrid*ist->complex_idx*sizeof(psi_qp[0]));
+  nvtxRangePushA("Calc qp hole L elems");
+	// Compute <j|Lx|i>, <j|Ly|i>, <j|Lz|i>, <j|Lx^2|i>, <j|Ly^2|i>, <j|Lz^2|i>
+	for (i = 0; i < n_ho; i++){
+    nvtxRangePushA("loop over i");
+		i_st = i * nspngr;
 		
+    nvtxRangePushA("Compute L by FFTs");
+		// These computations require FFT with small (max: 500^3) grids -> performed on CPU
+		// 1) Compute Lx|i>, Ly|i>, Lz|i>
 		//spin up part
-		l_operator(&Lxpsi[0],&Lypsi[0],&Lzpsi[0], &psi1[0], grid,ist, par);
+		l_operator(&Lxpsi[0], &Lypsi[0], &Lzpsi[0], &psi_qp[i_st], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
 		//spin dn part
-		l_operator(&Lxpsi[ist->ngrid],&Lypsi[ist->ngrid],&Lzpsi[ist->ngrid], &psi1[ist->ngrid], grid,ist, par);
+		l_operator(&Lxpsi[ngrid], &Lypsi[ngrid], &Lzpsi[ngrid], &psi_qp[i_st + ngrid], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
 
-		//Lxsqr parts
+		// Compute Lx^2|i>
 		//spin up part
-		l_operator(&Lxsqrpsi[0],&temp1[0],&temp2[0], &Lxpsi[0], grid,ist, par);
+		l_operator(&Lx2psi[0], &temp1[0], &temp2[0], &Lxpsi[0], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
 		//spin dn part
-		l_operator(&Lxsqrpsi[ist->ngrid],&temp1[0],&temp2[0], &Lxpsi[ist->ngrid], grid,ist, par);
+		l_operator(&Lx2psi[ngrid], &temp1[0], &temp2[0], &Lxpsi[ngrid], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
 
-		//Lysqr parts
+		// Compute Ly^2|i>
 		//spin up part
-		l_operator(&temp1[0],&Lysqrpsi[0],&temp2[0], &Lypsi[0], grid,ist, par);
+		l_operator(&temp1[0], &Ly2psi[0], &temp2[0], &Lypsi[0], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
 		//spin dn part
-		l_operator(&temp1[0],&Lysqrpsi[ist->ngrid],&temp2[0], &Lypsi[ist->ngrid], grid,ist, par);
+		l_operator(&temp1[0],&Ly2psi[ngrid],&temp2[0], &Lypsi[ngrid], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
 
-		//Lzsqr parts
+		// Compute Lz^2|i>
 		//spin up part
-		l_operator(&temp1[0],&temp2[0],&Lzsqrpsi[0], &Lzpsi[0], grid,ist, par);
+		l_operator(&temp1[0], &temp2[0], &Lz2psi[0], &Lzpsi[0], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
 		//spin dn part
-		l_operator(&temp1[0],&temp2[0],&Lzsqrpsi[ist->ngrid], &Lzpsi[ist->ngrid], grid,ist, par);
+		l_operator(&temp1[0], &temp2[0], &Lz2psi[ngrid], &Lzpsi[ngrid], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
+    
+    nvtxRangePop();
+		#pragma omp parallel for private(j_st, jg, jsg)
+		for (j = i; j < n_ho; j++){
+      nvtxRangePushA("loop over a");
+			j_st = j * nspngr;
 
+      double complex psi_j;
 
-		for (j = 0; j < ist->n_holes; j++){
-			zomplex psi_j_tmp;
-			zomplex lx_tmp, ly_tmp, lz_tmp, lsqr_tmp;
-			lx_tmp.re = lx_tmp.im = 0.0;
-			ly_tmp.re = ly_tmp.im = 0.0;
-			lz_tmp.re = lz_tmp.im = 0.0;
-			lsqr_tmp.re = lsqr_tmp.im = 0.0;
-			jstate_idx = j * ist->nspinngrid * ist->complex_idx;
-
-			memcpy(psi2, &psi_qp[jstate_idx], ist->nspinngrid*ist->complex_idx*sizeof(psi_qp[0]));
-		
-			for(jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
-				psi_j_tmp.re = psi2[jgrid].re;
-				psi_j_tmp.im = psi2[jgrid].im;
-				
-				// -<j|L_x|i>^*
-				lx_tmp.re -= Lxpsi[jgrid].re*psi_j_tmp.re + Lxpsi[jgrid].im*psi_j_tmp.im;
-				lx_tmp.im += Lxpsi[jgrid].im*psi_j_tmp.re - Lxpsi[jgrid].re*psi_j_tmp.im;
-				// -<j|L_y|i>^*
-				ly_tmp.re -= Lypsi[jgrid].re*psi_j_tmp.re + Lypsi[jgrid].im*psi_j_tmp.im;
-				ly_tmp.im += Lypsi[jgrid].im*psi_j_tmp.re - Lypsi[jgrid].re*psi_j_tmp.im;
-				// -<j|L_z|i>^*
-				lz_tmp.re -= Lzpsi[jgrid].re*psi_j_tmp.re + Lzpsi[jgrid].im*psi_j_tmp.im;
-				lz_tmp.im += Lzpsi[jgrid].im*psi_j_tmp.re - Lzpsi[jgrid].re*psi_j_tmp.im;
-
-				// <j|L_x^2|i>^*
-				lsqr_tmp.re += Lxsqrpsi[jgrid].re*psi_j_tmp.re + Lxsqrpsi[jgrid].im*psi_j_tmp.im;
-				lsqr_tmp.im -= Lxsqrpsi[jgrid].im*psi_j_tmp.re - Lxsqrpsi[jgrid].re*psi_j_tmp.im;
-				// <j|L_y^2|i>^*
-				lsqr_tmp.re += Lysqrpsi[jgrid].re*psi_j_tmp.re + Lysqrpsi[jgrid].im*psi_j_tmp.im; 
-				lsqr_tmp.im -= Lysqrpsi[jgrid].im*psi_j_tmp.re - Lysqrpsi[jgrid].re*psi_j_tmp.im;
-				// <j|L_z^2|i>^*
-				lsqr_tmp.re += Lzsqrpsi[jgrid].re*psi_j_tmp.re + Lzsqrpsi[jgrid].im*psi_j_tmp.im;
-				lsqr_tmp.im -= Lzsqrpsi[jgrid].im*psi_j_tmp.re - Lzsqrpsi[jgrid].re*psi_j_tmp.im;
-			}
-			// normalize and store in allocated array
-			l_mom[i*ist->n_holes + j].x_re = lx_tmp.re * grid->dv; l_mom[i*ist->n_holes + j].x_im = lx_tmp.im * grid->dv;
-			l_mom[i*ist->n_holes + j].y_re = ly_tmp.re * grid->dv; l_mom[i*ist->n_holes + j].y_im = ly_tmp.im * grid->dv;
-			l_mom[i*ist->n_holes + j].z_re = lz_tmp.re * grid->dv; l_mom[i*ist->n_holes + j].z_im = lz_tmp.im * grid->dv;
-			l2_mom[i*ist->n_holes + j].re = lsqr_tmp.re * grid->dv; l2_mom[i*ist->n_holes + j].im = lsqr_tmp.im * grid->dv;
+			double complex lx;
+      double complex ly;
+      double complex lz;
+			double complex lsqr;
+			double complex ls;
 			
-			//
-			//  Compute LdotS, the dot product of orbital and spin angular momentum
-			//
-			zomplex psi_j_up_tmp, psi_j_dn_tmp;
-			zomplex ldots_tmp;
-			ldots_tmp.re = ldots_tmp.im = 0.00;
+			lx = ly = lz = lsqr = ls = 0.0 + 0.0*I;
+			
+			// Perform integration
+			#pragma omp simd
+			for(jg = 0; jg < nspngr; jg++){
+				// Handle up spin
 
-			for(jgrid = 0; jgrid < ist->ngrid; jgrid++){
-				jgridup = jgrid;
-				jgriddn = jgrid+ist->ngrid;
-				psi_j_up_tmp.re = psi2[jgridup].re;
-				psi_j_up_tmp.im = psi2[jgridup].im;
-				psi_j_dn_tmp.re = psi2[jgriddn].re;
-				psi_j_dn_tmp.im = psi2[jgriddn].im;
+				// Holes are like time-reversed electrons, so -^*
+				// -<j|L_x|i>^*
+				lx -= conjmul(psi_qp[j_st + jg], Lxpsi[jg]);
+				// -<j|L_y|i>^*
+				ly -= conjmul(psi_qp[j_st + jg], Lypsi[jg]);
+				// -<j|L_z|i>^*
+				lz -=  conjmul(psi_qp[j_st + jg], Lzpsi[jg]);
 				
+				// <j|L_x^2|i>^*
+				lsqr += conjmul(psi_qp[j_st + jg], Lx2psi[jg]);
+				// <j|L_y^2|i>^*
+				lsqr += conjmul(psi_qp[j_st + jg], Ly2psi[jg]);
+				// <j|L_z^2|i>^*
+				lsqr += conjmul(psi_qp[j_st + jg], Lz2psi[jg]);
+			}
+			
+			// normalize and store in allocated array
+			l_mom [i*n_ho + j].x = conj(lx)   * dv;
+			l_mom [i*n_ho + j].y = conj(ly)   * dv;
+			l_mom [i*n_ho + j].z = conj(lz)   * dv;
+			l2_mom[i*n_ho + j]   = conj(lsqr) * dv;
+			
+      jsg = ngrid;
+      for (jg = 0; jg < ngrid; jg++, jsg++){
+        // Compute ldots, the dot product of orbital and spin angular momentum
+
 				//sx.lx
 				//<j|r,dn> * <r,up|Lxi>
-				ldots_tmp.re += psi_j_dn_tmp.re * Lxpsi[jgridup].re
-										  + psi_j_dn_tmp.im * Lxpsi[jgridup].im;
-				ldots_tmp.im += psi_j_dn_tmp.re * Lxpsi[jgridup].im
-										  - psi_j_dn_tmp.im * Lxpsi[jgridup].re;
+        ls += conjmul(psi_qp[j_st + jsg], Lxpsi[jg]);
 				//<j|r,up> * <r,dn|Lxi>
-				ldots_tmp.re += psi_j_up_tmp.re * Lxpsi[jgriddn].re
-										  + psi_j_up_tmp.im * Lxpsi[jgriddn].im;
-				ldots_tmp.im += psi_j_up_tmp.re * Lxpsi[jgriddn].im
-										  - psi_j_up_tmp.im * Lxpsi[jgriddn].re;
+				ls += conjmul(psi_qp[j_st + jg], Lxpsi[jsg]);
 
 				//sy.ly
 				//i*<j|r,dn> * <r,up|Lyi>
-				ldots_tmp.im += psi_j_dn_tmp.re * Lypsi[jgridup].re
-							  			  + psi_j_dn_tmp.im * Lypsi[jgridup].im;
-				ldots_tmp.re -= psi_j_dn_tmp.re * Lypsi[jgridup].im
-							  			  - psi_j_dn_tmp.im * Lypsi[jgridup].re;
+        ls += I * conjmul(psi_qp[j_st + jsg], Lypsi[jg]);
 				//-i*<j|r,up> * <r,dn|Lyi>
-				ldots_tmp.im -= psi_j_up_tmp.re * Lypsi[jgriddn].re
-							  			  + psi_j_up_tmp.im * Lypsi[jgriddn].im;
-				ldots_tmp.re += psi_j_up_tmp.re * Lypsi[jgriddn].im
-							  			  - psi_j_up_tmp.im * Lypsi[jgriddn].re;
+        ls -= I * conjmul(psi_qp[j_st + jg], Lypsi[jsg]);
 
-  			  	//sz.lz
-  			  	//<j|r,up> * <r,up|Lzi>
-				ldots_tmp.re += psi_j_up_tmp.re * Lzpsi[jgridup].re
-										  + psi_j_up_tmp.im * Lzpsi[jgridup].im;
-				ldots_tmp.im += psi_j_up_tmp.re * Lzpsi[jgridup].im
-										  - psi_j_up_tmp.im * Lzpsi[jgridup].re;
+        //sz.lz
+        //<j|r,up> * <r,up|Lzi>
+        ls += conjmul(psi_qp[j_st + jg], Lzpsi[jg]);
 				//<j|r,dn> * <r,dn|Lzi>
-				ldots_tmp.re -= psi_j_dn_tmp.re * Lzpsi[jgriddn].re
-										  + psi_j_dn_tmp.im * Lzpsi[jgriddn].im;
-				ldots_tmp.im -= psi_j_dn_tmp.re * Lzpsi[jgriddn].im
-										  - psi_j_dn_tmp.im * Lzpsi[jgriddn].re;
-			}
-			//normalize and complex conjugate
-			LdotS[i*ist->n_holes+j].re = 0.5 * ldots_tmp.re * grid->dv; 
-			LdotS[i*ist->n_holes+j].im = -0.5 * ldots_tmp.im * grid->dv;
-
-			fprintf(pfx,"%ld\t%ld\t%lf\t%lf\n",i,j,l_mom[i*ist->n_holes+j].x_re,l_mom[i*ist->n_holes+j].x_im);
-			fprintf(pfy,"%ld\t%ld\t%lf\t%lf\n",i,j,l_mom[i*ist->n_holes+j].y_re,l_mom[i*ist->n_holes+j].y_im);
-			fprintf(pfz,"%ld\t%ld\t%lf\t%lf\n",i,j,l_mom[i*ist->n_holes+j].z_re,l_mom[i*ist->n_holes+j].z_im);
-			fprintf(pfsqr,"%ld\t%ld\t%lf\t%lf\n",i,j,l2_mom[i*ist->n_holes+j].re,l2_mom[i*ist->n_holes+j].im);
-			fprintf(pfls,"%ld\t%ld\t%lf\t%lf\n",i,j,LdotS[i*ist->n_holes+j].re,LdotS[i*ist->n_holes+j].im);
-			if(i==j){
-				printf("%ld\t%ld\t%lf\t%lf\t%lf\t%lf\t%lf\n",i,j,l_mom[i*ist->n_holes+j].x_re,l_mom[i*ist->n_holes+j].y_re,l_mom[i*ist->n_holes+j].z_re,l2_mom[i*ist->n_holes+j].re,LdotS[i*ist->n_holes+j].re);
-			}
+				ls -= conjmul(psi_qp[j_st + jsg], Lzpsi[jsg]);
+      }
+			//normalize and complex conjugate ldots
+			ldots[i*n_ho + j] =  0.5 * conj(ls) * dv;
+      nvtxRangePop();
 		}
+    nvtxRangePop();
 	}
+  nvtxRangePop();
 
-	printf("Electron States:\n");
-	printf("a       b         Lx.re           Ly.re           Lz.re          L^2.re           L.S.re\n");
-	for (a = ist->lumo_idx;a<ist->n_elecs+ist->lumo_idx;a++){
-		astate_idx = a * ist->nspinngrid * ist->complex_idx;
-		memcpy(psi1, &psi_qp[astate_idx], ist->nspinngrid*ist->complex_idx*sizeof(psi_qp[0]));
-		
-		//spin up part
-		l_operator(&Lxpsi[0], &Lypsi[0], &Lzpsi[0], &psi1[0], grid,ist, par);
-		//spin dn part
-		l_operator(&Lxpsi[ist->ngrid],&Lypsi[ist->ngrid],&Lzpsi[ist->ngrid], &psi1[ist->ngrid], grid,ist, par);
-		
-		//Lxsqr parts
-		//spin up part
-		l_operator(&Lxsqrpsi[0], &temp1[0], &temp2[0], &Lxpsi[0], grid, ist, par);
-		//spin dn part
-		l_operator(&Lxsqrpsi[ist->ngrid],&temp1[0],&temp2[0], &Lxpsi[ist->ngrid], grid,ist, par);
+  /************************************************************/
+	/*******************   FILL LOWER TRIANG  *******************/
+	/************************************************************/
 
-		//Lysqr parts
-		//spin up part
-		l_operator(&temp1[0], &Lysqrpsi[0], &temp2[0], &Lypsi[0], grid, ist, par);
-		//spin dn part
-		l_operator(&temp1[0],&Lysqrpsi[ist->ngrid],&temp2[0], &Lypsi[ist->ngrid], grid,ist, par);
+  for (i = 0; i < n_ho; i++){
+    for (j = i + 1; j < n_ho; j++){
+      // Populate the lower triangle with the complex conj. of upper tri
+      
+      long lt = j*n_ho + i;  // lower triangle
+      long ut = i*n_ho + j;  // upper triangle
 
-		//Lzsqr parts
-		//spin up part
-		l_operator(&temp1[0], &temp2[0], &Lzsqrpsi[0], &Lzpsi[0], grid, ist, par);
-		//spin dn part
-		l_operator(&temp1[0],&temp2[0],&Lzsqrpsi[ist->ngrid], &Lzpsi[ist->ngrid], grid,ist, par);
-		
-
-		for (b = ist->lumo_idx; b < ist->n_elecs+ist->lumo_idx; b++){
-			index = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
-			zomplex psi_b_tmp;
-			zomplex lx_tmp, ly_tmp, lz_tmp, lsqr_tmp;
-			lx_tmp.re = lx_tmp.im = 0.0;
-			ly_tmp.re = ly_tmp.im = 0.0;
-			lz_tmp.re = lz_tmp.im = 0.0;
-			lsqr_tmp.re = lsqr_tmp.im = 0.0;
-			bstate_idx = b * ist->nspinngrid * ist->complex_idx;
-
-			memcpy(psi2, &psi_qp[bstate_idx], ist->nspinngrid*ist->complex_idx*sizeof(psi_qp[0]));
-
-			for(jgrid = 0; jgrid < ist->nspinngrid; jgrid++){
-				psi_b_tmp.re = psi2[jgrid].re;
-				psi_b_tmp.im = psi2[jgrid].im;
-				
-				// <b|L_x|a>
-				lx_tmp.re += Lxpsi[jgrid].re*psi_b_tmp.re + Lxpsi[jgrid].im*psi_b_tmp.im;
-				lx_tmp.im += Lxpsi[jgrid].im*psi_b_tmp.re - Lxpsi[jgrid].re*psi_b_tmp.im;
-				// <b|L_y|a>
-				ly_tmp.re += Lypsi[jgrid].re*psi_b_tmp.re + Lypsi[jgrid].im*psi_b_tmp.im;
-				ly_tmp.im += Lypsi[jgrid].im*psi_b_tmp.re - Lypsi[jgrid].re*psi_b_tmp.im;
-				// <b|L_z|a>
-				lz_tmp.re += Lzpsi[jgrid].re*psi_b_tmp.re + Lzpsi[jgrid].im*psi_b_tmp.im;
-				lz_tmp.im += Lzpsi[jgrid].im*psi_b_tmp.re - Lzpsi[jgrid].re*psi_b_tmp.im;
-				
-				// <b|L_x^2|a>
-				lsqr_tmp.re += Lxsqrpsi[jgrid].re*psi_b_tmp.re + Lxsqrpsi[jgrid].im*psi_b_tmp.im;
-				lsqr_tmp.im += Lxsqrpsi[jgrid].im*psi_b_tmp.re - Lxsqrpsi[jgrid].re*psi_b_tmp.im;
-				// <b|L_y^2|a>
-				lsqr_tmp.re += Lysqrpsi[jgrid].re*psi_b_tmp.re + Lysqrpsi[jgrid].im*psi_b_tmp.im;
-				lsqr_tmp.im += Lysqrpsi[jgrid].im*psi_b_tmp.re - Lysqrpsi[jgrid].re*psi_b_tmp.im;
-				// <b|L_z^2|a>
-				lsqr_tmp.re += Lzsqrpsi[jgrid].re*psi_b_tmp.re + Lzsqrpsi[jgrid].im*psi_b_tmp.im;
-				lsqr_tmp.im += Lzsqrpsi[jgrid].im*psi_b_tmp.re - Lzsqrpsi[jgrid].re*psi_b_tmp.im;
-			}
-			// normalize and store in allocated array
-			
-			l_mom[index].x_re = lx_tmp.re * grid->dv; l_mom[index].x_im = lx_tmp.im * grid->dv;
-			l_mom[index].y_re = ly_tmp.re * grid->dv; l_mom[index].y_im = ly_tmp.im * grid->dv;
-			l_mom[index].z_re = lz_tmp.re * grid->dv; l_mom[index].z_im = lz_tmp.im * grid->dv;
-			l2_mom[index].re = lsqr_tmp.re * grid->dv; l2_mom[index].im = lsqr_tmp.im * grid->dv;
-			
-			//
-			// Compute LdotS for the electron states 
-			//
-			zomplex psi_b_up_tmp, psi_b_dn_tmp;
-			zomplex ldots_tmp;
-			ldots_tmp.re = ldots_tmp.im = 0.00;
-
-			for(jgrid = 0; jgrid < ist->ngrid; jgrid++){
-				jgridup = jgrid;
-				jgriddn = jgrid+ist->ngrid;
-				psi_b_up_tmp.re = psi2[jgridup].re;
-				psi_b_up_tmp.im = psi2[jgridup].im;
-				psi_b_dn_tmp.re = psi2[jgriddn].re;
-				psi_b_dn_tmp.im = psi2[jgriddn].im;
-
-				//s_mom.xlx
-				//<b|r,dn> * <r,up|Lxa>
-				ldots_tmp.re += psi_b_dn_tmp.re * Lxpsi[jgridup].re
-							  + psi_b_dn_tmp.im * Lxpsi[jgridup].im;
-				ldots_tmp.im += psi_b_dn_tmp.re * Lxpsi[jgridup].im
-							  - psi_b_dn_tmp.im * Lxpsi[jgridup].re;
-				//<b|r,up> * <r,dn|Lxa>
-				ldots_tmp.re += psi_b_up_tmp.re * Lxpsi[jgriddn].re
-							  + psi_b_up_tmp.im * Lxpsi[jgriddn].im;
-				ldots_tmp.im += psi_b_up_tmp.re * Lxpsi[jgriddn].im
-							  - psi_b_up_tmp.im * Lxpsi[jgriddn].re;
-
-				//s_mom.yly
-				//i*<j|r,dn> * <r,up|Lyi>
-				ldots_tmp.im += psi_b_dn_tmp.re * Lypsi[jgridup].re
-				  			  + psi_b_dn_tmp.im * Lypsi[jgridup].im;
-				ldots_tmp.re -= psi_b_dn_tmp.re * Lypsi[jgridup].im
-				  			  - psi_b_dn_tmp.im * Lypsi[jgridup].re;
-				//-i*<j|r,up> * <r,dn|Lyi>
-				ldots_tmp.im -= psi_b_up_tmp.re * Lypsi[jgriddn].re
-				  			  + psi_b_up_tmp.im * Lypsi[jgriddn].im;
-				ldots_tmp.re += psi_b_up_tmp.re * Lypsi[jgriddn].im
-				  			  - psi_b_up_tmp.im * Lypsi[jgriddn].re;
-
-  			  	//s_mom.zlz
-  			  	//<j|r,up> * <r,up|Lzi>
-				ldots_tmp.re += psi_b_up_tmp.re * Lzpsi[jgridup].re
-							  + psi_b_up_tmp.im * Lzpsi[jgridup].im;
-				ldots_tmp.im += psi_b_up_tmp.re * Lzpsi[jgridup].im
-							  - psi_b_up_tmp.im * Lzpsi[jgridup].re;
-				//<j|r,dn> * <r,dn|Lzi>
-				ldots_tmp.re -= psi_b_dn_tmp.re * Lzpsi[jgriddn].re
-							  + psi_b_dn_tmp.im * Lzpsi[jgriddn].im;
-				ldots_tmp.im -= psi_b_dn_tmp.re * Lzpsi[jgriddn].im
-							  - psi_b_dn_tmp.im * Lzpsi[jgriddn].re;
-			}
-			// normalize 
-			LdotS[index].re = 0.5 * ldots_tmp.re * grid->dv;
-			LdotS[index].im = 0.5 * ldots_tmp.im * grid->dv;
-
-			fprintf(pfx,"%ld\t%ld\t%lf\t%lf\n",a,b,l_mom[index].x_re,l_mom[index].x_im);
-			fprintf(pfy,"%ld\t%ld\t%lf\t%lf\n",a,b,l_mom[index].y_re,l_mom[index].y_im);
-			fprintf(pfz,"%ld\t%ld\t%lf\t%lf\n",a,b,l_mom[index].z_re,l_mom[index].z_im);
-			fprintf(pfsqr,"%ld\t%ld\t%lf\t%lf\n",a,b,l2_mom[index].re,l2_mom[index].im);
-			fprintf(pfls,"%ld\t%ld\t%lf\t%lf\n",a,b,LdotS[index].re,LdotS[index].im);
-			if(a==b){
-				printf("%ld\t%ld\t%lf\t%lf\t%lf\t%lf\t%lf\n",a,b,l_mom[index].x_re,l_mom[index].y_re,l_mom[index].z_re, l2_mom[index].re, LdotS[index].re);
-			}
-		}
-	}
-	
-	free(Lxpsi); free(Lypsi); free(Lzpsi);
-	free(Lxsqrpsi); free(Lysqrpsi); free(Lzsqrpsi);
-	free(temp1); free(temp2);
-
-}
-
-
-/************************************************************/
-//Calculate the three vector components of the action of the L operator on the 
-//spatial part of the grid (no spin part)
-void l_operator(zomplex* Lxpsi, zomplex* Lypsi, zomplex* Lzpsi, zomplex* psi_qp, 
-	grid_st *grid, index_st *ist, par_st *par){
-	
-	fftw_plan_loc planfw, planbw; fftw_complex *fftwpsi;
-	double *kx, *ky, *kz, *kindex;
-	double density, x, y, z;
-	long jx, jy, jz, jyz, jxyz;
-	zomplex px, py, pz;
-
-	// Allocate memory for FFT
-	fftwpsi = fftw_malloc(ist->ngrid*sizeof(fftw_complex));
-    planfw = fftw_plan_dft_3d(grid->nz, grid->ny, grid->nx, fftwpsi, fftwpsi, FFTW_FORWARD, 0);
-    planbw = fftw_plan_dft_3d(grid->nz, grid->ny, grid->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, 0);
-
-	//generate kx,ky,kz vectors
-	if ((kx = (double *) malloc(grid->nx * sizeof(kx[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for kx in angular.c\n"); exit(EXIT_FAILURE);
-    }
-	if ((ky = (double *) malloc(grid->nx * sizeof(ky[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for ky in angular.c\n"); exit(EXIT_FAILURE);
-    }
-	if ((kz = (double *) malloc(grid->nx * sizeof(kz[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for kz in angular.c\n"); exit(EXIT_FAILURE);
-    }
-	if ((kindex = (double *) malloc(3*grid->ngrid * sizeof(kindex[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for kindex in angular.c\n"); exit(EXIT_FAILURE);
-    }
-
-  	/***initializing the k vectors ***/
-  	init_k_vecs(kindex, kx, ky, kz, grid, ist, par);
-
-	// Take derivative along x direction
-	p_operator("X", kindex, (zomplex*)psi_qp, Lxpsi, grid, ist, par, planfw, planbw, fftwpsi);
-	// Take derivative along y direction
-	p_operator("Y", kindex, (zomplex*)psi_qp, Lypsi, grid, ist, par, planfw, planbw, fftwpsi);
-	// Take derivative along x direction
-	p_operator("Z", kindex, (zomplex*)psi_qp, Lzpsi, grid, ist, par, planfw, planbw, fftwpsi);
-
-	/*** Now do the cross product part at each grid point***/
-	omp_set_dynamic(0);
-  	omp_set_num_threads(ist->nthreads);
-	#pragma omp parallel for private (jz,jy,jyz,jx,jxyz,px,py,pz,x,y,z)
-  	for (jz = 0; jz < grid->nz; jz++) { 
-  		z = grid->z[jz];
-  		for (jy = 0;jy<grid->ny;jy++){
-  			jyz = grid->nx * (grid->ny * jz + jy);
-  			y = grid->y[jy];
-  			for(jx = 0; jx<grid->nx;jx++){
-  				x = grid->x[jx];
-				jxyz = jyz + jx;
-				//copy over tmp varibales
-				px.re = Lxpsi[jxyz].re; px.im = Lxpsi[jxyz].im;
-				py.re = Lypsi[jxyz].re; py.im = Lypsi[jxyz].im;
-				pz.re = Lzpsi[jxyz].re; pz.im = Lzpsi[jxyz].im;
-				
-				Lxpsi[jxyz].re = (y*pz.re - z*py.re);
-				Lxpsi[jxyz].im = (y*pz.im - z*py.im);
-
-				Lypsi[jxyz].re = (z*px.re - x*pz.re);
-				Lypsi[jxyz].im = (z*px.im - x*pz.im);
-
-				Lzpsi[jxyz].re = (x*py.re - y*px.re);
-				Lzpsi[jxyz].im = (x*py.im - y*px.im);
-			}
-		}
-	}
-
-	free(kx); free(ky); free(kz); free(kindex);
-	return;
-}
-
-/*************************************************************************************************/
-
-void init_k_vecs(double *kindex, double *kx, double *ky, double *kz, grid_st *grid, index_st *ist, par_st *par){
-
-	long jx, jy, jz, jyz, jgrid;
-	// The k-vectors in each direction are initialized so that
-	// they are stored as - k. e.g. The kx values of positive 
-	// x values are made negative; simplifies p_operator function
-	for (kx[0] = 0.0, jx = 1; jx <= grid->nx / 2; jx++){
-    	kx[grid->nx-jx] = -1.00 * (kx[jx] = (double)(jx) * grid->dkx * 
-    		grid->nx_1 * grid->ny_1 * grid->nz_1);
-  	}
-	// for (jx = 0; jx < grid->nx; jx++){
-	// 	printf("x[%ld] = %g , kx = %g\n", jx, grid->x[jx], kx[jx]);
-	// }
-
-  	for (ky[0] = 0.0, jy = 1; jy <= grid->ny / 2; jy++){
-    	ky[grid->ny-jy] = -1.00 * (ky[jy] = (double)(jy) * grid->dky *
-			grid->nx_1 * grid->ny_1 * grid->nz_1);
-  	}
-
-  	for (kz[0] = 0.0, jz = 1; jz <= grid->nz / 2; jz++){
-    	kz[grid->nz-jz] = -1.00 * (kz[jz] = (double)(jz) * grid->dkz *
-			grid->nx_1 * grid->ny_1 * grid->nz_1);
-  	}
-	
-	for (jz = 0; jz < grid->nz; jz++) {
-    	for (jy = 0; jy < grid->ny; jy++) {
-      	jyz = grid->nx * (grid->ny * jz + jy);
-      	for (jx = 0; jx < grid->nx; jx++) {   
-        	jgrid = jyz + jx;
-        	kindex[3*jgrid]   = kx[jx]; 
-        	kindex[3*jgrid+1] = ky[jy];
-        	kindex[3*jgrid+2] = kz[jz];
-      } 
+      // transpose
+      l_mom [lt].x = conj(l_mom [ut].x);
+      l_mom [lt].y = conj(l_mom [ut].y);
+      l_mom [lt].z = conj(l_mom [ut].z);
+      l2_mom[lt]   = conj(l2_mom[ut]);
+      ldots [lt]   = conj(ldots [ut]);
     }
   }
 
-  return;
+	/************************************************************/
+	/*******************   PRINT HOLE OUTPUT  *******************/
+	/************************************************************/
 
-}
+  
+	for (i = 0; i < n_ho; i++){
+		for (j = 0; j < n_ho; j++){
+			fprintf(pfx,   "%ld\t%ld\t%lf\t%lf\n", i, j, l_mom [i*n_ho+j].x);
+			fprintf(pfy,   "%ld\t%ld\t%lf\t%lf\n", i, j, l_mom [i*n_ho+j].y);
+			fprintf(pfz,   "%ld\t%ld\t%lf\t%lf\n", i, j, l_mom [i*n_ho+j].z);
+			fprintf(pfsqr, "%ld\t%ld\t%lf\t%lf\n", i, j, l2_mom[i*n_ho+j]);
+			fprintf(pfls,  "%ld\t%ld\t%lf\t%lf\n", i, j, ldots [i*n_ho+j]); 
+			
+			if(i==j){
+				printf("%ld\t%ld\t%lf\t%lf\t%lf\t%lf\t%lf\n",
+					i, j, creal(l_mom[i*n_ho+j].x), creal(l_mom[i*n_ho+j].y), creal(l_mom[i*n_ho +j].z),
+					creal(l2_mom[i*n_ho+j]), creal(ldots[i*n_ho+j])
+				);
+			}
+		}
+	}
+	fflush(0);
 
-/*************************************************************************************************/
+	/************************************************************/
+	/******************    CALC ELEC <L>     ********************/
+	/************************************************************/
 
-void p_operator(char* direc, double *kindex, zomplex *psi, zomplex *Lpsi, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi){
-	/*** First use the fft to get the action of the p operator on each axis 
-	* p = (-i d/dx) imag part from the fft definition***/
-	// To compute d/dx, we compute FT^-1[-i*k*FT(psi)]
-	// multiplying this by -i, we get p = -i * FT^-1[ -i*k * FT(psi)]
-	// p = FT^-1[ -k * FT(psi)]. We already initialized the k-vectors to be -k.
-	// so here we just multiply by k.
+	printf("Electron States:\n");
+	printf("a       b         Lx.re           Ly.re           Lz.re          L^2.re           L.S.re\n");
+	fflush(0);
+  nvtxRangePushA("Calc qp elec L elems");
+	for (a = lidx; a < lidx + n_el; a++){
+    nvtxRangePushA("loop over a");
+		a_st = a * nspngr;
+		
+    nvtxRangePushA("Compute L by FFTs");
+		//spin up part
+		l_operator(Lxpsi, Lypsi, Lzpsi, &psi_qp[a_st], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
+		//spin dn part
+		l_operator(&Lxpsi[ngrid], &Lypsi[ngrid], &Lzpsi[ngrid], &psi_qp[a_st + ngrid], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
+		
+		//Lxsqr parts
+		//spin up part
+		l_operator(Lx2psi, &temp1[0], &temp2[0], Lxpsi, g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
+		//spin dn part
+		l_operator(&Lx2psi[ngrid], &temp1[0], &temp2[0], &Lxpsi[ngrid], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
+
+		//Lysqr parts
+		//spin up part
+		l_operator(&temp1[0], Ly2psi, &temp2[0], Lypsi, g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
+		//spin dn part
+		l_operator(&temp1[0], &Ly2psi[ngrid], &temp2[0], &Lypsi[ngrid], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
+
+		//Lzsqr parts
+		//spin up part
+		l_operator(&temp1[0], &temp2[0], &Lz2psi[0], &Lzpsi[0], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
+		//spin dn part
+		l_operator(&temp1[0], &temp2[0], &Lz2psi[ngrid], &Lzpsi[ngrid], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
+		nvtxRangePop();
+
+		#pragma omp parallel for private(b, b_st, jg, jsg, idx)
+		for (b = a; b < lidx + n_el; b++){
+      nvtxRangePushA("loop over b");
+			b_st = b * nspngr;
+
+			// Declare variables on the GPU
+
+			double complex psi_b;
+
+			double complex lx;
+      double complex ly;
+      double complex lz;
+			double complex lsqr;
+			double complex ls;
+			
+			lx = ly = lz = lsqr = ls = 0.0 + 0.0*I;
+			
+			idx = sqr(n_ho) + (a - lidx) * n_el + (b - lidx);
+      
+      #pragma omp simd reduction(+: lx, ly, lz, lsqr)
+			for(jg = 0; jg < nspngr; jg++){
+				// Handle up spin
+				// <b|L_x|a>
+        lx += conjmul(psi_qp[b_st + jg], Lxpsi[jg]);
+				// <b|L_y|a>
+				ly += conjmul(psi_qp[b_st + jg], Lypsi[jg]);
+				// <b|L_z|a>
+				lz += conjmul(psi_qp[b_st + jg], Lzpsi[jg]);
+				
+				// <b|L_x^2|a>
+				lsqr += conjmul(psi_qp[b_st + jg], Lx2psi[jg]);
+				// <b|L_y^2|a>
+				lsqr += conjmul(psi_qp[b_st + jg], Ly2psi[jg]);
+				// <b|L_z^2|a>
+				lsqr += conjmul(psi_qp[b_st + jg], Lz2psi[jg]);
+			}
+			
+			// Normalize and store in alloc'd arrays
+			l_mom [idx].x = lx * dv;
+			l_mom [idx].y = ly * dv;
+			l_mom [idx].z = lz * dv;
+			l2_mom[idx]   = lsqr * dv;
+
+      jsg = ngrid;
+      for (jg = 0; jg < ngrid; jg++){
+        // Compute ldots for the electron states
+
+				//s_mom.xlx
+				//<b|r,dn> * <r,up|Lxa>
+        ls += conjmul(psi_qp[b_st + jsg], Lxpsi[jg]);
+				//<b|r,up> * <r,dn|Lxa>
+				ls += conjmul(psi_qp[b_st + jg], Lxpsi[jsg]);
+
+				//s_mom.yly
+				//i*<j|r,dn> * <r,up|Lyi>
+        ls += I * conjmul(psi_qp[b_st + jsg], Lypsi[jg]);
+				//-i*<j|r,up> * <r,dn|Lyi>
+				ls -= I * conjmul(psi_qp[b_st + jg], Lypsi[jsg]);
+
+        //s_mom.zlz
+        //<j|r,up> * <r,up|Lzi>
+				ls += conjmul(psi_qp[b_st + jg], Lzpsi[jg]);
+				//<j|r,dn> * <r,dn|Lzi>
+				ls -= conjmul(psi_qp[b_st + jsg], Lzpsi[jsg]);
+      }
+
+			ldots[idx] = 0.5 * ls * dv;
+      nvtxRangePop();
+		}
+    nvtxRangePop();
+	}
+  nvtxRangePop();
+
+  /************************************************************/
+	/*******************   FILL LOWER TRIANG  *******************/
+	/************************************************************/
+
+  for (a = lidx; a < lidx + n_el; a++){
+    for (b = a + 1; b < lidx + n_el; b++){
+      // Populate the lower triangle with the complex conj. of upper tri
+      
+      long lt = sqr(n_ho) + (b-lidx)*n_el + (a-lidx);  // lower triangle
+      long ut = sqr(n_ho) + (a-lidx)*n_el + (b-lidx);  // upper triangle
+      // transpose
+      l_mom [lt].x   =   conj(l_mom [ut].x);
+      l_mom [lt].y   =   conj(l_mom [ut].y);
+      l_mom [lt].z   =   conj(l_mom [ut].z);
+      l2_mom[lt]     =   conj(l2_mom[ut]);
+      ldots [lt]     =   conj(ldots [ut]);
+    }
+  }
+
+	/************************************************************/
+	/*******************   PRINT ELEC OUTPUT  *******************/
+	/************************************************************/
+
+	for (a = lidx; a < lidx + n_el; a++){
+		for (b = lidx; b < lidx + n_el; b++){
+			idx = sqr(n_ho) + (a - lidx) * n_el + (b - lidx);
+			fprintf(pfx,"%ld\t%ld\t%lf\t%lf\n",   a, b, l_mom [idx].x);
+			fprintf(pfy,"%ld\t%ld\t%lf\t%lf\n",   a, b, l_mom [idx].y);
+			fprintf(pfz,"%ld\t%ld\t%lf\t%lf\n",   a, b, l_mom [idx].z);
+			fprintf(pfsqr,"%ld\t%ld\t%lf\t%lf\n", a, b, l2_mom[idx]);
+			fprintf(pfls,"%ld\t%ld\t%lf\t%lf\n",  a, b, ldots [idx]);
+			
+			if(a==b){
+				printf("%ld\t%ld\t%lf\t%lf\t%lf\t%lf\t%lf\n",
+					a, b, creal(l_mom[idx].x), creal(l_mom[idx].y), creal(l_mom[idx].z),
+					creal(l2_mom[idx]), creal(ldots[idx])
+				);
+			}
+		}
+	}
+	fflush(0);
 	
-	long jgrid;
-	long dir_offset;
+	/************************************************************/
+	/*******************   FREE DYNAMIC MEM   *******************/
+	/************************************************************/
 
-	if (strcmp(direc, "X") == 0){
-		// printf("The deriv. is along X direction.\n");
-		// printf("Setting dir_offset to 0.\n");
-		dir_offset = 0;
-	} else if (strcmp(direc, "Y") == 0){
-		// printf("The deriv. is along Y direction.\n");
-		// printf("Setting dir_offset to 1.\n");
-		dir_offset = 1;
-	} else if (strcmp(direc, "Z") == 0){
-		// printf("The deriv. is along Z direction.\n");
-		// printf("Setting dir_offset to 2.\n");
-		dir_offset = 2;
-	} else {
-		printf("No direc recognized for derivative.\n");
-		exit(EXIT_FAILURE);
-	}
+	fclose(pfx);
+	fclose(pfy);
+	fclose(pfz);
+	fclose(pfsqr);
+	fclose(pfls);
+	
+	free(gx);
+	free(gy);
+	free(gz);
+	free(g_vecs);
 
-	// Copy psi to fftwpsi
-  	memcpy(&fftwpsi[0], &psi[0], grid->ngrid*sizeof(fftwpsi[0]));
-  	
-	// FT from r-space to k-space
-  	fftw_execute(planfw);
-  	
-  	omp_set_dynamic(0);
-  	omp_set_num_threads(ist->nthreads);
-  	#pragma omp parallel for private (jgrid)
-  	for (jgrid = 0; jgrid < grid->ngrid; jgrid++) {
-		//multiply by -k_x/y/z to get p along x/y/z-axis
-		fftwpsi[jgrid][0] *= kindex[3*jgrid + dir_offset];
-		fftwpsi[jgrid][1] *= kindex[3*jgrid + dir_offset];
-	}
+	free(Lxpsi);
+	free(Lypsi);
+	free(Lzpsi);
+	free(Lx2psi);
+	free(Ly2psi);
+	free(Lz2psi);
+	free(temp1);
+	free(temp2);
 
-	// Inverse FT back to r-space
-	fftw_execute(planbw);
-	// Copy fftwpsi to psi to store Lx|psi_qp> into |Lxpsi>
-	memcpy(&Lpsi[0], &fftwpsi[0], ist->ngrid*sizeof(Lpsi[0]));
+	fftw_free(fftwpsi);
+	fftw_destroy_plan(planfw);
+	fftw_destroy_plan(planbw);
 
 	return;
-	
 }
+
+/******************************************************************************************/
+
+// void calc_xton_spin_mtrx(){
+//   //compute spins:
+//   FILE* spinpf =fopen("spins.dat", "w");  
+//   //printf("Spins:\n");
+//   double complex spinx, spiny, spinz, spintot;
+//   double complex tmpx, tmpy, tmpz, tmp;
+//   long index, indexba, indexji,n;
+//   // printf("\nspins block\n\n"); fflush(0);
+//   for (n = 0; n < n_xton; n++){
+//     spinx.re = spinx.im = 0;
+//     spiny.re = spiny.im = 0;
+//     spinz.re = spinz.im = 0;
+//     spintot.re = spintot.im = 0;
+//     for (a = ist->lumo_idx; a < ist->lumo_idx + ist->n_elecs; a++){
+//       for (i = 0; i < ist->n_holes; i++) {
+//         ibs = listibs[(a - ist->lumo_idx) * ist->n_holes + i];
+        
+
+//         tmpx.re = tmpx.im = 0;
+//         tmpy.re = tmpy.im = 0;
+//         tmpz.re = tmpz.im = 0;
+//         //sum over b
+//         for (b = ist->lumo_idx; b < ist->lumo_idx + ist->n_elecs; b++){
+//           jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + i];
+//           index = sqr(ist->n_holes) + (a - ist->lumo_idx) * ist->n_elecs + (b - ist->lumo_idx);
+          
+//           //c_bi^* * <b| Sx |a>
+//           tmpx.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].x_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].x_im;
+//           tmpx.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].x_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].x_re;
+
+//           //c_bi^* * <b| Sy |a>
+//           tmpy.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].y_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].y_im;
+//           tmpy.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].y_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].y_re;
+
+//           //c_bi^* * <b| Sz |a>
+//           tmpz.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].z_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].z_im;
+//           tmpz.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].z_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].z_re;
+//         }
+        
+//         //sum over j
+//         for (j = 0; j < ist->n_holes; j++) {
+//           jbs = listibs[(a - ist->lumo_idx) * ist->n_holes + j];
+//           index = i*ist->n_holes+j;
+
+//           //c_aj^* * <j| Sx |i> 
+//           tmpx.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].x_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].x_im;
+//           tmpx.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].x_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].x_re;
+
+//           //c_aj^* * <j| Sy |i> 
+//           tmpy.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].y_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].y_im;
+//           tmpy.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].y_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].y_re;
+
+//           //c_aj^* * <j| Sz |i> 
+//           tmpz.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].z_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].z_im;
+//           tmpz.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].z_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].z_re;
+
+//         }
+
+//         //multiply by the c_ai coeff
+//         spinx.re += tmpx.re * bs_coeff[ibs*n_xton+n].re - tmpx.im * bs_coeff[ibs*n_xton+n].im;
+//         spinx.im += tmpx.im * bs_coeff[ibs*n_xton+n].re + tmpx.re * bs_coeff[ibs*n_xton+n].im;
+
+//         spiny.re += tmpy.re * bs_coeff[ibs*n_xton+n].re - tmpy.im * bs_coeff[ibs*n_xton+n].im;
+//         spiny.im += tmpy.im * bs_coeff[ibs*n_xton+n].re + tmpy.re * bs_coeff[ibs*n_xton+n].im;
+
+//         spinz.re += tmpz.re * bs_coeff[ibs*n_xton+n].re - tmpz.im * bs_coeff[ibs*n_xton+n].im;
+//         spinz.im += tmpz.im * bs_coeff[ibs*n_xton+n].re + tmpz.re * bs_coeff[ibs*n_xton+n].im;
+        
+
+//         for (b = ist->lumo_idx;b<ist->lumo_idx+ist->n_elecs;b++){
+//           for (j = 0; j < ist->n_holes; j++) {
+            
+//             indexba = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
+//             indexji = i*ist->n_holes+j;
+
+//             jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + j];
+//             tmp.re=bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].re
+//                   + bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].im;
+
+//             tmp.im=bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].re
+//                   - bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].im;
+
+//             tmpx.re=s_mom[indexba].x_re*s_mom[indexji].x_re-s_mom[indexba].x_im*s_mom[indexji].x_im
+//              + s_mom[indexba].y_re*s_mom[indexji].y_re-s_mom[indexba].y_im*s_mom[indexji].y_im
+//              + s_mom[indexba].z_re*s_mom[indexji].z_re-s_mom[indexba].z_im*s_mom[indexji].z_im;
+
+//             tmpx.im=s_mom[indexba].x_im*s_mom[indexji].x_re+s_mom[indexba].x_re*s_mom[indexji].x_im
+//             + s_mom[indexba].y_im*s_mom[indexji].y_re+s_mom[indexba].y_re*s_mom[indexji].y_im
+//             + s_mom[indexba].z_im*s_mom[indexji].z_re+s_mom[indexba].z_re*s_mom[indexji].z_im;   
+
+
+//             spintot.re+=tmp.re*tmpx.re-tmp.im*tmpx.im;
+//             spintot.im+=tmp.im*tmpx.re+tmp.re*tmpx.im;
+
+
+//           }
+
+//         }
+
+
+
+//       }
+
+//     }
+//     fprintf(spinpf,"%ld\t%-10.5lf\t%-10.5lf\t%-10.5lf\t",n,spinx.re,spiny.re, spinz.re);
+//     fprintf(spinpf,"%-10.5lf\t (%-10.5lf)\n",1.5+2.0*spintot.re, 2.0*spintot.im);
+//   }
+//   fclose(spinpf);
+// }
+
+/******************************************************************************************/
+
+// void calc_xton_ang_mom_mtrx(){
+//   //compute orbital momentum
+//   FILE* orbitpf =fopen("orbital.dat", "w");  
+//   //printf("Spins:\n");
+//   double complex orbitx, orbity, orbitz, orbittot;
+// //  double complex tmpx, tmpy, tmpz, tmp, tmp2;
+// //  long index, indexba, indexji,n;
+//   // printf("\norbital block\n\n"); fflush(0);
+//   for (n=0;n<n_xton;n++){
+//     orbitx.re = orbitx.im = 0;
+//     orbity.re = orbity.im = 0;
+//     orbitz.re = orbitz.im = 0;
+//     orbittot.re = orbittot.im = 0;
+//     for (a = ist->lumo_idx;a<ist->lumo_idx+ist->n_elecs;a++){
+//       for (i = 0; i < ist->n_holes; i++) {
+//         ibs = listibs[(a - ist->lumo_idx) * ist->n_holes + i];
+        
+
+//         tmpx.re = tmpx.im = 0;
+//         tmpy.re = tmpy.im = 0;
+//         tmpz.re = tmpz.im = 0;
+//         //sum over b
+//         for (b = ist->lumo_idx;b<ist->lumo_idx+ist->n_elecs;b++){
+//           jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + i];
+//           index = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
+          
+//           //c_bi^* * <b| Lx |a>
+//           tmpx.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].x_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].x_im;
+//           tmpx.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].x_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].x_re;
+
+//           //c_bi^* * <b| Ly |a>
+//           tmpy.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].y_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].y_im;
+//           tmpy.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].y_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].y_re;
+
+//           //c_bi^* * <b| Lz |a>
+//           tmpz.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].z_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].z_im;
+//           tmpz.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].z_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].z_re;
+//         }
+        
+//         //sum over j
+//         for (j = 0; j < ist->n_holes; j++) {
+//           jbs = listibs[(a - ist->lumo_idx) * ist->n_holes + j];
+//           index = i*ist->n_holes+j;
+
+//           //c_aj^* * <j| Lx |i> 
+//           tmpx.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].x_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].x_im;
+//           tmpx.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].x_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].x_re;
+
+//           //c_aj^* * <j| Ly |i> 
+//           tmpy.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].y_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].y_im;
+//           tmpy.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].y_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].y_re;
+
+//           //c_aj^* * <j| Lz |i> 
+//           tmpz.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].z_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].z_im;
+//           tmpz.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].z_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].z_re;
+
+//         }
+
+//         //multiply by the c_ai coeff
+//         orbitx.re += tmpx.re * bs_coeff[ibs*n_xton+n].re - tmpx.im * bs_coeff[ibs*n_xton+n].im;
+//         orbitx.im += tmpx.im * bs_coeff[ibs*n_xton+n].re + tmpx.re * bs_coeff[ibs*n_xton+n].im;
+
+//         orbity.re += tmpy.re * bs_coeff[ibs*n_xton+n].re - tmpy.im * bs_coeff[ibs*n_xton+n].im;
+//         orbity.im += tmpy.im * bs_coeff[ibs*n_xton+n].re + tmpy.re * bs_coeff[ibs*n_xton+n].im;
+
+//         orbitz.re += tmpz.re * bs_coeff[ibs*n_xton+n].re - tmpz.im * bs_coeff[ibs*n_xton+n].im;
+//         orbitz.im += tmpz.im * bs_coeff[ibs*n_xton+n].re + tmpz.re * bs_coeff[ibs*n_xton+n].im;
+        
+//         //Lsqr part
+//         for (b = ist->lumo_idx;b<ist->lumo_idx+ist->n_elecs;b++){
+//           for (j = 0; j < ist->n_holes; j++) {
+            
+//             indexba = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
+//             indexji = i*ist->n_holes+j;
+
+//             jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + j];
+            
+//             //c_{ai}^n * (c_{bj}^n)^*
+//             tmp.re=bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].re
+//                   + bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].im;
+
+//             tmp.im=bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].re
+//                   - bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].im;
+
+
+//             tmpx.re=l_mom[indexba].x_re*l_mom[indexji].x_re-l_mom[indexba].x_im*l_mom[indexji].x_im
+//              + l_mom[indexba].y_re*l_mom[indexji].y_re-l_mom[indexba].y_im*l_mom[indexji].y_im
+//              + l_mom[indexba].z_re*l_mom[indexji].z_re-l_mom[indexba].z_im*l_mom[indexji].z_im;
+
+//             tmpx.im=l_mom[indexba].x_im*l_mom[indexji].x_re+l_mom[indexba].x_re*l_mom[indexji].x_im
+//             + l_mom[indexba].y_im*l_mom[indexji].y_re+l_mom[indexba].y_re*l_mom[indexji].y_im
+//             + l_mom[indexba].z_im*l_mom[indexji].z_re+l_mom[indexba].z_re*l_mom[indexji].z_im;   
+
+//             tmpx.re*=2.0; tmpx.im*=2.0;
+            
+            
+//             if (i==j){
+//               tmpx.re+=l2_mom[indexba].re; tmpx.im+=l2_mom[indexba].im;
+//             }
+
+//             if (a==b){
+//               tmpx.re+=l2_mom[indexji].re; tmpx.im+=l2_mom[indexji].im;
+//             }
+            
+//             //printf("a:%ld b:%ld i:%ld j:%ld    tmpx: (%lf, %lf)\n", a,b,i,j,tmpx.re, tmpx.im);
+
+//             orbittot.re+=tmp.re*tmpx.re-tmp.im*tmpx.im;
+//             orbittot.im+=tmp.im*tmpx.re+tmp.re*tmpx.im;
+
+
+//           }
+
+//         }
+
+
+
+//       }
+
+//     }
+//     fprintf(orbitpf,"%ld\t%-10.5lf\t%-10.5lf\t%-10.5lf\t",n,orbitx.re,orbity.re, orbitz.re);
+//     fprintf(orbitpf,"%-10.5lf\t (%-10.5lf)\n",orbittot.re, orbittot.im);
+//   }
+//   fclose(orbitpf);
+
+
+
+
+//   //compute ls momentum
+//   FILE* lspf =fopen("couple.dat", "w");  
+//   //printf("Spins:\n");
+//   double complex lstot;
+// //  double complex tmpx, tmpy, tmpz, tmp, tmp2;
+// //  long index, indexba, indexji,n;
+//   // printf("\ncouple block\n\n"); fflush(0);
+//   for (n=0;n<n_xton;n++){
+//     lstot.re = lstot.im = 0;
+//     for (a = ist->lumo_idx;a<ist->lumo_idx+ist->n_elecs;a++){
+//       for (i = 0; i < ist->n_holes; i++) {
+//         ibs = listibs[(a - ist->lumo_idx) * ist->n_holes + i];
+//         for (b = ist->lumo_idx;b<ist->lumo_idx+ist->n_elecs;b++){
+//           for (j = 0; j < ist->n_holes; j++) {
+            
+//             tmpx.re = 0.0;tmpx.im = 0.0;
+
+//             indexba = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
+//             indexji = i*ist->n_holes+j;
+
+//             jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + j];
+            
+//             //c_{ai}^n * (c_{bj}^n)^*
+//             tmp.re=bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].re
+//                   + bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].im;
+
+//             tmp.im=bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].re
+//                   - bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].im;
+
+            
+//             // <a|L|b>*<j|S|i>
+//             tmpx.re=l_mom[indexba].x_re*s_mom[indexji].x_re-l_mom[indexba].x_im*s_mom[indexji].x_im
+//                   + l_mom[indexba].y_re*s_mom[indexji].y_re-l_mom[indexba].y_im*s_mom[indexji].y_im
+//                   + l_mom[indexba].z_re*s_mom[indexji].z_re-l_mom[indexba].z_im*s_mom[indexji].z_im;
+
+//             tmpx.im=l_mom[indexba].x_im*s_mom[indexji].x_re+l_mom[indexba].x_re*s_mom[indexji].x_im
+//                   + l_mom[indexba].y_im*s_mom[indexji].y_re+l_mom[indexba].y_re*s_mom[indexji].y_im
+//                   + l_mom[indexba].z_im*s_mom[indexji].z_re+l_mom[indexba].z_re*s_mom[indexji].z_im;
+
+//             // <a|S|b>*<j|L|i>
+//             tmpx.re+=s_mom[indexba].x_re*l_mom[indexji].x_re-s_mom[indexba].x_im*l_mom[indexji].x_im
+//                    + s_mom[indexba].y_re*l_mom[indexji].y_re-s_mom[indexba].y_im*l_mom[indexji].y_im
+//                    + s_mom[indexba].z_re*l_mom[indexji].z_re-s_mom[indexba].z_im*l_mom[indexji].z_im;
+
+//             tmpx.im+=s_mom[indexba].x_im*l_mom[indexji].x_re+s_mom[indexba].x_re*l_mom[indexji].x_im
+//                    + s_mom[indexba].y_im*l_mom[indexji].y_re+s_mom[indexba].y_re*l_mom[indexji].y_im
+//                    + s_mom[indexba].z_im*l_mom[indexji].z_re+s_mom[indexba].z_re*l_mom[indexji].z_im;    
+
+            
+            
+//             //delta ij part
+//             if (i==j){
+//               tmpx.re+=LdotS[indexba].re; tmpx.im+=LdotS[indexba].im;
+              
+//             }
+//             //delta ab part
+//             if (a==b){
+//               tmpx.re+=LdotS[indexji].re; tmpx.im+=LdotS[indexji].im;
+//             }
+            
+//             //printf("a:%ld b:%ld i:%ld j:%ld    tmpx: (%lf, %lf)\n", a,b,i,j,tmpx.re, tmpx.im);
+
+//             lstot.re+=tmp.re*tmpx.re-tmp.im*tmpx.im;
+//             lstot.im+=tmp.im*tmpx.re+tmp.re*tmpx.im;
+
+
+//           }
+
+//         }
+
+
+
+//       }
+
+//     }
+//     fprintf(lspf,"%ld\t%-10.5lf\t (%-10.5lf)\n",n,lstot.re, lstot.im);
+//   }
+//   fclose(lspf);
+// }

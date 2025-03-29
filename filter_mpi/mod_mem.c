@@ -60,7 +60,7 @@ void mod_mem_alloc(
   ALLOCATE(psi_rank, ist->psi_rank_size, "psi_rank");
   ALLOCATE(psi, ist->nspinngrid, "psi in mod_mem");
   ALLOCATE(phi, ist->nspinngrid, "phi in mod_mem");
-  ALLOCATE(pot_local, ist->ngrid, "pot_local in mod_mem");
+  ALLOCATE(pot_local, 2*ist->ngrid, "pot_local in mod_mem");
   
   // For Newton interpolation coefficients
   ALLOCATE(an, ist->ncheby*ist->m_states_per_filter, "an cheby");

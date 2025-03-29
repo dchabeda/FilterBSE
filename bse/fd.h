@@ -22,13 +22,14 @@ typedef struct flag {
   int printFPDensity;
   int calcDarkStates, calcSpinAngStat;
   int timingSpecs, saveCheckpoints, restartFromCheckpoint, saveOutput;
+  int restartCoulomb, coulombDone, calcCoulombOnly;
 } flag_st;
 
 typedef struct grid {
   double *x, *y, *z; // stores the value of the grid points
   double dx, dy, dz, dr, dv, dkx, dky, dkz;
   double xmin, xmax, ymin, ymax, zmin, zmax;
-  unsigned long long nx, ny, nz;
+  long nx, ny, nz;
   double nx_1, ny_1, nz_1;
   // Redundancies
   long ngrid;
@@ -52,13 +53,13 @@ typedef struct st1 {
 } par_st;
 
 typedef struct st4 {
-  unsigned long long max_elec_states, max_hole_states, mn_states_tot;
-  unsigned long long nthreads;
-  unsigned long long n_qp, n_xton;
-  unsigned long long nx, ny, nz, ngrid, nspinngrid;
-  unsigned long long n_atom_types, *atom_types;
-  unsigned long long natoms, homo_idx, lumo_idx, n_holes, n_elecs;
-  unsigned long long *eval_hole_idxs, *eval_elec_idxs;
+  long max_elec_states, max_hole_states, mn_states_tot;
+  long nthreads;
+  long n_qp, n_xton;
+  long nx, ny, nz, ngrid, nspinngrid;
+  long n_atom_types, *atom_types;
+  long natoms, homo_idx, lumo_idx, n_holes, n_elecs;
+  long *eval_hole_idxs, *eval_elec_idxs;
   double ngrid_1;
   int n_FP_density;
   int printFPDensity; // 0 = False (default) or 1 = True
@@ -100,7 +101,7 @@ typedef struct parallel{
 #define EPSCHI    1.0e-8
 #define DENE      1.0e-10
 #define N_MAX_ATOM_TYPES 20
-#define PR_LEN 6
+#define PR_LEN 16
 /*****************************************************************************/
 
 /*#define DEPS  0.02
@@ -120,11 +121,11 @@ void write_state_dat(zomplex *psi, long n_elems, char* fileName);
 void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);
 
 // basis.c
-void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag);
+void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 void get_qp_basis(double *psi_qp, double *psitot, double *eig_vals, double *sigma_E, index_st *ist, par_st *par, flag_st *flag);
 
 // init.c
-void init_elec_hole_kernel(zomplex *potq, zomplex *potqx, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
+void init_elec_hole_kernel(zomplex *potq, zomplex *potqx, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel, fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 double calc_coulomb(double dr, double gamma);
 
 // norm.c
@@ -138,38 +139,34 @@ void scalar_product(zomplex *,zomplex *,zomplex *,double,long,long);
 // hartree.c
 void hartree(zomplex *rho,zomplex *potq,zomplex *poth,index_st *ist,fftw_plan_loc planfw,fftw_plan_loc planbw,fftw_complex *fftwpsi);
 
-void calc_eh_kernel_cplx(zomplex       *psi_qp, 
-                        zomplex       *pot_bare,
-                        zomplex       *pot_screened,
-                        zomplex       *pot_htree,
-                        zomplex       *bsmat,
-                        zomplex       *direct,
-                        zomplex       *exchange,
-                        double        *h0mat,
-                        double        *eval,
-                        index_st      *ist,
-                        par_st        *par,
-                        flag_st       *flag,
-                        fftw_plan_loc *planfw,
-                        fftw_plan_loc *planbw,
-                        fftw_complex  *fftwpsi,
-                        parallel_st *parallel);
+void calc_eh_kernel_cplx(
+  zomplex       *psi_qp, 
+  zomplex       *pot_bare,
+  zomplex       *pot_screened,
+  zomplex       *pot_htree,
+  zomplex       *direct,
+  zomplex       *exchange,
+  index_st      *ist,
+  par_st        *par,
+  flag_st       *flag,
+  parallel_st   *parallel);
 
-void calc_eh_kernel_real(double       *psi_qp, 
-                        zomplex       *pot_bare,
-                        zomplex       *pot_screened,
-                        zomplex       *pot_htree,
-                        zomplex       *bsmat,
-                        zomplex       *direct,
-                        zomplex       *exchange,
-                        double        *h0mat,
-                        double        *eval,
-                        index_st      *ist,
-                        par_st        *par,
-                        flag_st       *flag,
-                        fftw_plan_loc *planfw,
-                        fftw_plan_loc *planbw,
-                        fftw_complex  *fftwpsi);
+void calc_eh_kernel_real(
+  double        *psi_qp, 
+  zomplex       *pot_bare,
+  zomplex       *pot_screened,
+  zomplex       *pot_htree,
+  zomplex       *bsmat,
+  zomplex       *direct,
+  zomplex       *exchange,
+  double        *h0mat,
+  double        *eval,
+  index_st      *ist,
+  par_st        *par,
+  flag_st       *flag,
+  fftw_plan_loc *planfw,
+  fftw_plan_loc *planbw,
+  fftw_complex  *fftwpsi);
 
 void diag(const int n, int nthreads, zomplex *mat, double *eval);
 void bethe_salpeter(zomplex *bsmat, zomplex *direct, zomplex *exchage, zomplex *bs_coeff, double *h0mat, double *xton_ene, zomplex *psi, 
@@ -220,11 +217,14 @@ void read_unsafe_input(
   );
 
 void get_fmo_idxs(
-  double*       eig_vals,
-  double*       sigma_E,
-  double        fermiE,
-  double        secut,
-  unsigned long long          n_elems,
-  unsigned long long*          homo_idx
-  );
+  double*          eig_vals,
+  double*          sigma_E,
+  double           fermiE,
+  double           secut,
+  unsigned long    n_elems,
+  unsigned long*   homo_idx
+);
 
+unsigned long load_coulomb_mat(zomplex* mat, char* fileName, index_st* ist);
+void build_h0_mat(double *h0mat, double *eval, index_st* ist);
+void build_BSE_mat(zomplex *bsmat, zomplex *direct, zomplex *exchange, index_st* ist);

@@ -4,7 +4,7 @@
 
 /****************************************************************************/
 
-void calc_spin_mtrx(
+void calc_qp_spin_mtrx(
   double complex* restrict psi_qp,
 	xyz_st *restrict         s_mom,  
 	grid_st*                 grid, 
@@ -224,7 +224,7 @@ void calc_spin_mtrx(
 
 // /****************************************************************************/
 
-void calc_ang_mom_mtrx(
+void calc_qp_ang_mom_mtrx(
   double complex* restrict psi_qp, 
   xyz_st* restrict         l_mom,
 	double complex* restrict l2_mom,
@@ -615,7 +615,7 @@ void calc_ang_mom_mtrx(
   }
 
 	/************************************************************/
-	/*******************   PRINT HOLE OUTPUT  *******************/
+	/*******************   PRINT ELEC OUTPUT  *******************/
 	/************************************************************/
 
 	for (a = lidx; a < lidx + n_el; a++){
@@ -668,156 +668,323 @@ void calc_ang_mom_mtrx(
 	return;
 }
 
+/******************************************************************************************/
 
-/************************************************************/
-//Calculate the three vector components of the action of the L operator on the 
-//spatial part of the grid (no spin part)
-void l_operator(
-	double complex* Lxpsi, 
-	double complex* Lypsi, 
-	double complex* Lzpsi, 
-	double complex* psi_qp,
-	double*  g_vecs,
-	grid_st *grid, 
-	index_st *ist, 
-	par_st *par, 
-	fftw_plan_loc planfw, 
-	fftw_plan_loc planbw, 
-	fftw_complex* fftwpsi){
-	
-	double x, y, z;
-	long jx, jy, jz, jyz, jxyz;
-	double complex px, py, pz;
+// void calc_xton_spin_mtrx(){
+//   //compute spins:
+//   FILE* spinpf =fopen("spins.dat", "w");  
+//   //printf("Spins:\n");
+//   double complex spinx, spiny, spinz, spintot;
+//   double complex tmpx, tmpy, tmpz, tmp;
+//   long index, indexba, indexji,n;
+//   // printf("\nspins block\n\n"); fflush(0);
+//   for (n = 0; n < n_xton; n++){
+//     spinx.re = spinx.im = 0;
+//     spiny.re = spiny.im = 0;
+//     spinz.re = spinz.im = 0;
+//     spintot.re = spintot.im = 0;
+//     for (a = ist->lumo_idx; a < ist->lumo_idx + ist->n_elecs; a++){
+//       for (i = 0; i < ist->n_holes; i++) {
+//         ibs = listibs[(a - ist->lumo_idx) * ist->n_holes + i];
+        
+
+//         tmpx.re = tmpx.im = 0;
+//         tmpy.re = tmpy.im = 0;
+//         tmpz.re = tmpz.im = 0;
+//         //sum over b
+//         for (b = ist->lumo_idx; b < ist->lumo_idx + ist->n_elecs; b++){
+//           jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + i];
+//           index = sqr(ist->n_holes) + (a - ist->lumo_idx) * ist->n_elecs + (b - ist->lumo_idx);
+          
+//           //c_bi^* * <b| Sx |a>
+//           tmpx.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].x_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].x_im;
+//           tmpx.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].x_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].x_re;
+
+//           //c_bi^* * <b| Sy |a>
+//           tmpy.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].y_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].y_im;
+//           tmpy.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].y_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].y_re;
+
+//           //c_bi^* * <b| Sz |a>
+//           tmpz.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].z_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].z_im;
+//           tmpz.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].z_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].z_re;
+//         }
+        
+//         //sum over j
+//         for (j = 0; j < ist->n_holes; j++) {
+//           jbs = listibs[(a - ist->lumo_idx) * ist->n_holes + j];
+//           index = i*ist->n_holes+j;
+
+//           //c_aj^* * <j| Sx |i> 
+//           tmpx.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].x_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].x_im;
+//           tmpx.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].x_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].x_re;
+
+//           //c_aj^* * <j| Sy |i> 
+//           tmpy.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].y_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].y_im;
+//           tmpy.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].y_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].y_re;
+
+//           //c_aj^* * <j| Sz |i> 
+//           tmpz.re += bs_coeff[jbs*n_xton+n].re*s_mom[index].z_re + bs_coeff[jbs*n_xton+n].im*s_mom[index].z_im;
+//           tmpz.im += bs_coeff[jbs*n_xton+n].re*s_mom[index].z_im - bs_coeff[jbs*n_xton+n].im*s_mom[index].z_re;
+
+//         }
+
+//         //multiply by the c_ai coeff
+//         spinx.re += tmpx.re * bs_coeff[ibs*n_xton+n].re - tmpx.im * bs_coeff[ibs*n_xton+n].im;
+//         spinx.im += tmpx.im * bs_coeff[ibs*n_xton+n].re + tmpx.re * bs_coeff[ibs*n_xton+n].im;
+
+//         spiny.re += tmpy.re * bs_coeff[ibs*n_xton+n].re - tmpy.im * bs_coeff[ibs*n_xton+n].im;
+//         spiny.im += tmpy.im * bs_coeff[ibs*n_xton+n].re + tmpy.re * bs_coeff[ibs*n_xton+n].im;
+
+//         spinz.re += tmpz.re * bs_coeff[ibs*n_xton+n].re - tmpz.im * bs_coeff[ibs*n_xton+n].im;
+//         spinz.im += tmpz.im * bs_coeff[ibs*n_xton+n].re + tmpz.re * bs_coeff[ibs*n_xton+n].im;
+        
+
+//         for (b = ist->lumo_idx;b<ist->lumo_idx+ist->n_elecs;b++){
+//           for (j = 0; j < ist->n_holes; j++) {
+            
+//             indexba = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
+//             indexji = i*ist->n_holes+j;
+
+//             jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + j];
+//             tmp.re=bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].re
+//                   + bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].im;
+
+//             tmp.im=bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].re
+//                   - bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].im;
+
+//             tmpx.re=s_mom[indexba].x_re*s_mom[indexji].x_re-s_mom[indexba].x_im*s_mom[indexji].x_im
+//              + s_mom[indexba].y_re*s_mom[indexji].y_re-s_mom[indexba].y_im*s_mom[indexji].y_im
+//              + s_mom[indexba].z_re*s_mom[indexji].z_re-s_mom[indexba].z_im*s_mom[indexji].z_im;
+
+//             tmpx.im=s_mom[indexba].x_im*s_mom[indexji].x_re+s_mom[indexba].x_re*s_mom[indexji].x_im
+//             + s_mom[indexba].y_im*s_mom[indexji].y_re+s_mom[indexba].y_re*s_mom[indexji].y_im
+//             + s_mom[indexba].z_im*s_mom[indexji].z_re+s_mom[indexba].z_re*s_mom[indexji].z_im;   
 
 
-	// Take derivative along x direction
-	p_operator("X", g_vecs, psi_qp, Lxpsi, grid, ist, par, planfw, planbw, fftwpsi);
-	// Take derivative along y direction
-	p_operator("Y", g_vecs, psi_qp, Lypsi, grid, ist, par, planfw, planbw, fftwpsi);
-	// Take derivative along x direction
-	p_operator("Z", g_vecs, psi_qp, Lzpsi, grid, ist, par, planfw, planbw, fftwpsi);
-
-	/*** Now do the cross product part at each grid point***/
-	omp_set_dynamic(0);
-  omp_set_num_threads(ist->nthreads);
-	#pragma omp parallel for private (jz,jy,jyz,jx,jxyz,px,py,pz,x,y,z)
-  	for (jz = 0; jz < grid->nz; jz++) { 
-  		z = grid->z[jz];
-  		for (jy = 0;jy<grid->ny;jy++){
-  			jyz = grid->nx * (grid->ny * jz + jy);
-  			y = grid->y[jy];
-  			for(jx = 0; jx<grid->nx;jx++){
-  			x = grid->x[jx];
-				jxyz = jyz + jx;
-				//copy over tmp varibales
-				px = Lxpsi[jxyz];
-				py = Lypsi[jxyz];
-				pz = Lzpsi[jxyz];
-				
-				Lxpsi[jxyz] = (y*pz - z*py);
-
-				Lypsi[jxyz] = (z*px - x*pz);
-
-				Lzpsi[jxyz] = (x*py - y*px);
-			}
-		}
-	}
+//             spintot.re+=tmp.re*tmpx.re-tmp.im*tmpx.im;
+//             spintot.im+=tmp.im*tmpx.re+tmp.re*tmpx.im;
 
 
-	return;
-}
+//           }
 
-/*************************************************************************************************/
+//         }
 
-void init_g_vecs(double *kindex, double *kx, double *ky, double *kz, grid_st *grid, index_st *ist, par_st *par){
 
-	long jx, jy, jz, jyz, jgrid;
-	// The k-vectors in each direction are initialized so that
-	// they are stored as - k. e.g. The kx values of positive 
-	// x values are made negative; simplifies p_operator function
-	for (kx[0] = 0.0, jx = 1; jx <= grid->nx / 2; jx++){
-    	kx[grid->nx-jx] = -1.00 * (kx[jx] = (double)(jx) * grid->dkx * 
-    		grid->nx_1 * grid->ny_1 * grid->nz_1);
-  	}
-	// for (jx = 0; jx < grid->nx; jx++){
-	// 	printf("x[%ld] = %g , kx = %g\n", jx, grid->x[jx], kx[jx]);
-	// }
 
-  	for (ky[0] = 0.0, jy = 1; jy <= grid->ny / 2; jy++){
-    	ky[grid->ny-jy] = -1.00 * (ky[jy] = (double)(jy) * grid->dky *
-			grid->nx_1 * grid->ny_1 * grid->nz_1);
-  	}
+//       }
 
-  	for (kz[0] = 0.0, jz = 1; jz <= grid->nz / 2; jz++){
-    	kz[grid->nz-jz] = -1.00 * (kz[jz] = (double)(jz) * grid->dkz *
-			grid->nx_1 * grid->ny_1 * grid->nz_1);
-  	}
-	
-	for (jz = 0; jz < grid->nz; jz++) {
-    	for (jy = 0; jy < grid->ny; jy++) {
-      	jyz = grid->nx * (grid->ny * jz + jy);
-      	for (jx = 0; jx < grid->nx; jx++) {   
-        	jgrid = jyz + jx;
-        	kindex[3*jgrid]   = kx[jx]; 
-        	kindex[3*jgrid+1] = ky[jy];
-        	kindex[3*jgrid+2] = kz[jz];
-      } 
-    }
-  }
+//     }
+//     fprintf(spinpf,"%ld\t%-10.5lf\t%-10.5lf\t%-10.5lf\t",n,spinx.re,spiny.re, spinz.re);
+//     fprintf(spinpf,"%-10.5lf\t (%-10.5lf)\n",1.5+2.0*spintot.re, 2.0*spintot.im);
+//   }
+//   fclose(spinpf);
+// }
 
-  return;
+/******************************************************************************************/
 
-}
+// void calc_xton_ang_mom_mtrx(){
+//   //compute orbital momentum
+//   FILE* orbitpf =fopen("orbital.dat", "w");  
+//   //printf("Spins:\n");
+//   double complex orbitx, orbity, orbitz, orbittot;
+// //  double complex tmpx, tmpy, tmpz, tmp, tmp2;
+// //  long index, indexba, indexji,n;
+//   // printf("\norbital block\n\n"); fflush(0);
+//   for (n=0;n<n_xton;n++){
+//     orbitx.re = orbitx.im = 0;
+//     orbity.re = orbity.im = 0;
+//     orbitz.re = orbitz.im = 0;
+//     orbittot.re = orbittot.im = 0;
+//     for (a = ist->lumo_idx;a<ist->lumo_idx+ist->n_elecs;a++){
+//       for (i = 0; i < ist->n_holes; i++) {
+//         ibs = listibs[(a - ist->lumo_idx) * ist->n_holes + i];
+        
 
-/*************************************************************************************************/
+//         tmpx.re = tmpx.im = 0;
+//         tmpy.re = tmpy.im = 0;
+//         tmpz.re = tmpz.im = 0;
+//         //sum over b
+//         for (b = ist->lumo_idx;b<ist->lumo_idx+ist->n_elecs;b++){
+//           jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + i];
+//           index = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
+          
+//           //c_bi^* * <b| Lx |a>
+//           tmpx.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].x_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].x_im;
+//           tmpx.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].x_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].x_re;
 
-void p_operator(char* direc, double *kindex, double complex *psi, double complex *Lpsi, grid_st *grid, index_st *ist, par_st *par, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi){
-	/*** First use the fft to get the action of the p operator on each axis 
-	* p = (-i d/dx) imag part from the fft definition***/
-	// To compute d/dx, we compute FT^-1[-i*k*FT(psi)]
-	// multiplying this by -i, we get p = -i * FT^-1[ -i*k * FT(psi)]
-	// p = FT^-1[ -k * FT(psi)]. We already initialized the k-vectors to be -k.
-	// so here we just multiply by k.
-	
-	long jgrid;
-	long dir_offset;
+//           //c_bi^* * <b| Ly |a>
+//           tmpy.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].y_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].y_im;
+//           tmpy.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].y_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].y_re;
 
-	if (strcmp(direc, "X") == 0){
-		// printf("The deriv. is along X direction.\n");
-		// printf("Setting dir_offset to 0.\n");
-		dir_offset = 0;
-	} else if (strcmp(direc, "Y") == 0){
-		// printf("The deriv. is along Y direction.\n");
-		// printf("Setting dir_offset to 1.\n");
-		dir_offset = 1;
-	} else if (strcmp(direc, "Z") == 0){
-		// printf("The deriv. is along Z direction.\n");
-		// printf("Setting dir_offset to 2.\n");
-		dir_offset = 2;
-	} else {
-		printf("No direc recognized for derivative.\n");
-		exit(EXIT_FAILURE);
-	}
+//           //c_bi^* * <b| Lz |a>
+//           tmpz.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].z_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].z_im;
+//           tmpz.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].z_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].z_re;
+//         }
+        
+//         //sum over j
+//         for (j = 0; j < ist->n_holes; j++) {
+//           jbs = listibs[(a - ist->lumo_idx) * ist->n_holes + j];
+//           index = i*ist->n_holes+j;
 
-	// Copy psi to fftwpsi
-  	memcpy(&fftwpsi[0], &psi[0], grid->ngrid*sizeof(fftwpsi[0]));
-  	
-	// FT from r-space to k-space
-  	fftw_execute(planfw);
-  	
-  	omp_set_dynamic(0);
-  	omp_set_num_threads(ist->nthreads);
-  	#pragma omp parallel for private (jgrid)
-  	for (jgrid = 0; jgrid < grid->ngrid; jgrid++) {
-		//multiply by -k_x/y/z to get p along x/y/z-axis
-		fftwpsi[jgrid] *= kindex[3*jgrid + dir_offset];
-	}
+//           //c_aj^* * <j| Lx |i> 
+//           tmpx.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].x_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].x_im;
+//           tmpx.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].x_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].x_re;
 
-	// Inverse FT back to r-space
-	fftw_execute(planbw);
-	// Copy fftwpsi to psi to store Lx|psi_qp> into |Lxpsi>
-	memcpy(&Lpsi[0], &fftwpsi[0], ist->ngrid*sizeof(Lpsi[0]));
+//           //c_aj^* * <j| Ly |i> 
+//           tmpy.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].y_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].y_im;
+//           tmpy.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].y_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].y_re;
 
-	return;
-	
-}
+//           //c_aj^* * <j| Lz |i> 
+//           tmpz.re += bs_coeff[jbs*n_xton+n].re*l_mom[index].z_re + bs_coeff[jbs*n_xton+n].im*l_mom[index].z_im;
+//           tmpz.im += bs_coeff[jbs*n_xton+n].re*l_mom[index].z_im - bs_coeff[jbs*n_xton+n].im*l_mom[index].z_re;
+
+//         }
+
+//         //multiply by the c_ai coeff
+//         orbitx.re += tmpx.re * bs_coeff[ibs*n_xton+n].re - tmpx.im * bs_coeff[ibs*n_xton+n].im;
+//         orbitx.im += tmpx.im * bs_coeff[ibs*n_xton+n].re + tmpx.re * bs_coeff[ibs*n_xton+n].im;
+
+//         orbity.re += tmpy.re * bs_coeff[ibs*n_xton+n].re - tmpy.im * bs_coeff[ibs*n_xton+n].im;
+//         orbity.im += tmpy.im * bs_coeff[ibs*n_xton+n].re + tmpy.re * bs_coeff[ibs*n_xton+n].im;
+
+//         orbitz.re += tmpz.re * bs_coeff[ibs*n_xton+n].re - tmpz.im * bs_coeff[ibs*n_xton+n].im;
+//         orbitz.im += tmpz.im * bs_coeff[ibs*n_xton+n].re + tmpz.re * bs_coeff[ibs*n_xton+n].im;
+        
+//         //Lsqr part
+//         for (b = ist->lumo_idx;b<ist->lumo_idx+ist->n_elecs;b++){
+//           for (j = 0; j < ist->n_holes; j++) {
+            
+//             indexba = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
+//             indexji = i*ist->n_holes+j;
+
+//             jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + j];
+            
+//             //c_{ai}^n * (c_{bj}^n)^*
+//             tmp.re=bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].re
+//                   + bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].im;
+
+//             tmp.im=bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].re
+//                   - bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].im;
+
+
+//             tmpx.re=l_mom[indexba].x_re*l_mom[indexji].x_re-l_mom[indexba].x_im*l_mom[indexji].x_im
+//              + l_mom[indexba].y_re*l_mom[indexji].y_re-l_mom[indexba].y_im*l_mom[indexji].y_im
+//              + l_mom[indexba].z_re*l_mom[indexji].z_re-l_mom[indexba].z_im*l_mom[indexji].z_im;
+
+//             tmpx.im=l_mom[indexba].x_im*l_mom[indexji].x_re+l_mom[indexba].x_re*l_mom[indexji].x_im
+//             + l_mom[indexba].y_im*l_mom[indexji].y_re+l_mom[indexba].y_re*l_mom[indexji].y_im
+//             + l_mom[indexba].z_im*l_mom[indexji].z_re+l_mom[indexba].z_re*l_mom[indexji].z_im;   
+
+//             tmpx.re*=2.0; tmpx.im*=2.0;
+            
+            
+//             if (i==j){
+//               tmpx.re+=l2_mom[indexba].re; tmpx.im+=l2_mom[indexba].im;
+//             }
+
+//             if (a==b){
+//               tmpx.re+=l2_mom[indexji].re; tmpx.im+=l2_mom[indexji].im;
+//             }
+            
+//             //printf("a:%ld b:%ld i:%ld j:%ld    tmpx: (%lf, %lf)\n", a,b,i,j,tmpx.re, tmpx.im);
+
+//             orbittot.re+=tmp.re*tmpx.re-tmp.im*tmpx.im;
+//             orbittot.im+=tmp.im*tmpx.re+tmp.re*tmpx.im;
+
+
+//           }
+
+//         }
+
+
+
+//       }
+
+//     }
+//     fprintf(orbitpf,"%ld\t%-10.5lf\t%-10.5lf\t%-10.5lf\t",n,orbitx.re,orbity.re, orbitz.re);
+//     fprintf(orbitpf,"%-10.5lf\t (%-10.5lf)\n",orbittot.re, orbittot.im);
+//   }
+//   fclose(orbitpf);
+
+
+
+
+//   //compute ls momentum
+//   FILE* lspf =fopen("couple.dat", "w");  
+//   //printf("Spins:\n");
+//   double complex lstot;
+// //  double complex tmpx, tmpy, tmpz, tmp, tmp2;
+// //  long index, indexba, indexji,n;
+//   // printf("\ncouple block\n\n"); fflush(0);
+//   for (n=0;n<n_xton;n++){
+//     lstot.re = lstot.im = 0;
+//     for (a = ist->lumo_idx;a<ist->lumo_idx+ist->n_elecs;a++){
+//       for (i = 0; i < ist->n_holes; i++) {
+//         ibs = listibs[(a - ist->lumo_idx) * ist->n_holes + i];
+//         for (b = ist->lumo_idx;b<ist->lumo_idx+ist->n_elecs;b++){
+//           for (j = 0; j < ist->n_holes; j++) {
+            
+//             tmpx.re = 0.0;tmpx.im = 0.0;
+
+//             indexba = sqr(ist->n_holes)+(a-ist->lumo_idx)*ist->n_elecs+(b-ist->lumo_idx);
+//             indexji = i*ist->n_holes+j;
+
+//             jbs = listibs[(b - ist->lumo_idx) * ist->n_holes + j];
+            
+//             //c_{ai}^n * (c_{bj}^n)^*
+//             tmp.re=bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].re
+//                   + bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].im;
+
+//             tmp.im=bs_coeff[ibs*n_xton+n].im*bs_coeff[jbs*n_xton+n].re
+//                   - bs_coeff[ibs*n_xton+n].re*bs_coeff[jbs*n_xton+n].im;
+
+            
+//             // <a|L|b>*<j|S|i>
+//             tmpx.re=l_mom[indexba].x_re*s_mom[indexji].x_re-l_mom[indexba].x_im*s_mom[indexji].x_im
+//                   + l_mom[indexba].y_re*s_mom[indexji].y_re-l_mom[indexba].y_im*s_mom[indexji].y_im
+//                   + l_mom[indexba].z_re*s_mom[indexji].z_re-l_mom[indexba].z_im*s_mom[indexji].z_im;
+
+//             tmpx.im=l_mom[indexba].x_im*s_mom[indexji].x_re+l_mom[indexba].x_re*s_mom[indexji].x_im
+//                   + l_mom[indexba].y_im*s_mom[indexji].y_re+l_mom[indexba].y_re*s_mom[indexji].y_im
+//                   + l_mom[indexba].z_im*s_mom[indexji].z_re+l_mom[indexba].z_re*s_mom[indexji].z_im;
+
+//             // <a|S|b>*<j|L|i>
+//             tmpx.re+=s_mom[indexba].x_re*l_mom[indexji].x_re-s_mom[indexba].x_im*l_mom[indexji].x_im
+//                    + s_mom[indexba].y_re*l_mom[indexji].y_re-s_mom[indexba].y_im*l_mom[indexji].y_im
+//                    + s_mom[indexba].z_re*l_mom[indexji].z_re-s_mom[indexba].z_im*l_mom[indexji].z_im;
+
+//             tmpx.im+=s_mom[indexba].x_im*l_mom[indexji].x_re+s_mom[indexba].x_re*l_mom[indexji].x_im
+//                    + s_mom[indexba].y_im*l_mom[indexji].y_re+s_mom[indexba].y_re*l_mom[indexji].y_im
+//                    + s_mom[indexba].z_im*l_mom[indexji].z_re+s_mom[indexba].z_re*l_mom[indexji].z_im;    
+
+            
+            
+//             //delta ij part
+//             if (i==j){
+//               tmpx.re+=LdotS[indexba].re; tmpx.im+=LdotS[indexba].im;
+              
+//             }
+//             //delta ab part
+//             if (a==b){
+//               tmpx.re+=LdotS[indexji].re; tmpx.im+=LdotS[indexji].im;
+//             }
+            
+//             //printf("a:%ld b:%ld i:%ld j:%ld    tmpx: (%lf, %lf)\n", a,b,i,j,tmpx.re, tmpx.im);
+
+//             lstot.re+=tmp.re*tmpx.re-tmp.im*tmpx.im;
+//             lstot.im+=tmp.im*tmpx.re+tmp.re*tmpx.im;
+
+
+//           }
+
+//         }
+
+
+
+//       }
+
+//     }
+//     fprintf(lspf,"%ld\t%-10.5lf\t (%-10.5lf)\n",n,lstot.re, lstot.im);
+//   }
+//   fclose(lspf);
+// }

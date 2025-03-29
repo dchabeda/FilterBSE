@@ -171,9 +171,9 @@ int main(int argc, char *argv[]){
       ALLOCATE(&ldots,  mat_size, "ldots");  //<psi_r|L.S|psi_s>
 
       // Compute spin matrix elements, e.g. <j|Sx|i>
-      calc_spin_mtrx(psi_qp, s_mom, &grid, &ist, &par);
+      calc_qp_spin_mtrx(psi_qp, s_mom, &grid, &ist, &par);
       // Compute angular momentum matrix elements, e.g. <j|Lx|i>
-      calc_ang_mom_mtrx(psi_qp, l_mom, l2_mom, ldots, &grid, &ist, &par);
+      calc_qp_ang_mom_mtrx(psi_qp, l_mom, l2_mom, ldots, &grid, &ist, &par);
     }
     /* */
     /* */
@@ -183,7 +183,7 @@ int main(int argc, char *argv[]){
       s_mom, l_mom, l2_mom, ldots, &grid, &ist, &par, &flag, &parallel
     );
     
-  //   calc_optical_exc(bs_coeff, xton_ene, elec_dip, mag_dip, &ist, &par);
+    calc_optical_exc(bs_coeff, xton_ene, elec_dip, mag_dip, &ist, &par);
     
     free(xton_ene); 
     free(bs_coeff);
@@ -211,7 +211,7 @@ int main(int argc, char *argv[]){
   free(exchange);
   free(ist.eval_elec_idxs);
   free(ist.eval_hole_idxs);
-  free(ist.atom_types);
+  // free(ist.atom_types);
 
   time_t end_time = time(NULL);
   time_t end_clock = clock();

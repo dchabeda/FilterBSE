@@ -1,6 +1,6 @@
 #include "fd.h"
 
-void calc_spin_mtrx(
+void calc_qp_spin_mtrx(
   double complex* restrict psi_qp,
 	xyz_st *restrict         s_mom,  
 	grid_st*                 grid, 
@@ -8,7 +8,7 @@ void calc_spin_mtrx(
 	par_st*                  par
 );
 
-void calc_ang_mom_mtrx(
+void calc_qp_ang_mom_mtrx(
   double complex* restrict psi_qp, 
   xyz_st* restrict         l_mom,
 	double complex* restrict l2_mom,

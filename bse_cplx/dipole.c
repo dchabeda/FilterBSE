@@ -98,7 +98,7 @@ void calc_elec_dipole(
           y = grid->y[jy];
           jyz = ist->nx * (ist->ny * jz + jy);
           #pragma omp simd safelen(8) aligned(psi_qp, grid->x: BYTE_BOUNDARY) reduction(+: mu_x, mu_y, mu_z)
-          for (jx = 0; jx < ist->nx; jx++) { 
+          for (jx = 0; jx < ist->nx; jx++){
             x = grid->x[jx];
             jg = jyz + jx;
               for (int s = 0; s < 2; s++){

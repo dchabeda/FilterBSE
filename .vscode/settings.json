@@ -2,6 +2,7 @@
     "files.associations": {
         "cstdlib": "c",
         "fftw3.h": "c",
-        "chrono": "c"
+        "chrono": "c",
+        "init_periodic.h": "c"
     }
 }

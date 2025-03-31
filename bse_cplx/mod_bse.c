@@ -11,10 +11,6 @@ void mod_bse(
   double**         h0mat, 
   double**         xton_ene,
   double*          eig_vals,
-	xyz_st*          s_mom, 
-  xyz_st*          l_mom, 
-  double complex*  l2_mom, 
-  double complex*  ldots, 
   grid_st*         grid, 
   index_st*        ist, 
   par_st*          par,
@@ -32,7 +28,7 @@ void mod_bse(
   
   bethe_salpeter(
     direct, exchange, *bsmat, *bs_coeff, *h0mat, *xton_ene, 
-    s_mom, l_mom, l2_mom, ldots, grid, ist, par, flag, parallel
+    grid, ist, par, flag, parallel
   );
   
   return;

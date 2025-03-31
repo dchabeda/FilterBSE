@@ -51,7 +51,7 @@ int main(int argc, char *argv[]){
   double*             rot_strength; 
 
   //                  Double Arrays 
-  double*             l2_mom;
+  double complex*     l2_mom;
   double*             eig_vals = NULL; 
   double*             sigma_E = NULL; 
   double*             xton_ene; 
@@ -133,30 +133,28 @@ int main(int argc, char *argv[]){
 	// /********************    MOD KERNEL     *********************/
 	// /************************************************************/
 
-  if (1 != flag.coulombDone){
-    mod_kernel(
-      psi_qp, &direct, &exchange, pot_bare, pot_screened, &ist, &par, &flag, &parallel
-    );
-  } 
-  else if (1 == flag.coulombDone){
-    ALLOCATE(&direct,   ist.n_xton * ist.n_xton, "direct");
-    ALLOCATE(&exchange, ist.n_xton * ist.n_xton, "exchange");
-    load_coulomb_mat(direct, "direct.dat", &ist);
-    load_coulomb_mat(exchange, "exchange.dat", &ist);
-  } 
-  else{
-    fprintf(stderr, "ERROR: Invalid value of flag.coulombDone = %d\n", flag.coulombDone);
-    exit(EXIT_FAILURE);
-  }
-
+  mod_kernel(
+    psi_qp, &direct, &exchange, pot_bare, pot_screened, &ist, &par, &flag, &parallel
+  );
+  
+  
   if (parallel.mpi_rank == 0){
     /*************************************************************************/
     /*************************************************************************/
-    // 2. Compute single particle properties
-    /* */
-    /* */
-    /* */
-    if (1 == flag.SO){
+    mod_bse(
+      psi_qp, direct, exchange, &bsmat, &bs_coeff, &h0mat, &xton_ene, eig_vals,
+      &grid, &ist, &par, &flag, &parallel
+    );
+    
+    if (mpir == 0) {
+      write_separation(stdout, "T");
+      printf("\n  -  COMPUTING XTON OPTICAL PROPERTIES | %s\n", get_time());
+      write_separation(stdout, "B"); fflush(stdout);
+    }
+    calc_optical_exc(bs_coeff, xton_ene, elec_dip, mag_dip, &ist, &par);
+
+
+    if (1 == flag.calcSpinAngStat){
       if (mpir == 0) {
         write_separation(stdout, "T");
         printf("\n  -  COMPUTING ANG.MOM. PROPERTIES | %s\n", get_time());
@@ -174,30 +172,31 @@ int main(int argc, char *argv[]){
       calc_qp_spin_mtrx(psi_qp, s_mom, &grid, &ist, &par);
       // Compute angular momentum matrix elements, e.g. <j|Lx|i>
       calc_qp_ang_mom_mtrx(psi_qp, l_mom, l2_mom, ldots, &grid, &ist, &par);
+    
+    
+      if (mpir == 0) {
+        write_separation(stdout, "T");
+        printf("\n  -  COMPUTING XTON ANG MOM | %s\n", get_time());
+        write_separation(stdout, "B"); fflush(stdout);
+      }
+
+      calc_xton_spin_mtrx(bs_coeff, s_mom, &ist, &par, &flag, &parallel);
+      calc_xton_ang_mom_mtrx(bs_coeff, s_mom, l_mom, l2_mom, ldots, &ist, &par, &flag, &parallel);
+      free(s_mom); 
+      free(l_mom); 
+      free(l2_mom); 
+      free(ldots);
     }
-    /* */
-    /* */
-    /* */
-    mod_bse(
-      psi_qp, direct, exchange, &bsmat, &bs_coeff, &h0mat, &xton_ene, eig_vals,
-      s_mom, l_mom, l2_mom, ldots, &grid, &ist, &par, &flag, &parallel
-    );
-    
-    calc_optical_exc(bs_coeff, xton_ene, elec_dip, mag_dip, &ist, &par);
-    
+
     free(xton_ene); 
     free(bs_coeff);
     free(elec_dip); 
     free(mag_dip); 
-  //   free(rot_strength);
-    free(s_mom); 
-    free(l_mom); 
-    free(l2_mom); 
-    free(ldots);
+    // free(rot_strength);
     free(bsmat); 
     free(h0mat);
   }
-
+  MPI_Barrier(MPI_COMM_WORLD);
   // /***********************************************************************/
   free(psi_qp); 
   free(eig_vals); 
@@ -209,8 +208,8 @@ int main(int argc, char *argv[]){
   free(pot_screened);
   free(direct); 
   free(exchange);
-  free(ist.eval_elec_idxs);
-  free(ist.eval_hole_idxs);
+  // free(ist.eval_elec_idxs);
+  // free(ist.eval_hole_idxs);
   // free(ist.atom_types);
 
   time_t end_time = time(NULL);
@@ -228,7 +227,7 @@ int main(int argc, char *argv[]){
     write_separation(stdout, "B");
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  
 
   MPI_Finalize();
 

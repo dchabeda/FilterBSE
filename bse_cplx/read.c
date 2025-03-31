@@ -29,6 +29,8 @@ void read_input(
   
   FILE*            pf;
 
+  const int        mpir = parallel->mpi_rank;
+  
   int              i = 0;
 
   char             field[1000] = {0}; 
@@ -59,7 +61,7 @@ void read_input(
   
   //                           Optional output flags
   flag->calcDarkStates         = 0;
-  flag->calcSpinAngStat        = 1; // Are angular momentum statistics computed. Only available with SO coupling
+  flag->calcSpinAngStat        = 1; // By default compute angular momentum statistics computed. Only available with SO coupling
   flag->timingSpecs            = 0; // print timing info for computing the Hamiltonian
   par->fermi_E                 = -0.18; // This default value is not good for LR potentials.
   par->sigma_E_cut             = 0.0001;
@@ -198,9 +200,10 @@ void read_input(
   ist->nz                  = grid->nz;
   
   // Using input parameters, print the current job state
-
-  print_input_state(stdout, flag, grid, par, ist, parallel);
-
+  if (mpir == 0){
+    print_input_state(stdout, flag, grid, par, ist, parallel);
+  }
+  
   return;
 }
 
@@ -228,6 +231,9 @@ void read_unsafe_input(
   // USE AT YOUR OWN RISK
 
   FILE *pf;
+
+  const int        mpir = parallel->mpi_rank;
+  
   int i = 0;
   char field[1000], tmp[1000], endptr[10];
 
@@ -334,13 +340,15 @@ void read_unsafe_input(
   ist->complex_idx = 2; // these are hardocde for complex spinors, need to make general
   stlen = ist->nspinngrid;
 
-  printf("Done reading in unsafe_input.par\n\n");
-  printf("xmin = %lg ymin = %lg zmin = %lg\n", grid->xmin, grid->ymin, grid->zmin);
-  printf("nx = %ld ny = %ld nz = %ld\n", grid->nx, grid->ny, grid->nz);
-  printf("dx = %lg dy = %lg dz = %lg\n", grid->dx, grid->dy, grid->dz);
-  printf("grid->dv = %lg \n", grid->dv);
-  printf("natoms = %ld\n", ist->natoms);
-  printf("mn_states_tot = %ld\n", ist->mn_states_tot);
+  if (mpir == 0){
+    printf("Done reading in unsafe_input.par\n\n");
+    printf("xmin = %lg ymin = %lg zmin = %lg\n", grid->xmin, grid->ymin, grid->zmin);
+    printf("nx = %ld ny = %ld nz = %ld\n", grid->nx, grid->ny, grid->nz);
+    printf("dx = %lg dy = %lg dz = %lg\n", grid->dx, grid->dy, grid->dz);
+    printf("grid->dv = %lg \n", grid->dv);
+    printf("natoms = %ld\n", ist->natoms);
+    printf("mn_states_tot = %ld\n", ist->mn_states_tot);
+  }
 
   // Allocate memory for grid, psi, eigs, sigma_E, and R
   (*gridx)       =   (double*) calloc(grid->nx, sizeof(double));
@@ -392,7 +400,7 @@ void read_unsafe_input(
   vb_mindex = homo_idx - nholes + 1;
   cb_maxdex = vb_mindex + ist->mn_states_tot;
 
-  printf("vb_mindex = %lu cb_maxdex = %lu\n", vb_mindex, cb_maxdex);
+  // printf("vb_mindex = %lu cb_maxdex = %lu\n", vb_mindex, cb_maxdex);
 
   if( access( "psi.par", F_OK) != -1 ) {
       pf = fopen("psi.par", "r");
@@ -413,7 +421,7 @@ void read_unsafe_input(
   for (j = 0; j < nst_tot; j++){
       if ( (j >= vb_mindex) && (j < cb_maxdex) ){
           fscanf(pf, "%lu %lg %lg", &itmp, &((*eig_vals)[cntr]),  &((*sigma_E)[cntr]));
-          printf("eig_vals[j = %lu] = %lg\n",j, ((*eig_vals)[cntr]) );
+          // printf("eig_vals[j = %lu] = %lg\n",j, ((*eig_vals)[cntr]) );
           cntr++;
       } else{
           fscanf(pf, "%lu %lg %lg", &itmp, &dbltmp,  &dbltmp);
@@ -437,8 +445,11 @@ void read_unsafe_input(
       exit(EXIT_FAILURE);
   }
 
-  printf("Done with function read_unsafe_input\n"); fflush(0);
+  if (mpir == 0){
+    printf("Done with function read_unsafe_input\n"); fflush(0);
 
+  }
+  
   return;
 }
 

@@ -15,8 +15,12 @@ void calc_eh_kernel_cplx(
 	parallel_st*    parallel
 );
 
-long load_coulomb_mat(
+int load_coulomb_mat(
   double complex* mat, 
   char*           fileName, 
+  long*           a,
+  long*           b,
+  long*           i,
+  long*           j,
   index_st*       ist
 );

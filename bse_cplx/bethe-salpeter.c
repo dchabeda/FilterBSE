@@ -10,11 +10,7 @@ void bethe_salpeter(
   double complex*  bsmat, 
   double complex*  bs_coeff, 
   double*          h0mat, 
-  double*          xton_ene, 
-	xyz_st*          s_mom, 
-  xyz_st*          l_mom, 
-  double complex*  l2_mom, 
-  double complex*  ldots, 
+  double*          xton_ene,
   grid_st*         grid, 
   index_st*        ist, 
   par_st*          par,
@@ -49,6 +45,8 @@ void bethe_salpeter(
   double complex  tmp;
 
   long*           listibs;
+
+  omp_set_num_threads(parallel->nthreads);
 
   ALLOCATE(&listibs, n_xton, "listibs in bethe-salpeter");
 
@@ -97,17 +95,17 @@ void bethe_salpeter(
 
   // Convert from lapack column major to row major order
   
-  double complex *tmp_mat;
-  ALLOCATE(&tmp_mat, n_xton * n_xton, "tmp_mat");
+  // double complex *tmp_mat;
+  // ALLOCATE(&tmp_mat, n_xton * n_xton, "tmp_mat");
 
-  memcpy(tmp_mat, bs_coeff, n_xton * n_xton * sizeof(double complex));
+  // memcpy(tmp_mat, bs_coeff, n_xton * n_xton * sizeof(double complex));
 
-  for (ibs = 0; ibs < n_xton; ibs++){
-    for (jbs = 0; jbs < n_xton; jbs++){
-      bs_coeff[jbs*n_xton + ibs] = conj(tmp_mat[ibs*n_xton + jbs]);
-    }
-  }
-  free(tmp_mat);
+  // for (ibs = 0; ibs < n_xton; ibs++){
+  //   for (jbs = 0; jbs < n_xton; jbs++){
+  //     bs_coeff[jbs*n_xton + ibs] = conj(tmp_mat[ibs*n_xton + jbs]);
+  //   }
+  // }
+  // free(tmp_mat);
   
   
   // Prints the coefficients for the first 100 (or n_xton) lowest energy excitonic states

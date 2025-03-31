@@ -68,11 +68,11 @@ void calc_elec_dipole(
 
   double start = omp_get_wtime();
 
-  nvtxRangePushA("Calc elec dipole");
-  #pragma omp parallel collapse(2) for private(a, i_st, a_st, x, y, z, idx)
+  // nvtxRangePushA("Calc elec dipole");
+  #pragma omp parallel for private(a, i_st, a_st, x, y, z, idx)
   for (i = 0; i < n_ho; i++){
     for (a = lidx; a < lidx + n_el; a++) {
-      // nvtxRangePushA("loop over a");
+      // // nvtxRangePushA("loop over a");
       i_st = i * nspngr;
       a_st = a * nspngr;
 
@@ -97,7 +97,7 @@ void calc_elec_dipole(
         for (jy = 0; jy < ist->ny; jy++) {
           y = grid->y[jy];
           jyz = ist->nx * (ist->ny * jz + jy);
-          #pragma omp simd safelen(8) aligned(psi_qp, grid->x: BYTE_BOUNDARY) reduction(+: mu_x, mu_y, mu_z)
+          #pragma omp simd safelen(8) aligned(psi_qp, grid: BYTE_BOUNDARY) reduction(+: mu_x, mu_y, mu_z)
           for (jx = 0; jx < ist->nx; jx++){
             x = grid->x[jx];
             jg = jyz + jx;
@@ -123,8 +123,8 @@ void calc_elec_dipole(
   }
 
   double end = omp_get_wtime();
-  printf("Speed of computing dipole: %f\n", (end - start)/(n_el * n_ho));
-  nvtxRangePop();
+  printf("Duration of computing dipole: %f s (%f s per transition)\n", end - start, (end - start)/(n_el * n_ho));
+  // nvtxRangePop();
 
 
   /************************************************************/
@@ -244,21 +244,22 @@ void calc_mag_dipole(
   /************************************************************/
 	/********************     CALC MAG DIP    *******************/
 	/************************************************************/
-  nvtxRangePushA("Calc mag dipole");
+  // nvtxRangePushA("Calc mag dipole");
+  double start = omp_get_wtime();
   for (i = 0; i < n_ho; i++){
-    nvtxRangePushA("loop over i");
+    // nvtxRangePushA("loop over i");
     i_st = i * nspngr;
 
-    nvtxRangePushA("Compute L by FFTs");
+    // nvtxRangePushA("Compute L by FFTs");
     //spin up part
 		l_operator(&Lxpsi[0], &Lypsi[0], &Lzpsi[0], &psi_qp[i_st], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
     //spin dn part
     l_operator(&Lxpsi[ngrid], &Lypsi[ngrid], &Lzpsi[ngrid], &psi_qp[i_st + ngrid], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
-    nvtxRangePop();
+    // nvtxRangePop();
 
     #pragma omp parallel for private(a, a_st, jg, idx)
     for (a = lidx; a < lidx + n_el; a++) {
-      nvtxRangePushA("loop over a");
+      // nvtxRangePushA("loop over a");
       a_st = a * nspngr;
       
       double complex m_x; // <a|m|i>_x
@@ -284,12 +285,14 @@ void calc_mag_dipole(
       mag_dip[idx].x = m_x;
       mag_dip[idx].y = m_y;
       mag_dip[idx].z = m_z;
-      nvtxRangePop();
+      // nvtxRangePop();
     }
-    nvtxRangePop();
+    // nvtxRangePop();
   }
-  nvtxRangePop();
-
+  // nvtxRangePop();
+  double end = omp_get_wtime();
+  printf("Duration of computing mag dipole: %f s (%f s per transition)\n", end - start, (end - start)/(n_el * n_ho));
+  
   /************************************************************/
 	/*******************     PRINT VALUES     *******************/
 	/************************************************************/

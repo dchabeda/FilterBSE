@@ -128,7 +128,7 @@ void calc_eh_kernel_cplx(
   MPI_Comm          even_comm = MPI_COMM_NULL;
   MPI_Comm          odd_comm = MPI_COMM_NULL;
   
-  MPI_Comm_split(MPI_COMM_WORLD, rank_parity, mpir, (rank_parity == 0) ? &even_comm : &odd_comm); // these labels are switched to give exchange int xtra rank
+  MPI_Comm_split(MPI_COMM_WORLD, rank_parity, mpir, (rank_parity == 0) ? &even_comm : &odd_comm);
 
   if ((rank_parity == 0) && (even_comm == MPI_COMM_NULL)) {
       fprintf(stderr, "ERROR: even_comm is MPI_COMM_NULL\n");
@@ -160,7 +160,7 @@ void calc_eh_kernel_cplx(
 	// using Chemist's notation from Szabo and Ostlund
 	
 	if (rank_parity == 0){
-    printf("\nComputing screened direct matrix, K^d_(ab,ij) on rank %d | %s\n", mpir, get_time()); fflush(0);
+    printf("\nComputing screened direct matrix, K^d_(ab,ij) on rank %d\n", mpir); fflush(0);
     
     /************************************************************/
     /*****************  RECRUIT 1/2 MPI RANKS  ******************/
@@ -185,10 +185,10 @@ void calc_eh_kernel_cplx(
     listi   =  (long *) calloc(ij_tot, sizeof(long));
     listj   =  (long *) calloc(ij_tot, sizeof(long));
 
-    // Generate the indices for flattened loops when a < b
+    // Generate the indices for flattened loops when a > b
     ab_tot = 0; // Calc ab_tot from the loop trip count
     for (b = lidx; b < lidx + n_el; b++){
-      for (a = b + 1; a < lidx + n_el; a++){
+      for (a = b; a < lidx + n_el; a++){
         lista[ ab_tot ] = a;
         listb[ ab_tot ] = b;
         ab_tot++;
@@ -203,14 +203,34 @@ void calc_eh_kernel_cplx(
       }
     }
 
+    // printf("ab_tot = %ld\n", ab_tot);
+    // printf("\nlista: ");
+    // for (ab = 0; ab < ab_tot; ab++){
+    //   printf("%ld ", lista[ab]);
+    // }
+    // printf("\nlistb: ");
+    // for (ab = 0; ab < ab_tot; ab++){
+    //   printf("%ld ", listb[ab]);
+    // }
+    // printf("\nlisti: ");
+    // for (ij = 0; ij < ij_tot; ij++){
+    //   printf("%ld ", listi[ij]);
+    // }
+    // printf("\nlistj: ");
+    // for (ij = 0; ij < ij_tot; ij++){
+    //   printf("%ld ", listj[ij]);
+    // }
+    // printf("\n");
     /************************************************************/
     /******************    ASSIGN WORKLOADS   *******************/
     /************************************************************/
+    
     // Adjust chunk size based on problem size and thread count
     chunk_size = get_dynamic_process_workload(ij_tot);
     
-    printf("Direct inner loop workload size: %ld, Using %d threads with chunk size %d\n", 
+    printf("Direct inner loop workload size: %d, Using %d threads with chunk size %d\n", 
           ij_tot, omp_get_max_threads(), chunk_size);
+
     /*** vabji direct ***/
     // loop over electron density (ab) states in a strided manner
     // so that all MPI ranks have similar work loads.
@@ -230,31 +250,14 @@ void calc_eh_kernel_cplx(
     
     sprintf(fileName, "direct-%d.dat", even_rank);
     if (flag->restartCoulomb){
-      int done_flag;
-      long a_tmp, b_tmp, i_tmp, j_tmp;
-      
       // Find start value for continuing computation
-      done_flag = load_coulomb_mat(direct, fileName, &a_tmp, &b_tmp, &i_tmp, &j_tmp, ist);
-
-      start = 0; // Calc the new starting value from the loop trip count
-      for (ab = 0; ab < ab_tot; ab++){
-        if ((lista[start] == a_tmp) && (listb[start] == b_tmp)){
-          break;
-        }
-        start++;
-      }
-
+      start = load_coulomb_mat(direct, fileName, ist);
       // Print out the new matrix elems to this auxiliary file
       sprintf(fileName, "direct-%d_aux.dat", even_rank);
-      printf("Even rank %d: continuing direct matrix from ab = %ld a = %ld b = %ld | %s\n", 
-        even_rank, start, a_tmp, b_tmp, get_time()
-      );
-
-      fflush(0);
-    } else{
-      printf("Starting at ab = %ld on even rank %d | %s\n", start, even_rank, get_time()); fflush(0);
+      printf("Even rank %d: continuing direct matrix from a = %lu | %s\n", even_rank, start, get_time()); fflush(0);
     }
-    
+    printf("Starting at ab = %lu on even rank %d\n", start, even_rank); fflush(0);
+
     /************************************************************/
     /******************    DO K^D INTEGRAL    *******************/
     /************************************************************/
@@ -262,240 +265,110 @@ void calc_eh_kernel_cplx(
     pf = fopen(fileName , "w");
     
     if (even_rank == 0){
-      printf("Computing a < b segment of direct mat | %s\n", get_time());
+      printf("Computing direct mat | %s\n", get_time());
     }
     // Profile expensive loop
-    // nvtxRangePushA("Computing BSE direct matrix elements");
+    nvtxRangePushA("Computing BSE direct matrix elements");
     cntr = 0;
     double ab_start_t = omp_get_wtime();
     for (ab = start; ab < ab_tot; ab += even_size) {
       a = lista[ab];
       b = listb[ab];
-      
+      // printf("ab %ld a %ld b %ld\n", ab, a, b);
       // Grab indices of electron-electron states a, b
       a_st = a * nspngr;
       b_st = b * nspngr;
 
       // Compute hartree potential for a, b density
       // 1) Compute joint density and store in rho
-      // // nvtxRangePushA("Computing ab joint density");
+      nvtxRangePushA("Computing ab joint density");
 
-      // #pragma omp simd safelen(8) aligned(rho, psi_qp: BYTE_BOUNDARY)
-      // for (int s = 0; s < 2; s++){
-        for (jg = 0; jg < ngrid; jg++){
-          // jsg = jg + s * ngrid;
-          rho[jg] = conjmul(psi_qp[a_st + jg], psi_qp[b_st + jg]) + conjmul(psi_qp[a_st + jg + ngrid], psi_qp[b_st + jg + ngrid]);
-        }
-      // }
-      
-      // // nvtxRangePop();
-
-      // Compute the hartree potential and store in pot_htree 
-      // h_d(r) = \int W(r,r') \rho_{ab}(r') d^3r' via fourier transform
-      // // nvtxRangePushA("Computing hartree pot");
-      hartree(rho, pot_screened, pot_htree, ist, planfw, planbw, fftwpsi);            
-      // // nvtxRangePop();
-      
-      // Copy the "up" component of pot_htree to the "dn" for seamless integration
-      // memcpy(&pot_htree[ngrid], &pot_htree[0], ngrid * sizeof(pot_htree[0]));
-      
-      // loop over hole states i, j
-      // // nvtxRangePushA("i,j loop of direct");
-      
-      #pragma omp parallel for private (i, j) //schedule(dynamic, chunk_size)
-      for (ij = 0; ij < ij_tot; ij++) {
-        //get the matrix indicies for {ai,bj}
-        i = listi[ij];
-        j = listj[ij];
-
-        long i_st = i * nspngr;
-        long j_st = j * nspngr;
-        long ibs = listibs[(a - lidx) * n_ho + i];
-        long jbs = listibs[(b - lidx) * n_ho + j];
-        
-        long   jg;
-        double complex sum;
-        sum = 0.0 + 0.0 * I;
-
-        // K^d_{ai,bj}=\int h_d(r) \sum_\sigma psi_{i}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
-        // #pragma omp simd safelen(8) aligned(psi_qp, pot_htree: BYTE_BOUNDARY) reduction(+: sum)
-        // for (int s = 0; s < 2; s++){
-        //   for (jg = 0; jg < ngrid; jg++){
-        //     jsg = jg + s * ngrid;
-        //     sum += pot_htree[jg] * conjmul(psi_qp[j_st + jsg], psi_qp[i_st + jsg]);                          
-        //   }
-        // }
-        for (jg = 0; jg < ngrid; jg++){
-          sum += pot_htree[jg] * 
-            (conjmul(psi_qp[j_st + jg], psi_qp[i_st + jg]) + conjmul(psi_qp[j_st + jg + ngrid], psi_qp[i_st + jg + ngrid]));                          
-        }
-        sum *= dv;
-        
-        direct[ibs * n_xton + jbs] = sum;
-			} // end of ij
-      // // nvtxRangePop();
-
-      for (ij = 0; ij < ij_tot; ij++){
-        i = listi[ij];
-        j = listj[ij];
-
-        ibs = listibs[(a - lidx) * n_ho + i];
-        jbs = listibs[(b - lidx) * n_ho + j];
-
-        if (ibs < jbs){
-          continue;
-        }
-
-        fprintf(pf,"%lu %lu %lu %lu %lu %lu %.16g %.16g\n", a, b, i, j, ibs, jbs, \
-            creal(direct[ibs * n_xton + jbs]), cimag(direct[ibs * n_xton + jbs])
-        );
-      }
-      // fflush(0);
-      
-      // Print progress
-      // if (even_rank == 0){
-      //   if ( (cntr == 0) || (0 == cntr % (ncycles/4+1)) || (cntr == (ncycles - 1)) ){
-      //     print_progress_bar(cntr, ncycles);
-      //     fflush(0);
-      //   }
-      //   cntr++;
-      // }
-		} // end of ab
-    double ab_end_t = omp_get_wtime();
-
-    if (even_rank == 0){
-      printf("Done with a < b segment of direct; duration = %lg s (%lg m)\n", (ab_end_t - ab_start_t), (ab_end_t - ab_start_t) / 60.0);
-    }
-
-    /************************************************************/
-    /******************    DO A==B TRIP     *******************/
-    /************************************************************/
-    // Compute a == b segment of the direct matrix
-    // computation is split between a < b and a == b segments
-    // in order to have determinate loop trip counts for ij,
-    // eliminating the need for conditional statements in the innermost
-    // loop while computing only the upper triangle of the matrix.
-
-    // i, j inner loop indices
-    ij_tot = 0;
-    for (i = 0; i < n_ho; i++){
-      for (j = i; j < n_ho; j++){
-        listi[ij_tot] = i;
-        listj[ij_tot] = j;
-        ij_tot++;
-      }
-    }
-
-    printf("Workload for MPI even rank %d, ij_tot = %lu\n", even_rank, ij_tot);
-    if (even_rank == 0){
-      printf("Computing a == b segment of direct mat | %s\n", get_time());
-    }
-    
-    // Compute the a == b segment of the direct matrix
-    ab_start_t = omp_get_wtime();
-    cntr = 0;
-    ncycles = n_el / even_size;
-    for (a = lidx + start; a < lidx + n_el; a += even_size) {
-      b = a; // This is the a == b trip of the loop
-      // printf("a %ld a %ld b %ld\n", a, a, b);
-      // Grab indices of electron-electron states a, b
-      a_st = a * nspngr;
-      b_st = b * nspngr;
-
-      // Compute hartree potential for a, b density
-      // 1) Compute joint density and store in rho
-      // // nvtxRangePushA("Computing ab joint density");
-
-      // #pragma omp simd safelen(8) aligned(rho, psi_qp: BYTE_BOUNDARY)
-      // for (int s = 0; s < 2; s++){
-      //   for (jg = 0; jg < ngrid; jg++){
-      //     jsg = jg + s * ngrid;
-      //     rho[jg] = conjmul(psi_qp[a_st + jsg], psi_qp[b_st + jsg]);
-      //   }
-      // }
+      #pragma omp simd safelen(8) aligned(rho, psi_qp: BYTE_BOUNDARY)
       for (jg = 0; jg < ngrid; jg++){
-        rho[jg] = conjmul(psi_qp[a_st + jg], psi_qp[b_st + jg]) + conjmul(psi_qp[a_st + jg + ngrid], psi_qp[b_st + jg + ngrid]);
+        rho[jg] = conjmul(psi_qp[a_st + jg], psi_qp[b_st + jg]);
+      }
+      for (jg = 0; jg < ngrid; jg++){
+        jsg = jg + ngrid;
+        rho[jg] += conjmul(psi_qp[a_st + jsg], psi_qp[b_st + jsg]);
       }
       
-      // // nvtxRangePop();
+      nvtxRangePop();
 
       // Compute the hartree potential and store in pot_htree 
       // h_d(r) = \int W(r,r') \rho_{ab}(r') d^3r' via fourier transform
-      // // nvtxRangePushA("Computing hartree pot");
+      nvtxRangePushA("Computing hartree pot");
       hartree(rho, pot_screened, pot_htree, ist, planfw, planbw, fftwpsi);            
-      // // nvtxRangePop();
+      nvtxRangePop();
       
       // Copy the "up" component of pot_htree to the "dn" for seamless integration
-      // memcpy(&pot_htree[ngrid], &pot_htree[0], ngrid * sizeof(pot_htree[0]));
+      memcpy(&pot_htree[ngrid], &pot_htree[0], ngrid * sizeof(pot_htree[0]));
       
       // loop over hole states i, j
-      // // nvtxRangePushA("i,j loop of direct");
+      nvtxRangePushA("i,j loop of direct");
       
-      #pragma omp parallel for private (i, j) //schedule(dynamic, chunk_size)
+      #pragma omp parallel for private (i, j) schedule(dynamic, chunk_size)
       for (ij = 0; ij < ij_tot; ij++) {
         //get the matrix indicies for {ai,bj}
         i = listi[ij];
         j = listj[ij];
         // printf("ij %ld i %ld j %ld\n", ij, i, j);
+
         long i_st = i * nspngr;
         long j_st = j * nspngr;
         long ibs = listibs[(a - lidx) * n_ho + i];
         long jbs = listibs[(b - lidx) * n_ho + j];
         
-        long           jg;
+        if (ibs < jbs) continue;
+        // printf("ab %ld a %ld b %ld\n", ab, a, b);
+        long   jg;
         double complex sum;
         sum = 0.0 + 0.0 * I;
 
         // K^d_{ai,bj}=\int h_d(r) \sum_\sigma psi_{i}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
-        // #pragma omp simd safelen(8) aligned(psi_qp, pot_htree: BYTE_BOUNDARY) reduction(+: sum)
-        // for (int s = 0; s < 2; s++){
-        //   for (jg = 0; jg < ngrid; jg++){
-        //     jsg = jg + s * ngrid;
-        //     sum += pot_htree[jg] * conjmul(psi_qp[j_st + jsg], psi_qp[i_st + jsg]);                          
-        //   }
-        // }
-        for (jg = 0; jg < ngrid; jg++){
-          sum += pot_htree[jg] * 
-            (conjmul(psi_qp[j_st + jg], psi_qp[i_st + jg]) + conjmul(psi_qp[j_st + jg + ngrid], psi_qp[i_st + jg + ngrid]));                          
+        #pragma omp simd safelen(8) aligned(psi_qp, pot_htree: BYTE_BOUNDARY) reduction(+: sum)
+        for (jg = 0; jg < nspngr; jg++){
+          sum += pot_htree[jg] * conjmul(psi_qp[j_st + jg], psi_qp[i_st + jg]);                          
         }
+        
         sum *= dv;
         
         direct[ibs * n_xton + jbs] = sum;
 			} // end of ij
-      // // nvtxRangePop();
+      nvtxRangePop();
 
+      // for (loop_idx = ab; loop_idx < ab + 1; loop_idx++){
+      //   a = lista[loop_idx];
+      //   b = listb[loop_idx];
       
-      for (ij = 0; ij < ij_tot; ij++){
-        i = listi[ij];
-        j = listj[ij];
-
-        ibs = listibs[(a - lidx) * n_ho + i];
-        jbs = listibs[(b - lidx) * n_ho + j];
-
-        if (ibs < jbs){
-          continue;
+        for (i = 0; i < n_ho; i++){
+          for (j = 0; j < n_ho; j++){
+            ibs = listibs[(a - lidx) * n_ho + i];
+            jbs = listibs[(b - lidx) * n_ho + j];
+            if (ibs < jbs){
+              continue;
+            }
+            // printf("ab %ld a %ld b %ld\n", ab, a, b);
+            fprintf(pf,"%lu %lu %lu %lu %lu %lu %.16g %.16g\n", a, b, i, j, ibs, jbs, \
+                creal(direct[ibs * n_xton + jbs]), cimag(direct[ibs * n_xton + jbs])
+            );
+          }
         }
-
-        fprintf(pf,"%lu %lu %lu %lu %lu %lu %.16g %.16g\n", a, b, i, j, ibs, jbs, \
-            creal(direct[ibs * n_xton + jbs]), cimag(direct[ibs * n_xton + jbs])
-        );
-      }
-      
-      // fflush(0);
+      // }
+      fflush(0);
       
 
       // Print progress
-      // if (even_rank == 0){
-      //   if ( (cntr == 0) || (0 == cntr % (ncycles/4+1)) || (cntr == (ncycles - 1)) ){
-      //     print_progress_bar(cntr, ncycles);
-      //     fflush(0);
-      //   }
-      //   cntr++;
-      // }
-		} // end of a
-    ab_end_t = omp_get_wtime();
+      if (even_rank == 0){
+        if ( (cntr == 0) || (0 == cntr % (ncycles/4+1)) || (cntr == (ncycles - 1)) ){
+          print_progress_bar(cntr, ncycles);
+          fflush(0);
+        }
+        cntr++;
+      }
+		} // end of ab
+    double ab_end_t = omp_get_wtime();
     if (even_rank == 0){
-      printf("Done with a == b segment of direct; duration = %lg s (%lg m)\n", (ab_end_t - ab_start_t), (ab_end_t - ab_start_t) / 60.0);
+      printf("Done with direct integrals; duration = %lg s (%lg m)\n", (ab_end_t - ab_start_t), (ab_end_t - ab_start_t) / 60.0);
     }
 
 		fclose(pf);
@@ -508,7 +381,7 @@ void calc_eh_kernel_cplx(
     free(listi);
     free(listj);
 
-    // nvtxRangePop(); // End marker
+    nvtxRangePop(); // End marker
 
   } // end of even MPI ranks
   
@@ -521,8 +394,8 @@ void calc_eh_kernel_cplx(
 
 
 
-	if ( rank_parity == 1 || parallel->mpi_size == 1){
-    printf("\nComputing bare exchange matrix, K^x_(ai,bj) on rank %d | %s\n", mpir, get_time()); fflush(0);
+	if ( rank_parity == 1 || parallel->mpi_size == 1 ){
+    printf("\nComputing bare exchange matrix, K^x_(ai,bj) on rank %d\n", mpir); fflush(0);
     
     if (parallel->mpi_size == 1){
       for (jg = 0; jg < ngrid; jg++) rho[jg] = 0.0 + I*0.0;
@@ -542,8 +415,8 @@ void calc_eh_kernel_cplx(
     omp_set_max_active_levels(1);
     omp_set_num_threads(ist->nthreads);
 
-    int   chunk_size;
-    
+    int  chunk_size;
+
     long  ai;
     long  bj;
     long  ai_tot  = n_el * n_ho;
@@ -552,7 +425,6 @@ void calc_eh_kernel_cplx(
     long  *listi;
     long  *listb;
     long  *listj;
-    long   jstart;
     
     ALLOCATE(&lista, ai_tot, "lista");
     ALLOCATE(&listi, ai_tot, "listi");
@@ -579,13 +451,15 @@ void calc_eh_kernel_cplx(
     /******************    ASSIGN WORKLOADS  ********************/
     /************************************************************/
 
+    printf("Determining the workload for aitot = %lu on MPI odd rank %d\n", ai_tot, odd_rank);
+
     // Adjust chunk size based on problem size and thread count
     chunk_size = get_dynamic_process_workload(bj_tot);
     
-    printf("Direct inner loop workload size: %ld, Using %d threads with chunk size %d\n", 
+    printf("Direct inner loop workload size: %d, Using %d threads with chunk size %d\n", 
           bj_tot, omp_get_max_threads(), chunk_size);
 
-    printf("Determining the workload for aitot = %lu on MPI odd rank %d\n", ai_tot, odd_rank);
+    
     //loop over electron states from start to end
     start = odd_rank;
     ncycles = ai_tot / odd_size;
@@ -602,34 +476,20 @@ void calc_eh_kernel_cplx(
     sprintf(fileName, "exchange-%d.dat", odd_rank);
 
     if (flag->restartCoulomb){
-      int done_flag;
-      long a_tmp, b_tmp, i_tmp, j_tmp;
+      sprintf(fileName, "exchange-%d.dat", odd_rank);
       
       // Find start value for continuing computation
-      done_flag = load_coulomb_mat(exchange, fileName, &a_tmp, &b_tmp, &i_tmp, &j_tmp, ist);
+      start = load_coulomb_mat(exchange, fileName, ist);
 
-      start = 0; // Calc the new starting value from the loop trip count
-      for (ai = 0; ai < ai_tot; ai++){
-        if ((lista[start] == a_tmp) && (listi[start] == i_tmp)){
-          break;
-        }
-        start++;
-      }
-
-      // Print out the new matrix elems to this auxiliary file
-      sprintf(fileName, "exchange-%d_aux.dat", odd_rank);
-      printf("Odd rank %d: continuing direct matrix from ai = %ld a = %ld i = %ld | %s\n", 
-        odd_rank, start, a_tmp, i_tmp, get_time()
-      );
-
-      fflush(0);
-    } 
-    
+      strcpy(fileName, "exchange_aux.dat");
+      printf("Odd rank %d: continuing exchange matrix from a = %lu | %s\n", odd_rank, start, get_time()); fflush(0);
+    }
 
     /************************************************************/
     /******************    DO K^X INTEGRAL   ********************/
     /************************************************************/
     
+    printf("Starting at ai = %lu on odd rank %d\n", start, odd_rank); fflush(0);
     
     pf = fopen(fileName , "w");
     
@@ -648,31 +508,25 @@ void calc_eh_kernel_cplx(
 
       // 1) Compute joint density and store in rho
       // Up spin
-      // for (int s = 0; s < 2; s++){
-      //   for (jg = 0; jg < ngrid; jg++){
-      //     jsg = jg + s * ngrid;
-      //     rho[jg] = conjmul(psi_qp[a_st + jsg], psi_qp[i_st + jsg]);
-      //   }
-      // }
       for (jg = 0; jg < ngrid; jg++){
-        rho[jg] = conjmul(psi_qp[a_st + jg], psi_qp[i_st + jg]) + conjmul(psi_qp[a_st + jg + ngrid], psi_qp[i_st + jg + ngrid]);
+        rho[jg] = conjmul(psi_qp[a_st + jg], psi_qp[i_st + jg]);
       }
-      // Down spin 
-      // for (jg = 0; jg < ngrid; jg++){
-      //   jsg = jg + ngrid;
-      //   // Handle up spin
-      //   rho[jg] += conjmul(psi_qp[a_st + jsg], psi_qp[i_st + jsg]);
-      // }
+      // Down spin
+      for (jg = 0; jg < ngrid; jg++){
+        jsg = jg + ngrid;
+        // Handle up spin
+        rho[jg] += conjmul(psi_qp[a_st + jsg], psi_qp[i_st + jsg]);
+      }
 
       // Compute the hartree potential and store in pot_htree 
       // h_d(r) = \int W(r,r') \rho_{ab}(r') d^3r' via fourier transform
       hartree(rho, pot_bare, pot_htree, ist, planfw, planbw, fftwpsi);
 
       // Copy "up" component of pot_htree to "dn" for seamless integration
-      // memcpy(&pot_htree[ngrid], &pot_htree[0], ngrid * sizeof(pot_htree[0]));
+      memcpy(&pot_htree[ngrid], &pot_htree[0], ngrid * sizeof(pot_htree[0]));
 
       // loop over electron-hole pairs b, j
-      #pragma omp parallel for private(b, j) //schedule(dynamic, chunk_size)
+      #pragma omp parallel for private(b, j) schedule(dynamic, chunk_size)
       for (bj = 0; bj < bj_tot; bj++) {
         b = listb[bj];
         j = listj[bj];
@@ -689,46 +543,41 @@ void calc_eh_kernel_cplx(
         sum = 0.0 + 0.0 * I;
 
         //integrate the effective potential to get K^x_{ai,bj}=\int h_x(r) \sum_\sigma psi_{b}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
-        // for (int s =0; s < 2; s++){
-        //   for (jg = 0; jg < ngrid; jg++){
-        //     jsg = jg + ngrid;
-        //     sum += pot_htree[jg] * conjmul(psi_qp[j_st + jsg], psi_qp[b_st + jsg]);                            
-        //   }
-        // }
-        for (jg = 0; jg < ngrid; jg++){
-          sum += pot_htree[jg] * 
-            (conjmul(psi_qp[j_st + jg], psi_qp[b_st + jg]) + 
-            conjmul(psi_qp[j_st + jg + ngrid], psi_qp[b_st + jg + ngrid]));                            
-        }
+        for (jg = 0; jg < nspngr; jg++){
+          sum += pot_htree[jg] * conjmul(psi_qp[j_st + jg], psi_qp[b_st + jg]);                            
+        } 
         sum *= dv;
 
         exchange[ibs * n_xton + jbs] = - sum;
       } // end of bj
       
       // Print progress
-      // if (odd_rank == 0){
-      //   if ( (cntr == 0) || (0 == cntr % (ncycles/4 + 1)) || (cntr == (ncycles - 1)) ){
-      //       print_progress_bar(cntr, ncycles);
-      //       fflush(0);
-      //   }
-      //   cntr++;
-      // }
-
-      
-      for (bj = 0; bj < bj_tot; bj++){
-        b = listb[bj];
-        j = listj[bj];
-        ibs = listibs[(a - lidx) * n_ho + i];
-        jbs = listibs[(b - lidx) * n_ho + j];
-
-        if (ibs < jbs) continue;
-        // printf("printing exchange %lu %lu %lu %lu\n", loop_idx, b, i, j);
-        fprintf(pf,"%lu %lu %lu %lu %lu %lu %.16g %.16g\n", a, b, i, j, ibs, jbs, \
-            creal(exchange[ibs * ist->n_xton + jbs]), cimag(exchange[ibs * ist->n_xton + jbs])
-        );
+      if (odd_rank == 0){
+        if ( (cntr == 0) || (0 == cntr % (ncycles/4 + 1)) || (cntr == (ncycles - 1)) ){
+            print_progress_bar(cntr, ncycles);
+            fflush(0);
+        }
+        cntr++;
       }
-      
-      // fflush(0);
+
+      for (loop_idx = ai; loop_idx < ai + 1; loop_idx++){
+        // printf("This is ai: %lu\n", ai);
+        a = lista[loop_idx];
+        i = listi[loop_idx];
+        for (bj = 0; bj < bj_tot; bj++){
+          b = listb[bj];
+          j = listj[bj];
+          ibs = listibs[(a - lidx) * n_ho + i];
+          jbs = listibs[(b - lidx) * n_ho + j];
+
+          if (ibs < jbs) continue;
+          // printf("printing exchange %lu %lu %lu %lu\n", loop_idx, b, i, j);
+          fprintf(pf,"%lu %lu %lu %lu %lu %lu %.16g %.16g\n", a, b, i, j, ibs, jbs, \
+              creal(exchange[ibs * ist->n_xton + jbs]), cimag(exchange[ibs * ist->n_xton + jbs])
+          );
+        }
+      }
+      fflush(0);
     } // end of ai
     double ai_end_t = omp_get_wtime();
     if (odd_rank == 0){
@@ -818,16 +667,14 @@ void calc_eh_kernel_cplx(
 
 /***************************************************************************************/
 
-int load_coulomb_mat(double complex* mat, char* fileName, long* a_max, long* b_max, long* i_max, long *j_max, index_st* ist){
+long load_coulomb_mat(double complex* mat, char* fileName, index_st* ist){
 
   FILE *pf;
 
   long start;
   long cntr = 0;
   int ieof = 0;
-  int done_flag;
   long a, b, i, j, ibs, jbs;
-  long tmp_a, tmp_b, tmp_i, tmp_j;
   long max_st_num = ist->n_holes*ist->n_holes*ist->n_elecs*ist->n_elecs;
   double tmp_re, tmp_im;
   
@@ -836,49 +683,33 @@ int load_coulomb_mat(double complex* mat, char* fileName, long* a_max, long* b_m
   pf = fopen(fileName, "r");
 
   if (pf == NULL){
-    printf("ERROR: could not open file %s\n", fileName);
-    fprintf(stderr, "ERROR: could not open file %s\n", fileName);
-    exit(EXIT_FAILURE);
+      printf("ERROR: could not open file %s\n", fileName);
+      fprintf(stderr, "ERROR: could not open file %s\n", fileName);
+      exit(EXIT_FAILURE);
   }
 
+  
   // Scan all the lines and load the values into mat
   // Note, order of a,b,i,j doesn't matter because ibs and jbs
   // are the actual indices of the matrices
-  tmp_a = tmp_b = tmp_i = tmp_j = 0;
   while ((ieof != EOF) && (cntr < max_st_num)){
-    // Scan the file and grab matrix elements
-    ieof = fscanf(pf, "%lu %lu %lu %lu %lu %lu %lg %lg", &a, &b, &i, &j, &ibs, &jbs, &tmp_re, &tmp_im);
-    
-    // Load the matrix elements
-    mat[ibs * ist->n_xton + jbs] = CMPLX(tmp_re, tmp_im);
+      
+      // Scan the file and grab matrix elements
+      ieof = fscanf(pf, "%lu %lu %lu %lu %lu %lu %lg %lg", &a, &b, &i, &j, &ibs, &jbs, &tmp_re, &tmp_im);
+      
+      // Load the matrix elements
+      mat[ibs * ist->n_xton + jbs] = CMPLX(tmp_re, tmp_im);
 
-    if (tmp_a < a) tmp_a = a;
-    if (tmp_b < b) tmp_b = b;
-    if (tmp_i < i) tmp_i = i;
-    if (tmp_j < j) tmp_j = j;
-    cntr++;
+      cntr++;
   }
  
-  *a_max = tmp_a;
-  *b_max = tmp_b;
-  *i_max = tmp_i;
-  *j_max = tmp_j;
-
   // printf("Final value of a = %llu\n", a);
-  printf("Max value of a = %ld\n", *a_max);
-  printf("Max value of b = %ld\n", *b_max);
-  printf("Max value of i = %ld\n", *i_max);
-  printf("Max value of j = %ld\n", *j_max);
+  // printf("Max value of a = %llu\n", max_a);
 
-  long el_max = ist->lumo_idx + ist->n_elecs - 1;
-  long ho_max = ist->n_holes - 1;
+  start = a;
 
-  done_flag = 0;
-  if ((*a_max == el_max) && (*b_max == el_max) && (*i_max == ho_max) && (*j_max == ho_max)){
-    done_flag = 1;
-  }
-
-  return done_flag;
+  return start;
 }
+
 
 /*****************************************************************************/

@@ -32,6 +32,29 @@ void l_operator(
   fftw_complex* fftwpsi
 );
 
+
+void calc_xton_spin_mtrx(
+  double complex* bs_coeff,
+  xyz_st*         s_mom,
+  index_st*       ist,
+  par_st*         par,
+  flag_st*        flag,
+  parallel_st*    parallel
+);
+
+void calc_xton_ang_mom_mtrx(
+  double complex* bs_coeff,
+  xyz_st*         s_mom,
+  xyz_st*         l_mom,
+  double complex* l2_mom,
+  double complex* ldots,
+  index_st*       ist,
+  par_st*         par,
+  flag_st*        flag,
+  parallel_st*    parallel
+);
+
+
 void init_g_vecs(
   double *kindex, 
   double *kx, 

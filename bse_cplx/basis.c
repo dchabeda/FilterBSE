@@ -265,7 +265,7 @@ void get_qp_basis(
     cntr++;
   } 
 
-  printf("   Finished reading in quasiparticle basis functions\n");
+  // printf("   Finished reading in quasiparticle basis functions\n");
 
   return;
 

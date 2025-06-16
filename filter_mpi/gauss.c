@@ -6,20 +6,24 @@ void mod_gauss(
   gauss_st *gauss, double *pot_local, double * eig_vals, xyz_st *R, atom_info *atom, grid_st *grid,
   index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   // Driver for computing Filter in a Gaussian basis
+  int     a;
+
   double *S_mat;
   double *T_mat;
   double *V_mat;
   double *H_mat;
-  int a;
   double *X, *U, *C;
+  double *mux_mat, *muy_mat, *muz_mat;
+  double *Lx_mat, *Ly_mat, *Lz_mat;
+
   MO_st *MO;
   
   // Allocate memory for the Gauss struct
   gauss = (gauss_st*) calloc(par->n_orbitals, sizeof(gauss_st));
-  for (a = 0; a < par->n_orbitals; a++){
-    gauss[a].coeff = (double*) calloc(par->n_gauss_per_orbital, sizeof(double));
-    gauss[a].exp = (double*) calloc(par->n_gauss_per_orbital, sizeof(double));
-    gauss[a].type = (int*) calloc(par->n_gauss_per_orbital, sizeof(int));
+  for (a = 0; a < par->n_orbitals; a++) {
+      gauss[a].coeff = (double*) calloc(par->n_gauss_per_orbital, sizeof(double));
+      gauss[a].exp = (double*) calloc(par->n_gauss_per_orbital, sizeof(double));
+      gauss[a].type = (int*) calloc(par->n_gauss_per_orbital, sizeof(int));
   }
 
   // Allocate memory for the S, T, and V arrays
@@ -56,10 +60,41 @@ void mod_gauss(
     for (a = 0; a < par->n_orbitals; a++){
       if ((MO[a].coeff = (double*)calloc(par->n_orbitals, sizeof(double)))==NULL)nerror("Could not allocate AO coefficients to MOs\n");
   }
-
+  // Allocate memory for the dipole integrals
+  if ((mux_mat = (double*) calloc(par->n_orbitals * par->n_orbitals, sizeof(double)))==NULL){
+    fprintf(stderr, "ERROR: allocating memory for C in main.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((muy_mat = (double*) calloc(par->n_orbitals * par->n_orbitals, sizeof(double)))==NULL){
+    fprintf(stderr, "ERROR: allocating memory for C in main.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((muz_mat = (double*) calloc(par->n_orbitals * par->n_orbitals, sizeof(double)))==NULL){
+    fprintf(stderr, "ERROR: allocating memory for C in main.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((Lx_mat = (double*) calloc(par->n_orbitals * par->n_orbitals, sizeof(double)))==NULL){
+    fprintf(stderr, "ERROR: allocating memory for C in main.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((Ly_mat = (double*) calloc(par->n_orbitals * par->n_orbitals, sizeof(double)))==NULL){
+    fprintf(stderr, "ERROR: allocating memory for C in main.c\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((Lz_mat = (double*) calloc(par->n_orbitals * par->n_orbitals, sizeof(double)))==NULL){
+    fprintf(stderr, "ERROR: allocating memory for C in main.c\n");
+    exit(EXIT_FAILURE);
+  }
   //
   //
+  printf("Initializing gauss params | %s\n", get_time()); fflush(0);
   init_gauss_params(gauss, R, atom, ist, par, flag, parallel);
+  printf("Finished with init gauss params | %s\n", get_time()); fflush(0);
+  if (1 == flag->printGaussCubes){
+    printf("Printing AO cube files| %s\n", get_time()); fflush(0);
+    proj_gauss_on_grid(gauss, grid, ist, par, flag, parallel);
+    printf("Finished printing AO cube files | %s\n", get_time()); fflush(0);
+  }
   //
   //
   overlap_gauss(S_mat, gauss, atom, ist, par, flag);
@@ -71,13 +106,19 @@ void mod_gauss(
   potential_gauss(V_mat, pot_local, gauss, grid, atom, ist, par, flag);
   //
   //
+  printf("Building gauss hamiltonian | %s\n", get_time()); fflush(0);
   build_gauss_hamiltonian(H_mat, T_mat, V_mat, ist, par);
+  printf("Finished with gauss ham | %s\n", get_time()); fflush(0);
   //
   //
+  printf("Calc X canonical | %s\n", get_time()); fflush(0);
   calc_X_canonical(S_mat, X, U, ist, par, flag, parallel);
+  printf("Finished with X canonical | %s\n", get_time()); fflush(0);
   //
   //
+  printf("Transforming H | %s\n", get_time()); fflush(0);
   transform_H(H_mat, X, eig_vals, MO, ist, par, flag, parallel);
+  printf("Finished with transform H | %s\n", get_time()); fflush(0);
   //
   //
   // Print out the eigenvalues
@@ -86,9 +127,14 @@ void mod_gauss(
   }
   //
   //
-  if (1 == flag->printGaussCubes){
-    proj_gauss_on_grid(MO, gauss, grid, ist->n_gcubes_s, ist->n_gcubes_e, ist, par, flag, parallel);
-  }
+  // Calculate the electric dipole
+  electric_dipole_gauss(mux_mat, muy_mat, muz_mat, gauss, atom, ist, par, flag);
+  // Calculate the magnetic dipole
+  angular_momentum_gauss(Lx_mat, Ly_mat, Lz_mat, gauss, atom, ist, par, flag);
+  
+  // if (1 == flag->printGaussCubes){
+  //   proj_gauss_on_grid_MO(MO, gauss, grid, ist->n_gcubes_s, ist->n_gcubes_e, ist, par, flag, parallel);
+  // }
   //
   //
   return;
@@ -131,8 +177,9 @@ void init_gauss_params(
     // Initialize all the switches to zero
     alrdy_read[i] = 0;
   }
+
   // We also need to allocate memory for local copies of the coeffs and exponents
-  n_orbitals_loc = ist->n_atom_types*par->n_orbitals_per_atom;
+  n_orbitals_loc = ist->n_atom_types * par->n_orbitals_per_atom;
   coeff_loc = (double **) calloc(n_orbitals_loc, sizeof(double*));
   exp_loc = (double **) calloc(n_orbitals_loc, sizeof(double*));
   type_loc  = (int **) calloc(n_orbitals_loc, sizeof(int*));
@@ -145,12 +192,10 @@ void init_gauss_params(
   // 
   // 
 
-  for (jatom = 0; jatom < ist->natoms; jatom++){
+  for (jatom = 0; jatom < ist->natoms; jatom++) {
     strcpy(&atyp, atom[jatom].atyp);
     atyp_idx = atom[jatom].idx;
-    // atype now contains the atomic symbol. Ex. if iatm = 48, atype = Cd.
-    // atyp_idx contains the index of this atom type
-    
+
     // Check if we have already encountered this atom type and read its params
     // If 0, then the file has NOT been read, and we should read it
     // If 1, then the file has been read, and we should read in the local copy of params
@@ -166,9 +211,9 @@ void init_gauss_params(
       pf = fopen(g_filnm, "r");
       if (pf != NULL) {
         // Loop over each basis function
-        for (a = 0; a < par->n_orbitals_per_atom; a++){
+        for (a = 0; a < par->n_orbitals_per_atom; a++) {
           jatm_orb = jatom * par->n_orbitals_per_atom + a;
-          jatm_orb_loc = atyp_idx * par->n_orbitals_per_atom + a; 
+          jatm_orb_loc = atyp_idx * par->n_orbitals_per_atom + a;
           
           // Before reading in Gauss params, associate the coordinates of the atom for this basis function
           gauss[jatm_orb].Rx = R[jatom].x;
@@ -186,7 +231,7 @@ void init_gauss_params(
             printf("This is g_norm = %lg\n", g_norm);
             
             gauss[jatm_orb].type[i]  = type_val;
-            gauss[jatm_orb].coeff[i] = g_norm * coeff;
+            gauss[jatm_orb].coeff[i] = coeff;
             gauss[jatm_orb].exp[i] = exp;
             
             // Store local copies of the coeffs and widths
@@ -219,9 +264,9 @@ void init_gauss_params(
     else if ( alrdy_read[atyp_idx] == 1 ){
       // If the file has already been read, then we still need to place its params 
       // into the gauss struct
-      for (a = 0; a < par->n_orbitals_per_atom; a++){
+      for (a = 0; a < par->n_orbitals_per_atom; a++) {
         jatm_orb = jatom * par->n_orbitals_per_atom + a;
-        jatm_orb_loc = atyp_idx * par->n_orbitals_per_atom + a; 
+        jatm_orb_loc = atyp_idx * par->n_orbitals_per_atom + a;
         
         // Before reading in Gauss params, associate the coordinates of the atom for this basis function
         gauss[jatm_orb].Rx = R[jatom].x;
@@ -250,18 +295,19 @@ void init_gauss_params(
     printf("\tMin. Gaussian exp = %.4lg -> R_gint_cut2 = %lg\n", min_exp, par->R_gint_cut2);
   }
 
-  // Debug: Print the values read
-  for (jatom = 0; jatom < ist->natoms; jatom++){
-    printf("Atom type number %ld\n", jatom);
-    for (a = 0; a < par->n_orbitals_per_atom; a++){
-      jatm_orb = jatom * par->n_orbitals_per_atom + a;
-      printf("  Basis function %d\n", a);
-      printf("    Rx = %g Ry = %g Rz = %g\n", gauss[jatm_orb].Rx, gauss[jatm_orb].Ry, gauss[jatm_orb].Rz);
-      for (i = 0; i < par->n_gauss_per_orbital; i++){
-        printf("    g%dpol = %d coeff = %g exp = %g\n", i, gauss[jatm_orb].type[i], gauss[jatm_orb].coeff[i], gauss[jatm_orb].exp[i]);
-      }
+// Debug: Print the values read
+for (jatom = 0; jatom < ist->natoms; jatom++){
+  printf("Atom type number %ld (label = %s)\n", jatom, atom[jatom].atyp);
+  for (a = 0; a < par->n_orbitals_per_atom; a++){
+    jatm_orb = jatom * par->n_orbitals_per_atom + a;
+    printf("  Basis function %d\n", a);
+    printf("    Rx = %g Ry = %g Rz = %g\n", gauss[jatm_orb].Rx, gauss[jatm_orb].Ry, gauss[jatm_orb].Rz);
+    for (i = 0; i < par->n_gauss_per_orbital; i++){
+      printf("    g%dpol = %d coeff = %g exp = %g\n", i, gauss[jatm_orb].type[i], gauss[jatm_orb].coeff[i], gauss[jatm_orb].exp[i]);
     }
   }
+}
+
 
   free(type_loc);
   free(coeff_loc);
@@ -272,12 +318,16 @@ void init_gauss_params(
 
 void build_gauss_hamiltonian(double *H_mat, double *T_mat, double *V_mat, index_st *ist, par_st *par) {
 
+
   FILE *pf;
   int a, b, idx;
 
   pf = fopen("gauss_H_mat.dat", "w");
 
   for (a = 0; a < par->n_orbitals; a++){
+    // fprintf(stderr, "Processing row %d of %d...\n", a + 1, par->n_orbitals);
+    // fflush(stderr);
+
     for (b = 0; b < par->n_orbitals; b++){
       idx = a * par->n_orbitals + b;
       
@@ -288,21 +338,114 @@ void build_gauss_hamiltonian(double *H_mat, double *T_mat, double *V_mat, index_
 
   fclose(pf);
 
-//   for (a = 0; a < par->n_orbitals; a++){
-//     printf("\n\t");
-//     for (b = 0; b < par->n_orbitals; b++){
-//       idx = a * par->n_orbitals + b;
-//       printf("%lg  ", H_mat[idx]);
-//     }
-//   }
-//   printf("\n");
+  //   for (a = 0; a < par->n_orbitals; a++){
+  //     printf("\n\t");
+  //     for (b = 0; b < par->n_orbitals; b++){
+  //       idx = a * par->n_orbitals + b;
+  //       printf("%lg  ", H_mat[idx]);
+  //     }
+  //   }
+  //   printf("\n");
 
   return;
 }
 
 /*******************************************************************************************/
 
-void proj_gauss_on_grid(MO_st *MO, gauss_st *gauss, grid_st *grid, int start, int end, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+void proj_gauss_on_grid(gauss_st *gauss, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
+  // project the Gaussian functions onto real space
+
+  long jx, jy, jz, jyz, jxyz;
+  int a, i;
+  double i_c, i_e;
+  double x, y, z;
+  double Rx_a, Ry_a, Rz_a;
+  double R2; // distance sqr between orbital and grid point
+  
+  double *rho;
+  char fileName[50];
+  int ix, iy, iz;
+  
+  double sum[par->n_orbitals];
+  rho = calloc(ist->ngrid, sizeof(double));
+
+  for (a = 0; a < par->n_orbitals; a++){
+    Rx_a = gauss[a].Rx;
+    Ry_a = gauss[a].Ry;
+    Rz_a = gauss[a].Rz;
+    
+    for (jz = 0; jz < grid->nz; jz++){
+      z = grid->z[jz];
+      for (jy = 0; jy < grid->ny; jy++){
+        y = grid->y[jy];
+        jyz = grid->nx * (grid->ny * jz + jy);
+        for (jx = 0; jx < grid->nx; jx++){
+          x = grid->x[jx];
+          jxyz = jyz + jx;
+
+          // Clear the previous value stored in rho[jxyz]
+          rho[jxyz] = 0.0;
+
+          // Get the distance from this grid point to the center of the orbital
+          R2 = sqr(x - Rx_a) + sqr(y - Ry_a) + sqr(z - Rz_a);
+
+          // If the orbital is far from the grid point, do not perform sum
+          if (R2 > par->R_gint_cut2){
+            continue;
+          }
+
+          
+          // Sum the contributions to this grid point from all 
+          // gaussians comprising this orbital
+          // sum = 0.0;
+          for (i = 0; i < par->n_gauss_per_orbital; i++){
+            sum[i] = 0.0;
+            // Sum contributions from each Gaussian function making orbital a
+            
+            i_c = gauss[a].coeff[i];
+            i_e = gauss[a].exp[i];
+            // Compute the value of the Gaussian function at this point in real space
+            // Add it to the total value from this orbital
+
+            sum[i] += i_c * exp(- i_e * R2);
+
+            get_gauss_polarization(gauss[a].type[i], &ix, &iy, &iz);
+
+            if (ix == 1){
+              sum[i] *= (x - Rx_a);
+            }
+            if (iy == 1){
+              sum[i] *= (y - Ry_a);
+            }
+            if (iz == 1){
+              sum[i] *= (z - Rz_a);
+            }
+            
+          } // end of i (n_g_per_o)
+          // update the value of rho at this grid point;
+          for (i = 0; i < par->n_gauss_per_orbital; i++){
+            rho[jxyz] += sum[i];
+          }
+          
+        } // end of jx
+      } // end of jy
+    } // end of jz
+    
+    // Write a cube file of the orbitals for each state
+    sprintf(fileName, "orbital-%d.cube", a);
+    write_cube_file(rho, grid, fileName);
+  } // end of a (n_orb)
+
+  free(rho);
+
+  return;
+}
+
+
+/*******************************************************************************************/
+
+
+void proj_gauss_on_grid_MO(MO_st *MO, gauss_st *gauss, grid_st *grid, int start, int end, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel){
   // project the Gaussian functions onto real space
 
   long jx, jy, jz, jyz, jxyz;
@@ -373,7 +516,7 @@ void proj_gauss_on_grid(MO_st *MO, gauss_st *gauss, grid_st *grid, int start, in
       }
     }
     // Write a cube file of the orbitals for each state
-    sprintf(fileName, "orbital-%d.cube", n_state);
+    sprintf(fileName, "MO-%d.cube", n_state);
     write_cube_file(rho, grid, fileName);
   }
 

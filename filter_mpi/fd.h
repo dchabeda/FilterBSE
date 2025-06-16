@@ -105,6 +105,7 @@ typedef struct index {
   long  ncheby;
   long  natoms;
   long  n_atom_types;
+  long  total_orbitals;
   long  n_max_atom_types;
 
   // Atomic type and potential information
@@ -199,9 +200,10 @@ typedef struct par {
   int   ham_threads;
 
   // Orbital and basis settings
-  int   n_orbitals;
+  int   n_orbitals;                
+  int   n_gauss_per_orbital;      
+  int*  n_orbitals_per_type;
   int   n_orbitals_per_atom;
-  int   n_gauss_per_orbital;
 
   // Gaussian integral cutoff
   double  R_gint_cut2;

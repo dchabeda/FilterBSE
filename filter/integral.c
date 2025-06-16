@@ -13,24 +13,11 @@ void overlap_gauss(double *S_mat, gauss_st *gauss, atom_info *atom, index_st *is
   double d_ij, alpha, beta, rsqr, S_ij, ab, apb, sum;
   int ix, iy, iz;
   int jx, jy, jz;
-
-  printf("Starting overlap integrals | %s\n", get_time()); fflush(0);
-  
-  omp_set_num_threads(ist->nthreads);
   
   pf = fopen("gauss_overlap.dat", "w");
   // Compute overlap matrix elements for basis functions 
   // defined as a sum of Gaussians
-  #pragma omp parallel for private(b, i, j)
   for (a = 0; a < par->n_orbitals; a++) {
-    double i_c, j_c;
-    xyz_st R_a;
-    xyz_st R_b;
-    double R2;
-    double d_ij, alpha, beta, rsqr, S_ij, ab, apb, sum;
-    int ix, iy, iz;
-    int jx, jy, jz;
-    
     R_a.x = gauss[a].Rx;
     R_a.y = gauss[a].Ry;
     R_a.z = gauss[a].Rz;
@@ -81,7 +68,6 @@ void overlap_gauss(double *S_mat, gauss_st *gauss, atom_info *atom, index_st *is
   
   fclose(pf);
 
-  printf("Finished with overlap integrals | %s\n", get_time()); fflush(0);
   return;
     
 }
@@ -90,20 +76,11 @@ void overlap_gauss(double *S_mat, gauss_st *gauss, atom_info *atom, index_st *is
 
 void get_gauss_polarization(int polz, int* ix, int *iy, int *iz){
   
-  if      (polz == 0) { *ix = *iy = *iz = 0; }              // s
-  else if (polz == 1) { *ix = 1; *iy = *iz = 0; }           // px
-  else if (polz == 2) { *iy = 1; *ix = *iz = 0; }           // py
-  else if (polz == 3) { *iz = 1; *ix = *iy = 0; }           // pz
-  else if (polz == 4) { *ix =2; *iy = 0; *iz = 0; }         // dx^2
-  else if (polz == 5) { *ix =0; *iy = 2; *iz = 0; }         // dy^2
-  else if (polz == 6) { *ix = *iy = 0; *iz = 2; }           // dz^2
-  else if (polz == 7) { *ix = 1; *iy = 0; *iz = 1; }        // dxz
-  else if (polz == 8) { *ix = 0; *iy = 1; *iz = 1; }        // dyz
-  else if (polz == 9) { *ix = 1; *iy = 1; *iz = 0; }        // dxy
-  else {
-    printf("ERROR: bad polarization index in Gaussian: %d\n", polz);
-    exit(EXIT_FAILURE);
-  }
+  if      (polz == 0){ (*ix) = (*iy) = (*iz) = 0;}
+  else if (polz == 1){ (*ix) = 1; (*iy) = (*iz) = 0;}
+  else if (polz == 2){ (*iy) = 1; (*ix) = (*iz) = 0;}
+  else if (polz == 3){ (*iz) = 1; (*ix) = (*iy) = 0;}
+  else    {printf("ERROR bad polarization in Gaussian!\n"); exit(EXIT_FAILURE);}
 
   return;
 }
@@ -144,21 +121,9 @@ void kinetic_gauss(double *T_mat, gauss_st *gauss, atom_info *atom, index_st *is
   int ix, iy, iz;
   int jx, jy, jz;
 
-  printf("Starting with kinetic integrals | %s\n", get_time()); fflush(0);
-
-  omp_set_num_threads(ist->nthreads);
   pf = fopen("gauss_kinetic.dat", "w");
   // Compute KE matrix elements for basis functions defined as a sum of Gaussians
-  #pragma omp parallel for private(b, i, j)
   for (a = 0; a < par->n_orbitals; a++) {
-    double i_c, j_c;
-    xyz_st R_a;
-    xyz_st R_b;
-    double R2;
-    double d_ij, alpha, beta, rsqr, T_ij, ab, apb, sum;
-    int ix, iy, iz;
-    int jx, jy, jz;
-    
     R_a.x = gauss[a].Rx;
     R_a.y = gauss[a].Ry;
     R_a.z = gauss[a].Rz;
@@ -209,7 +174,7 @@ void kinetic_gauss(double *T_mat, gauss_st *gauss, atom_info *atom, index_st *is
   }
 
   fclose(pf);
-  printf("Finished with kinetic integrals | %s\n", get_time()); fflush(0);
+  
   return;
     
 }
@@ -266,38 +231,20 @@ void potential_gauss(double *V_mat, double *pot_local, gauss_st *gauss, grid_st 
   double r_thresh, dthresh, r_cut1;
   int n_grid; // Just to see how many grid points we actually loop over.
 
-  printf("Starting with potential integrals | %s\n", get_time()); fflush(0);
-
   pf = fopen("gauss_potential.dat", "w");
 
-  // for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
-  //     pot_local[jxyz] = 1.0;
-  // }
-  omp_set_num_threads(ist->nthreads);
-  // Compute potential matrix elements for basis functions defined as a sum of Gaussians
-  #pragma omp parallel for private(b, i, j)
-  for (a = 0; a < par->n_orbitals; a++) {
-    double i_c, j_c, i_e, j_e;
-    double x, y, z;
-    double Rx_a, Ry_a, Rz_a, Rx_b, Ry_b, Rz_b;
-    double R_cut_orb2 = sqr(2.5) * par->R_gint_cut2;
-    double R2; // distance sqr between two orbitals
-    xyz_st orb_com; // orbital center of mass
-    double d_ij, dist_a_sqr, dist_b_sqr, sum;
-    double gauss_i, gauss_j;
-    double pot_r;
-    long jx, jy, jz, jyz, jxyz;
-    double x_max, x_min, y_max, y_min, z_max, z_min;
-    double r_thresh, dthresh, r_cut1;
+  for (jxyz = 0; jxyz < ist->ngrid; jxyz++){
+      pot_local[jxyz] = 1.0;
+  }
 
-    // printf("The number of OMP threads = %d\n", omp_get_num_threads()); fflush(0);
-    
+  // Compute KE matrix elements for basis functions defined as a sum of Gaussians
+  for (a = 0; a < par->n_orbitals; a++) {
     Rx_a = gauss[a].Rx;
     Ry_a = gauss[a].Ry;
     Rz_a = gauss[a].Rz;
     for (b = 0; b < par->n_orbitals; b++) {
       // printf("\n%d %d\n", a, b);
-      // Initialize potential matrix calculation
+      // Initialize KE matrix calculation
       Rx_b = gauss[b].Rx;
       Ry_b = gauss[b].Ry;
       Rz_b = gauss[b].Rz;
@@ -389,8 +336,6 @@ void potential_gauss(double *V_mat, double *pot_local, gauss_st *gauss, grid_st 
     }
   }
   
-  printf("Finished with potential integrals | %s\n", get_time()); fflush(0);
-
   return;   
 }
 
@@ -433,221 +378,3 @@ double E_hermite_gauss(int i, int j, int t, double Qx, double a, double b){
 
 
 }
-
-/*******************************************************************************************/
-
-dipole_integrals_st compute_dipole_integrals(
-  int ix, int iy, int iz,
-  int jx, int jy, int jz,
-  double Qx, double Qy, double Qz,
-  double alpha, double beta
-) {
-  dipole_integrals_st d;
-  d.S0x = E_hermite_gauss(ix, jx, 0, Qx, alpha, beta);
-  d.S0y = E_hermite_gauss(iy, jy, 0, Qy, alpha, beta);
-  d.S0z = E_hermite_gauss(iz, jz, 0, Qz, alpha, beta);
-
-  d.S1x = E_hermite_gauss(ix, jx, 1, Qx, alpha, beta);
-  d.S1y = E_hermite_gauss(iy, jy, 1, Qy, alpha, beta);
-  d.S1z = E_hermite_gauss(iz, jz, 1, Qz, alpha, beta);
-
-  return d;
-}
-
-angular_integrals_st compute_angular_integrals(
-  int ix, int iy, int iz,
-  int jx, int jy, int jz,
-  double Qx, double Qy, double Qz,
-  double alpha, double beta
-) {
-  angular_integrals_st S;
-
-  S.S0x = E_hermite_gauss(ix, jx, 0, Qx, alpha, beta);
-  S.S0y = E_hermite_gauss(iy, jy, 0, Qy, alpha, beta);
-  S.S0z = E_hermite_gauss(iz, jz, 0, Qz, alpha, beta);
-
-  S.S1x = E_hermite_gauss(ix, jx, 1, Qx, alpha, beta);
-  S.S1y = E_hermite_gauss(iy, jy, 1, Qy, alpha, beta);
-  S.S1z = E_hermite_gauss(iz, jz, 1, Qz, alpha, beta);
-
-  S.D1x = (jx > 0 ? jx * E_hermite_gauss(ix, jx - 1, 0, Qx, alpha, beta) : 0.0)
-        - 2.0 * beta * E_hermite_gauss(ix, jx + 1, 0, Qx, alpha, beta);
-
-  S.D1y = (jy > 0 ? jy * E_hermite_gauss(iy, jy - 1, 0, Qy, alpha, beta) : 0.0)
-        - 2.0 * beta * E_hermite_gauss(iy, jy + 1, 0, Qy, alpha, beta);
-
-  S.D1z = (jz > 0 ? jz * E_hermite_gauss(iz, jz - 1, 0, Qz, alpha, beta) : 0.0)
-        - 2.0 * beta * E_hermite_gauss(iz, jz + 1, 0, Qz, alpha, beta);
-
-  return S;
-}
-
-
-
-
-void electric_dipole_gauss(double *mux_mat, double *muy_mat, double *muz_mat, gauss_st *gauss, atom_info *atom, index_st *ist, par_st *par, flag_st *flag) {
-  FILE *pfx = fopen("gauss_dipole_x.dat", "w");
-  FILE *pfy = fopen("gauss_dipole_y.dat", "w");
-  FILE *pfz = fopen("gauss_dipole_z.dat", "w");
-
-  printf("Starting electric dipole integrals | %s\n", get_time()); fflush(0);
-
-  omp_set_num_threads(ist->nthreads);
-
-  #pragma omp parallel for
-  for (int a = 0; a < par->n_orbitals; a++) {
-    for (int b = 0; b < par->n_orbitals; b++) {
-      xyz_st R_a = {gauss[a].Rx, gauss[a].Ry, gauss[a].Rz};
-      xyz_st R_b = {gauss[b].Rx, gauss[b].Ry, gauss[b].Rz};
-      double dx = R_b.x - R_a.x;
-      double dy = R_b.y - R_a.y;
-      double dz = R_b.z - R_a.z;
-      double R2 = dx*dx + dy*dy + dz*dz;
-
-      if (R2 > par->R_gint_cut2) {
-        mux_mat[a * par->n_orbitals + b] = 0.0;
-        muy_mat[a * par->n_orbitals + b] = 0.0;
-        muz_mat[a * par->n_orbitals + b] = 0.0;
-        continue;
-      }
-
-      double mux_sum = 0.0, muy_sum = 0.0, muz_sum = 0.0;
-
-      for (int i = 0; i < par->n_gauss_per_orbital; i++) {
-        for (int j = 0; j < par->n_gauss_per_orbital; j++) {
-          double i_c = gauss[a].coeff[i];
-          double j_c = gauss[b].coeff[j];
-          double d_ij = i_c * j_c;
-          double alpha = gauss[a].exp[i];
-          double beta  = gauss[b].exp[j];
-
-          int ix, iy, iz, jx, jy, jz;
-          get_gauss_polarization(gauss[a].type[i], &ix, &iy, &iz);
-          get_gauss_polarization(gauss[b].type[j], &jx, &jy, &jz);
-
-          double Qx = R_a.x - R_b.x;
-          double Qy = R_a.y - R_b.y;
-          double Qz = R_a.z - R_b.z;
-
-          dipole_integrals_st S = compute_dipole_integrals(
-            ix, iy, iz, jx, jy, jz,
-            Qx, Qy, Qz, alpha, beta
-          );
-
-          double norm = pow(PIE / (alpha + beta), 1.5);
-
-          // μ_x = S^1_x * S^0_y * S^0_z
-          mux_sum += d_ij * norm * S.S1x * S.S0y * S.S0z;
-
-          // μ_y = S^0_x * S^1_y * S^0_z
-          muy_sum += d_ij * norm * S.S0x * S.S1y * S.S0z;
-
-          // μ_z = S^0_x * S^0_y * S^1_z
-          muz_sum += d_ij * norm * S.S0x * S.S0y * S.S1z;
-        }
-      }
-
-      int idx = a * par->n_orbitals + b;
-      mux_mat[idx] = mux_sum;
-      muy_mat[idx] = muy_sum;
-      muz_mat[idx] = muz_sum;
-
-      fprintf(pfx, "<%d|x|%d> = %.16lg\n", a, b, mux_sum);
-      fprintf(pfy, "<%d|y|%d> = %.16lg\n", a, b, muy_sum);
-      fprintf(pfz, "<%d|z|%d> = %.16lg\n", a, b, muz_sum);
-    }
-  }
-
-  fclose(pfx);
-  fclose(pfy);
-  fclose(pfz);
-
-  printf("Finished electric dipole integrals | %s\n", get_time()); fflush(0);
-}
-
-
-
-/*******************************************************************************************/
-
-void angular_momentum_gauss(double *Lx_mat, double *Ly_mat, double *Lz_mat, gauss_st *gauss, atom_info *atom, index_st *ist, par_st *par, flag_st *flag) {
-  FILE *pfx = fopen("gauss_Lx.dat", "w");
-  FILE *pfy = fopen("gauss_Ly.dat", "w");
-  FILE *pfz = fopen("gauss_Lz.dat", "w");
-
-  printf("Starting angular momentum integrals | %s\n", get_time()); fflush(0);
-
-  omp_set_num_threads(ist->nthreads);
-
-  #pragma omp parallel for
-  for (int a = 0; a < par->n_orbitals; a++) {
-    for (int b = 0; b < par->n_orbitals; b++) {
-      xyz_st R_a = {gauss[a].Rx, gauss[a].Ry, gauss[a].Rz};
-      xyz_st R_b = {gauss[b].Rx, gauss[b].Ry, gauss[b].Rz};
-      double dx = R_b.x - R_a.x;
-      double dy = R_b.y - R_a.y;
-      double dz = R_b.z - R_a.z;
-      double R2 = dx*dx + dy*dy + dz*dz;
-
-      if (R2 > par->R_gint_cut2) {
-        Lx_mat[a * par->n_orbitals + b] = 0.0;
-        Ly_mat[a * par->n_orbitals + b] = 0.0;
-        Lz_mat[a * par->n_orbitals + b] = 0.0;
-        continue;
-      }
-
-      double Lx_sum = 0.0, Ly_sum = 0.0, Lz_sum = 0.0;
-
-      for (int i = 0; i < par->n_gauss_per_orbital; i++) {
-        for (int j = 0; j < par->n_gauss_per_orbital; j++) {
-          double i_c = gauss[a].coeff[i];
-          double j_c = gauss[b].coeff[j];
-          double d_ij = i_c * j_c;
-          double alpha = gauss[a].exp[i];
-          double beta  = gauss[b].exp[j];
-
-          int ix, iy, iz, jx, jy, jz;
-          get_gauss_polarization(gauss[a].type[i], &ix, &iy, &iz);
-          get_gauss_polarization(gauss[b].type[j], &jx, &jy, &jz);
-
-          double Qx = R_a.x - R_b.x;
-          double Qy = R_a.y - R_b.y;
-          double Qz = R_a.z - R_b.z;
-
-          angular_integrals_st S = compute_angular_integrals(
-            ix, iy, iz, jx, jy, jz,
-            Qx, Qy, Qz,
-            alpha, beta
-          );
-
-          double norm = pow(PIE / (alpha + beta), 1.5);
-
-          double term_Lx = S.S1y * S.D1z * S.S0x - S.D1y * S.S1z * S.S0x;
-          double term_Ly = S.S1z * S.D1x * S.S0y - S.D1z * S.S1x * S.S0y;
-          double term_Lz = S.S1x * S.D1y * S.S0z - S.D1x * S.S1y * S.S0z;
-
-          Lx_sum += d_ij * norm * term_Lx;
-          Ly_sum += d_ij * norm * term_Ly;
-          Lz_sum += d_ij * norm * term_Lz;
-        }
-      }
-
-      int idx = a * par->n_orbitals + b;
-      Lx_mat[idx] = Lx_sum;
-      Ly_mat[idx] = Ly_sum;
-      Lz_mat[idx] = Lz_sum;
-
-      fprintf(pfx, "<%d|Lx|%d> = %.16lg\n", a, b, Lx_sum);
-      fprintf(pfy, "<%d|Ly|%d> = %.16lg\n", a, b, Ly_sum);
-      fprintf(pfz, "<%d|Lz|%d> = %.16lg\n", a, b, Lz_sum);
-    }
-  }
-
-  fclose(pfx);
-  fclose(pfy);
-  fclose(pfz);
-
-  printf("Finished angular momentum integrals | %s\n", get_time()); fflush(0);
-}
-
-
-

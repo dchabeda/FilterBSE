@@ -41,14 +41,12 @@ void mod_mem_alloc(
   if (mpir == 0) printf("\nAllocating memory for pot, psi, eig_vals...\n");
   
   // memory allocation for the spin-orbit/NL potential 
-  if (flag->SO == 1){
+  if ((flag->SO == 1) || (flag->NL == 1)){
     ALLOCATE(SO_projectors, PROJ_LEN * ist->nproj, "SO_projectors");
     ALLOCATE(LS, nj * nj, "LS");
     
-    if (flag->NL == 1){
-      ALLOCATE(nlc, ist->n_NL_atoms*ist->n_NL_gridpts, "nlc");
-      ALLOCATE(nl, ist->natoms, "nl");
-    }
+    ALLOCATE(nlc, ist->n_NL_atoms*ist->n_NL_gridpts, "nlc");
+    ALLOCATE(nl, ist->natoms, "nl");
   }
   
   // Wavefunction-type objects

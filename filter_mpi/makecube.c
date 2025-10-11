@@ -23,10 +23,12 @@ int main(int argc, char *argv[])
   ist.atom_types = malloc(N_MAX_ATOM_TYPES*sizeof(ist.atom_types[0]));
   time_t currentTime = time(NULL);
 
+  parallel.mpi_rank = 0;
+  parallel.mpi_size = 1;
 
   //command line input parsing
   if (argc!=3){
-    printf("Usage: makecube start end");
+    printf("\nUsage: ./makecube.x start end\n");
     exit(EXIT_FAILURE);
   }
 
@@ -83,7 +85,7 @@ int main(int argc, char *argv[])
   for (j = start; j <= end; j++){ 
     printf("Reading state %d from psi.dat\n", j);
     
-    if(fseek(ppsi,j*ist.complex_idx *ist.nspinngrid*sizeof(double),SEEK_SET)!=0){
+    if(fseek(ppsi,j*ist.complex_idx*ist.nspinngrid*sizeof(double),SEEK_SET)!=0){
       printf("Error reading from psi.dat!\n"); exit(EXIT_FAILURE);
     }
     fread(&psi[0], sizeof(double), ist.complex_idx * ist.nspinngrid, ppsi);
@@ -113,7 +115,7 @@ int main(int argc, char *argv[])
           jgrid_real = i * ist.complex_idx;
           jgrid_imag = jgrid_real + 1;
           // sqrt is not physical, just to make values larger for visualization
-          rho[i] = sqrt( fabs(psi[ist.ngrid*ist.complex_idx + jgrid_real]) + fabs(psi[ist.ngrid*ist.complex_idx + jgrid_imag]) );    
+          rho[i] = sqrt( sqr(psi[ist.ngrid*ist.complex_idx + jgrid_real]) + sqr(psi[ist.ngrid*ist.complex_idx + jgrid_imag]) );    
         }
         sprintf(filename, "rhoDn%i.cube", j);
         write_cube_file(rho, &grid, filename);
@@ -126,13 +128,6 @@ int main(int argc, char *argv[])
         write_cube_file(rho, &grid, filename);
       }
     }
-    // for (i = 0;i<ist.ngrid; i++){
-    //   rho[i]= sqr(psi[i].re)+sqr(psi[i].im)+
-    //           sqr(psi[ist.ngrid+i].re)+sqr(psi[ist.ngrid+i].im);
-    // }
-    // sprintf(filename, "rhoTot%i.cube", j);
-    // write_cube_file(rho, &grid, filename);
-
   }
   fclose(ppsi);  
 

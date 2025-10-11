@@ -2,7 +2,7 @@
 #include "init.h"
 #include "hamiltonian.h"
 
-void mod_pot(
+void mod_pseudopot(
     double*       pot_local,
     pot_st*       pot,
     xyz_st*       R,

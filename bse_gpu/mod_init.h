@@ -1,7 +1,7 @@
 #include "fd.h"
 #include "basis.h"
 #include "aux.h"
-#include "read.h"
+#include "read_bse.h"
 
 void mod_init(
     double**        psitot,

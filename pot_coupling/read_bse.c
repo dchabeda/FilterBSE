@@ -19,7 +19,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   FILE *pf;
   int i = 0;
   char field[1000], tmp[1000], *endptr;
-  // long tmp = 0;
+  int mpir = parallel->mpi_rank;
+
 
   // ****** ****** ****** ****** ****** ****** 
   // Setting the default behavior 
@@ -48,6 +49,13 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->restartFromCheckpoint = -1; // by default do not restart from checkpoint
   flag->printFPDensity=0;
   ist->n_FP_density=0;
+
+  // By default, loop from mode_idx_start = 6 to mode_idx_end = ist.n_phonons
+  ist->n_phonons = ist->natoms * 3; // 3 phonon modes per atom
+  par->mode_idx_start = 6;
+  par->mode_idx_end = ist->n_phonons;
+  par->nQ_steps = 20; // number of steps to scan along the phonon mode
+  par->calc_d2VdR2 = 0; // Do not only calculate elements for finite derivative
 
   // Parse the input file
   if( access( "input.par", F_OK) != -1 ) {
@@ -81,6 +89,21 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
       } else if (!strcmp(field, "fermiEnergy")) {
           par->fermi_E = strtod(tmp, &endptr);
           if (*endptr != '\0') {printf("Error converting string to double.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "modeIdx")) {
+          par->mode_idx = (int) strtol(tmp, &endptr, 10);
+          if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "modeIdxStart")) {
+        par->mode_idx_start = (int) strtol(tmp, &endptr, 10);
+        if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "modeIdxEnd")) {
+        par->mode_idx_end = (int) strtol(tmp, &endptr, 10);
+        if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "nQSteps")) {
+        par->nQ_steps = (int) strtol(tmp, &endptr, 10);
+        if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
+      } else if (!strcmp(field, "calcd2VdR2")) {
+        par->calc_d2VdR2 = (int) strtol(tmp, &endptr, 10);
+        if (*endptr != '\0') {fprintf(stderr, "Error converting string to long.\n"); exit(EXIT_FAILURE);}
       }
       // ****** ****** ****** ****** ****** ****** 
       // Set options for dielectric properties
@@ -196,6 +219,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
     flag->NL = 1; // SO automatically switches on NL
     par->R_NLcut2 = 1.5 +  6.0 * log(10.0) + 3.0 * grid->dx;
     
+    if (mpir == 0) {
+      ensure_directory_exists("projectors");
+    }
+
   }
   if (flag->useSpinors == 1) {
     flag->isComplex = 1;
@@ -230,3 +257,24 @@ void read_bseCoeff(int n_xton,int numExcStatesToRead, zomplex* u, FILE* pf){
     } 
   }
 }
+
+/****************************************************************************/
+
+void ensure_directory_exists(const char *dirname) {
+    DIR *dir = opendir(dirname);
+    if (dir) {
+        // Directory exists
+        closedir(dir);
+    } else if (errno == ENOENT) {
+        // Directory does not exist — try to create it
+        if (mkdir(dirname, S_IRWXU) == -1) {
+            fprintf(stderr, "Error: could not create directory '%s': %s\n", dirname, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        // Some other error occurred (e.g., permission)
+        fprintf(stderr, "Error: could not access directory '%s': %s\n", dirname, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+}
+

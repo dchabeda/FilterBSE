@@ -37,15 +37,18 @@ void mod_kernel(
   } else if (1 == flag->coulombDone){
     int done_flag;
     long a, i, b, j;
-    printf("Loading in Coulomb matrix elements from files\n"); 
+    
+    printf("\nflag.coulombDone is on -> loading matrix elements from files | %s\n", get_time()); 
     fflush(0);
 
+    printf("Loading direct mat\n"); fflush(0);
     done_flag = load_coulomb_mat(*direct, "direct.dat", &a, &b, &i, &j, ist);
     if (done_flag != 1){
       printf("ERROR: direct matrix elements not done!\n");
       exit(EXIT_FAILURE);
     }
-
+    
+    printf("Loading exchange mat\n"); fflush(0);
     done_flag = load_coulomb_mat(*exchange, "exchange.dat", &a, &b, &i, &j, ist);
     if (done_flag != 1){
       printf("ERROR: exchange matrix elements not done!\n");

@@ -59,7 +59,7 @@ void gen_SO_projectors(double dx, double rcut, long nproj, double*  projectors, 
 
 
 	for ( projector = 0; projector <nproj; projector++){
-		sprintf(&fileName[0], "projectorSO_%d.dat", projector);
+		sprintf(&fileName[0], "projectors/projectorSO_%d.dat", projector);
         pf = fopen(fileName, "w");
 		
 		preFactor =  (2.00 / PIE) * sqrt(W[N-projector-1]);
@@ -107,7 +107,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	lam1= atm[jatom].NL_par[0];
 	lam2= atm[jatom].NL_par[1];
 	
-	pproj = fopen("projectors.dat", "w");
+	pproj = fopen("projectors/projectors.dat", "w");
 	fprintf(pproj, "For atom %ld with Zval %d we have l1=%g l2=%f\n", jatom, atm[jatom].Zval, lam1, lam2);
 	fclose(pproj);
 	// printf("Checkpoint 1\n"); fflush(0);
@@ -157,12 +157,12 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 	//diagonalize the matrix
 	dsyev_(&JOBZ, &UPLO, &N, &A[0], &LDA, &W[0], &WORK[0], &LWORK, &INFO);
 	
-	pproj = fopen("projectors.dat", "w");
+	pproj = fopen("projectors/projectors.dat", "w");
 	fprintf(pproj,"gen_projectors: dsyev exit: %lld\n",INFO );
 	fflush(0);
 	// printf("Checkpoint 4\n"); fflush(0);
 
-	sprintf(&fileName[0], "NL_Proj_Eigs%ld.dat", jatom);
+	sprintf(&fileName[0], "projectors/NL_Proj_Eigs%ld.dat", jatom);
 	pf  = fopen(fileName, "w");
 	for (i=0;i<N;i++){
 		fprintf(pf,"%lf\n",W[i]);
@@ -194,7 +194,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 		}
 	}
 	// printf("Checkpoint 5\n"); fflush(0);
-	sprintf(&fileName[0], "NL_Proj_Eigs%ld-sorted.dat", jatom);
+	sprintf(&fileName[0], "projectors/NL_Proj_Eigs%ld-sorted.dat", jatom);
 	pf  = fopen(fileName, "w");
 	for (i=0;i<nproj;i++){
 		fprintf(pf,"%d %lf %lf\n",i_eigs[i], eigs[i], W[i_eigs[i]]);
@@ -203,7 +203,7 @@ void gen_nlc_projectors(double dx, double rcut, long nproj, double *projectors,i
 
 
 	for ( projector = 0; projector <nproj; projector++){
-		sprintf(&fileName[0], "projectorNL_%ld_%d.dat", jatom, projector);
+		sprintf(&fileName[0], "projectors/projectorNL_%ld_%d.dat", jatom, projector);
 		pf = fopen(fileName, "w");
 		if(W[i_eigs[projector]]<0.0){
 			W[i_eigs[projector]]=fabs(W[i_eigs[projector]]);

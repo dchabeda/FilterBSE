@@ -142,7 +142,7 @@ void print_fixed_qp_density(double *psi, double *Cbs, double *vz, index_st ist, 
 
 
 // optical.c
-void calc_optical_exc(double complex *bs_coeff, double *eval, xyz_st *mu, xyz_st *m, index_st *ist, par_st *par);
+void calc_optical_exc(double complex *bs_coeff, double *xton_ene, double *eig_vals, xyz_st *mu, xyz_st *m, index_st *ist, par_st *par);
 /*****************************************************************************/
 
 #include "aux.h"

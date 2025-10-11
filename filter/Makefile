@@ -17,7 +17,7 @@ Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp
 MAINNAM = Filter
 
 # compiler ...
-Linux_CC = icx
+Linux_CC = cc
 
 OBJECTS = \
 	main.o read.o init.o save.o projectors.o norm.o rand.o interpolate.o strain.o \

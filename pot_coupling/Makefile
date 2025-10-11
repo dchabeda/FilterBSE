@@ -21,7 +21,7 @@ Linux_CC = cc
 
 OBJECTS = \
         read_bse.o read_filter.o init_bse.o init_filter.o save.o projectors.o interpolate.o \
-        pot_coupling.o write.o nerror.o strain.o basis.o vector.o pot_mat_elems.c hamiltonian.o
+        pot_coupling.o write.o nerror.o strain.o basis.o vector.o pot_mat_elems.o hamiltonian.o
 
 
 # compilation ...

@@ -1,6 +1,6 @@
-#include "mod_pot.h"
+#include "mod_pseudopot.h"
 
-void mod_pot(
+void mod_pseudopot(
   double*       pot_local,
   pot_st*       pot,
   xyz_st*       R,
@@ -51,7 +51,7 @@ void mod_pot(
   write_cube_file(pot_local, grid, "local-pot.cube");
   
   /************************************************************/
-  /*******************    SPIN-ORBIT POT    *******************/
+  /*****************    SPIN-ORBIT/NL POT    ******************/
   /************************************************************/
 
   if(flag->SO==1) {
@@ -62,13 +62,7 @@ void mod_pot(
     def_LS(LS, ist, par);
 
     if (mpir == 0) printf("\tSO projectors generated.\n");
-  }
   
-  /************************************************************/
-  /*******************     NON-LOCAL POT    *******************/
-  /************************************************************/
-
-  if (flag->NL == 1){
     if (mpir == 0) printf("\nNon-local pseudopotential:\n"); fflush(0);
     
     init_NL_projectors(nlc, nl, SO_projs, grid, R, atom, ist, par, flag, parallel);

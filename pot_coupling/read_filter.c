@@ -59,7 +59,10 @@ void read_conf(char *file_name, xyz_st *R, atom_info *atom, index_st *ist, par_s
     
     // Get the atomic number of each atom
     atom[i].Zval = assign_atom_number(atom[i].atyp);
-    //printf ("%s %lf %lf %lf %d\n", atom[i].atyp, R[i].x, R[i].y, R[i].z, atom[i].Zval);
+
+    // Get the atomic mass of each atom
+    atom[i].mass = assign_atom_mass(atom[i].atyp);
+    
     // update list of unique atoms in ist->atom_types
     for (j = 0; j <= ist->n_atom_types; j++){
       //if atomtype already in list, add its index to the list and break
@@ -123,10 +126,10 @@ void read_conf(char *file_name, xyz_st *R, atom_info *atom, index_st *ist, par_s
   fprintf(pw,"%ld\n", ist->natoms);
   for (i = 0; i < ist->natoms; i++) {
     if (flag->SO != 1){
-      fprintf(pw, "%s %g %g %g %ld\n", atom[i].atyp, R[i].x, R[i].y, R[i].z, atom[i].idx);
+      fprintf(pw, "%s %g %g %g\n", atom[i].atyp, R[i].x, R[i].y, R[i].z);
     } 
     if (flag->SO == 1){
-      fprintf(pw, "%s %g %g %g %g\n", atom[i].atyp, R[i].x, R[i].y, R[i].z, atom[i].SO_par);
+      fprintf(pw, "%s %g %g %g\n", atom[i].atyp, R[i].x, R[i].y, R[i].z);
     }
   }
   fclose(pw);
@@ -978,6 +981,43 @@ long assign_atom_number(char atyp[4]){
   return (0);
 }
 
+/*****************************************************************************/
+
+double assign_atom_mass(char atyp[4]){
+  /*******************************************************************
+  * This function assigns the atomic number (ID) based on name       *
+  * inputs:                                                          *
+  *  [char[3]] name of atom as string literal (e.g. "Cd")            *
+  * outputs: [long] atom ID (Zval or fictitious for ligands)         *
+  ********************************************************************/
+  
+  if ((atyp[0] == 'H') && (atyp[1] == '\0')  && (atyp[2] == '\0')) return 1.001;
+  else if ((atyp[0] == 'P') && (atyp[1] == '1')  && (atyp[2] == '\0')) return 1.0;
+  else if ((atyp[0] == 'P') && (atyp[1] == '2')  && (atyp[2] == '\0')) return 1.0;
+  else if ((atyp[0] == 'P') && (atyp[1] == '3')  && (atyp[2] == '\0')) return 1.0;
+  else if ((atyp[0] == 'P') && (atyp[1] == '4')  && (atyp[2] == '\0')) return 1.0;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'C')  && (atyp[2] == '5'))  return 1.0;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'C')  && (atyp[2] == '6'))  return 1.0;
+  else if ((atyp[0] == 'S') && (atyp[1] == 'i')  && (atyp[2] == '\0')) return 28.0855;
+  else if ((atyp[0] == 'P') && (atyp[1] == '\0')  && (atyp[2] == '\0')) return 30.973762;
+  else if ((atyp[0] == 'S') && (atyp[1] == '\0')  && (atyp[2] == '\0')) return 32.065;
+  else if ((atyp[0] == 'Z') && (atyp[1] == 'n')  && (atyp[2] == '\0')) return 65.38;
+  else if ((atyp[0] == 'G') && (atyp[1] == 'a')  && (atyp[2] == '\0')) return 69.723;
+  else if ((atyp[0] == 'A') && (atyp[1] == 's')  && (atyp[2] == '\0')) return 74.92160;
+  else if ((atyp[0] == 'S') && (atyp[1] == 'e')  && (atyp[2] == '\0')) return 78.971;
+  else if ((atyp[0] == 'C') && (atyp[1] == 'd')  && (atyp[2] == '\0')) return 112.414;
+  else if ((atyp[0] == 'I') && (atyp[1] == 'n')  && (atyp[2] == '\0')) return 114.818;
+  else if ((atyp[0] == 'T') && (atyp[1] == 'e')  && (atyp[2] == '\0')) return 127.60;
+  else if ((atyp[0] == 'I') && (atyp[1] == '\0')  && (atyp[2] == '\0')) return 126.90447;
+  else if ((atyp[0] == 'C') && (atyp[1] == 's')  && (atyp[2] == '\0')) return 132.90545196;
+  else if ((atyp[0] == 'P') && (atyp[1] == 'b')  && (atyp[2] == '\0')) return 207.2;
+  else {
+    fprintf(stderr, "atom type %s not in current list", atyp);
+    exit(EXIT_FAILURE);
+  }
+
+  return (0);
+}
 /*****************************************************************************/
 
 void assign_atom_type(char *atyp, long j){

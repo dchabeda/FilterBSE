@@ -44,6 +44,9 @@ void bethe_salpeter(
   double complex  sum;
   double complex  tmp;
 
+  double          start_t;
+  double          end_t;
+
   long*           listibs;
 
   omp_set_num_threads(parallel->nthreads);
@@ -90,24 +93,13 @@ void bethe_salpeter(
 	/************************************************************/
 
   // Diagonalize the BSE matrix to obtain the coefficients
-  
+  start_t = omp_get_wtime();
   diag((int)n_xton, ist->nthreads, bs_coeff, xton_ene);
+  end_t = omp_get_wtime();
 
-  // Convert from lapack column major to row major order
-  
-  // double complex *tmp_mat;
-  // ALLOCATE(&tmp_mat, n_xton * n_xton, "tmp_mat");
+  printf("Done diagonalizing BSE matrix | %s\n", format_duration(end_t - start_t));
+  fflush(0);
 
-  // memcpy(tmp_mat, bs_coeff, n_xton * n_xton * sizeof(double complex));
-
-  // for (ibs = 0; ibs < n_xton; ibs++){
-  //   for (jbs = 0; jbs < n_xton; jbs++){
-  //     bs_coeff[jbs*n_xton + ibs] = conj(tmp_mat[ibs*n_xton + jbs]);
-  //   }
-  // }
-  // free(tmp_mat);
-  
-  
   // Prints the coefficients for the first 100 (or n_xton) lowest energy excitonic states
   long numExcStatesToPrint = 100;
   if (n_xton < numExcStatesToPrint) numExcStatesToPrint = n_xton;
@@ -128,7 +120,7 @@ void bethe_salpeter(
   }
   fclose(pf);
 
-
+  
   /************************************************************/
 	/******************    GROUND XTON ENE    *******************/
 	/************************************************************/
@@ -143,7 +135,7 @@ void bethe_salpeter(
   }
   
   printf("\nGround state exciton has energy = %.5f a.u. | %.5f eV (%.5f Imag)\n", creal(sum), creal(sum)*AUTOEV, cimag(sum));
-
+  fflush(0);
 
   /************************************************************/
 	/*****************  SOLVE BSE | ALL XTONS  ******************/
@@ -151,7 +143,7 @@ void bethe_salpeter(
 
   // Compute $mat = h \cdot u$
 
-  
+  if (flag->timingSpecs) start_t = omp_get_wtime();
   #pragma omp parallel for private(l,j,k,sum)
   for (l = 0; l < n_xton; l++) {
     for (j = 0; j < n_xton; j++) {
@@ -162,9 +154,14 @@ void bethe_salpeter(
       mat[l*n_xton+j] = sum;
     }
   }
-
+  if (flag->timingSpecs){
+    end_t = omp_get_wtime();
+    printf("  Step 1: %s\n", format_duration(end_t - start_t));
+  }
   
   //compute $u^\dagger \cdot mat = u^\dagger \cdot h \cdot u$
+  
+  if (flag->timingSpecs) start_t = omp_get_wtime();
   #pragma omp parallel for private(i,j,l,sum)
   for (i = 0; i < n_xton; i++) {
     for (j = 0; j < n_xton; j++) {
@@ -175,8 +172,12 @@ void bethe_salpeter(
       h[i*n_xton+j] = sum;
     }
   }
-
-  // printf("\nOMP block 3\n\n"); fflush(0);
+  if (flag->timingSpecs){
+    end_t = omp_get_wtime();
+    printf("  Step 2: %s\n", format_duration(end_t - start_t));
+  }
+  
+  if (flag->timingSpecs) start_t = omp_get_wtime();
   #pragma omp parallel for private(l,j,k,sum)
   for (l = 0; l < n_xton; l++) {
     for (j = 0; j < n_xton; j++) {
@@ -187,8 +188,12 @@ void bethe_salpeter(
       mat[l*n_xton+j] = sum;
     }
   }
-
+  if (flag->timingSpecs){
+    end_t = omp_get_wtime();
+    printf("  Step 3: %s\n", format_duration(end_t - start_t));
+  }
   
+  if (flag->timingSpecs) start_t = omp_get_wtime();
   #pragma omp parallel for private(i,j,l,sum)
   for (i = 0; i < n_xton; i++) {
     for (j = 0; j < n_xton; j++) {
@@ -199,8 +204,12 @@ void bethe_salpeter(
       h0mat[i*n_xton+j] = creal(sum);
     }
   }
-
+  if (flag->timingSpecs){
+    end_t = omp_get_wtime();
+    printf("  Step 4: %s\n", format_duration(end_t - start_t));
+  }
   
+  if (flag->timingSpecs) start_t = omp_get_wtime();
   #pragma omp parallel for private(l,j,k,sum)
   for (l = 0; l < n_xton; l++) {
     for (j = 0; j < n_xton; j++) {
@@ -211,9 +220,14 @@ void bethe_salpeter(
       mat[l*n_xton+j] = sum;
     }
   }
+  if (flag->timingSpecs){
+    end_t = omp_get_wtime();
+    printf("  Step 5: %s\n", format_duration(end_t - start_t));
+  }
 
-  
   //compute $u^\dagger \cdot mat = u^\dagger \cdot h \cdot u$
+  
+  if (flag->timingSpecs) start_t = omp_get_wtime();
   #pragma omp parallel for private(i,j,l,sum)
   for (i = 0; i < n_xton; i++) {
     for (j = 0; j < n_xton; j++) {
@@ -224,8 +238,12 @@ void bethe_salpeter(
       direct[i*n_xton+j] = sum;
     }
   }
-
+  if (flag->timingSpecs){
+    end_t = omp_get_wtime();
+    printf("  Step 6: %s\n", format_duration(end_t - start_t));
+  }
   
+  if (flag->timingSpecs) start_t = omp_get_wtime();
   #pragma omp parallel for private(l,j,k,sum)
   for (l = 0; l < n_xton; l++) {
     for (j = 0; j < n_xton; j++) {
@@ -236,9 +254,14 @@ void bethe_salpeter(
       mat[l*n_xton+j] = sum;
     }
   }
+  if (flag->timingSpecs){
+    end_t = omp_get_wtime();
+    printf("  Step 7: %s\n", format_duration(end_t - start_t));
+  }
 
-  
   //compute $u^\dagger \cdot mat = u^\dagger \cdot h \cdot u$
+  
+  if (flag->timingSpecs) start_t = omp_get_wtime();
   #pragma omp parallel for private(i,j,l,sum)
   for (i = 0; i < n_xton; i++) {
     for (j = 0; j < n_xton; j++) {
@@ -249,8 +272,11 @@ void bethe_salpeter(
       exchange[i*n_xton+j] = sum;
     }
   }
-
-
+  if (flag->timingSpecs){
+    end_t = omp_get_wtime();
+    printf("  Step 8: %s\n", format_duration(end_t - start_t));
+  }
+  fflush(0);
   /************************************************************/
 	/******************   PRINT EXCITON.DAT   *******************/
 	/************************************************************/

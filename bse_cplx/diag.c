@@ -18,7 +18,7 @@ void diag(const int n, int nthreads, double complex *mat, double *eval) {
 
   // Use multiple threads
   //mkl_set_dynamic(0);
-  mkl_set_num_threads(1);
+  mkl_set_num_threads(nthreads);
   //omp_set_nested(1);
 
   // Allocate memmory for work array

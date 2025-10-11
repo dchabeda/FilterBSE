@@ -6,6 +6,8 @@
 #include "unistd.h"
 #include <math.h>
 #include <malloc.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/time.h>
 #include <time.h>
 #include <assert.h>
@@ -13,6 +15,9 @@
 #include <omp.h>
 #include <mkl.h>
 #include "vector.h"
+#include "mpi.h"
+#include <dirent.h>
+#include <errno.h>
 
 /*****************************************************************************/
 // Application specific structures
@@ -52,7 +57,7 @@ typedef struct index {
   int n_FP_density;
   int printFPDensity; // 0 = False (default) or 1 = True
   int calcDarkStates; // 0 = False (default) or 1 = True
-
+  long n_phonons;
 } index_st;
 
 typedef struct par {
@@ -71,6 +76,10 @@ typedef struct par {
   double dx, dy, dz, dr, dkx, dky, dkz, epsX, epsY, epsZ;
   double xmin, xmax, ymin, ymax, zmin, zmax;
   double delta_E_elec, delta_E_hole;
+  double Q_alpha;
+  int mode_idx, mode_idx_start, mode_idx_end;
+  int nQ_steps;
+  int calc_d2VdR2;
 } par_st;
 
 typedef struct atom_info {
@@ -78,6 +87,7 @@ typedef struct atom_info {
   char atyp[3];
   int Zval;
   double SO_par, geom_par, LR_par, NL_par[2];
+  double mass;
 } atom_info;
 
 typedef struct st5 {
@@ -123,6 +133,9 @@ typedef fftw_plan fftw_plan_loc;
 
 typedef struct parallel{
   long nthreads;
+  int mpi_rank;
+  int mpi_size;
+  int mpi_root;
 } parallel_st;
 
 /*****************************************************************************/
@@ -159,6 +172,7 @@ typedef struct parallel{
 #define DENE      1.0e-10
 #define EPSDX     1.0e-20
 #define ANGTOBOHR 1.889726125
+#define Qa_TO_A   0.0982270230776
 #define PROJ_LEN	1024
 #define N_MAX_ATOM_TYPES 20
 // physical parameters
@@ -182,11 +196,13 @@ void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par);
 void calc_geom_par(xyz_st *R,atom_info *atm, index_st *ist );
 double calc_bond_angle(long index1,long index2,long index3, xyz_st *R);
 long assign_atom_number(char atyp[4]);
+double assign_atom_mass(char atyp[4]);
 void assign_atom_type(char *atype,long j);
 long get_number_of_atom_types(atom_info *atm,index_st *ist, long *list);
 int assign_crystal_structure(char *crystal_structure);
 int assign_outmost_material(char *outmost_material);
 double get_ideal_bond_len(long natyp_1, long natyp_2, int crystalStructureInt);
+void ensure_directory_exists(const char *dirname);
 
 // init_filter
 void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom, grid_st *grid,
@@ -218,7 +234,10 @@ void spin_orbit_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, inde
 void nonlocal_proj_pot(zomplex *phi, zomplex *psi, nlc_st *nlc, long* nl, index_st *ist, par_st *par, long n_NL_gridpts);
 
 //
-void calc_pot_mat_elems(double *psitot, double *pot_local_equil, nlc_st *nlc_equil, long *nl_equil, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par,index_st *ist, flag_st *flag, long n_NL_gridpts_equil, long n_NL_gridpts);
+void read_phonon_modes(const char* filename, double* phonon_modes, index_st* ist, par_st *par, flag_st *flag);
+void read_phonon_freqs(const char* filename, double* phonon_freqs, index_st* ist, par_st *par, flag_st *flag);
+void conf_by_phonon_mode(xyz_st *R_equil, xyz_st *R, atom_info *atom, double *phonon_modes, int mode_idx, index_st *ist, par_st *par, flag_st *flag);
+void calc_pot_mat_elems(double *psitot, double *pot_local, nlc_st *nlc, long *nl, double *eval, par_st *par,index_st *ist, flag_st *flag, long n_NL_gridpts, FILE*, FILE*);
 
 // basis
 void get_qp_basis_indices(double *eig_vals, double *sigma_E, long **eval_hole_idxs, long **eval_elec_idxs, index_st *ist, par_st *par, flag_st *flag);
@@ -227,6 +246,7 @@ void get_qp_basis(double *psi_qp, double *psitot, double *eig_vals, double *sigm
 // write
 void write_cube_file(double *rho, grid_st *grid, char *fileName);
 void write_separation(FILE *pf, char *top_bttm);
+void write_state_dat(zomplex *psi, long n_elems, char* fileName);
 
 // nerror
 void nerror(char *);

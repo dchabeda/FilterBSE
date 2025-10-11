@@ -61,6 +61,14 @@ int main(int argc, char *argv[]){
     fprintf(pmem, "alloc bottom %ld B\n", 2*sizeof(bottom[0])); mem += 2*sizeof(bottom[0]);
     strcpy(top, "T\0"); strcpy(bottom, "B\0");
 
+    // MPI Initialization
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
+
+    const int mpir = parallel.mpi_rank;
+    parallel.mpi_root = 0;
 
     /*************************************************************************/
     fprintf(stdout, "******************************************************************************\n");
@@ -260,66 +268,66 @@ int main(int argc, char *argv[]){
     // Debug by visualizing wavefunction cube files
 
     
-#pragma omp parallel for private(i)
-    for (i = 0; i < ist.n_holes ; i++){
-        long jgrid, jgrid_real, jgrid_imag;
-        rho = malloc(ist.ngrid * sizeof(rho[0]));
-        char str[100];
-        //Spin Up Wavefunction
-        sprintf(str,"hole-%ld-Up_qp.cube", i);
-        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-            jgrid_real = ist.complex_idx * jgrid;
-            jgrid_imag = ist.complex_idx * jgrid + 1;
+// #pragma omp parallel for private(i)
+//     for (i = 0; i < ist.n_holes ; i++){
+//         long jgrid, jgrid_real, jgrid_imag;
+//         rho = malloc(ist.ngrid * sizeof(rho[0]));
+//         char str[100];
+//         //Spin Up Wavefunction
+//         sprintf(str,"hole-%ld-Up_qp.cube", i);
+//         for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+//             jgrid_real = ist.complex_idx * jgrid;
+//             jgrid_imag = ist.complex_idx * jgrid + 1;
             
-            rho[jgrid] = sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
-            if (1 == flag.isComplex) rho[jgrid] += sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
-        }
-        write_cube_file(rho, &grid, str);
-        //Spin Down Wavefunction
-        if (1 == flag.useSpinors){    
-        sprintf(str,"hole-%ld-Dn_qp.cube", i);
-        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-            jgrid_real = ist.complex_idx * jgrid;
-            jgrid_imag = ist.complex_idx * jgrid + 1;
+//             rho[jgrid] = sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
+//             if (1 == flag.isComplex) rho[jgrid] += sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
+//         }
+//         write_cube_file(rho, &grid, str);
+//         //Spin Down Wavefunction
+//         if (1 == flag.useSpinors){    
+//         sprintf(str,"hole-%ld-Dn_qp.cube", i);
+//         for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+//             jgrid_real = ist.complex_idx * jgrid;
+//             jgrid_imag = ist.complex_idx * jgrid + 1;
             
-            rho[jgrid] = sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
-                + sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);    
-        }
-        write_cube_file(rho, &grid, str);
-        } 
+//             rho[jgrid] = sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
+//                 + sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);    
+//         }
+//         write_cube_file(rho, &grid, str);
+//         } 
         
-        free(rho);
-    }
+//         free(rho);
+//     }
 
-#pragma omp parallel for private(i)
-    for (i = ist.lumo_idx ;  i < ist.lumo_idx + ist.n_elecs ; i++){
-        long jgrid, jgrid_real, jgrid_imag;
-        rho = malloc(ist.ngrid * sizeof(rho[0]));
-        char str[100];
+// #pragma omp parallel for private(i)
+//     for (i = ist.lumo_idx ;  i < ist.lumo_idx + ist.n_elecs ; i++){
+//         long jgrid, jgrid_real, jgrid_imag;
+//         rho = malloc(ist.ngrid * sizeof(rho[0]));
+//         char str[100];
 
-        sprintf(str,"elec-%ld-Up_qp.cube", i);
-        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-        jgrid_real = ist.complex_idx * jgrid;
-        jgrid_imag = ist.complex_idx * jgrid + 1;
+//         sprintf(str,"elec-%ld-Up_qp.cube", i);
+//         for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+//         jgrid_real = ist.complex_idx * jgrid;
+//         jgrid_imag = ist.complex_idx * jgrid + 1;
         
-        rho[jgrid] = sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
-        if (1 == flag.isComplex) rho[jgrid] += sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
-        }
-        write_cube_file(rho, &grid, str);
+//         rho[jgrid] = sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_real]);
+//         if (1 == flag.isComplex) rho[jgrid] += sqr(psi_qp[ist.complex_idx*i*ist.nspinngrid + jgrid_imag]);
+//         }
+//         write_cube_file(rho, &grid, str);
 
-        if (1 == flag.useSpinors){
-        sprintf(str,"elec-%ld-Dn_qp.cube", i);
-        for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
-            jgrid_real = ist.complex_idx * jgrid;
-            jgrid_imag = ist.complex_idx * jgrid + 1;
+//         if (1 == flag.useSpinors){
+//         sprintf(str,"elec-%ld-Dn_qp.cube", i);
+//         for (jgrid = 0; jgrid < ist.ngrid; jgrid++){
+//             jgrid_real = ist.complex_idx * jgrid;
+//             jgrid_imag = ist.complex_idx * jgrid + 1;
         
-            rho[jgrid] = sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
-                + sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);
-        }
-        write_cube_file(rho, &grid, str);
-        }
-        free(rho);
-    }
+//             rho[jgrid] = sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_real]) 
+//                 + sqr(psi_qp[ist.complex_idx*(i*ist.nspinngrid+ist.ngrid)+jgrid_imag]);
+//         }
+//         write_cube_file(rho, &grid, str);
+//         }
+//         free(rho);
+//     }
     
 
     /*************************************************************************/
@@ -338,15 +346,16 @@ int main(int argc, char *argv[]){
     /*** read initial setup from input.par ***/
     /*** allocating memory ***/
     // the positions of the atoms in the x, y, and z directions 
+    // the atom specific information 
+    // the distorted positions of the atoms in the x, y, and z directions 
+    // the positions of the atoms in the x, y, and z directions 
     if ((R_equil = (xyz_st *) calloc(ist.natoms, sizeof(xyz_st))) == NULL) {
-        fprintf(stderr, "\nOUT OF MEMORY: R array\n\n"); exit(EXIT_FAILURE);
+      fprintf(stderr, "\nOUT OF MEMORY: R array\n\n"); exit(EXIT_FAILURE);
     }
     // the atom specific information 
     if ((atom_equil = (atom_info *) calloc(ist.natoms, sizeof(atom_info))) == NULL){
         fprintf(stderr, "\nOUT OF MEMORY: atom struct\n\n"); exit(EXIT_FAILURE);
     }
-    
-    // the distorted positions of the atoms in the x, y, and z directions 
     if ((R = (xyz_st *) calloc(ist.natoms, sizeof(xyz_st))) == NULL) {
         fprintf(stderr, "\nOUT OF MEMORY: R array\n\n"); exit(EXIT_FAILURE);
     }
@@ -358,220 +367,242 @@ int main(int argc, char *argv[]){
     /*** create strings to differentiate files ***/
     char str[100];
     char *file_name_equil; file_name_equil = malloc(16*sizeof(file_name_equil[0]));
-    strcpy(file_name_equil, "conf_equil.par");
-    char *file_name; file_name = malloc(9*sizeof(file_name[0]));
+    strcpy(file_name_equil, "conf.par");
+    char *file_name; file_name = malloc(100*sizeof(file_name[0]));
     strcpy(file_name, "conf.par");
 
-    /*** read the equilibrium configuration ***/
+    /*** read the configuration ***/
     sprintf(str, "\nReading atomic configuration from %s:\n", file_name_equil);
     printf("%s", str);
     read_conf(file_name_equil, R_equil, atom_equil, &ist, &par, &flag);
-
-    /*** read the distorted configuration ***/
     sprintf(str, "\nReading atomic configuration from %s:\n", file_name);
     printf("%s", str);
     read_conf(file_name, R, atom, &ist, &par, &flag);
 
+    
     /*************************************************************************/
     /*** allocating memory for the rest of the program ***/
     
-    // For reading the atomic potentials ***/
-    pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
-    pot.r = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
-    if (1.0 != par.scale_surface_Cs){
-        // allocate memory for separately read LR potentials if the surface atoms will be charge balanced
-        pot.r_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
-    }
-    pot.pseudo = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
-    if (1.0 != par.scale_surface_Cs){
-        pot.pseudo_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
-    }
-    pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
-    
     // Local potential arrays
-    if ((pot_local_equil = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
-        fprintf(stderr, "\nOUT OF MEMORY: pot_local_equil\n\n"); exit(EXIT_FAILURE);
-    }
     if ((pot_local = (double *) calloc(ist.ngrid, sizeof(double))) == NULL){
         fprintf(stderr, "\nOUT OF MEMORY: pot_local\n\n"); exit(EXIT_FAILURE);
     }
     
     // memory allocation for the spin-orbit potential 
     if ( (flag.SO == 1) || (flag.NL == 1) ){
-        if ((SO_projectors_equil = (double*) calloc(PROJ_LEN * ist.nproj, sizeof(double)))==NULL){nerror("mem_SO_projector");}  
         if ((SO_projectors = (double*) calloc(PROJ_LEN * ist.nproj, sizeof(double)))==NULL){nerror("mem_SO_projector");}  
     }
 
-    // memory allocation for the non-local potential
-    if (1 == flag.NL){
-        // Count the max number of grid points within Rnlcut of an atom***/
-        printf("\tCount max no. grid points in Rnlcut; equil\n");
-        ist.n_NL_gridpts_equil = 0;
-        for (jatom = 0; jatom < ist.n_NL_atoms; jatom++) {
+    /*************************************************************************/
+    /*************************************************************************/
+    // COMPUTE DELTAU = <U(r; R)> - <U(r; R_0)> ALONG PHONON MODES
+    /*************************************************************************/
+    /*************************************************************************/
+    FILE *fij;
+    FILE *fab;
+    
+    sprintf(file_name, "dU_ij-%d.dat", mpir);
+    fij = fopen(file_name, "w");
+
+    sprintf(file_name, "dU_ab-%d.dat", mpir);
+    fab = fopen(file_name, "w");
+
+    int start_mode_rank;
+    int end_mode_rank;
+    int n_modes_per_rank;
+
+    n_modes_per_rank = (int)(par.mode_idx_end - par.mode_idx_start)/parallel.mpi_size;
+    start_mode_rank = mpir * n_modes_per_rank + par.mode_idx_start;
+    end_mode_rank = start_mode_rank + n_modes_per_rank;
+    if ((mpir + 1) == parallel.mpi_size ) end_mode_rank = par.mode_idx_end;
+
+    printf("n_modes_per_rank = %d\n", n_modes_per_rank);
+    printf("start rank = %d end %d\n", start_mode_rank, end_mode_rank);
+
+    if (n_modes_per_rank < 1){
+        printf("Error: n_modes_per_rank < 1. Exiting!");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int jphonon = start_mode_rank; jphonon < end_mode_rank; jphonon++){
+      par.mode_idx = jphonon;
+      printf("\n------- ------ ------ ------ ------ ------ ------ ------ ------\n");
+      printf("Starting phonon mode %d\n", par.mode_idx);
+      printf("------- ------ ------ ------ ------ ------ ------ ------ ------\n");
+    
+      FILE *fphon;
+
+      sprintf(file_name, "phonon_%d.xyz", par.mode_idx);
+      fphon = fopen(file_name, "w");
+
+      double *phonon_modes;
+      double *phonon_freqs;
+      
+      // Allocate memory for the phonon modes and frequencies
+      if ((phonon_modes = (double *) calloc(ist.n_phonons * ist.n_phonons, sizeof(double))) == NULL){
+        fprintf(stderr, "\nOUT OF MEMORY: phonon_modes\n\n"); exit(EXIT_FAILURE);
+      }
+      if ((phonon_freqs = (double *) calloc(ist.n_phonons, sizeof(double))) == NULL){
+        fprintf(stderr, "\nOUT OF MEMORY: phonon_freqs\n\n"); exit(EXIT_FAILURE);
+      }
+
+      // Read in the phonon eigenvectors and frequencies
+      read_phonon_modes("eig.dat", phonon_modes, &ist, &par, &flag);
+      read_phonon_freqs("w.dat", phonon_freqs, &ist, &par, &flag);
+
+      // --- Determine the max amplitude of the phonon mode ---
+      double omega_alpha = 2 * PIE * phonon_freqs[par.mode_idx] * 1e-3; // angular frequencies in rad/fs
+      double kBT = 0.0257; // eV
+      double amplitude_max = sqrt(kBT) / omega_alpha; // sqrt(eV)*fs/rad
+      printf("\nAmplitude max: %lg [sqrt(eV)fs]\n", amplitude_max);
+      
+      // Configure scan along phonon mode
+      double dQ = 2 * amplitude_max / par.nQ_steps; // step size in sqrt(eV)*fs/rad
+      if (par.calc_d2VdR2 == 1){
+        dQ = 1e-4;
+        par.nQ_steps = 5;
+        amplitude_max = 2 * dQ;
+      }
+      printf("dQ: %lg [sqrt(eV)fs]\n", dQ);
+
+      // Transform by a phonon mode to test the working of the code
+      for (long nQ = 0; nQ <= par.nQ_steps; nQ++){
+        par.Q_alpha = - amplitude_max + (double)(nQ * dQ);
+
+        // --- Transform the equilibrium configuration by the phonon mode
+
+        printf("\n\n%ld. Transforming coords by Qa = %lg [sqrt(eV)fs]\n\n", nQ, par.Q_alpha);
+        conf_by_phonon_mode(R_equil, R, atom, phonon_modes, par.mode_idx, &ist, &par, &flag);
+
+        // Print the transformed configuration to a file
+        fprintf(fphon, "%ld\n", ist.natoms);
+        fprintf(fphon, "mode %d from pot_coupling.x: Qa = %.2lf\n", par.mode_idx, par.Q_alpha);
+        for (int j = 0; j < ist.natoms; j++){
+          fprintf(fphon, "%s %lg %lg %lg\n", atom[j].atyp, R[j].x, R[j].y, R[j].z);
+        }
+      
+        // -------- -------- -------- -------- -------- --------
+        // --- Compute potential operator for this geometry ---
+        // -------- -------- -------- -------- -------- --------
+
+        // Allocate memory for the distorted potentials
+        // memory allocation for the non-local potential
+        if (1 == flag.NL){
+          // Count the max number of grid points within Rnlcut of an atom***/
+          printf("Count max no. grid points in Rnlcut; distorted\n");
+          ist.n_NL_gridpts = 0;
+          for (jatom = 0; jatom < ist.n_NL_atoms; jatom++) {
             for (jtmp = 0, jz = 0; jz < grid.nz; jz++) {
-                for (jy = 0; jy < grid.ny; jy++) {
-                    for (jx = 0; jx < grid.nx; jx++) {
-                        dx = grid.x[jx] - R_equil[jatom].x;
-                        dy = grid.y[jy] - R_equil[jatom].y;
-                        dz = grid.z[jz] - R_equil[jatom].z;
-                        if (dx*dx + dy*dy + dz*dz < par.R_NLcut2) {
-                            jtmp++; 
-                        }
-                    }
+              for (jy = 0; jy < grid.ny; jy++) {
+                for (jx = 0; jx < grid.nx; jx++) {
+                  dx = grid.x[jx] - R[jatom].x;
+                  dy = grid.y[jy] - R[jatom].y;
+                  dz = grid.z[jz] - R[jatom].z;
+                  if (dx*dx + dy*dy + dz*dz < par.R_NLcut2) {
+                      jtmp++; 
+                  }
                 }
-            }
-            if (jtmp > ist.n_NL_gridpts_equil) ist.n_NL_gridpts_equil = jtmp;
-        }
-        printf("\tequilibrium n_NL_gridpts = %ld\n", ist.n_NL_gridpts_equil);
-
-        if ((nlc_equil = (nlc_st *) calloc(ist.n_NL_atoms*ist.n_NL_gridpts_equil, sizeof(nlc_st))) == NULL){ 
-        fprintf(stderr, "\nOUT OF MEMORY: nlc\n\n"); exit(EXIT_FAILURE);
-        }
-        if ((nl_equil = (long *) calloc(ist.natoms, sizeof(nl[0]))) == NULL) {
-        fprintf(stderr, "\nOUT OF MEMORY: nl\n\n"); exit(EXIT_FAILURE);
-        }
-
-        // Count the max number of grid points within Rnlcut of an atom***/
-        printf("\tCount max no. grid points in Rnlcut; distorted\n");
-        ist.n_NL_gridpts = 0;
-        for (jatom = 0; jatom < ist.n_NL_atoms; jatom++) {
-            for (jtmp =0, jz = 0; jz < grid.nz; jz++) {
-                // printf("*****************************\n");
-                // printf("jz = %ld %lg\n", jz, grid.z[jz]);
-                // printf("*****************************\n");
-                for (jy = 0; jy < grid.ny; jy++) {
-                    // printf("jy = %ld %lg\n", jy, grid.y[jy]);
-                    for (jx = 0; jx < grid.nx; jx++) {
-                        // printf("jx = %ld %lg\n", jx, grid.x[jx]);
-                        dx = grid.x[jx] - R[jatom].x;
-                        dy = grid.y[jy] - R[jatom].y;
-                        dz = grid.z[jz] - R[jatom].z;
-                        
-                        if (dx*dx + dy*dy + dz*dz < par.R_NLcut2) {
-                            jtmp++; 
-                        }
-                    }
-                }
+              }
             }
             if (jtmp > ist.n_NL_gridpts) ist.n_NL_gridpts = jtmp;
+          }
+          printf("\tdistorted n_NL_gridpts = %ld\n", ist.n_NL_gridpts);
+
+          if ((nlc = (nlc_st *) calloc(ist.n_NL_atoms*ist.n_NL_gridpts, sizeof(nlc_st))) == NULL){ 
+          fprintf(stderr, "\nOUT OF MEMORY: nlc\n\n"); exit(EXIT_FAILURE);
+          }
+          if ((nl = (long *) calloc(ist.natoms, sizeof(nl[0]))) == NULL) {
+          fprintf(stderr, "\nOUT OF MEMORY: nl\n\n"); exit(EXIT_FAILURE);
+          }
         }
-        printf("\tdistorted n_NL_gridpts = %ld\n", ist.n_NL_gridpts);
+        
+        printf("\tdone allocating memory.\n"); fflush(stdout);
 
-        if ((nlc = (nlc_st *) calloc(ist.n_NL_atoms*ist.n_NL_gridpts, sizeof(nlc_st))) == NULL){ 
-        fprintf(stderr, "\nOUT OF MEMORY: nlc\n\n"); exit(EXIT_FAILURE);
+        /*************************************************************************/
+        /*************************************************************************/
+        // CALCULATE POTENTIALS IN EQUILIBRIUM AND DISTORTED GEOMETRIES
+        /*************************************************************************/
+        /*************************************************************************/
+
+        printf("\n3.INITIALIZING POTENTIALS\n");
+        
+        /**************************************************************************/
+        /**************************************************************************/
+        
+        // Allocate memory for the distorted potentials
+        pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
+        pot.r = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+        if (1.0 != par.scale_surface_Cs){
+            // allocate memory for separately read LR potentials if the surface atoms will be charge balanced
+            pot.r_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
         }
-        if ((nl = (long *) calloc(ist.natoms, sizeof(nl[0]))) == NULL) {
-        fprintf(stderr, "\nOUT OF MEMORY: nl\n\n"); exit(EXIT_FAILURE);
+        pot.pseudo = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
+        if (1.0 != par.scale_surface_Cs){
+            pot.pseudo_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
         }
-    }
-    
-    printf("\tdone allocating memory.\n"); fflush(stdout);
+        pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
+        
+        // Calculate the distorted local potential
+        printf("\nDistorted local pseudopotential:\n");
+        build_local_pot(pot_local, &pot, R, atom, &grid, &ist, &par, &flag, &parallel);
+        
+        //sprintf(file_name, "local_pot_distorted_%.3lf.cube", par.Q_alpha);
+        //write_cube_file(pot_local, &grid, file_name);
+        
+        free(pot.r); pot.r = NULL; 
+        free(pot.pseudo); pot.pseudo = NULL; 
+        free(pot.dr); pot.dr = NULL; 
+        free(pot.file_lens); pot.file_lens = NULL;
+        if (1.0 != par.scale_surface_Cs){
+        free(pot.r_LR); pot.r_LR = NULL;
+        free(pot.pseudo_LR); pot.pseudo_LR = NULL; 
+        }
 
-    /*************************************************************************/
-    /*****************************************************************************/
-    // CALCULATE POTENTIALS IN EQUILIBRIUM AND DISTORTED GEOMETRIES
-    /*************************************************************************/
-    /*****************************************************************************/
+        // Calculate the distorted nonlocal potentials
 
-    printf("\n3.INITIALIZING EQUILIBRIUM & DISTORTED POTENTIALS\n");
-    
-    /**************************************************************************/
-    
-    printf("\nEquilibrium local pseudopotential:\n");
-    build_local_pot(pot_local_equil, &pot, R_equil, atom_equil, &grid, &ist, &par, &flag, &parallel);
-    
-    free(pot.r); pot.r = NULL; 
-    free(pot.pseudo); pot.pseudo = NULL; 
-    free(pot.dr); pot.dr = NULL; 
-    free(pot.file_lens); pot.file_lens = NULL;
-    if (1.0 != par.scale_surface_Cs){
-    free(pot.r_LR); pot.r_LR = NULL;
-    free(pot.pseudo_LR); pot.pseudo_LR = NULL; 
-    }
-    
-    write_cube_file(pot_local_equil, &grid, "local_pot_equil.cube");
+        if(flag.SO==1) {
+          printf("\nDistorted spin-orbit pseudopotential:\n");
+          init_SO_projectors(SO_projectors, R, atom, &grid, &ist, &par);
+        }
+        /*** initialization for the non-local potential ***/
+        if (flag.NL == 1){
+          printf("\nDistorted non-local pseudopotential:\n"); fflush(0);
+          init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag, ist.n_NL_gridpts);
+        }
+        
+        
 
-    if(flag.SO==1) {
-    printf("\nEquilibrium spin-orbit pseudopotential:\n");
-    
-    init_SO_projectors(SO_projectors_equil, R_equil, atom_equil, &grid, &ist, &par);
-    }
-    /*** initialization for the non-local potential ***/
-    if (flag.NL == 1){
-    printf("\nEquilibrium non-local pseudopotential:\n"); fflush(0);
-    init_NL_projectors(nlc_equil, nl_equil, SO_projectors_equil, R_equil, atom_equil, &grid, &ist, &par, &flag, ist.n_NL_gridpts_equil);
-    }
-    // free memory allocated to SO_projectors
-    if ( (flag.SO == 1) || (flag.NL == 1) ){
-    free(SO_projectors_equil); SO_projectors_equil = NULL;
-    }
+        /*************************************************************************/
+        /*****************************************************************************/
+        // CALCULATE MATRIX ELEMENTS OF THE POTENTIALS
+        /*************************************************************************/
+        /*****************************************************************************/
 
-    /**************************************************************************/
-    
-    // Allocate memory for the distorted potentials
-    pot.dr = (double *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(double));
-    pot.r = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
-    if (1.0 != par.scale_surface_Cs){
-        // allocate memory for separately read LR potentials if the surface atoms will be charge balanced
-        pot.r_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
-    }
-    pot.pseudo = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
-    if (1.0 != par.scale_surface_Cs){
-        pot.pseudo_LR = (double *) calloc(ist.ngeoms * ist.max_pot_file_len * ist.n_atom_types, sizeof(double));
-    }
-    pot.file_lens = (long *) calloc(ist.ngeoms * ist.n_atom_types, sizeof(long));
-    
-    // Calculate the distorted local potential
-    printf("\nDistorted local pseudopotential:\n");
-    build_local_pot(pot_local, &pot, R, atom, &grid, &ist, &par, &flag, &parallel);
-    
-    write_cube_file(pot_local, &grid, "local_pot_distorted.cube");
-    
-    free(pot.r); pot.r = NULL; 
-    free(pot.pseudo); pot.pseudo = NULL; 
-    free(pot.dr); pot.dr = NULL; 
-    free(pot.file_lens); pot.file_lens = NULL;
-    if (1.0 != par.scale_surface_Cs){
-    free(pot.r_LR); pot.r_LR = NULL;
-    free(pot.pseudo_LR); pot.pseudo_LR = NULL; 
-    }
+        // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
+        printf("\n4.CALCULATING <psi_i|dU(r;R)|psi_j> \n"); fflush(0);
+        calc_pot_mat_elems(psi_qp,pot_local,nlc,nl,eig_vals,&par,&ist,&flag,ist.n_NL_gridpts, fij, fab);
 
-    // Calculate the distorted nonlocal potentials
-
-    if(flag.SO==1) {
-    printf("\nDistorted spin-orbit pseudopotential:\n");
-    init_SO_projectors(SO_projectors, R, atom, &grid, &ist, &par);
+        free(nlc);
+        free(nl);
+      }
+      fclose(fphon);
+      free(phonon_modes);
+      free(phonon_freqs);
     }
-    /*** initialization for the non-local potential ***/
-    if (flag.NL == 1){
-    printf("\nDistorted non-local pseudopotential:\n"); fflush(0);
-    init_NL_projectors(nlc, nl, SO_projectors, R, atom, &grid, &ist, &par, &flag, ist.n_NL_gridpts);
-    }
-    // free memory allocated to SO_projectors
-    if ( (flag.SO == 1) || (flag.NL == 1) ){
-    free(SO_projectors); SO_projectors = NULL;
-    }
-    
-
-    /*************************************************************************/
-    /*****************************************************************************/
-    // CALCULATE MATRIX ELEMENTS OF THE POTENTIALS
-    /*************************************************************************/
-    /*****************************************************************************/
-
-    // 4. Calculate matrix elements of the equilibrium wavefunction with U(r;R_equil)
-    printf("\n4.CALCULATING <psi_i|dU(r;R)|psi_j> \n"); fflush(0);
-    calc_pot_mat_elems(psi_qp,pot_local_equil,nlc_equil,nl_equil,pot_local,nlc,nl,eig_vals,&par,&ist,&flag,ist.n_NL_gridpts_equil,ist.n_NL_gridpts);
-
-
+    fclose(fij);
+    fclose(fab);
     /***********************************************************************/
     free(psi_qp);
-    free(pot_local); free(pot_local_equil);
-    free(nlc_equil); free(nlc);
-    free(nl_equil); free(nl);
-    free(R_equil); free(R);
+    free(pot_local);
+    free(nlc_equil);
+    free(nl_equil);
+    free(R_equil); 
+    free(R);
     free(eig_vals); 
-    
+    // free memory allocated to SO_projectors
+    if ( (flag.SO == 1) || (flag.NL == 1) ){
+      free(SO_projectors); SO_projectors = NULL;
+      }
     time_t end_time = time(NULL);
     time_t end_clock = clock();
 
@@ -584,8 +615,77 @@ int main(int argc, char *argv[]){
     
     free(top); free(bottom);
 
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Finalize(); // Finalize the MPI tasks and prepare to exit program
     return 0;
 }
 
 
+void read_phonon_modes(const char* filename, double* phonon_modes, index_st* ist, par_st *par, flag_st *flag){
 
+  FILE *fp;
+  char str[100];
+  long i, j;
+  long n_modes;
+  if ((fp = fopen(filename, "r")) == NULL){
+    fprintf(stderr, "\nERROR: opening phonon modes file %s\n", filename);
+    exit(EXIT_FAILURE);
+  }
+
+  for (i = 0; i < ist->n_phonons; i++){
+    for (j = 0; j < ist->n_phonons; j++){
+      if (fscanf(fp, "%lf", &phonon_modes[i*ist->n_phonons + j]) != 1){
+        fprintf(stderr, "\nERROR: reading phonon mode %ld %ld from %s\n", i, j, filename);
+        exit(EXIT_FAILURE);
+      }
+    }
+  }
+  fclose(fp);
+  printf("\nPhonon modes read from %s!\n", filename);
+
+  return;
+}
+
+void read_phonon_freqs(const char* filename, double* phonon_freqs, index_st* ist, par_st *par, flag_st *flag){
+
+  FILE *fp;
+  char str[100];
+  long i, tmp;
+  long n_modes;
+  if ((fp = fopen(filename, "r")) == NULL){
+    fprintf(stderr, "\nERROR: opening phonon modes file %s\n", filename);
+    exit(EXIT_FAILURE);
+  }
+
+  for (i = 0; i < ist->n_phonons; i++){
+    fscanf(fp, "%ld %lg", &tmp,  &phonon_freqs[i]);
+  }
+  fclose(fp);
+  printf("Phonon freqs read from %s!\n", filename);
+
+  return;
+}
+
+void conf_by_phonon_mode(xyz_st *R_equil, xyz_st *R, atom_info *atom, double *phonon_modes, int mode_idx, index_st *ist, par_st *par, flag_st *flag){
+  // This function takes the phonon modes and the equilibrium configuration
+  // and returns the distorted configuration.
+  // The phonon modes are assumed to be in the form of a matrix with
+  // each row corresponding to a phonon mode and each column corresponding
+  // to an atom. The phonon modes are assumed to be in units of Bohr.
+  // The equilibrium configuration is assumed to be in units of Bohr.
+  // The distorted configuration is returned in units of Bohr.
+
+  long i, j;
+  const double TO_BOHR = Qa_TO_A * ANGTOBOHR; // convert Qa in sqrt(ev)fs to Bohr
+
+  // We first need to extract the selected normal mode, mode_idx
+  // Then, we need to shift the equilibrium configuration by the phonon mode
+
+  for (i = 0; i < ist->natoms; i++){
+    R[i].x = R_equil[i].x + TO_BOHR * par->Q_alpha * phonon_modes[(3*i + 0)*ist->n_phonons + mode_idx] / sqrt(atom[i].mass);
+    R[i].y = R_equil[i].y + TO_BOHR * par->Q_alpha * phonon_modes[(3*i + 1)*ist->n_phonons + mode_idx] / sqrt(atom[i].mass);
+    R[i].z = R_equil[i].z + TO_BOHR * par->Q_alpha * phonon_modes[(3*i + 2)*ist->n_phonons + mode_idx] / sqrt(atom[i].mass);
+  }
+
+  return;
+}

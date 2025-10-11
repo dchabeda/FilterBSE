@@ -86,21 +86,6 @@ void mod_init(
   
   ist->n_xton = ist->n_elecs * ist->n_holes;
   
-  /************************************************************/
-	/********************    SET LOOP IDXS     ******************/
-	/************************************************************/
-  ALLOCATE(&ist->jgur, ist->ngrid, "jgur");
-  ALLOCATE(&ist->jgui, ist->ngrid, "jgui");
-  ALLOCATE(&ist->jgdr, ist->ngrid, "jgdr");
-  ALLOCATE(&ist->jgdi, ist->ngrid, "jgdi");
-  
-  #pragma omp simd safelen(4)
-  for (jg = 0; jg < ist->ngrid; jg++){ 
-    ist->jgur[jg] = ist->complex_idx * jg;
-    ist->jgui[jg] = ist->complex_idx * jg + 1;
-    ist->jgdr[jg] = ist->complex_idx * jg + ist->complex_idx * ist->ngrid;
-    ist->jgdi[jg] = ist->complex_idx * jg + ist->complex_idx * ist->ngrid + 1;
-  }
 
   free(*psitot);                psitot = NULL;
   free(*sigma_E);               sigma_E = NULL;

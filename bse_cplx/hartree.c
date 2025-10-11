@@ -24,9 +24,8 @@ void hartree(
   }
 
   fftw_execute(planbw);
-  for (j = 0; j < ist->ngrid; j++) {
-	  poth[j] = fftwpsi[j];
-  }
+  memcpy(&poth[0], &fftwpsi[0], ist->ngrid*sizeof(fftwpsi[0]));
+  
 
   return;
 }

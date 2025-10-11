@@ -212,7 +212,7 @@ void get_qp_basis_indices(
   if (mpir == 0){
     pf = fopen("BSEeval.par", "w");
     for (i = 0; i < ist->n_qp; i++){
-      fprintf(pf, "% .12f %lg\n", eig_vals[i], sigma_E[i]);
+      fprintf(pf, "%ld % .12f %lg\n", i, eig_vals[i], sigma_E[i]);
     }
     fclose(pf);
   }

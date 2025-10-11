@@ -2,7 +2,7 @@
 #include "aux.h"
 #include "mod_init.h"
 #include "mod_mem.h"
-#include "mod_pot.h"
+#include "mod_pseudopot.h"
 #include "mod_filter.h"
 #include "mod_ortho.h"
 #include "mod_portho.h"

@@ -86,15 +86,15 @@ void mod_init(
   /************************************************************/
 	/********************    SET LOOP IDXS     ******************/
 	/************************************************************/
-  ALLOCATE(&ist->jsg_conv, ist->nspinngrid, "jsg");
+  // ALLOCATE(&ist->jsg_conv, ist->nspinngrid, "jsg");
   
-  #pragma omp simd safelen(4)
-  for (int s = 0; s < 2; s++){
-    for (jg = 0; jg < ist->ngrid; jg++){ 
-      long jsg = jg + s * ist->ngrid;
-      ist->jsg_conv[jsg] = jg;
-    }
-  }
+  // #pragma omp simd safelen(4)
+  // for (int s = 0; s < 2; s++){
+  //   for (jg = 0; jg < ist->ngrid; jg++){ 
+  //     long jsg = jg + s * ist->ngrid;
+  //     ist->jsg_conv[jsg] = jg;
+  //   }
+  // }
 
   free(*psitot);                psitot = NULL;
   free(*sigma_E);               sigma_E = NULL;

@@ -47,32 +47,160 @@ typedef struct st0 {
   double re, im;
 } zomplex;
 
-typedef struct st1 {
-  double dx, dy, dz, dr, dkx, dky, dkz, dv, epsX, epsY, epsZ;
-  double xmin, xmax, ymin, ymax, zmin, zmax;
-  double KE_max;
-  double delta_E_elec, delta_E_hole, sigma_E_cut, fermi_E;
-  int checkpoint_id;
+
+typedef struct par {
+  double delta_E_elec, delta_E_hole;
+  // Potential energy ranges
+  double  Vmin;
+  double  Vmax;
+  double  VBmin;
+  double  VBmax;
+  double  CBmin;
+  double  CBmax;
+
+  // Surface scaling factor
+  double  scale_surface_Cs;
+
+  // Target states for valence and conduction bands
+  long  n_targets_VB;
+  long  n_targets_CB;
+
+  // Random seed
+  long  rand_seed;
+
+  // Energy and time parameters
+  double  KE_max;
+  double  fermi_E;
+  double  dt;
+  double  dE;
+  double  dE_1;
+
+  // Nonlocal potential cutoff and energy cutoffs
+  double  R_NLcut2;
+  double  sigma_E_cut;
+
+  // Time reversal and checkpointing
+  int   t_rev_factor;
+  int   checkpoint_id;
+
+  // Crystal and material properties
+  char  crystal_structure[15];
+  char  outmost_material[15];
+
+  // FFT settings
+  char  fft_wisdom_dir[200];
+  char  fftw_wisdom[250];
+
+  // Numerical precision settings
+  double  psi_zero_cut;
+
+  // Parallelization
+  int   ham_threads;
+
+  // Orbital and basis settings
+  int   n_orbitals;
+  int   n_orbitals_per_atom;
+  int   n_gauss_per_orbital;
+
+  // Gaussian integral cutoff
+  double  R_gint_cut2;
+
+  // Potential cutoff radius
+  double  pot_cut_rad2;
+
+  // Box dimensions
+  double  box_z;
+
+  // Band printing range
+  int   nb_min;
+  int   nb_max;
+
+  // Redundant parameter (possibly for convenience)
+  double  dv;
 } par_st;
 
-typedef struct st4 {
-  long max_elec_states, max_hole_states, mn_states_tot;
-  long nthreads;
-  long n_qp, n_xton;
-  long nx, ny, nz, ngrid, nspinngrid;
-  long n_atom_types, *atom_types;
-  long natoms, homo_idx, lumo_idx, n_holes, n_elecs;
-  long *eval_hole_idxs, *eval_elec_idxs;
-  long *jgur;
-  long *jgui;
-  long *jgdr;
-  long *jgdi;
+typedef struct index {
+  // State filtering and orthogonalization
+  long  m_states_per_filter;
+  long  n_filter_cycles;
+  long  mn_states_tot;
+  long  n_filters_per_rank;
+  long  n_states_per_rank;
+  long  n_states_for_ortho;
+  long  n_states_for_sigma;
+  long long  psi_rank_size;
+  long  init_psi_start;
+  long  init_psi_end;
+
+  // HOMO-LUMO and energy state indices
+  long  homo_idx;
+  long  lumo_idx;
+  long  total_homo;
+  long  total_lumo;
+  long  max_elec_states;
+  long  max_hole_states;
+  long  n_qp;
+  long  n_xton;
+  long  n_holes;
+  long  n_elecs;
+  long *eval_hole_idxs;
+  long *eval_elec_idxs;
+
+  // Grid and atomic system sizes
+  long  ngrid;
+  long  nspinngrid;
+  long  ncheby;
+  long  natoms;
+  long  n_atom_types;
+  long  n_max_atom_types;
+
+  // Atomic type and potential information
+  long *atom_types;
+  long  max_pot_file_len;
+  long  n_NL_gridpts;
+  long  n_NL_atoms;
+  long  nproj;
+
+  // Computational parameters
+  int   nspin;
+  int   ncubes;
+  int   n_gcubes_s;
+  int   n_gcubes_e;
+  int   ngeoms;
+  int   complex_idx;
+
   double ngrid_1;
   int n_FP_density;
   int printFPDensity; // 0 = False (default) or 1 = True
   int calcDarkStates; // 0 = False (default) or 1 = True
-  int nspin, complex_idx;
+
+  // Crystal and material properties
+  int   crystal_structure_int;
+  int   outmost_material_int;
+
+  // Angular momentum states
+  int   n_s_ang_mom;
+  int   n_l_ang_mom;
+  int   n_j_ang_mom;
+
+  // Band structure and wavevector information
+  int   n_bands;
+  int   n_G_vecs;
+  int   n_G_zeros;
+  int   n_k_pts;
+  int   nk1;
+  int   nk2;
+  int   nk3;
+
+  // Redundant parameters (possibly for convenience)
+  long  nx;
+  long  ny;
+  long  nz;
+  long  nthreads;
 } index_st;
+
+/************************************************************/
+/************************************************************/
 
 
 typedef struct st5 {
@@ -86,6 +214,45 @@ typedef struct parallel{
   long nthreads;
   int mpi_rank, mpi_size, mpi_root;
 } parallel_st;
+
+/************************************************************/
+/************************************************************/
+
+typedef struct st11 {
+  long    jxyz;
+  zomplex y1[3];
+  double  proj[5];
+  double  NL_proj[5];
+  int     NL_proj_sign[5];
+  double  r;
+  double  r2_1;
+  double  r2;
+  double  Vr;
+} nlc_st;
+
+typedef struct atom_info {
+  long    idx;
+  char    atyp[3];
+  int     Zval;
+  double  SO_par;
+  double  geom_par;
+  double  LR_par;
+  double  NL_par[2];
+} atom_info;
+
+/************************************************************/
+/************************************************************/
+
+typedef struct pot_st {
+  double *r;
+  double *r_LR;
+  double *pseudo;
+  double *pseudo_LR;
+  double *dr;
+  long   *file_lens;
+  double *a4_params;
+  double *a5_params;
+} pot_st;
 
 /*****************************************************************************/
 

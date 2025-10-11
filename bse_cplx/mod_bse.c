@@ -18,6 +18,14 @@ void mod_bse(
   parallel_st*     parallel
   ){
 
+  int mpir = parallel->mpi_rank;
+
+  if (mpir == 0){
+    write_separation(stdout, "T");
+    printf("\n4.\tSOLVING BETHE-SALPETER EQUATION | %s\n", get_time());
+    write_separation(stdout, "B"); fflush(stdout);
+  } 
+
   ALLOCATE(bsmat, ist->n_xton * ist->n_xton, "bsmat");
   ALLOCATE(h0mat, ist->n_xton * ist->n_xton, "h0mat");
   ALLOCATE(xton_ene, ist->n_xton, "xton_ene");
@@ -31,6 +39,11 @@ void mod_bse(
     grid, ist, par, flag, parallel
   );
   
+  if (mpir == 0){
+    printf("\nDone solving BSE | %s\n", get_time());
+    fflush(0);
+  }
+
   return;
 }
 

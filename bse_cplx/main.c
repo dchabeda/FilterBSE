@@ -151,7 +151,7 @@ int main(int argc, char *argv[]){
       printf("\n  -  COMPUTING XTON OPTICAL PROPERTIES | %s\n", get_time());
       write_separation(stdout, "B"); fflush(stdout);
     }
-    calc_optical_exc(bs_coeff, xton_ene, elec_dip, mag_dip, &ist, &par);
+    calc_optical_exc(bs_coeff, xton_ene, eig_vals, elec_dip, mag_dip, &ist, &par);
 
 
     if (1 == flag.calcSpinAngStat){
@@ -168,6 +168,9 @@ int main(int argc, char *argv[]){
       ALLOCATE(&s_mom,  mat_size, "s_mom");  //<psi_r|S|psi_s>
       ALLOCATE(&ldots,  mat_size, "ldots");  //<psi_r|L.S|psi_s>
 
+      if (mpir == 0) {
+        printf("\n  -  Quasiparticle angular momenta | %s\n", get_time());
+      }
       // Compute spin matrix elements, e.g. <j|Sx|i>
       calc_qp_spin_mtrx(psi_qp, s_mom, &grid, &ist, &par);
       // Compute angular momentum matrix elements, e.g. <j|Lx|i>
@@ -175,9 +178,7 @@ int main(int argc, char *argv[]){
     
     
       if (mpir == 0) {
-        write_separation(stdout, "T");
-        printf("\n  -  COMPUTING XTON ANG MOM | %s\n", get_time());
-        write_separation(stdout, "B"); fflush(stdout);
+        printf("\n  -  Exciton angular momenta | %s\n", get_time());
       }
 
       calc_xton_spin_mtrx(bs_coeff, s_mom, &ist, &par, &flag, &parallel);
@@ -188,11 +189,11 @@ int main(int argc, char *argv[]){
       free(ldots);
     }
 
-    free(xton_ene); 
-    free(bs_coeff);
     free(elec_dip); 
-    free(mag_dip); 
-    // free(rot_strength);
+    free(mag_dip);
+    free(rot_strength);
+    free(xton_ene); 
+    free(bs_coeff); 
     free(bsmat); 
     free(h0mat);
   }
@@ -210,7 +211,7 @@ int main(int argc, char *argv[]){
   free(exchange);
   // free(ist.eval_elec_idxs);
   // free(ist.eval_hole_idxs);
-  // free(ist.atom_types);
+  free(ist.atom_types);
 
   time_t end_time = time(NULL);
   time_t end_clock = clock();
@@ -219,9 +220,9 @@ int main(int argc, char *argv[]){
     write_separation(stdout, "T");
     printf("\nDONE WITH PROGRAM: BETHE-SALPETHER\n");
     printf("This calculation ended at: %s\n", ctime(&end_time)); 
-    printf("Total job CPU time (sec) %.4g, wall run time (sec) %.4g",
+    printf("Total job CPU time (sec) %.4g, wall run time (sec) %.4g | %s",
       ((double)end_clock - (double)start_clock)/(double)(CLOCKS_PER_SEC), 
-      (double)end_time - (double)start_time 
+      (double)end_time - (double)start_time, format_duration((double)end_time - (double)start_time) 
     );
     fflush(0);
     write_separation(stdout, "B");

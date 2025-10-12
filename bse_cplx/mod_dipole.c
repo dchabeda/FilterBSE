@@ -1,58 +1,73 @@
 #include "mod_dipole.h"
 
 void mod_dipole(
-  double complex*  psi_qp,
-  double*          eig_vals,
-  grid_st*         grid,
-  xyz_st**         elec_dip,
-  xyz_st**         mag_dip,
-  double**         rot_strength,
-  index_st*        ist,
-  par_st*          par,
-  flag_st*         flag,
-  parallel_st*     parallel
-  ){
+    double complex *psi_qp,
+    double *eig_vals,
+    grid_st *grid,
+    xyz_st **elec_dip,
+    xyz_st **mag_dip,
+    double **rot_strength,
+    index_st *ist,
+    par_st *par,
+    flag_st *flag,
+    parallel_st *parallel)
+{
 
   /************************************************************/
-	/*******************  DECLARE VARIABLES   *******************/
-	/************************************************************/
+  /*******************  DECLARE VARIABLES   *******************/
+  /************************************************************/
 
-    const int          mpir = parallel->mpi_rank;
+  const int mpir = parallel->mpi_rank;
 
-    unsigned long      n_el = ist->n_elecs;
-    unsigned long      n_ho = ist->n_holes;
-    
-    /************************************************************/
-	/*******************  DECLARE VARIABLES   *******************/
-	/************************************************************/
+  unsigned long n_el = ist->n_elecs;
+  unsigned long n_ho = ist->n_holes;
 
-    write_separation(stdout, "T");
-    printf("\n4.\tCOMPUTING SINGLE-PARTICLE PROPERTIES | %s\n", get_time());
-    write_separation(stdout, "B"); fflush(stdout);
+  /************************************************************/
+  /*******************  DECLARE VARIABLES   *******************/
+  /************************************************************/
 
-    /************************************************************/
-	/*****************   ALLOC MEM MTRX ELEMS   *****************/
-	/************************************************************/
+  write_separation(stdout, "T");
+  printf("\n4.\tCOMPUTING SINGLE-PARTICLE PROPERTIES | %s\n", get_time());
+  write_separation(stdout, "B");
+  fflush(stdout);
 
-    if (mpir == 0) printf("Allocating memory for single particle matrix elements... "); fflush(stdout);
-    
-    ALLOCATE(elec_dip,     n_el * n_ho, "elec_dip");
-    ALLOCATE(mag_dip,      n_el * n_ho, "mag_dip");
-    ALLOCATE(rot_strength, n_el* n_ho,  "rot_strength");
-        
-    if (mpir == 0) printf("done\n"); fflush(stdout);
+  /************************************************************/
+  /*****************   ALLOC MEM MTRX ELEMS   *****************/
+  /************************************************************/
 
-    /************************************************************/
-	/****************  CALC TRANSITION DIPOLES   ****************/
-	/************************************************************/
+  if (mpir == 0)
+    printf("Allocating memory for single particle matrix elements... ");
+  fflush(stdout);
 
-    if (mpir == 0) printf("\nElectric transition dipole moment...\n");
-    calc_elec_dipole(*elec_dip, psi_qp, eig_vals, grid, ist, par, flag);
+  ALLOCATE(elec_dip, n_el * n_ho, "elec_dip");
+  ALLOCATE(mag_dip, n_el * n_ho, "mag_dip");
+  ALLOCATE(rot_strength, n_el * n_ho, "rot_strength");
 
-    if (mpir == 0) printf("\nMagnetic transition dipole moment...\n");
-    calc_mag_dipole(*mag_dip, psi_qp, eig_vals, grid, ist, par, flag);
+  if (mpir == 0)
+    printf("done\n");
+  fflush(stdout);
 
-    // calc_rot_strength(rs, mux, muy, muz, mx, my, mz, eig_vals, &ist);
+  /************************************************************/
+  /****************  CALC TRANSITION DIPOLES   ****************/
+  /************************************************************/
 
-    return;
+  if (mpir == 0)
+  {
+    printf("\nElectric transition dipole moment...\n");
+  }
+  calc_elec_dipole(*elec_dip, psi_qp, eig_vals, grid, ist, par, flag);
+
+  if (mpir == 0)
+  {
+    printf("\nMagnetic transition dipole moment...\n");
+  }
+  calc_mag_dipole(*mag_dip, psi_qp, eig_vals, grid, ist, par, flag);
+
+  if (mpir == 0)
+  {
+    printf("\nRotational strengths...\n");
+  }
+  calc_rotational_strength(*rot_strength, *elec_dip, *mag_dip, eig_vals, ist);
+
+  return;
 }

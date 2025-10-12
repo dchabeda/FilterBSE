@@ -2,345 +2,433 @@
 
 /*****************************************************************************/
 
-void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel){
-    // ****** ****** ****** ****** ****** ****** 
-    // Print grid parameters
-    // ****** ****** ****** ****** ****** ****** 
-    fprintf(pf, "\n\tGrid parameters from filter job:\n");
-    fprintf(pf, "\t----------------------------------\n");
-    fprintf(pf, "\tnx = %ld, ", grid->nx);
-    fprintf(pf, "ny = %ld, ", grid->ny);
-    fprintf(pf, "nz = %ld\n", grid->nz);
-    fprintf(pf, "\tdx = %lg, ", grid->dx);
-    fprintf(pf, "dy = %lg, ", grid->dy);
-    fprintf(pf, "dz = %lg\n", grid->dz);
-    fprintf(pf, "\tngrid = %ld nspin = %d nspinngrid = %ld\n", ist->ngrid, ist->nspin, ist->nspinngrid);
+void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel)
+{
+  // ****** ****** ****** ****** ****** ******
+  // Print grid parameters
+  // ****** ****** ****** ****** ****** ******
+  fprintf(pf, "\n\tGrid parameters from filter job:\n");
+  fprintf(pf, "\t----------------------------------\n");
+  fprintf(pf, "\tnx = %ld, ", grid->nx);
+  fprintf(pf, "ny = %ld, ", grid->ny);
+  fprintf(pf, "nz = %ld\n", grid->nz);
+  fprintf(pf, "\tdx = %lg, ", grid->dx);
+  fprintf(pf, "dy = %lg, ", grid->dy);
+  fprintf(pf, "dz = %lg\n", grid->dz);
+  fprintf(pf, "\tngrid = %ld nspin = %d nspinngrid = %ld\n", ist->ngrid, ist->nspin, ist->nspinngrid);
 
-    // ****** ****** ****** ****** ****** ****** 
-    // Set parameters & counters for BSE algorithm
-    // ****** ****** ****** ****** ****** ****** 
-    fprintf(pf, "\n\tParameters & counters for BSE algorithm:\n");
-    fprintf(pf, "\t-------------------------------------------\n");
-    if (-1 == ist->max_hole_states){
-        fprintf(pf, "maxHoleStates (# h+ in basis) not set, will use all h+ states\n");
-    } else if (ist->max_hole_states > 0){
-        fprintf(pf, "\tmaxHoleStates (# h+ in basis) = %ld\n", ist->max_hole_states);
-    } else {
-        fprintf(pf, "ERROR: invalid maxHoleStates!\n");
-        exit(EXIT_FAILURE);
-    }
+  // ****** ****** ****** ****** ****** ******
+  // Set parameters & counters for BSE algorithm
+  // ****** ****** ****** ****** ****** ******
+  fprintf(pf, "\n\tParameters & counters for BSE algorithm:\n");
+  fprintf(pf, "\t-------------------------------------------\n");
+  if (-1 == ist->max_hole_states)
+  {
+    fprintf(pf, "maxHoleStates (# h+ in basis) not set, will use all h+ states\n");
+  }
+  else if (ist->max_hole_states > 0)
+  {
+    fprintf(pf, "\tmaxHoleStates (# h+ in basis) = %ld\n", ist->max_hole_states);
+  }
+  else
+  {
+    fprintf(pf, "ERROR: invalid maxHoleStates!\n");
+    exit(EXIT_FAILURE);
+  }
 
-    if (-1 == ist->max_elec_states){
-        fprintf(pf, "maxElecStates (# e- in basis) not set, will use all e- states\n");
-    } else if (ist->max_elec_states > 0){
-        fprintf(pf, "\tmaxElecStates (# e- in basis) = %ld\n", ist->max_elec_states);
-    } else {
-        fprintf(pf, "ERROR: invalid maxElecStates!\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    fprintf(pf, "\tsigmaECut = %lg a.u.\n", par->sigma_E_cut);
-    fprintf(pf, "\tDeltaE_hole = %lg a.u.", par->delta_E_hole);
-    fprintf(pf, "  DeltaE_elec = %lg a.u.\n", par->delta_E_elec);
-    fprintf(pf, "\tKEmax = %lg a.u.\n", par->KE_max);
-    fprintf(pf, "\tfermiEnergy = %lg a.u.\n", par->fermi_E); 
+  if (-1 == ist->max_elec_states)
+  {
+    fprintf(pf, "maxElecStates (# e- in basis) not set, will use all e- states\n");
+  }
+  else if (ist->max_elec_states > 0)
+  {
+    fprintf(pf, "\tmaxElecStates (# e- in basis) = %ld\n", ist->max_elec_states);
+  }
+  else
+  {
+    fprintf(pf, "ERROR: invalid maxElecStates!\n");
+    exit(EXIT_FAILURE);
+  }
 
-    // ****** ****** ****** ****** ****** ****** 
-    // Set options for dielectric properties
-    // ****** ****** ****** ****** ****** ****** 
-    fprintf(pf, "\n\tDielectric screening options:\n");
-    fprintf(pf, "\t-------------------------------\n");
-    fprintf(pf, "\tepsX = %lg\n", par->epsX);
-    fprintf(pf, "\tepsY = %lg\n", par->epsY);
-    fprintf(pf, "\tepsZ = %lg\n", par->epsZ);
-    if (1 == flag->LR) fprintf(pf, "\tPseudopotentials were long ranged.\n");
-    else fprintf(pf, "\tPseudopotentials were short ranged.\n");
-     
-    // ****** ****** ****** ****** ****** ****** 
-    // Set options for spinor representation
-    // ****** ****** ****** ****** ****** ****** 
-    fprintf(pf, "\n\tParameters for two-component representation:\n");
-    fprintf(pf, "\t----------------------------------------------\n");
+  fprintf(pf, "\tsigmaECut = %lg a.u.\n", par->sigma_E_cut);
+  fprintf(pf, "\tDeltaE_hole = %lg a.u.", par->delta_E_hole);
+  fprintf(pf, "  DeltaE_elec = %lg a.u.\n", par->delta_E_elec);
+  fprintf(pf, "\tKEmax = %lg a.u.\n", par->KE_max);
+  fprintf(pf, "\tfermiEnergy = %lg a.u.\n", par->fermi_E);
 
-    if (flag->useSpinors == 1) fprintf(pf, "\tSpinor wavefunctions turned ON!\n");
-    else fprintf(pf, "\tSpinor wavefunctions turned OFF!\n");
+  // ****** ****** ****** ****** ****** ******
+  // Set options for dielectric properties
+  // ****** ****** ****** ****** ****** ******
+  fprintf(pf, "\n\tDielectric screening options:\n");
+  fprintf(pf, "\t-------------------------------\n");
+  fprintf(pf, "\tepsX = %lg\n", par->epsX);
+  fprintf(pf, "\tepsY = %lg\n", par->epsY);
+  fprintf(pf, "\tepsZ = %lg\n", par->epsZ);
+  if (1 == flag->LR)
+    fprintf(pf, "\tPseudopotentials were long ranged.\n");
+  else
+    fprintf(pf, "\tPseudopotentials were short ranged.\n");
 
-    if (flag->SO == 1) fprintf(pf, "\tSpin-orbit coupling is ON!\n");
-    else fprintf(pf, "\tSpin-orbit coupling is OFF!\n");
+  // ****** ****** ****** ****** ****** ******
+  // Set options for spinor representation
+  // ****** ****** ****** ****** ****** ******
+  fprintf(pf, "\n\tParameters for two-component representation:\n");
+  fprintf(pf, "\t----------------------------------------------\n");
 
-    if (flag->NL == 1) fprintf(pf, "\tNon-local potential is ON!\n");
-    else fprintf(pf, "\tNon-local potential is OFF!\n");
+  if (flag->useSpinors == 1)
+    fprintf(pf, "\tSpinor wavefunctions turned ON!\n");
+  else
+    fprintf(pf, "\tSpinor wavefunctions turned OFF!\n");
 
-    if (0 == flag->isComplex) fprintf(pf, "\tWavefunctions are REAL valued!\n\t  complex_idx = %d\n", ist->complex_idx);
-    else if (1 == flag->isComplex) fprintf(pf, "\tWavefunctions are COMPLEX valued! complex_idx = %d\n", ist->complex_idx); 
+  if (flag->SO == 1)
+    fprintf(pf, "\tSpin-orbit coupling is ON!\n");
+  else
+    fprintf(pf, "\tSpin-orbit coupling is OFF!\n");
 
-    // ****** ****** ****** ****** ****** ****** 
-    // Print optional output flags
-    // ****** ****** ****** ****** ****** ******
-    fprintf(pf, "\n\tFlags for optional output:\n");
-    fprintf(pf, "\t----------------------------\n");
+  if (flag->NL == 1)
+    fprintf(pf, "\tNon-local potential is ON!\n");
+  else
+    fprintf(pf, "\tNon-local potential is OFF!\n");
 
-    if (flag->calcDarkStates == 1) fprintf(pf, "\tExchange operator not computed -> dark states\n");
-    else fprintf(pf, "\tComputing spin-allowed sector of BSE matrix -> bright states\n");
+  if (0 == flag->isComplex)
+    fprintf(pf, "\tWavefunctions are REAL valued!\n\t  complex_idx = %d\n", ist->complex_idx);
+  else if (1 == flag->isComplex)
+    fprintf(pf, "\tWavefunctions are COMPLEX valued! complex_idx = %d\n", ist->complex_idx);
 
-    if (flag->timingSpecs == 1) fprintf(pf, "\tTiming specs will be printed\n");
-    else fprintf(pf, "\tTiming specs will NOT be printed\n");
+  // ****** ****** ****** ****** ****** ******
+  // Print optional output flags
+  // ****** ****** ****** ****** ****** ******
+  fprintf(pf, "\n\tFlags for optional output:\n");
+  fprintf(pf, "\t----------------------------\n");
 
-    if (flag->printFPDensity == 1) fprintf(pf, "\tFixed point densities of %d excitons will be printed\n", ist->n_FP_density);
-    else fprintf(pf, "\tFixed point densities will NOT be printed\n");
+  if (flag->calcDarkStates == 1)
+    fprintf(pf, "\tExchange operator not computed -> dark states\n");
+  else
+    fprintf(pf, "\tComputing spin-allowed sector of BSE matrix -> bright states\n");
 
-    if (flag->calcSpinAngStat == 1) fprintf(pf, "\tSpin and Ang. Mom. statistics will be computed\n");
-    else fprintf(pf, "\tSpin and Ang. Mom. statistics will NOT be computed\n");
-    
-    // ****** ****** ****** ****** ****** ****** 
-    // Set options for parallelization
-    // ****** ****** ****** ****** ****** ****** 
-    fprintf(pf, "\n\tParameters for parallelization:\n");
-    fprintf(pf, "\t-------------------------------\n");
+  if (flag->timingSpecs == 1)
+    fprintf(pf, "\tTiming specs will be printed\n");
+  else
+    fprintf(pf, "\tTiming specs will NOT be printed\n");
 
-    fprintf(pf, "\tnThreads (# OMP threads) = %ld\n", parallel->nthreads);
-    
-    // ****** ****** ****** ****** ****** ****** 
-    // Restart flags
-    // ****** ****** ****** ****** ****** ******
-    fprintf(pf, "\n\tFlags for restarting computation:\n");
-    fprintf(pf, "\t-----------------------------------\n");
-    if (flag->saveCheckpoints == 1) fprintf(pf, "\tFilter will save checkpoints along the job run\n");
-    else fprintf(pf, "\tNo checkpoint saves requested\n");
-    
-    if (flag->restartFromChk > -1) fprintf(pf, "\tFilter will restart from checkpoint %d\n", flag->restartFromChk);
-    else fprintf(pf, "\tNo checkpoint specified for restart. Job will run in normal sequence.\n");
-    
-    return;
+  if (flag->printFPDensity == 1)
+    fprintf(pf, "\tFixed point densities of %d excitons will be printed\n", ist->n_FP_density);
+  else
+    fprintf(pf, "\tFixed point densities will NOT be printed\n");
+
+  if (flag->calcSpinAngStat == 1)
+    fprintf(pf, "\tSpin and Ang. Mom. statistics will be computed\n");
+  else
+    fprintf(pf, "\tSpin and Ang. Mom. statistics will NOT be computed\n");
+
+  // ****** ****** ****** ****** ****** ******
+  // Set options for parallelization
+  // ****** ****** ****** ****** ****** ******
+  fprintf(pf, "\n\tParameters for parallelization:\n");
+  fprintf(pf, "\t-------------------------------\n");
+
+  fprintf(pf, "\tnThreads (# OMP threads) = %ld\n", parallel->nthreads);
+
+  // ****** ****** ****** ****** ****** ******
+  // Restart flags
+  // ****** ****** ****** ****** ****** ******
+  fprintf(pf, "\n\tFlags for restarting computation:\n");
+  fprintf(pf, "\t-----------------------------------\n");
+  if (flag->saveCheckpoints == 1)
+    fprintf(pf, "\tFilter will save checkpoints along the job run\n");
+  else
+    fprintf(pf, "\tNo checkpoint saves requested\n");
+
+  if (flag->restartFromChk > -1)
+    fprintf(pf, "\tFilter will restart from checkpoint %d\n", flag->restartFromChk);
+  else
+    fprintf(pf, "\tNo checkpoint specified for restart. Job will run in normal sequence.\n");
+
+  return;
 }
 
-void read_filter_output(char *file_name, double complex **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag){
+void read_filter_output(char *file_name, double complex **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag)
+{
 
-    FILE *pf;
-    long j;
-    long output_tag;
-    char *end_buffer, *eof; 
-    eof = malloc(4*sizeof(eof[0])); end_buffer = malloc(4*sizeof(end_buffer[0]));
+  FILE *pf;
+  long j;
+  long output_tag;
+  char *end_buffer, *eof;
+  eof = malloc(4 * sizeof(eof[0]));
+  end_buffer = malloc(4 * sizeof(end_buffer[0]));
+  double Rx, Ry, Rz;
 
-    strcpy(eof, "EOF");
+  strcpy(eof, "EOF");
 
-    if( access(file_name, F_OK) == -1 ){
-        printf("ERROR: no checkpoint file %s exists in directory\n", file_name);
-        fprintf(stderr, "ERROR: no checkpoint file %s exists in directory\n", file_name);
-        exit(EXIT_FAILURE);
-    }
+  if (access(file_name, F_OK) == -1)
+  {
+    printf("ERROR: no checkpoint file %s exists in directory\n", file_name);
+    fprintf(stderr, "ERROR: no checkpoint file %s exists in directory\n", file_name);
+    exit(EXIT_FAILURE);
+  }
 
-    pf = fopen(file_name, "r");
-    // Read the output tag to confirm that the output.dat file is from the intended filter run
-    // This is not enforced, but you can check that this was the intended run by looking at the 
-    // number printed at the bottom of the filter "run.dat"
-    fscanf(pf, "%ld\n", &output_tag);
-    printf("\n\tOutput tag = %ld\n", output_tag);
-    printf("\tCheck that this output tag matches your filter run.dat!\n");
+  pf = fopen(file_name, "r");
+  // Read the output tag to confirm that the output.dat file is from the intended filter run
+  // This is not enforced, but you can check that this was the intended run by looking at the
+  // number printed at the bottom of the filter "run.dat"
+  fscanf(pf, "%ld\n", &output_tag);
+  printf("\n\tOutput tag = %ld\n", output_tag);
+  printf("\tCheck that this output tag matches your filter run.dat!\n");
 
-    // Read ist
-    printf("\n\tindex_st from filter...\n"); fflush(stdout);
-    fscanf(pf, "%ld %ld", &ist->ngrid, &ist->nspinngrid);
-    fscanf(pf, "%ld", &ist->mn_states_tot);
-    fscanf(pf, "%ld %ld", &ist->natoms, &ist->n_atom_types);
-    for (j = 0; j < ist->n_atom_types; j++){ fscanf(pf, "%ld ", &ist->atom_types[j]);}
-    fscanf(pf, "%d", &ist->nspin);
-    fscanf(pf, "%d", &ist->complex_idx);
-    
-    // Read par
-    printf("\tpar_st from filter...\n"); fflush(stdout);
-    fscanf(pf, "%lg %lg", &par->KE_max, &par->fermi_E);
-    
-    // Read flags
-    printf("\tflag_st from filter...\n"); fflush(stdout);
-    fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);
-    
-    // Read conf
-    printf("\tconf from filter...\n"); fflush(stdout);
-    if(( *R = malloc(ist->natoms * sizeof(xyz_st))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for R in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    for (j = 0; j < ist->natoms; j++){
-        fscanf(pf, "%lg %lg %lg", &((*R)[j].x), &((*R)[j].y), &((*R)[j].z));
-    }
+  // Read ist
+  printf("\n\tindex_st from filter...\n");
+  fflush(stdout);
+  fscanf(pf, "%ld %ld", &ist->ngrid, &ist->nspinngrid);
+  fscanf(pf, "%ld", &ist->mn_states_tot);
+  fscanf(pf, "%ld %ld", &ist->natoms, &ist->n_atom_types);
+  for (j = 0; j < ist->n_atom_types; j++)
+  {
+    fscanf(pf, "%ld ", &ist->atom_types[j]);
+  }
+  fscanf(pf, "%d", &ist->nspin);
+  fscanf(pf, "%d", &ist->complex_idx);
 
-    // Read grid
-    printf("\tgrid from filter...\n"); fflush(stdout);
-    fscanf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg", &grid->dx, &grid->dy, &grid->dz, &grid->dr, &grid->dv, &grid->dkx, &grid->dky, &grid->dkz);
-    fscanf(pf, "%lg %lg %lg %lg %lg %lg", &grid->xmin, &grid->xmax, &grid->ymin, &grid->ymax, &grid->zmin, &grid->zmax);
-    fscanf(pf, "%ld %ld %ld", &grid->nx, &grid->ny, &grid->nz);
-    fscanf(pf, "%lg %lg %lg", &grid->nx_1, &grid->ny_1, &grid->nz_1);
-    fscanf(pf, "%ld", &grid->ngrid);
+  // Read par
+  printf("\tpar_st from filter...\n");
+  fflush(stdout);
+  fscanf(pf, "%lg %lg", &par->KE_max, &par->fermi_E);
 
-    if((*gridx = malloc(grid->nx * sizeof(double))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
-    if((*gridy = malloc(grid->ny * sizeof(double))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for grid.y in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
-    if((*gridz = malloc(grid->nz * sizeof(double))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
+  // Read flags
+  printf("\tflag_st from filter...\n");
+  fflush(stdout);
+  fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);
 
-    fread(*gridx, sizeof(double), grid->nx, pf);
-    fread(*gridy, sizeof(double), grid->ny, pf);
-    fread(*gridz, sizeof(double), grid->nz, pf);
+  // Read conf
+  printf("\tconf from filter...\n");
+  fflush(stdout);
+  if ((*R = malloc(ist->natoms * sizeof(xyz_st))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for R in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
 
-    // Read eig_vals and sigma_E
-    if ((*eig_vals = malloc(ist->mn_states_tot * sizeof(*eig_vals[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
-    if ((*sigma_E = malloc(ist->mn_states_tot * sizeof(*sigma_E[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
-    printf("\teig_vals from filter...\n"); fflush(stdout);
-    fread(*eig_vals, sizeof(*eig_vals[0]), ist->mn_states_tot, pf);
-    printf("\tsigma_E from filter...\n"); fflush(stdout);
-    fread(*sigma_E, sizeof(*sigma_E[0]), ist->mn_states_tot, pf);
+  for (j = 0; j < ist->natoms; j++)
+  {
+    fscanf(pf, "%lg %lg %lg", &Rx, &Ry, &Rz);
+    (*R)[j].x = Rx;
+    (*R)[j].y = Ry;
+    (*R)[j].z = Rz;
+  }
 
-    // Read psitot
-    if ((*psitot = malloc(ist->mn_states_tot * ist->nspinngrid * sizeof(psitot[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for psitot in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
+  // Read grid
+  printf("\tgrid from filter...\n");
+  fflush(stdout);
+  fscanf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg", &grid->dx, &grid->dy, &grid->dz, &grid->dr, &grid->dv, &grid->dkx, &grid->dky, &grid->dkz);
+  fscanf(pf, "%lg %lg %lg %lg %lg %lg", &grid->xmin, &grid->xmax, &grid->ymin, &grid->ymax, &grid->zmin, &grid->zmax);
+  fscanf(pf, "%ld %ld %ld", &grid->nx, &grid->ny, &grid->nz);
+  fscanf(pf, "%lg %lg %lg", &grid->nx_1, &grid->ny_1, &grid->nz_1);
+  fscanf(pf, "%ld", &grid->ngrid);
 
-    printf("\tpsitot from filter...\n"); fflush(stdout);
-    fread(*psitot, sizeof(psitot[0]), ist->mn_states_tot * ist->nspinngrid, pf);
-    // The psitot will not be read in yet because there is no allocated memory for it.
-    fseek(pf, 1 , SEEK_CUR);
-    fscanf(pf, "%3s", end_buffer); 
-    fclose(pf);
+  if ((*gridx = malloc(grid->nx * sizeof(double))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((*gridy = malloc(grid->ny * sizeof(double))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for grid.y in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((*gridz = malloc(grid->nz * sizeof(double))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
 
-    // printf(" The %s end buffer: %s\n", file_name, end_buffer); 
-    if (strcmp((const char *) end_buffer, (const char *) eof) != 0){
-        fprintf(stderr, "ERROR: restarting from %s failed. Bad END.\n", file_name);
-        exit(EXIT_FAILURE);
-    }
+  fread(*gridx, sizeof(double), grid->nx, pf);
+  fread(*gridy, sizeof(double), grid->ny, pf);
+  fread(*gridz, sizeof(double), grid->nz, pf);
 
-    free(eof);
-    free(end_buffer);
-    return;
+  // Read eig_vals and sigma_E
+  if ((*eig_vals = malloc(ist->mn_states_tot * sizeof(*eig_vals[0]))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((*sigma_E = malloc(ist->mn_states_tot * sizeof(*sigma_E[0]))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
+  printf("\teig_vals from filter...\n");
+  fflush(stdout);
+  fread(*eig_vals, sizeof(*eig_vals[0]), ist->mn_states_tot, pf);
+  printf("\tsigma_E from filter...\n");
+  fflush(stdout);
+  fread(*sigma_E, sizeof(*sigma_E[0]), ist->mn_states_tot, pf);
+
+  // Read psitot
+  if ((*psitot = malloc(ist->mn_states_tot * ist->nspinngrid * sizeof((*psitot)[0]))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for psitot in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
+  printf("\tpsitot from filter...\n");
+  fflush(stdout);
+
+  fread(*psitot, sizeof((*psitot)[0]), ist->mn_states_tot * ist->nspinngrid, pf);
+
+  // The psitot will not be read in yet because there is no allocated memory for it.
+  fseek(pf, 1, SEEK_CUR);
+  fscanf(pf, "%3s", end_buffer);
+  printf("%3s\n", end_buffer);
+  fclose(pf);
+
+  // printf(" The %s end buffer: %s\n", file_name, end_buffer);
+  if (strcmp((const char *)end_buffer, (const char *)eof) != 0)
+  {
+    fprintf(stderr, "ERROR: restarting from %s failed. Bad END.\n", file_name);
+    exit(EXIT_FAILURE);
+  }
+
+  free(eof);
+  free(end_buffer);
+  return;
 }
 
 /*****************************************************************************/
 
+void read_filter_output_old(char *file_name, double **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag)
+{
 
-void read_filter_output_old(char *file_name, double **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag){
+  FILE *pf;
+  long j;
+  long output_tag;
+  char *end_buffer, *eof;
+  double Rx, Ry, Rz;
+  eof = malloc(4 * sizeof(eof[0]));
+  end_buffer = malloc(4 * sizeof(end_buffer[0]));
 
-    FILE *pf;
-    long j;
-    long output_tag;
-    char *end_buffer, *eof; 
-    eof = malloc(4*sizeof(eof[0])); end_buffer = malloc(4*sizeof(end_buffer[0]));
+  strcpy(eof, "EOF");
 
-    strcpy(eof, "EOF");
+  if (access(file_name, F_OK) == -1)
+  {
+    printf("ERROR: no checkpoint file %s exists in directory\n", file_name);
+    fprintf(stderr, "ERROR: no checkpoint file %s exists in directory\n", file_name);
+    exit(EXIT_FAILURE);
+  }
 
-    if( access(file_name, F_OK) == -1 ){
-        printf("ERROR: no checkpoint file %s exists in directory\n", file_name);
-        fprintf(stderr, "ERROR: no checkpoint file %s exists in directory\n", file_name);
-        exit(EXIT_FAILURE);
-    }
+  pf = fopen(file_name, "r");
+  // Read the output tag to confirm that the output.dat file is from the intended filter run
+  // This is not enforced, but you can check that this was the intended run by looking at the
+  // number printed at the bottom of the filter "run.dat"
+  fscanf(pf, "%ld\n", &output_tag);
+  printf("\n\tOutput tag = %ld\n", output_tag);
+  printf("\tCheck that this output tag matches your filter run.dat!\n");
 
-    pf = fopen(file_name, "r");
-    // Read the output tag to confirm that the output.dat file is from the intended filter run
-    // This is not enforced, but you can check that this was the intended run by looking at the 
-    // number printed at the bottom of the filter "run.dat"
-    fscanf(pf, "%ld\n", &output_tag);
-    printf("\n\tOutput tag = %ld\n", output_tag);
-    printf("\tCheck that this output tag matches your filter run.dat!\n");
+  // Read ist
+  printf("\n\tindex_st from filter...\n");
+  fflush(stdout);
+  fscanf(pf, "%ld %ld", &ist->ngrid, &ist->nspinngrid);
+  fscanf(pf, "%ld", &ist->mn_states_tot);
+  fscanf(pf, "%ld %ld", &ist->natoms, &ist->n_atom_types);
+  for (j = 0; j < ist->n_atom_types; j++)
+  {
+    fscanf(pf, "%ld ", &ist->atom_types[j]);
+  }
+  fscanf(pf, "%d", &ist->nspin);
+  fscanf(pf, "%d", &ist->complex_idx);
 
-    // Read ist
-    printf("\n\tindex_st from filter...\n"); fflush(stdout);
-    fscanf(pf, "%ld %ld", &ist->ngrid, &ist->nspinngrid);
-    fscanf(pf, "%ld", &ist->mn_states_tot);
-    fscanf(pf, "%ld %ld", &ist->natoms, &ist->n_atom_types);
-    for (j = 0; j < ist->n_atom_types; j++){ fscanf(pf, "%ld ", &ist->atom_types[j]);}
-    fscanf(pf, "%d", &ist->nspin);
-    fscanf(pf, "%d", &ist->complex_idx);
-    
-    // Read par
-    printf("\tpar_st from filter...\n"); fflush(stdout);
-    fscanf(pf, "%lg %lg", &par->KE_max, &par->fermi_E);
-    
-    // Read flags
-    printf("\tflag_st from filter...\n"); fflush(stdout);
-    fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);
-    
-    // Read conf
-    printf("\tconf from filter...\n"); fflush(stdout);
-    if(( *R = malloc(ist->natoms * sizeof(xyz_st))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for R in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    for (j = 0; j < ist->natoms; j++){
-        fscanf(pf, "%lg %lg %lg", &((*R)[j].x), &((*R)[j].y), &((*R)[j].z));
-    }
+  // Read par
+  printf("\tpar_st from filter...\n");
+  fflush(stdout);
+  fscanf(pf, "%lg %lg", &par->KE_max, &par->fermi_E);
 
-    // Read grid
-    printf("\tgrid from filter...\n"); fflush(stdout);
-    fscanf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg", &grid->dx, &grid->dy, &grid->dz, &grid->dr, &grid->dv, &grid->dkx, &grid->dky, &grid->dkz);
-    fscanf(pf, "%lg %lg %lg %lg %lg %lg", &grid->xmin, &grid->xmax, &grid->ymin, &grid->ymax, &grid->zmin, &grid->zmax);
-    fscanf(pf, "%ld %ld %ld", &grid->nx, &grid->ny, &grid->nz);
-    fscanf(pf, "%lg %lg %lg", &grid->nx_1, &grid->ny_1, &grid->nz_1);
-    fscanf(pf, "%ld", &grid->ngrid);
+  // Read flags
+  printf("\tflag_st from filter...\n");
+  fflush(stdout);
+  fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);
 
-    if((*gridx = malloc(grid->nx * sizeof(double))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
-    if((*gridy = malloc(grid->ny * sizeof(double))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for grid.y in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
-    if((*gridz = malloc(grid->nz * sizeof(double))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
+  // Read conf
+  printf("\tconf from filter...\n");
+  fflush(stdout);
+  if ((*R = malloc(ist->natoms * sizeof(xyz_st))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for R in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
 
-    fread(*gridx, sizeof(double), grid->nx, pf);
-    fread(*gridy, sizeof(double), grid->ny, pf);
-    fread(*gridz, sizeof(double), grid->nz, pf);
+  for (j = 0; j < ist->natoms; j++)
+  {
+    fscanf(pf, "%lg %lg %lg", &Rx, &Ry, &Rz);
+    (*R)[j].x = Rx;
+    (*R)[j].y = Ry;
+    (*R)[j].z = Rz;
+  }
 
-    // Read eig_vals and sigma_E
-    if ((*eig_vals = malloc(ist->mn_states_tot * sizeof(*eig_vals[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
-    if ((*sigma_E = malloc(ist->mn_states_tot * sizeof(*sigma_E[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
-    printf("\teig_vals from filter...\n"); fflush(stdout);
-    fread(*eig_vals, sizeof(*eig_vals[0]), ist->mn_states_tot, pf);
-    printf("\tsigma_E from filter...\n"); fflush(stdout);
-    fread(*sigma_E, sizeof(*sigma_E[0]), ist->mn_states_tot, pf);
+  // Read grid
+  printf("\tgrid from filter...\n");
+  fflush(stdout);
+  fscanf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg", &grid->dx, &grid->dy, &grid->dz, &grid->dr, &grid->dv, &grid->dkx, &grid->dky, &grid->dkz);
+  fscanf(pf, "%lg %lg %lg %lg %lg %lg", &grid->xmin, &grid->xmax, &grid->ymin, &grid->ymax, &grid->zmin, &grid->zmax);
+  fscanf(pf, "%ld %ld %ld", &grid->nx, &grid->ny, &grid->nz);
+  fscanf(pf, "%lg %lg %lg", &grid->nx_1, &grid->ny_1, &grid->nz_1);
+  fscanf(pf, "%ld", &grid->ngrid);
 
-    // Read psitot
-    if ((*psitot = malloc(ist->complex_idx * ist->mn_states_tot * ist->nspinngrid * sizeof(psitot[0]))) == NULL){
-        fprintf(stderr, "ERROR: allocating memory for psitot in read_filter_output\n");
-        exit(EXIT_FAILURE);
-    }
+  if ((*gridx = malloc(grid->nx * sizeof(double))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((*gridy = malloc(grid->ny * sizeof(double))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for grid.y in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((*gridz = malloc(grid->nz * sizeof(double))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for grid.x in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
 
-    printf("\tpsitot from filter...\n"); fflush(stdout);
-    fread(*psitot, sizeof(psitot[0]), ist->mn_states_tot * ist->nspinngrid * ist->complex_idx, pf);
-    // The psitot will not be read in yet because there is no allocated memory for it.
-    fseek(pf, 1 , SEEK_CUR);
-    fscanf(pf, "%3s", end_buffer); 
-    fclose(pf);
+  fread(*gridx, sizeof(double), grid->nx, pf);
+  fread(*gridy, sizeof(double), grid->ny, pf);
+  fread(*gridz, sizeof(double), grid->nz, pf);
 
-    // printf(" The %s end buffer: %s\n", file_name, end_buffer); 
-    if (strcmp((const char *) end_buffer, (const char *) eof) != 0){
-        fprintf(stderr, "ERROR: restarting from %s failed. Bad END.\n", file_name);
-        exit(EXIT_FAILURE);
-    }
+  // Read eig_vals and sigma_E
+  if ((*eig_vals = malloc(ist->mn_states_tot * sizeof(*eig_vals[0]))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
+  if ((*sigma_E = malloc(ist->mn_states_tot * sizeof(*sigma_E[0]))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
+  printf("\teig_vals from filter...\n");
+  fflush(stdout);
+  fread(*eig_vals, sizeof(*eig_vals[0]), ist->mn_states_tot, pf);
+  printf("\tsigma_E from filter...\n");
+  fflush(stdout);
+  fread(*sigma_E, sizeof(*sigma_E[0]), ist->mn_states_tot, pf);
 
-    return;
+  // Read psitot
+  if ((*psitot = malloc(ist->complex_idx * ist->mn_states_tot * ist->nspinngrid * sizeof(psitot[0]))) == NULL)
+  {
+    fprintf(stderr, "ERROR: allocating memory for psitot in read_filter_output\n");
+    exit(EXIT_FAILURE);
+  }
+
+  printf("\tpsitot from filter...\n");
+  fflush(stdout);
+  fread(*psitot, sizeof(psitot[0]), ist->mn_states_tot * ist->nspinngrid * ist->complex_idx, pf);
+  // The psitot will not be read in yet because there is no allocated memory for it.
+  fseek(pf, 1, SEEK_CUR);
+  fscanf(pf, "%3s", end_buffer);
+  fclose(pf);
+
+  // printf(" The %s end buffer: %s\n", file_name, end_buffer);
+  if (strcmp((const char *)end_buffer, (const char *)eof) != 0)
+  {
+    fprintf(stderr, "ERROR: restarting from %s failed. Bad END.\n", file_name);
+    exit(EXIT_FAILURE);
+  }
+
+  return;
 }

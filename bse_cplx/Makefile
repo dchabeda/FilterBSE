@@ -11,7 +11,7 @@ LIB = $(Linux_DYLIB) $(Linux_LIB)
 # flags ...
 Linux_OPTFLAGS = -O3 -DMKL_ILP64 -DFFTW_FFT -mavx2
 Linux_CFLAGS = $(Linux_OPTFLAGS) -qopenmp
-#Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
+Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
 
 MAINNAM = BSE
 

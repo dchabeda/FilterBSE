@@ -20,7 +20,8 @@
 #include <mkl.h>
 
 /*****************************************************************************/
-typedef struct flag {
+typedef struct flag
+{
   int SO, NL, LR, useSpinors, isComplex;
   int setSeed;
   int printFPDensity;
@@ -30,7 +31,8 @@ typedef struct flag {
   int initUnsafe;
 } flag_st;
 
-typedef struct grid {
+typedef struct grid
+{
   double *x, *y, *z; // stores the value of the grid points
   double dx, dy, dz, dr, dv, dkx, dky, dkz;
   double xmin, xmax, ymin, ymax, zmin, zmax;
@@ -40,16 +42,19 @@ typedef struct grid {
   long ngrid;
 } grid_st;
 
-struct pzdata {
-    double z;
-    double pz;
+struct pzdata
+{
+  double z;
+  double pz;
 };
 
-typedef struct st0 {
+typedef struct st0
+{
   double re, im;
 } zomplex;
 
-typedef struct st1 {
+typedef struct st1
+{
   double dx, dy, dz, dr, dkx, dky, dkz, dv, epsX, epsY, epsZ;
   double xmin, xmax, ymin, ymax, zmin, zmax;
   double KE_max;
@@ -57,7 +62,8 @@ typedef struct st1 {
   int checkpoint_id;
 } par_st;
 
-typedef struct st4 {
+typedef struct st4
+{
   long max_elec_states, max_hole_states, mn_states_tot;
   long nthreads;
   long n_qp, n_xton;
@@ -73,49 +79,66 @@ typedef struct st4 {
   int nspin, complex_idx;
 } index_st;
 
-
-typedef struct st5 {
+typedef struct st5
+{
   double complex x, y, z;
 } xyz_st;
 
 typedef fftw_plan fftw_plan_loc;
 
-typedef struct parallel{
+typedef struct parallel
+{
   long nthreads;
   int mpi_rank, mpi_size, mpi_root;
 } parallel_st;
 
 /*****************************************************************************/
 
-#define rlong(x)     (rint(x)) 
+#define rlong(x) (rint(x))
 
-#define cnorm(z)     (creal(z) * creal(z) + cimag(z) * cimag(z))
-#define conjmul(x,y) ((conj(x)) * (y))
+#define cnorm(z) (creal(z) * creal(z) + cimag(z) * cimag(z))
+#define conjmul(x, y) ((conj(x)) * (y))
 
-#define sqr(x)       ((x) * (x))
-#define cube(x)      ((x) * (x) * (x))
-#define forth(x)     ((x) * (x) * (x) * (x))
+#define sqr(x) ((x) * (x))
+#define cube(x) ((x) * (x) * (x))
+#define forth(x) ((x) * (x) * (x) * (x))
 
-#define ISWAP(a,b)   {double temp = (a); (a) = (b); (b) = -temp;}
-#define ISWAP2(a,b)  {double temp = (a); (a) = 2.0 * (b); (b) = -2.0 * temp;}
+#define ISWAP(a, b)    \
+  {                    \
+    double temp = (a); \
+    (a) = (b);         \
+    (b) = -temp;       \
+  }
+#define ISWAP2(a, b)   \
+  {                    \
+    double temp = (a); \
+    (a) = 2.0 * (b);   \
+    (b) = -2.0 * temp; \
+  }
 
-#define AUTOEV    27.2114
-#define PIE       3.14159265358979323846
-#define TWOPI     6.28318530717958647692
-#define FOURPI    (4.0*3.14159265358979323846)
-#define SQRTPI    (sqrt(3.14159265358979323846))
-#define SVDEPS    1.0e-10
-#define EPSR      1.0e-10
-#define EPSCHI    1.0e-8
-#define DENE      1.0e-10
+#define AUTOEV 27.2114
+#define PIE 3.14159265358979323846
+#define TWOPI 6.28318530717958647692
+#define FOURPI (4.0 * 3.14159265358979323846)
+#define SQRTPI (sqrt(3.14159265358979323846))
+#define SVDEPS 1.0e-10
+#define EPSR 1.0e-10
+#define EPSCHI 1.0e-8
+#define DENE 1.0e-10
 #define N_MAX_ATOM_TYPES 20
-#define PR_LEN 16
+// #define PR_LEN 16
+#define PR_LEN 6
 #define BYTE_BOUNDARY 32
 // Enum to define supported variable types
-typedef enum { INT_TYPE, LONG_TYPE, DOUBLE_TYPE } VarType;
+typedef enum
+{
+  INT_TYPE,
+  LONG_TYPE,
+  DOUBLE_TYPE
+} VarType;
 
 // memory allocation macro for code readability
-#define ALLOCATE(dblptr, length, message) allocate_aligned_memory((void**)(dblptr), (length), sizeof(typeof(**(dblptr))), message)
+#define ALLOCATE(dblptr, length, message) allocate_aligned_memory((void **)(dblptr), (length), sizeof(typeof(**(dblptr))), message)
 
 /*****************************************************************************/
 
@@ -124,22 +147,21 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
 void read_filter_output(char *file_name, double complex **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag);
 
 // norm.c
-double norma(zomplex *, double,long);
+double norma(zomplex *, double, long);
 double normalize_zomplex(zomplex *psi, double dr, long ngrid);
-void normalize_all(double *,double,long,long);
+void normalize_all(double *, double, long, long);
 void norm_vector(double *vector, double dV, long length);
 
-void scalar_product(zomplex *,zomplex *,zomplex *,double,long,long);
+void scalar_product(zomplex *, zomplex *, zomplex *, double, long, long);
 
-double findmaxabsre(zomplex *dwmat,long n);
-double findmaxabsim(zomplex *dwmat,long n);
+double findmaxabsre(zomplex *dwmat, long n);
+double findmaxabsim(zomplex *dwmat, long n);
 
-void print_pz_one(double *psi,double *vz,par_st par,index_st ist,char *str);
-void print_pz(double *psi,double *sige,double *vz,par_st par,index_st ist);
+void print_pz_one(double *psi, double *vz, par_st par, index_st ist, char *str);
+void print_pz(double *psi, double *sige, double *vz, par_st par, index_st ist);
 int z_project(double *vector, double *vz, par_st par, index_st ist, char *fname);
-void print_cube(double *pgrid,index_st ist,par_st par,char *fName);
+void print_cube(double *pgrid, index_st ist, par_st par, char *fName);
 void print_fixed_qp_density(double *psi, double *Cbs, double *vz, index_st ist, par_st par);
-
 
 // optical.c
 void calc_optical_exc(double complex *bs_coeff, double *xton_ene, double *eig_vals, xyz_st *mu, xyz_st *m, index_st *ist, par_st *par);

@@ -147,18 +147,20 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
   return;
 }
 
-void read_filter_output(char *file_name, double complex **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag)
+void read_filter_output(char *file_name, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel)
 {
 
   FILE *pf;
   long j;
   long output_tag;
   char *end_buffer, *eof;
-  eof = malloc(4 * sizeof(eof[0]));
-  end_buffer = malloc(4 * sizeof(end_buffer[0]));
   double Rx, Ry, Rz;
 
+  eof = malloc(4 * sizeof(eof[0]));
+  end_buffer = malloc(4 * sizeof(end_buffer[0]));
   strcpy(eof, "EOF");
+
+  const int mpir = parallel->mpi_rank;
 
   if (access(file_name, F_OK) == -1)
   {
@@ -172,12 +174,17 @@ void read_filter_output(char *file_name, double complex **psitot, double **eig_v
   // This is not enforced, but you can check that this was the intended run by looking at the
   // number printed at the bottom of the filter "run.dat"
   fscanf(pf, "%ld\n", &output_tag);
-  printf("\n\tOutput tag = %ld\n", output_tag);
-  printf("\tCheck that this output tag matches your filter run.dat!\n");
-
+  if (0 == mpir)
+  {
+    printf("\n\tOutput tag = %ld\n", output_tag);
+    printf("\tCheck that this output tag matches your filter run.dat!\n");
+  }
   // Read ist
-  printf("\n\tindex_st from filter...\n");
-  fflush(stdout);
+  if (0 == mpir)
+  {
+    printf("\n\tindex_st from filter...\n");
+    fflush(stdout);
+  }
   fscanf(pf, "%ld %ld", &ist->ngrid, &ist->nspinngrid);
   fscanf(pf, "%ld", &ist->mn_states_tot);
   fscanf(pf, "%ld %ld", &ist->natoms, &ist->n_atom_types);
@@ -189,18 +196,27 @@ void read_filter_output(char *file_name, double complex **psitot, double **eig_v
   fscanf(pf, "%d", &ist->complex_idx);
 
   // Read par
-  printf("\tpar_st from filter...\n");
-  fflush(stdout);
+  if (0 == mpir)
+  {
+    printf("\tpar_st from filter...\n");
+    fflush(stdout);
+  }
   fscanf(pf, "%lg %lg", &par->KE_max, &par->fermi_E);
 
   // Read flags
-  printf("\tflag_st from filter...\n");
-  fflush(stdout);
+  if (0 == mpir)
+  {
+    printf("\tflag_st from filter...\n");
+    fflush(stdout);
+  }
   fscanf(pf, "%d %d %d %d %d", &flag->SO, &flag->NL, &flag->LR, &flag->useSpinors, &flag->isComplex);
 
   // Read conf
-  printf("\tconf from filter...\n");
-  fflush(stdout);
+  if (0 == mpir)
+  {
+    printf("\tconf from filter...\n");
+    fflush(stdout);
+  }
   if ((*R = malloc(ist->natoms * sizeof(xyz_st))) == NULL)
   {
     fprintf(stderr, "ERROR: allocating memory for R in read_filter_output\n");
@@ -216,8 +232,11 @@ void read_filter_output(char *file_name, double complex **psitot, double **eig_v
   }
 
   // Read grid
-  printf("\tgrid from filter...\n");
-  fflush(stdout);
+  if (0 == mpir)
+  {
+    printf("\tgrid from filter...\n");
+    fflush(stdout);
+  }
   fscanf(pf, "%lg %lg %lg %lg %lg %lg %lg %lg", &grid->dx, &grid->dy, &grid->dz, &grid->dr, &grid->dv, &grid->dkx, &grid->dky, &grid->dkz);
   fscanf(pf, "%lg %lg %lg %lg %lg %lg", &grid->xmin, &grid->xmax, &grid->ymin, &grid->ymax, &grid->zmin, &grid->zmax);
   fscanf(pf, "%ld %ld %ld", &grid->nx, &grid->ny, &grid->nz);
@@ -255,30 +274,32 @@ void read_filter_output(char *file_name, double complex **psitot, double **eig_v
     fprintf(stderr, "ERROR: allocating memory for eig_vals in read_filter_output\n");
     exit(EXIT_FAILURE);
   }
-  printf("\teig_vals from filter...\n");
-  fflush(stdout);
+  if (0 == mpir)
+  {
+    printf("\teig_vals from filter...\n");
+    fflush(stdout);
+  }
   fread(*eig_vals, sizeof(*eig_vals[0]), ist->mn_states_tot, pf);
-  printf("\tsigma_E from filter...\n");
-  fflush(stdout);
+
+  if (0 == mpir)
+  {
+    printf("\tsigma_E from filter...\n");
+    fflush(stdout);
+  }
   fread(*sigma_E, sizeof(*sigma_E[0]), ist->mn_states_tot, pf);
 
-  // Read psitot
-  if ((*psitot = malloc(ist->mn_states_tot * ist->nspinngrid * sizeof((*psitot)[0]))) == NULL)
-  {
-    fprintf(stderr, "ERROR: allocating memory for psitot in read_filter_output\n");
-    exit(EXIT_FAILURE);
-  }
-  printf("\tpsitot from filter...\n");
-  fflush(stdout);
+  // Get position of psitot in output.dat for later file access
+  par->psi_file_pos = ftell(pf);
 
-  fread(*psitot, sizeof((*psitot)[0]), ist->mn_states_tot * ist->nspinngrid, pf);
-
-  // The psitot will not be read in yet because there is no allocated memory for it.
+  // Skip past psitot in output.dat and confirm that the size of file is correct for the job
+  fseek(pf, ist->mn_states_tot * ist->nspinngrid * sizeof(double complex), SEEK_CUR);
   fseek(pf, 1, SEEK_CUR);
   fscanf(pf, "%3s", end_buffer);
-  printf("%3s\n", end_buffer);
   fclose(pf);
-
+  if (0 == mpir)
+  {
+    printf("%3s\n", end_buffer);
+  }
   // printf(" The %s end buffer: %s\n", file_name, end_buffer);
   if (strcmp((const char *)end_buffer, (const char *)eof) != 0)
   {

@@ -58,6 +58,7 @@ void read_input(
   flag->restartCoulomb = 0;
   flag->coulombDone = 0;
   flag->calcCoulombOnly = 0;
+  flag->noCalcExciton = 0;
 
   //                           Optional output flags
   flag->calcDarkStates = 0;
@@ -126,7 +127,7 @@ void read_input(
       read_field(field, "restartCoulomb", &flag->restartCoulomb, INT_TYPE, tmp, &fk);
       read_field(field, "coulombDone", &flag->coulombDone, INT_TYPE, tmp, &fk);
       read_field(field, "calcCoulombOnly", &flag->calcCoulombOnly, INT_TYPE, tmp, &fk);
-
+      read_field(field, "noCalcExciton", &flag->noCalcExciton, INT_TYPE, tmp, &fk);
       // ****** ****** ****** ****** ****** ******
       // Handle exceptions
       // ****** ****** ****** ****** ****** ******
@@ -158,6 +159,7 @@ void read_input(
         printf("restartFromCheckpoint = int, value is the ID of the checkpoint that the job should restart from.\n");
         printf("restartCoulomb = int, (if 1, Coulomb matrix elements will be read to restart job).\n");
         printf("coulombDone = int, (if 1, then Kernel has already been calc'd, will compute BSE).\n");
+        printf("noCalcExciton = int, (if 1, then job will not compute Coulomb integrals or BSE).\n");
 
         fflush(stdout);
         exit(EXIT_FAILURE);
@@ -243,7 +245,9 @@ void read_unsafe_input(
   const int mpir = parallel->mpi_rank;
 
   int i = 0;
-  char field[1000], tmp[1000], endptr[10];
+  char field[1000], tmp[1000];
+  char *endptr;
+  endptr = malloc(10 * sizeof(endptr[0]));
 
   unsigned long stlen;
   unsigned long j;
@@ -257,6 +261,7 @@ void read_unsafe_input(
   unsigned long nelecs = 0;
 
   double dbltmp;
+  double Rx, Ry, Rz;
 
   if (access("unsafe_input.par", F_OK) != -1)
   {
@@ -481,7 +486,10 @@ void read_unsafe_input(
 
     for (j = 0; j < ist->natoms; j++)
     {
-      fscanf(pf, "%s %lg %lg %lg", &endptr, &((*R)[j].x), &((*R)[j].y), &((*R)[j].z));
+      fscanf(pf, "%s %lg %lg %lg", endptr, &Rx, &Ry, &Rz);
+      (*R)[j].x = Rx;
+      (*R)[j].y = Ry;
+      (*R)[j].z = Rz;
     }
 
     fclose(pf);

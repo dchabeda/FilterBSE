@@ -66,31 +66,16 @@ void init_g_vecs(double *kindex, double *kx, double *ky, double *kz, grid_st *gr
 {
 
   long jx, jy, jz, jyz, jgrid;
+
   // The k-vectors in each direction are initialized so that
-  // they are stored as - k. e.g. The kx values of positive
-  // x values are made negative; simplifies p_operator function
+  // they are compatible with FFTW3 definition
   init_kvec(kx, grid->nx, grid->dkx, grid->nx_1 * grid->ny_1 * grid->nz_1);
   init_kvec(ky, grid->ny, grid->dky, grid->nx_1 * grid->ny_1 * grid->nz_1);
   init_kvec(kz, grid->nz, grid->dkz, grid->nx_1 * grid->ny_1 * grid->nz_1);
-  // for (kx[0] = 0.0, jx = 1; jx <= grid->nx / 2; jx++)
-  // {
-  //   kx[grid->nx - jx] = -1.00 * (kx[jx] = (double)(jx)*grid->dkx *
-  //                                         grid->nx_1 * grid->ny_1 * grid->nz_1);
-  // }
-  // // for (jx = 0; jx < grid->nx; jx++){
-  // // 	printf("x[%ld] = %g , kx = %g\n", jx, grid->x[jx], kx[jx]);
-  // // }
 
-  // for (ky[0] = 0.0, jy = 1; jy <= grid->ny / 2; jy++)
+  // for (jy = 0; jy < grid->ny; jy++)
   // {
-  //   ky[grid->ny - jy] = -1.00 * (ky[jy] = (double)(jy)*grid->dky *
-  //                                         grid->nx_1 * grid->ny_1 * grid->nz_1);
-  // }
-
-  // for (kz[0] = 0.0, jz = 1; jz <= grid->nz / 2; jz++)
-  // {
-  //   kz[grid->nz - jz] = -1.00 * (kz[jz] = (double)(jz)*grid->dkz *
-  //                                         grid->nx_1 * grid->ny_1 * grid->nz_1);
+  //   printf("ky[%ld] = %lg\n", jy, ky[jy]);
   // }
 
   for (jz = 0; jz < grid->nz; jz++)
@@ -105,6 +90,7 @@ void init_g_vecs(double *kindex, double *kx, double *ky, double *kz, grid_st *gr
         kindex[3 * jgrid + 1] = ky[jy];
         kindex[3 * jgrid + 2] = kz[jz];
       }
+      // printf("kindex[%ld] = %lg kindex[%ld] = %lg kindex[%ld] = %lg\n", 3 * jgrid, kx[jx], 3 * jgrid + 1, ky[jy], 3 * jgrid + 2, kz[jz]);
     }
   }
 

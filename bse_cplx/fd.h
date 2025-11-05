@@ -27,7 +27,7 @@ typedef struct flag
   int printFPDensity;
   int calcDarkStates, calcSpinAngStat;
   int timingSpecs, saveCheckpoints, restartFromChk, saveOutput;
-  int restartCoulomb, coulombDone, calcCoulombOnly;
+  int restartCoulomb, coulombDone, calcCoulombOnly, noCalcExciton;
   int initUnsafe;
 } flag_st;
 
@@ -59,6 +59,7 @@ typedef struct st1
   double xmin, xmax, ymin, ymax, zmin, zmax;
   double KE_max;
   double delta_E_elec, delta_E_hole, sigma_E_cut, fermi_E;
+  long psi_file_pos;
   int checkpoint_id;
 } par_st;
 
@@ -144,7 +145,7 @@ typedef enum
 
 // save.c
 void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, index_st *ist, parallel_st *parallel);
-void read_filter_output(char *file_name, double complex **psitot, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag);
+void read_filter_output(char *file_name, double **eig_vals, double **sigma_E, xyz_st **R, grid_st *grid, double **gridx, double **gridy, double **gridz, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 
 // norm.c
 double norma(zomplex *, double, long);

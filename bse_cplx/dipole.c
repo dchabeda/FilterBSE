@@ -261,7 +261,7 @@ void calc_mag_dipole(
     l_operator(&Lxpsi[ngrid], &Lypsi[ngrid], &Lzpsi[ngrid], &psi_qp[a_st + ngrid], g_vecs, grid, ist, par, planfw, planbw, fftwpsi);
     // nvtxRangePop();
 
-#pragma omp parallel for private(a, a_st, jg, idx)
+#pragma omp parallel for private(i, i_st, jg, idx)
     for (i = 0; i < n_ho; i++)
     {
       // nvtxRangePushA("loop over a");
@@ -364,7 +364,7 @@ void calc_rotational_strength(
       rs[ia] += cimag(elec_dip[ia].y * conj(mag_dip[ia].y));
       rs[ia] += cimag(elec_dip[ia].z * conj(mag_dip[ia].z));
 
-      fprintf(pf, "%d %d %.12f %.16f\n", i, a, eval[a] - eval[i], rs[ia]);
+      fprintf(pf, "%d %d %.12f %.12g\n", i, a, eval[a] - eval[i], rs[ia]);
     }
   }
   fclose(pf);

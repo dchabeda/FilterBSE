@@ -595,7 +595,7 @@ void calc_eh_kernel_cplx(
         if (ibs < jbs)
           continue;
         // printf("printing exchange %lu %lu %lu %lu\n", loop_idx, b, i, j);
-        fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, i, b, j, ibs, jbs,
+        fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
                 creal(exchange[ibs * ist->n_xton + jbs]), cimag(exchange[ibs * ist->n_xton + jbs]));
         // fprintf(pf, "%ld %ld %ld %ld %ld %ld %.16g %.16g\n", a, b, i, j, ibs, jbs,
         //         creal(exchange[ibs * ist->n_xton + jbs]), cimag(exchange[ibs * ist->n_xton + jbs]));

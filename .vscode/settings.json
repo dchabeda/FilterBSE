@@ -1,7 +1,20 @@
 {
     "files.associations": {
-        "cstdlib": "c",
-        "fftw3.h": "c",
-        "chrono": "c"
+      "cstdlib": "c",
+      "fftw3.h": "c",
+      "chrono": "c",
+      "mod_portho.h": "c",
+      "variant": "c",
+      "mod_init.h": "c",
+      "queue": "c",
+      "stack": "c",
+      "basis.h": "c",
+      "aux.h": "c",
+      "immintrin.h": "c",
+      "fd.h": "c",
+      "complex": "c",
+      "__locale": "c",
+      "random": "c",
+      "numbers": "c"
     }
 }

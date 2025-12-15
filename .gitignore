@@ -1,5 +1,6 @@
 *.o
 *.x
+*.yaml
 filter/EXAMPLES/*/psi.dat
 filter/EXAMPLES/*/output.dat
 *.e*

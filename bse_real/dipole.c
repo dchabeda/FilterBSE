@@ -58,7 +58,7 @@ void calc_elec_dipole(
   // Output will be written to these files
   pf = fopen("OS0.dat", "w");
 
-  fprintf(pf, "i  a   sqrt(mu2)     Ea-Ei 	  f_osc       mu_x.re     mu_x.im     mu_y.re     mu_y.im     mu_z.re     mu_z.im\n");
+  fprintf(pf, "i  a   sqrt(mu2)     Ea-Ei 	  f_osc       mu_x        mu_y       mu_z\n");
 
   /************************************************************/
   /*******************   CALC ELEC DIPOLE   *******************/
@@ -141,9 +141,9 @@ void calc_elec_dipole(
 
       fprintf(pf, "%ld % ld  %.8f %.12f % .8f % .8f % .8f % .8f\n",
               i, a, sqrt(mu2), E_ia, (2.0 / 3.0) * E_ia * mu2,
-              elec_dip[idx].x,
-              elec_dip[idx].y,
-              elec_dip[idx].z);
+              creal(elec_dip[idx].x),
+              creal(elec_dip[idx].y),
+              creal(elec_dip[idx].z));
     }
   }
   fclose(pf);

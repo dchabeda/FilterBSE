@@ -355,7 +355,7 @@ void calc_rotational_strength(
   pf = fopen("rs0.dat", "w");
   for (i = 0; i < ist->n_holes; i++)
   {
-    for (a = ist->n_elecs; a < ist->lumo_idx + ist->n_elecs; a++)
+    for (a = ist->lumo_idx; a < ist->lumo_idx + ist->n_elecs; a++)
     {
       // R_ia = Im[(ux.re + ux.im)*(mx.re - mx.im) + ...]
       ia = i * ist->n_elecs + (a - ist->lumo_idx);

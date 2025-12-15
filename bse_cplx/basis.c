@@ -180,11 +180,14 @@ void get_qp_basis_indices(
     // in that case, the lumo_idx will be left as the one from the old_n_holes
   }
 
-  // If the max number of elec states was set, then constrain the elec eigenbasis
-  if ((-1 != ist->max_elec_states) && (ist->n_elecs > ist->max_elec_states))
+  // As long as the electron basis is not unconstrained, do this
+  if ((-1 != ist->max_elec_states))
   {
-
-    ist->n_elecs = ist->max_elec_states;
+    if (ist->n_elecs > ist->max_elec_states)
+    {
+      // constrain the elec eigenbasis
+      ist->n_elecs = ist->max_elec_states;
+    }
 
     if (mpir == 0)
       printf("\tConstraining elec basis states to maxElecStates\n\t  new ist->n_elecs = %ld\n", ist->n_elecs);

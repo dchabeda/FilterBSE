@@ -13,7 +13,7 @@ Linux_OPTFLAGS = -O3 -DMKL_ILP64 -DFFTW_FFT -mavx2
 Linux_CFLAGS = $(Linux_OPTFLAGS) -qopenmp
 #Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
 
-MAINNAM = bse_cplx
+MAINNAM = bse_real
 
 # compiler ...
 Linux_CC = cc

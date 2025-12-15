@@ -31,19 +31,15 @@ void mod_optional_output(
   write_separation(stdout, "B");
   fflush(stdout);
 
-  if (1 == flag->printCubes)
-  {
-    print_eigstate_densities(psitot, grid, ist, par, flag, parallel);
-  }
-
-  // Set the total number of electron and hole states in order to calculate the potential overlap integrals
-  ist->total_homo = ist->homo_idx + 1;
-  ist->total_lumo = ist->mn_states_tot - ist->total_homo;
-
   if (mpir == 0)
   {
     printf("total_homo = %ld total_lumo = %ld\n", ist->total_homo, ist->total_lumo);
     fflush(0);
+  }
+
+  if (1 == flag->printCubes)
+  {
+    print_eigstate_densities(psitot, grid, ist, par, flag, parallel);
   }
 
   if (flag->calcSpinAngStat == 1)
@@ -143,6 +139,9 @@ void print_eigstate_densities(double *psitot, grid_st *grid, index_st *ist, par_
     }
   }
   fclose(pf);
+
+  ist->total_homo = ist->homo_idx;
+  ist->total_lumo = ist->mn_states_tot - ist->total_homo;
 
   printf("homo_idx = %ld; lumo_idx = %ld\n", ist->homo_idx, ist->lumo_idx);
   fflush(0);

@@ -18,11 +18,11 @@
 /**************************************************************************/
 
 void calc_eh_kernel_cplx(
-    double complex *restrict psi_qp,
+    double *restrict psi_qp,
     double complex *restrict pot_bare,
     double complex *restrict pot_screened,
-    double complex *restrict direct,
-    double complex *restrict exchange,
+    double *restrict direct,
+    double *restrict exchange,
     index_st *ist,
     par_st *par,
     flag_st *flag,
@@ -71,16 +71,11 @@ void calc_eh_kernel_cplx(
   fileName[30] = '\0';
 
   double complex *restrict rho;
-  double complex *restrict pot_htree;
+  double *restrict pot_htree;
 
   ALLOCATE(&rho, ngrid, "rho in coulomb");
   ALLOCATE(&listibs, ist->n_xton, "listibs in coulomb");
   ALLOCATE(&pot_htree, nspngr, "pot_htree");
-  // Note: strictly, only ngrid elements are needed for pot_htree
-  // but in order to improve loop indexing and vectorization of
-  // Coulomb integrals, the first ngrid elements will be duplicated
-  // in the remaining ngrid memory block. This enables a seamless
-  // integral over up and down spin parts of the wavefunction
 
   /************************************************************/
   /*******************    INIITIALIZE FFT   *******************/
@@ -127,7 +122,7 @@ void calc_eh_kernel_cplx(
   MPI_Comm even_comm = MPI_COMM_NULL;
   MPI_Comm odd_comm = MPI_COMM_NULL;
 
-  MPI_Comm_split(MPI_COMM_WORLD, rank_parity, mpir, (rank_parity == 0) ? &even_comm : &odd_comm); // these labels are switched to give exchange int xtra rank
+  MPI_Comm_split(MPI_COMM_WORLD, rank_parity, mpir, (rank_parity == 0) ? &even_comm : &odd_comm);
 
   if ((rank_parity == 0) && (even_comm == MPI_COMM_NULL))
   {
@@ -139,7 +134,6 @@ void calc_eh_kernel_cplx(
   }
 
   // enable odd_comm if only using 1 MPI rank
-  // NOTE: broken, still does not work for just 1 rank
   if (parallel->mpi_size == 1)
   {
     MPI_Comm_split(MPI_COMM_WORLD, rank_parity, mpir, &odd_comm);
@@ -155,9 +149,7 @@ void calc_eh_kernel_cplx(
 
   /*** vabji direct ***/
   // We avoid performing additional computational work
-  // 2e integrals have a 2-fold permutation symmetry if cplx
-  // [ij|ab] = [ji|ba]^*
-  // 4-fold if real!
+  // 2e integrals have a 4-fold permutation symmetry if real
   // [ij|ab] = [ji|ab] = [ji|ba] = [ij|ba]
   // using Chemist's notation from Szabo and Ostlund
 
@@ -292,8 +284,7 @@ void calc_eh_kernel_cplx(
     {
       printf("Computing direct mat | %s\n", get_time());
     }
-    // Profile expensive loop
-    // nvtxRangePushA("Computing BSE direct matrix elements");
+
     cntr = 0;
     double ab_start_t = omp_get_wtime();
     for (ab = start; ab < ab_tot; ab += even_size)
@@ -307,23 +298,18 @@ void calc_eh_kernel_cplx(
 
       // Compute hartree potential for a, b density
       // 1) Compute joint density and store in rho
-      // // nvtxRangePushA("Computing ab joint density");
 
       for (jg = 0; jg < ngrid; jg++)
       {
-        rho[jg] = conjmul(psi_qp[a_st + jg], psi_qp[b_st + jg]) + conjmul(psi_qp[a_st + jg + ngrid], psi_qp[b_st + jg + ngrid]);
+        rho[jg] = psi_qp[a_st + jg] * psi_qp[b_st + jg] + 0.0 * I;
       }
-
-      // // nvtxRangePop();
 
       // Compute the hartree potential and store in pot_htree
       // h_d(r) = \int W(r,r') \rho_{ab}(r') d^3r' via fourier transform
-      // // nvtxRangePushA("Computing hartree pot");
+
       hartree(rho, pot_screened, pot_htree, ist, planfw, planbw, fftwpsi);
-// // nvtxRangePop();
 
 // loop over hole states i, j
-// // nvtxRangePushA("i,j loop of direct");
 #pragma omp parallel for private(i, j) // schedule(dynamic, chunk_size)
       for (ij = 0; ij < ij_tot; ij++)
       {
@@ -342,21 +328,18 @@ void calc_eh_kernel_cplx(
         }
 
         long jg;
-        double complex sum;
-        sum = 0.0 + 0.0 * I;
+        double sum;
+        sum = 0.0;
 
         // K^d_{ai,bj}=\int h_d(r) \sum_\sigma psi_{i}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
         for (jg = 0; jg < ngrid; jg++)
         {
-          sum += pot_htree[jg] *
-                 (conjmul(psi_qp[j_st + jg], psi_qp[i_st + jg]) +
-                  conjmul(psi_qp[j_st + jg + ngrid], psi_qp[i_st + jg + ngrid]));
+          sum += pot_htree[jg] * psi_qp[j_st + jg] * psi_qp[i_st + jg];
         }
         sum *= dv;
 
         direct[ibs * n_xton + jbs] = sum;
       } // end of ij
-      // // nvtxRangePop();
 
       // fflush(0);
       for (ij = 0; ij < ij_tot; ij++)
@@ -366,8 +349,8 @@ void calc_eh_kernel_cplx(
         ibs = listibs[(a - lidx) * n_ho + i];
         jbs = listibs[(b - lidx) * n_ho + j];
 
-        fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
-                creal(direct[ibs * n_xton + jbs]), cimag(direct[ibs * n_xton + jbs]));
+        fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f\n", a, b, i, j, ibs, jbs,
+                direct[ibs * n_xton + jbs]);
       }
       // Every 25% of iterations, print output
       if ((cntr == 0) || (0 == cntr % (ncycles / 4 + 1)) || (cntr == (ncycles - 1)))
@@ -548,7 +531,7 @@ void calc_eh_kernel_cplx(
       // 1) Compute joint density and store in rho
       for (jg = 0; jg < ngrid; jg++)
       {
-        rho[jg] = conjmul(psi_qp[a_st + jg], psi_qp[i_st + jg]) + conjmul(psi_qp[a_st + jg + ngrid], psi_qp[i_st + jg + ngrid]);
+        rho[jg] = psi_qp[a_st + jg] * psi_qp[i_st + jg] + 0.0 * I;
       }
 
       // Compute the hartree potential and store in pot_htree
@@ -568,21 +551,21 @@ void calc_eh_kernel_cplx(
         long jbs = listibs[(b - lidx) * n_ho + j];
 
         if (ibs < jbs)
+        {
           continue;
+        }
 
         long jg;
-        double complex sum;
-        sum = 0.0 + 0.0 * I;
+        double sum;
+        sum = 0.0;
 
         for (jg = 0; jg < ngrid; jg++)
         {
-          sum += pot_htree[jg] *
-                 (conjmul(psi_qp[j_st + jg], psi_qp[b_st + jg]) +
-                  conjmul(psi_qp[j_st + jg + ngrid], psi_qp[b_st + jg + ngrid]));
+          sum += pot_htree[jg] * psi_qp[j_st + jg] * psi_qp[b_st + jg];
         }
         sum *= dv;
 
-        exchange[ibs * n_xton + jbs] = -sum;
+        exchange[ibs * n_xton + jbs] = -2.0 * sum;
       } // end of bj
 
       for (bj = 0; bj < bj_tot; bj++)
@@ -593,36 +576,17 @@ void calc_eh_kernel_cplx(
         jbs = listibs[(b - lidx) * n_ho + j];
 
         if (ibs < jbs)
+        {
           continue;
-        // printf("printing exchange %lu %lu %lu %lu\n", loop_idx, b, i, j);
+        }
+
         fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
-                creal(exchange[ibs * ist->n_xton + jbs]), cimag(exchange[ibs * ist->n_xton + jbs]));
-        // fprintf(pf, "%ld %ld %ld %ld %ld %ld %.16g %.16g\n", a, b, i, j, ibs, jbs,
-        //         creal(exchange[ibs * ist->n_xton + jbs]), cimag(exchange[ibs * ist->n_xton + jbs]));
+                exchange[ibs * ist->n_xton + jbs]);
       }
 
       // Every 25% of iterations, print the job progress
       if ((cntr == 0) || (0 == cntr % (ncycles / 4 + 1)) || (cntr == (ncycles - 1)))
       {
-        // Print exchange mat elements
-        // for (loop_idx = last_ai; loop_idx <= ai; loop_idx++){
-        //   if ((loop_idx - start) % odd_size != 0) continue;
-        //   a = lista[loop_idx];
-        //   i = listi[loop_idx];
-        //   for (bj = 0; bj < bj_tot; bj++){
-        //     b = listb[bj];
-        //     j = listj[bj];
-        //     ibs = listibs[(a - lidx) * n_ho + i];
-        //     jbs = listibs[(b - lidx) * n_ho + j];
-
-        //     if (ibs < jbs) continue;
-        //     // printf("printing exchange %lu %lu %lu %lu\n", loop_idx, b, i, j);
-        //     fprintf(pf,"%ld %ld %ld %ld %ld %ld %.16g %.16g\n", a, b, i, j, ibs, jbs, \
-        //         creal(exchange[ibs * ist->n_xton + jbs]), cimag(exchange[ibs * ist->n_xton + jbs])
-        //     );
-        //   }
-        // }
-        // last_ai = ai + 1;
         // Print progress
         if (odd_rank == 0)
         {
@@ -661,11 +625,11 @@ void calc_eh_kernel_cplx(
     // Use MPI_Reduce to sum data from all even ranks into rank 0
     if (mpir == 0)
     {
-      MPI_Reduce(MPI_IN_PLACE, direct, 2 * sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, even_comm);
+      MPI_Reduce(MPI_IN_PLACE, direct, sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, even_comm);
     }
     else
     {
-      MPI_Reduce(direct, direct, 2 * sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, even_comm);
+      MPI_Reduce(direct, direct, sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, even_comm);
     }
   }
   if (mpir == 0)
@@ -678,11 +642,11 @@ void calc_eh_kernel_cplx(
     // Use MPI_Reduce to sum data from all odd ranks into rank 1
     if (mpir == 1)
     {
-      MPI_Reduce(MPI_IN_PLACE, exchange, 2 * sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, odd_comm);
+      MPI_Reduce(MPI_IN_PLACE, exchange, sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, odd_comm);
     }
     else
     {
-      MPI_Reduce(exchange, exchange, 2 * sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, odd_comm);
+      MPI_Reduce(exchange, exchange, sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, odd_comm);
     }
   }
   if (mpir == 1)
@@ -697,11 +661,11 @@ void calc_eh_kernel_cplx(
   {
     if (mpir == 1)
     {
-      MPI_Send(exchange, 2 * sqr(ist->n_xton), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+      MPI_Send(exchange, sqr(ist->n_xton), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
     }
     if (mpir == 0)
     {
-      MPI_Recv(exchange, 2 * sqr(ist->n_xton), MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      MPI_Recv(exchange, sqr(ist->n_xton), MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
   }
   // else{
@@ -710,8 +674,10 @@ void calc_eh_kernel_cplx(
   // }
 
   if (mpir == 0)
+  {
     printf("Successfully sent exchange mat to mpi_rank 0 | %s\n", get_time());
-  fflush(0);
+    fflush(0);
+  }
 
   MPI_Barrier(MPI_COMM_WORLD);
 

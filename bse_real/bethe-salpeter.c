@@ -5,10 +5,10 @@
 /*****************************************************************************/
 
 void bethe_salpeter(
-    double complex *direct,
-    double complex *exchange,
-    double complex *bsmat,
-    double complex *bs_coeff,
+    double *direct,
+    double *exchange,
+    double *bsmat,
+    double *bs_coeff,
     double *h0mat,
     double *xton_ene,
     grid_st *grid,
@@ -39,10 +39,10 @@ void bethe_salpeter(
   const long lidx = ist->lumo_idx;
   const long n_xton = ist->n_xton;
 
-  double complex *mat;
-  double complex *h;
-  double complex sum;
-  double complex tmp;
+  double *mat;
+  double *h;
+  double sum;
+  double tmp;
 
   double start_t;
   double end_t;

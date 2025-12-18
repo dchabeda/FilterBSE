@@ -3,11 +3,11 @@
 /***************************************************************************************/
 
 void mod_bse(
-    double complex *psi_qp,
-    double complex *direct,
-    double complex *exchange,
-    double complex **bsmat,
-    double complex **bs_coeff,
+    double *psi_qp,
+    double *direct,
+    double *exchange,
+    double **bsmat,
+    double **bs_coeff,
     double **h0mat,
     double **xton_ene,
     double *eig_vals,
@@ -106,39 +106,23 @@ void build_BSE_mat(
     {
       ut = ibs * ist->n_xton + jbs;
       lt = jbs * ist->n_xton + ibs;
-      // Symmetrize the matrices
-      direct[lt] = conj(direct[ut]);
 
-      exchange[lt] = conj(exchange[ut]);
+      // Symmetrize the matrices
+      direct[lt] = direct[ut];
+      exchange[lt] = exchange[ut];
 
       // Collect values for bsmat
       bsmat[ut] = direct[ut] + exchange[ut];
       bsmat[lt] = direct[lt] + exchange[lt];
-
-      // Enforce Hermitivity by setting imag part of diag elems to 0.0
-      if (ibs == jbs)
-      {
-        bsmat[ut] = creal(bsmat[ut]) + 0.0 * I; //
-      }
     }
   }
 
-  ppsi = fopen("bsRE.dat", "w");
+  ppsi = fopen("bs.dat", "w");
   for (i = 0; i < ist->n_xton; i++, fprintf(ppsi, "\n"))
   {
     for (j = 0; j < ist->n_xton; j++)
     {
-      fprintf(ppsi, "%.*g ", PR_LEN, creal(bsmat[i * ist->n_xton + j]));
-    }
-  }
-  fclose(ppsi);
-
-  ppsi = fopen("bsIM.dat", "w");
-  for (i = 0; i < ist->n_xton; i++, fprintf(ppsi, "\n"))
-  {
-    for (j = 0; j < ist->n_xton; j++)
-    {
-      fprintf(ppsi, "%.*g ", PR_LEN, cimag(bsmat[i * ist->n_xton + j]));
+      fprintf(ppsi, "%.*g ", PR_LEN, bsmat[i * ist->n_xton + j]);
     }
   }
   fclose(ppsi);

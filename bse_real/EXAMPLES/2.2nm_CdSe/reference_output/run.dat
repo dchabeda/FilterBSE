@@ -1,0 +1,224 @@
+******************************************************************************
+
+RUNNING PROGRAM: BETHE-SALPETHER (real-valued version)
+This calculation began at: Sun Dec 21 07:30:34 2025
+
+******************************************************************************
+
+
+******************************************************************************
+
+1.	INITIALIZING JOB | Sun Dec 21 07:30:34 2025
+
+
+******************************************************************************
+
+Reading filter output from output.dat:
+
+	Output tag = 420879395
+	Check that this output tag matches your filter run.dat!
+
+	index_st from filter...
+	par_st from filter...
+	flag_st from filter...
+	conf from filter...
+	grid from filter...
+	eig_vals from filter...
+	sigma_E from filter...
+EOF
+
+Reading BSE job specifications from input.par:
+
+	Grid parameters from filter job:
+	----------------------------------
+	nx = 56, ny = 52, nz = 44
+	dx = 0.8, dy = 0.8, dz = 0.8
+	ngrid = 128128 nspin = 1 nspinngrid = 128128
+
+	Parameters & counters for BSE algorithm:
+	-------------------------------------------
+	maxHoleStates (# h+ in basis) = 8
+	maxElecStates (# e- in basis) = 8
+	sigmaECut = 0.001 a.u.
+	DeltaE_hole = 0.1 a.u.  DeltaE_elec = 0.1 a.u.
+	KEmax = 10 a.u.
+	fermiEnergy = -0.19 a.u.
+
+	Dielectric screening options:
+	-------------------------------
+	epsX = 5
+	epsY = 5
+	epsZ = 5
+	Pseudopotentials were short ranged.
+
+	Parameters for two-component representation:
+	----------------------------------------------
+	Spinor wavefunctions turned OFF!
+	Spin-orbit coupling is OFF!
+	Non-local potential is OFF!
+	Wavefunctions are REAL valued!
+	  complex_idx = 1
+
+	Flags for optional output:
+	----------------------------
+	Computing spin-allowed sector of BSE matrix -> bright states
+	Timing specs will NOT be printed
+	Fixed point densities will NOT be printed
+	Spin and Ang. Mom. statistics will NOT be computed
+
+	Parameters for parallelization:
+	-------------------------------
+	nThreads (# OMP threads) = 1
+
+	Flags for restarting computation:
+	-----------------------------------
+	No checkpoint saves requested
+	No checkpoint specified for restart. Job will run in normal sequence.
+
+Setting quasiparticle basis indices:
+
+	Total # of filtered hole eigenstates = 34
+	Total # of filtered electron eigenstates = 8
+	The filter eval.dat index of the HOMO state = 79  LUMO state = 80
+
+	Unconstrained energy span of holes, 0.0405 a.u. (1.1 eV) < desired span = 0.1 a.u. (2.7 eV)
+	**Increase size of VB basis states to reach desired result**
+	Unconstrained energy span of elecs, 0.0583 a.u. (1.6 eV) < desired span = 0.1 a.u. (2.7 eV)
+	**Increase size of CB basis states to reach desired result**
+
+	Constraining hole basis states to maxHoleStates
+	  new ist->n_holes = 8
+	Constrained energy span of holes, 0.00605 a.u. (0.16 eV) < desired span = 0.1 a.u. (2.7 eV)
+	**Increase size of VB basis states to reach desired result**
+	Constraining elec basis states to maxElecStates
+	  new ist->n_elecs = 8
+	Constrained energy span of elecs, 0.0583 a.u. (1.6 eV) < desired span = 0.1 a.u. (2.7 eV)
+	**Increase size of CB basis states to reach desired result**
+
+	Selected # of filtered h+ qp basis states = 8
+	Selected # of filtered e- qp basis states = 8
+	Total number of quasiparticle states, n_qp = 16
+	The BSEeval.par index of the HOMO state = 7  LUMO state = 8
+	The HOMO energy = -0.244313 a.u. -6.648 eV
+	The LUMO energy = -0.120213 a.u. -3.271 eV
+	Fundamental gap = 0.1241 a.u. 3.377 eV
+
+Reading quasiparticle basis wavefunctions:
+
+
+******************************************************************************
+
+4.	COMPUTING SINGLE-PARTICLE PROPERTIES | Sun Dec 21 07:30:34 2025
+
+
+******************************************************************************
+Allocating memory for single particle matrix elements... done
+
+Electric transition dipole moment...
+Duration of computing dipole: 0.115064 s (0.001798 s per transition)
+
+Magnetic transition dipole moment...
+Duration of computing mag dipole: 0.115238 s (0.001801 s per transition)
+
+Rotational strengths...
+
+
+******************************************************************************
+
+2.	COMPUTING ELECTRON-HOLE INTERACTION POTENTIALS | Sun Dec 21 07:30:35 2025
+
+
+******************************************************************************
+Allocating memory for hartree, direct, and exchange potentials... done.
+Computing interaction potential on grid...
+	Bare Coulomb potential, v(r, r')...
+	Screened Coulomb potential, W(r, r')...
+  Done generating e-h interaction potential.
+
+
+******************************************************************************
+
+3.	COMPUTING ELEC-HOLE INTERACTION KERNEL | Sun Dec 21 07:30:35 2025
+
+
+******************************************************************************
+
+The number of electron-hole pairs in the exciton basis = 64
+Computing complex e-h kernel
+Screened direct matrix K^d | Sun Dec 21 07:30:35 2025
+
+Determining workload when a < b, abtot = 64 | MPI even rank 0
+	ncycles = 64
+	inner loop 64; 1 threads; chunk size 64
+Starting at ab = 0 on even rank 0 | Sun Dec 21 07:30:35 2025
+
+Computing direct mat | Sun Dec 21 07:30:35 2025
+
+Direct: 	  [                ]   0% | Sun Dec 21 07:30:35 2025
+
+Direct: 	  [####            ]  27% | Sun Dec 21 07:30:35 2025
+
+Direct: 	  [########        ]  53% | Sun Dec 21 07:30:35 2025
+
+Direct: 	  [############    ]  80% | Sun Dec 21 07:30:35 2025
+
+Direct: 	  [############### ]  98% | Sun Dec 21 07:30:35 2025
+
+Done with direct; duration = 0.298814 s (0.00498023 m)
+
+Bare exchange matrix K^x | Sun Dec 21 07:30:35 2025
+
+
+Determining the workload for aitot = 64 on MPI odd rank 0
+	Exchange ncycles = 64
+	64 inner loop; 1 threads; chunk size 64
+Starting at ai = 0 on odd rank 0 | Sun Dec 21 07:30:35 2025
+
+Exchange: 	  [                ]   0% | Sun Dec 21 07:30:35 2025
+
+Exchange: 	  [####            ]  27% | Sun Dec 21 07:30:36 2025
+
+Exchange: 	  [########        ]  53% | Sun Dec 21 07:30:36 2025
+
+Exchange: 	  [############    ]  80% | Sun Dec 21 07:30:36 2025
+
+Exchange: 	  [############### ]  98% | Sun Dec 21 07:30:36 2025
+
+Done with exchange integrals on rank 0; duration = 0.334717 s (0.00557862 m)
+
+
+Successfully reduced direct mat from even ranks | Sun Dec 21 07:30:36 2025
+
+Successfully sent exchange mat to mpi_rank 0 | Sun Dec 21 07:30:36 2025
+
+
+
+******************************************************************************
+
+4.	SOLVING BETHE-SALPETER EQUATION | Sun Dec 21 07:30:36 2025
+
+
+******************************************************************************
+Done diagonalizing BSE matrix | 00:00:00
+
+Ground state exciton has energy = 0.11037 a.u. | 3.00324 eV
+
+Done solving BSE | Sun Dec 21 07:30:36 2025
+
+
+
+******************************************************************************
+
+  -  COMPUTING XTON OPTICAL PROPERTIES | Sun Dec 21 07:30:36 2025
+
+
+******************************************************************************
+
+
+******************************************************************************
+
+DONE WITH PROGRAM: BETHE-SALPETHER
+This calculation ended at: Sun Dec 21 07:30:37 2025
+
+Total job CPU time (sec) 8.55, wall run time (sec) 3 | 00:00:03
+******************************************************************************

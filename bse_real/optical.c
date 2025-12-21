@@ -1,10 +1,10 @@
 /*****************************************************************************/
-#include "fd.h"
+#include "optical.h"
 
 /*****************************************************************************/
 
 void calc_optical_exc(
-    double complex *bs_coeff,
+    double *bs_coeff,
     double *xton_ene,
     double *eig_vals,
     xyz_st *mu,
@@ -51,28 +51,28 @@ void calc_optical_exc(
       {
         // Exciton electric dipole
         idx = i * n_el + (a - lidx);
-        mu_sum.x += bs_coeff[ibs * n_xton + j_xton] * mu[idx].x;
-        mu_sum.y += bs_coeff[ibs * n_xton + j_xton] * mu[idx].y;
-        mu_sum.z += bs_coeff[ibs * n_xton + j_xton] * mu[idx].z;
+        mu_sum.x += bs_coeff[j_xton * n_xton + ibs] * mu[idx].x;
+        mu_sum.y += bs_coeff[j_xton * n_xton + ibs] * mu[idx].y;
+        mu_sum.z += bs_coeff[j_xton * n_xton + ibs] * mu[idx].z;
 
         // Exciton magnetic dipole
-        m_sum.x += bs_coeff[ibs * n_xton + j_xton] * m[idx].x;
-        m_sum.y += bs_coeff[ibs * n_xton + j_xton] * m[idx].y;
-        m_sum.z += bs_coeff[ibs * n_xton + j_xton] * m[idx].z;
+        m_sum.x += bs_coeff[j_xton * n_xton + ibs] * m[idx].x;
+        m_sum.y += bs_coeff[j_xton * n_xton + ibs] * m[idx].y;
+        m_sum.z += bs_coeff[j_xton * n_xton + ibs] * m[idx].z;
 
         if (j_xton < 10)
         {
-          fprintf(pcoeff, "%ld %ld %.12lg %lg\n", i, a, eig_vals[a] - eig_vals[i], cnorm(bs_coeff[ibs * n_xton + j_xton]));
+          fprintf(pcoeff, "%ld %ld %.12lg %lg\n", i, a, eig_vals[a] - eig_vals[i], cnorm(bs_coeff[j_xton * n_xton + ibs]));
         }
       }
     }
     os = (cnorm(mu_sum.x) + cnorm(mu_sum.y) + cnorm(mu_sum.z));
     mos = (cnorm(m_sum.x) + cnorm(m_sum.y) + cnorm(m_sum.z));
 
-    fprintf(pf, "%ld % .8f % .8f % .8f % .12f % .12f % .12f % .12f % .12f % .12f\n", j_xton, sqrt(os), xton_ene[j_xton], (2.0 / 3.0) * xton_ene[j_xton] * os,
-            creal(mu_sum.x), cimag(mu_sum.x),
-            creal(mu_sum.y), cimag(mu_sum.y),
-            creal(mu_sum.z), cimag(mu_sum.z));
+    fprintf(pf, "%ld % .8f % .8f % .8f % .12f % .12f % .12f\n", j_xton, sqrt(os), xton_ene[j_xton], (2.0 / 3.0) * xton_ene[j_xton] * os,
+            creal(mu_sum.x),
+            creal(mu_sum.y),
+            creal(mu_sum.z));
 
     fprintf(pf1, "%ld % .8f % .8f % .8f % .12f % .12f % .12f % .12f % .12f % .12f\n", j_xton, sqrt(mos), xton_ene[j_xton], (4.0 / 3.0) * xton_ene[j_xton] * mos,
             creal(m_sum.x), cimag(m_sum.x),

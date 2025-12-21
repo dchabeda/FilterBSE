@@ -580,7 +580,7 @@ void calc_eh_kernel_cplx(
           continue;
         }
 
-        fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
+        fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f\n", a, b, i, j, ibs, jbs,
                 exchange[ibs * ist->n_xton + jbs]);
       }
 
@@ -705,7 +705,7 @@ void calc_eh_kernel_cplx(
 
 /***************************************************************************************/
 
-int load_coulomb_mat(double complex *mat, char *fileName, long *a_max, long *b_max, long *i_max, long *j_max, index_st *ist)
+int load_coulomb_mat(double *mat, char *fileName, long *a_max, long *b_max, long *i_max, long *j_max, index_st *ist)
 {
 
   FILE *pf;

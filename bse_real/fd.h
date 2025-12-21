@@ -16,7 +16,6 @@
 // #include <lapack.h>
 #include <mpi.h>
 #include <omp.h>
-#include <nvToolsExt.h>
 #include <mkl.h>
 
 /*****************************************************************************/
@@ -164,8 +163,6 @@ int z_project(double *vector, double *vz, par_st par, index_st ist, char *fname)
 void print_cube(double *pgrid, index_st ist, par_st par, char *fName);
 void print_fixed_qp_density(double *psi, double *Cbs, double *vz, index_st ist, par_st par);
 
-// optical.c
-void calc_optical_exc(double complex *bs_coeff, double *xton_ene, double *eig_vals, xyz_st *mu, xyz_st *m, index_st *ist, par_st *par);
 /*****************************************************************************/
 
 #include "aux.h"

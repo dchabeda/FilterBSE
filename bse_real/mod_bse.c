@@ -75,7 +75,6 @@ void build_h0_mat(
   {
     for (j = 0; j < ist->n_xton; j++)
     {
-      // fprintf(ppsi,"%.*g ", PR_LEN, h0mat[i*ist->n_xton+j]);
       fprintf(ppsi, "%.6g ", h0mat[i * ist->n_xton + j]);
     }
   }
@@ -87,9 +86,9 @@ void build_h0_mat(
 /***************************************************************************************/
 
 void build_BSE_mat(
-    double complex *bsmat,
-    double complex *direct,
-    double complex *exchange,
+    double *bsmat,
+    double *direct,
+    double *exchange,
     index_st *ist)
 {
 

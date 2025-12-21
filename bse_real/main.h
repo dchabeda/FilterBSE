@@ -6,3 +6,4 @@
 #include "mod_dipole.h"
 #include "mod_kernel.h"
 #include "mod_bse.h"
+#include "optical.h"

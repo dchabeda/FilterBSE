@@ -20,7 +20,7 @@ void calc_qp_spin_mtrx(
    * Sy = 1/2 (-i|up><down| + i|down><up|)                            *
    * Sz = 1/2 (|up><up| - |down><down|)                               *
    * and we compute the matrix elements <i|Sx|j> as                   *
-   * sum_r psi_i(r, s) * Sx * psi_j(r, s)                             *
+   * sum_r psi_i(r, s) * Sx * psi_j(r, s) * dr                        *
    * inputs:                                                          *
    *  [s_mom] array to hold components of the spin projection elems   *
    *  [psi_qp] array holding all qp_basis states                      *
@@ -766,6 +766,7 @@ void calc_xton_spin_mtrx(
         {
           jbs = listibs[(b - lidx) * n_ho + i];
           index = sqr(n_ho) + (a - lidx) * n_el + (b - lidx);
+          // index = sqr(n_ho) + (b - lidx) * n_el + (a - lidx);
 
           // c_bi^* * <b| Sx |a>
           stmp.x += conjmul(bs_coeff[jbs * n_xton + n], s_mom[index].x);
@@ -782,6 +783,7 @@ void calc_xton_spin_mtrx(
         {
           jbs = listibs[(a - lidx) * n_ho + j];
           index = i * n_ho + j;
+          // index = j * n_ho + i;
 
           // c_aj^* * <j| Sx |i>
           stmp.x += conjmul(bs_coeff[jbs * n_xton + n], s_mom[index].x);
@@ -803,7 +805,9 @@ void calc_xton_spin_mtrx(
           for (j = 0; j < n_ho; j++)
           {
             indexba = sqr(n_ho) + (a - lidx) * n_el + (b - lidx);
+            // indexba = sqr(n_ho) + (b - lidx) * n_el + (a - lidx);
             indexji = i * n_ho + j;
+            // indexji = j * n_ho + i;
 
             jbs = listibs[(b - lidx) * n_ho + j];
 
@@ -819,8 +823,8 @@ void calc_xton_spin_mtrx(
       } // end of i
     } // end of a
 
-    fprintf(pf, "%ld\t%-10.5lf\t%-10.5lf\t%-10.5lf\t", n, creal(spin.x), creal(spin.y), creal(spin.z));
-    fprintf(pf, "%-10.5lf\t (%-10.5lf)\n", 1.5 + 2.0 * creal(spintot), 2.0 * cimag(spintot));
+    fprintf(pf, "%ld\t%-10.5lg\t%-10.5lg\t%-10.5lg\t%-10.5lg\t%-10.5lg\t%-10.5lg\t", n, creal(spin.x), cimag(spin.x), creal(spin.y), cimag(spin.y), creal(spin.z), cimag(spin.z));
+    fprintf(pf, "%-10.5lg\t (%-10.5lg)\n", 1.5 + 2.0 * creal(spintot), 2.0 * cimag(spintot));
   } // end of n
 
   fclose(pf);

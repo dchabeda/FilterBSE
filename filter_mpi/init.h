@@ -47,6 +47,14 @@ void init_SO_projectors(
     flag_st *flag,
     parallel_st *parallel);
 
+void read_LSD_pots(
+    double *LSD_r_vals,
+    double *LSD_pots,
+    double *LSD_dr,
+    long *LSD_file_lens,
+    atom_info *atom,
+    index_st *ist);
+
 void init_NL_projectors(
     nlc_st *nlc,
     long *nl,

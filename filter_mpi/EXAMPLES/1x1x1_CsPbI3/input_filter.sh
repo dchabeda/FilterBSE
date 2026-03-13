@@ -52,7 +52,7 @@ NLFlag="1"
 # Set options for additional output
 printNorm="0"
 printCubes="1"; 
-saveCheckpoints="0"
+saveCheckpoints="1"
 ncubes="4"
 calcPotOverlap="0"
 getAllStates="1" # If you only want to print out converged states, make this 0

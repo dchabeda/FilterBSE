@@ -40,6 +40,7 @@ typedef struct flag
   int SO;
   int NL;
   int LR;
+  int LSD;
   int useSpinors;
   int isComplex;
 

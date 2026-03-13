@@ -16,10 +16,17 @@ double interpolate(double r, double dr, double *vr, double *vr_LR, double *pot, 
   // This is incorrect behavior for the long range potentials. The long rang pseudopotentials either
   // need to be defined for very large distances such that all grid point r-r' distances are captured,
   // or a smooth long range tail erf(r)/r needs to be analytically implemented to match the LR parameters.
-  if (0 == is_LR)
+
+  if (i > (n - 2))
   {
-    if (i > (n - 2))
+    if (0 == is_LR)
+    {
       return (0.0);
+    }
+    else
+    {
+      printf("WARNING: longRange flag turned on, but potential file not long enough to cover grid!");
+    }
   }
 
   a = strain_factor * (pot[j * pot_file_len + i + 1] - pot[j * pot_file_len + i]) / (vr[j * pot_file_len + i + 1] - vr[j * pot_file_len + i]);

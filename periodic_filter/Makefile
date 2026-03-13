@@ -21,7 +21,7 @@ MAINNAM = Filter
 Linux_CC = cc
 
 OBJECTS = \
-	main.o mod_init.o mod_mem.o mod_pot.o mod_filter.o mod_ortho.o mod_diag.o mod_output.o\
+	main.o mod_init.o mod_mem.o mod_pseudopot.o mod_filter.o mod_ortho.o mod_diag.o mod_output.o\
 	read.o init.o save.o projectors.o norm.o rand.o interpolate.o strain.o coeff.o \
 	energy.o hamiltonian.o filter.o ortho.o Hmat.o write.o nerror.o phamiltonian.o \
 	vector.o aux.o init_periodic.o ghamiltonian.o

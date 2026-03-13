@@ -512,6 +512,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
   const int pbc = flag->periodic;
   const int csi = ist->crystal_structure_int;
   const int omi = ist->outmost_material_int;
+  const int LSD = flag->LSD;
 
   const double ssCs = par->scale_surface_Cs;
   const double pcr2 = par->pot_cut_rad2;
@@ -546,6 +547,21 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
       fprintf(stderr, "OUT OF MEMORY allocating strain\n");
       exit(EXIT_FAILURE);
     }
+  }
+
+  // Allocate memory for LSD potentials if needed
+  double *LSD_pots = NULL;
+  double *LSD_r = NULL;
+  double *LSD_dr = NULL;
+  long *LSD_file_lens = NULL;
+  if (LSD == 1)
+  {
+    ALLOCATE(&LSD_pots, mpl * nat, "LSD_pots");
+    ALLOCATE(&LSD_r, mpl * nat, "LSD_r");
+    ALLOCATE(&LSD_dr, nat, "LSD_dr");
+    ALLOCATE(&LSD_file_lens, nat, "LSD_file_lens");
+
+    read_LSD_pots(LSD_r, LSD_pots, LSD_dr, LSD_file_lens, atom, ist);
   }
 
   // Read atomic pseudopotentials
@@ -637,6 +653,14 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
                 dist, pot->dr[atyp_idx], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR,
                 mpl, pot->file_lens[atyp_idx], atyp_idx,
                 scaleLR, atom[jat].LR_par, strainF, flag->LR);
+
+            if (LSD == 1)
+            {
+              sum += interpolate(
+                  dist, LSD_dr[jat], LSD_r, pot->r_LR, LSD_pots, pot->pseudo_LR,
+                  mpl, LSD_file_lens[jat], jat,
+                  0, atom[jat].LR_par, 1.0, flag->LR);
+            }
           }
         }
         pot_local[jxyz] = pot_local[ist->ngrid + jxyz] = sum;
@@ -665,6 +689,67 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
     free(s_scale);
     free(pot->a4_params);
     free(pot->a5_params);
+  }
+
+  if (LSD == 1)
+  {
+    free(LSD_pots);
+    free(LSD_r);
+    free(LSD_dr);
+    free(LSD_file_lens);
+  }
+
+  return;
+}
+
+/*****************************************************************************/
+void read_LSD_pots(double *LSD_r, double *LSD_pots, double *LSD_dr, long *LSD_file_lens, atom_info *atom, index_st *ist)
+{
+  FILE *pf;
+  int jatom;
+  char str[100];
+  double r_tmp;
+  double pot_tmp;
+  int iscan;
+  long file_len;
+
+  for (jatom = 0; jatom < ist->natoms; jatom++)
+  {
+    snprintf(str, sizeof(str), "LSD/pot_LSD_%s%d.dat", atom[jatom].atyp, jatom);
+
+    pf = fopen(str, "r");
+    // Check fopen result before using the pointer
+    if (pf == NULL)
+    {
+      fprintf(stderr, "Error: could not open file '%s'\n", str);
+      return;
+    }
+
+    file_len = 0;
+    // fscanf returns the number of items matched (here 2), or EOF on failure.
+    while (1)
+    {
+      // Fix 5: bounds check before writing into LSD_pots
+      if (file_len >= ist->max_pot_file_len)
+      {
+        fprintf(stderr, "Error: file '%s' exceeds max_pot_file_len (%ld)\n",
+                str, ist->max_pot_file_len);
+        fclose(pf);
+        return;
+      }
+
+      iscan = fscanf(pf, "%lg %lg", &r_tmp, &pot_tmp);
+      if (iscan == EOF || iscan < 2)
+      {
+        break;
+      }
+      LSD_r[jatom * ist->max_pot_file_len + file_len] = r_tmp;
+      LSD_pots[jatom * ist->max_pot_file_len + file_len] = pot_tmp;
+      file_len++;
+    }
+    LSD_file_lens[jatom] = file_len;
+    LSD_dr[jatom] = LSD_r[jatom * ist->max_pot_file_len + 1] - LSD_r[jatom * ist->max_pot_file_len + 0];
+    fclose(pf);
   }
 
   return;
@@ -718,6 +803,11 @@ void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_in
     {
       sprintf(fileName, "projectorSO_%d.dat", iproj);
       pf = fopen(fileName, "r");
+      if (pf == NULL)
+      {
+        printf("ERROR: unable to open file %s!", fileName);
+        exit(EXIT_FAILURE);
+      }
       for (rpoint = 0; rpoint < N; rpoint++)
       {
         fscanf(pf, "%lg %lg", &(vr[0]), &proj);
@@ -740,6 +830,11 @@ void init_SO_projectors(double *SO_projectors, grid_st *grid, xyz_st *R, atom_in
     {
       sprintf(&fileName[0], "SO_proj_const_%ld.dat", jatom);
       pf = fopen(fileName, "w");
+      if (pf == NULL)
+      {
+        printf("ERROR: unable to open file %s!", fileName);
+        exit(EXIT_FAILURE);
+      }
       fprintf(pf, "%.10f", atom[jatom].SO_par);
       fclose(pf);
     }

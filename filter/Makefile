@@ -22,7 +22,7 @@ Linux_CC = cc
 OBJECTS = \
 	main.o read.o init.o save.o projectors.o norm.o rand.o interpolate.o strain.o \
 	energy.o coeff.o hamiltonian.o filter.o ortho.o Hmat.o write.o nerror.o \
-	vector.o dipole.o angular.o pseudopotential.o
+	vector.o dipole.o angular.o pseudopotential.o aux.o
 
 CUBEOBJECTS = \
 	makecube.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o vector.o strain.o

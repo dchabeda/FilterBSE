@@ -831,8 +831,8 @@ void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *g
         }
       }
     }
-    sprintf(&fileName[0], "pbox-%ld.dat", jatom);
-    pf = fopen(fileName, "w");
+    // sprintf(&fileName[0], "pbox-%ld.dat", jatom);
+    // pf = fopen(fileName, "w");
     nl[jatom] = 0;
     for (jz = 0; jz < grid->nz; jz++)
     {
@@ -864,7 +864,7 @@ void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *g
           if (dr2 < par->R_NLcut2)
           {
 
-            fprintf(pf, "%.4lg %.4lg %.4lg\n", grid->x[jx], grid->y[jy], grid->z[jz]);
+            // fprintf(pf, "%.4lg %.4lg %.4lg\n", grid->x[jx], grid->y[jy], grid->z[jz]);
 
             nlc[jatom * ist->n_NL_gridpts + nl[jatom]].jxyz = jxyz;
 
@@ -907,8 +907,8 @@ void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *g
             }
             else
             {
-              printf("dr2 (%lg) < EPSDX\n", dr2);
-              printf("dz = %lg\n", dz);
+              // printf("dr2 (%lg) < EPSDX\n", dr2);
+              // printf("dz = %lg\n", dz);
               nlc[jatom * ist->n_NL_gridpts + nl[jatom]].r2_1 = 0.0;
               nlc[jatom * ist->n_NL_gridpts + nl[jatom]].r2 = 1.0 / EPSDX;
             }
@@ -917,7 +917,7 @@ void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *g
         }
       }
     }
-    fclose(pf);
+    // fclose(pf);
     free(nlcprojectors);
     free(sgnProj);
     fclose(pproj);

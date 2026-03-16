@@ -173,7 +173,7 @@ void calc_eh_kernel_real(
   cntr = 0;
   ncycles = ab_tot;
   double ab_start_t = omp_get_wtime();
-#pragma omp parallel for private(a, b, a_st, b_st, jg, i, j, ij) // schedule(dynamic, chunk_size)
+#pragma omp parallel for private(a, b, a_st, b_st, jg, i, j, ij, ibs, jbs) // schedule(dynamic, chunk_size)
   for (ab = 0; ab < ab_tot; ab++)
   {
     long thread_id = omp_get_thread_num();
@@ -328,7 +328,7 @@ void calc_eh_kernel_real(
     // loop over electron states a, i
     cntr = 0;
     double ai_start_t = omp_get_wtime();
-#pragma omp parallel for private(a, i, b, j, a_st, i_st, b_st, j_st, jg, bj, ibs, jbs) // schedule(dynamic, chunk_size)
+#pragma omp parallel for private(a, i, b, j, a_st, i_st, jg, bj, ibs, jbs) // schedule(dynamic, chunk_size)
     for (ai = 0; ai < ai_tot; ai++)
     {
       long thread_id = omp_get_thread_num();

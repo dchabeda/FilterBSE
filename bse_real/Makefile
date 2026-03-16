@@ -1,24 +1,45 @@
-SHELL = /bin/sh
 
-OS=Linux
+# ------------------------------------------------------------------------------
+# Paths
+# ------------------------------------------------------------------------------
+MKLROOT = /opt/intel/compilers_and_libraries/linux/mkl
 
-# libraries ...
-Linux_LIB = -qmkl -qopenmp -lpthread -lfftw3 -lfftw3_threads -lfftw3_omp
-Linux_DYLIB = -lmkl_intel_ilp64 -lmkl_lapack95_ilp64 -lmkl_blas95_ilp64 -lmkl_intel_thread -lmkl_core -lm
+INTELLINK = ${MKLROOT}/lib/intel64/libmkl_scalapack_ilp64.a          \
+            -Wl,--start-group                                          \
+                ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a           \
+                ${MKLROOT}/lib/intel64/libmkl_intel_thread.a          \
+                ${MKLROOT}/lib/intel64/libmkl_core.a                  \
+                ${MKLROOT}/lib/intel64/libmkl_blacs_intelmpi_ilp64.a  \
+            -Wl,--end-group                                            \
+            -liomp5 -lpthread -lm -ldl
+
+# ------------------------------------------------------------------------------
+# Libraries
+# ------------------------------------------------------------------------------
+Linux_DYLIB =
+Linux_LIB   = ${INTELLINK} -L${HOME}/usr/lib -lfftw3
 
 LIB = $(Linux_DYLIB) $(Linux_LIB)
 
-# flags ...
-Linux_OPTFLAGS = -O3 -DMKL_ILP64 -DFFTW_FFT -mavx2
-Linux_CFLAGS = $(Linux_OPTFLAGS) -qopenmp
-#Linux_CFLAGS = -g -O0 # uncomment this line to debug/valgrind
+# ------------------------------------------------------------------------------
+# Flags
+# ------------------------------------------------------------------------------
+Linux_OPTFLAGS = -DMKL_ILP64 -O3 -xSSE3
+Linux_CFLAGS   = $(Linux_OPTFLAGS) -qopenmp -static
+#Linux_CFLAGS  = -g -qopenmp -O0
+#Linux_CFLAGS  = -g -O0  # uncomment this line to debug/valgrind
 
+# ------------------------------------------------------------------------------
+# Compiler
+# ------------------------------------------------------------------------------
+Linux_CC = icx
+
+# ------------------------------------------------------------------------------
+# Targets
+# ------------------------------------------------------------------------------
 MAINNAM = bse_real
 
-# compiler ...
-Linux_CC = cc
-
-# obhect files
+# object files
 OBJECTS = \
 	main.o aux.o read.o write.o init.o basis.o save.o \
 	mod_init.o spin.o mod_dipole.o dipole.o angular.o ang_mom_operators.o \
@@ -27,7 +48,10 @@ OBJECTS = \
 # mod_pot.o mod_dipole.o mod_kernel.o write.o save.o read.o basis.o init.o dipole.o coulomb.o\
 #	hartree.o angular.o bethe-salpeter.o diag.o optical.o aux.o
 
-# compilation ...
+# ------------------------------------------------------------------------------
+# Rules
+# ------------------------------------------------------------------------------
+
 # compilation rule for all .c files
 .c.o:
 	$(Linux_CC) -DOS_$(OS) $(Linux_CFLAGS) -c $*.c 

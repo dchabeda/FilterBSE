@@ -3,7 +3,7 @@
 #include "hartree.h"
 #include "write.h"
 
-void calc_eh_kernel_cplx(
+void calc_eh_kernel_real(
     double *psi_qp,
     double complex *pot_bare,
     double complex *pot_screened,

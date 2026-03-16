@@ -34,7 +34,7 @@ void mod_kernel(
       printf("Computing complex e-h kernel\n");
     fflush(0);
 
-    calc_eh_kernel_cplx(
+    calc_eh_kernel_real(
         psi_qp, pot_bare, pot_screened, *direct, *exchange,
         ist, par, flag, parallel);
   }

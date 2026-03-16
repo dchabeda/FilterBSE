@@ -64,11 +64,12 @@ int main(int argc, char *argv[])
   /*********************     INIT MPI     *********************/
   /************************************************************/
 
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
+  // MPI_Init(&argc, &argv);
+  // MPI_Comm_rank(MPI_COMM_WORLD, &parallel.mpi_rank);
+  // MPI_Comm_size(MPI_COMM_WORLD, &parallel.mpi_size);
 
-  const int mpir = parallel.mpi_rank;
+  const int mpir = 0; //
+  parallel.mpi_rank = 0;
   parallel.mpi_root = 0;
 
   /************************************************************/

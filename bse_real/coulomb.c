@@ -97,10 +97,10 @@ void calc_eh_kernel_real(
   {
 
     planfw[j] = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx,
-                                 &fftwpsi[j * ngrid], fftwpsi[j * ngrid], FFTW_FORWARD, fft_flags);
+                                 &fftwpsi[j * ngrid], &fftwpsi[j * ngrid], FFTW_FORWARD, fft_flags);
 
     planbw[j] = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx,
-                                 fftwpsi[j * ngrid], fftwpsi[j * ngrid], FFTW_BACKWARD, fft_flags);
+                                 &fftwpsi[j * ngrid], &fftwpsi[j * ngrid], FFTW_BACKWARD, fft_flags);
   }
 
   /************************************************************/
@@ -167,13 +167,13 @@ void calc_eh_kernel_real(
   /************************************************************/
 
   printf("Computing direct mat | %s\n", get_time());
-  sprintf(fileName, "direct.dat", mpir);
+  sprintf(fileName, "direct.dat");
   pf = fopen(fileName, "w");
 
   cntr = 0;
   ncycles = ab_tot;
   double ab_start_t = omp_get_wtime();
-#pragma omp parallel for private(a, b, a_st, b_st, jg, i, j, ij, i_st, j_st, ibs, jbs) // schedule(dynamic, chunk_size)
+#pragma omp parallel for private(a, b, a_st, b_st, jg, i, j, ij) // schedule(dynamic, chunk_size)
   for (ab = 0; ab < ab_tot; ab++)
   {
     long thread_id = omp_get_thread_num();
@@ -408,7 +408,7 @@ void calc_eh_kernel_real(
     double ai_end_t = omp_get_wtime();
     fclose(pf);
 
-    printf("Done with exchange integrals on rank %d; duration = %lg s (%lg m)\n", odd_rank, (ai_end_t - ai_start_t), (ai_end_t - ai_start_t) / 60.0);
+    printf("Done with exchange integrals; duration = %lg s (%lg m)\n", (ai_end_t - ai_start_t), (ai_end_t - ai_start_t) / 60.0);
     fflush(0);
 
     free(lista);

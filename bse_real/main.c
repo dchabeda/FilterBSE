@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
 
   mod_pot(&pot_bare, &pot_screened, &grid, &ist, &par, &flag, &parallel);
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  // MPI_Barrier(MPI_COMM_WORLD);
 
   // /************************************************************/
   // /********************    MOD KERNEL     *********************/
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
     free(bsmat);
     free(h0mat);
   }
-  MPI_Barrier(MPI_COMM_WORLD);
+  // MPI_Barrier(MPI_COMM_WORLD);
   // /***********************************************************************/
   free(psi_qp);
   free(eig_vals);
@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
     write_separation(stdout, "B");
   }
 
-  MPI_Finalize();
+  // MPI_Finalize();
 
   return 0;
 }

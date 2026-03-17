@@ -138,8 +138,6 @@ void calc_eh_kernel_cplx(
   printf("Screened direct matrix K^d | %s\n", get_time());
   fflush(0);
 
-  int chunk_size;
-
   long ab, ij;
   long ab_tot = n_el * n_el;
   long ij_tot = n_ho * n_ho;
@@ -179,7 +177,7 @@ void calc_eh_kernel_cplx(
   /******************     ENABLE RESTART    *******************/
   /************************************************************/
 
-  sprintf(fileName, "direct.dat", even_rank);
+  sprintf(fileName, "direct.dat");
   if (flag->restartCoulomb)
   {
     int done_flag;
@@ -207,9 +205,9 @@ void calc_eh_kernel_cplx(
     }
 
     // Print out the new matrix elems to this auxiliary file
-    sprintf(fileName, "direct-%d_aux.dat", even_rank);
-    printf("Even rank %d: continuing direct matrix from ab = %ld a = %ld b = %ld | %s\n",
-           even_rank, start, a_tmp, b_tmp, get_time());
+    sprintf(fileName, "direct_aux.dat");
+    printf("Continuing direct matrix from ab = %ld a = %ld b = %ld | %s\n",
+           start, a_tmp, b_tmp, get_time());
 
     fflush(0);
   }
@@ -224,7 +222,7 @@ void calc_eh_kernel_cplx(
 
   cntr = 0;
   double ab_start_t = omp_get_wtime();
-#pragma omp parallel for private(a, b, i, j, a_st, b_st, jg, ij, ibs, jbs) // schedule(dynamic, chunk_size)
+#pragma omp parallel for private(a, b, i, j, a_st, b_st, jg, ij, ibs, jbs)
   for (ab = 0; ab < ab_tot; ab++)
   {
     long thread_id = omp_get_thread_num();
@@ -331,17 +329,11 @@ void calc_eh_kernel_cplx(
   omp_set_max_active_levels(1);
   omp_set_num_threads(ist->nthreads);
 
-  int chunk_size;
-
   long ai;
   long bj;
   long ai_tot = n_el * n_ho;
   long bj_tot = n_el * n_ho;
   long last_ai = 0;
-  long *lista;
-  long *listi;
-  long *listb;
-  long *listj;
   long jstart;
 
   ALLOCATE(&lista, ai_tot, "lista");
@@ -396,9 +388,9 @@ void calc_eh_kernel_cplx(
     }
 
     // Print out the new matrix elems to this auxiliary file
-    sprintf(fileName, "exchange_aux.dat", odd_rank);
-    printf("Odd rank %d: continuing exchange matrix from ai = %ld a = %ld i = %ld | %s\n",
-           odd_rank, start, a_tmp, i_tmp, get_time());
+    sprintf(fileName, "exchange_aux.dat");
+    printf("Continuing exchange matrix from ai = %ld a = %ld i = %ld | %s\n",
+           start, a_tmp, i_tmp, get_time());
 
     fflush(0);
   }
@@ -420,7 +412,7 @@ void calc_eh_kernel_cplx(
 
     a = lista[ai];
     i = listi[ai];
-    // printf("\n odd rank %d ai = %ld a = %ld i = %ld\n", odd_rank, ai, a, i); fflush(0);
+
     a_st = a * nspngr;
     i_st = i * nspngr;
 
@@ -491,7 +483,7 @@ void calc_eh_kernel_cplx(
   double ai_end_t = omp_get_wtime();
   fclose(pf);
 
-  printf("Done with exchange integrals on rank %d; duration = %lg s (%lg m)\n", odd_rank, (ai_end_t - ai_start_t), (ai_end_t - ai_start_t) / 60.0);
+  printf("Done with exchange integrals; duration = %lg s (%lg m)\n", (ai_end_t - ai_start_t), (ai_end_t - ai_start_t) / 60.0);
   fflush(0);
 
   free(lista);

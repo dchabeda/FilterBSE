@@ -14,9 +14,7 @@
 #include "unistd.h"
 #include <fftw3.h>
 // #include <lapack.h>
-#include <mpi.h>
 #include <omp.h>
-#include <nvToolsExt.h>
 #include <mkl.h>
 
 /*****************************************************************************/

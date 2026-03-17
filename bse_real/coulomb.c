@@ -371,7 +371,7 @@ void calc_eh_kernel_real(
 
         for (jg = 0; jg < ngrid; jg++)
         {
-          sum += pot_htree[jg] * psi_qp[j_st + jg] * psi_qp[b_st + jg];
+          sum += pot_htree[thread_st + jg] * psi_qp[j_st + jg] * psi_qp[b_st + jg];
         }
         sum *= dv;
 

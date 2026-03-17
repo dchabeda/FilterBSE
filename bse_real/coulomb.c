@@ -466,10 +466,10 @@ int load_coulomb_mat(double *mat, char *fileName, long *a_max, long *b_max, long
   while ((ieof != EOF) && (cntr < max_st_num))
   {
     // Scan the file and grab matrix elements
-    ieof = fscanf(pf, "%ld %ld %ld %ld %ld %ld %lg %lg", &a, &b, &i, &j, &ibs, &jbs, &tmp_re, &tmp_im);
+    ieof = fscanf(pf, "%ld %ld %ld %ld %ld %ld %lg", &a, &b, &i, &j, &ibs, &jbs, &tmp_re);
     // printf("%ld %ld %ld %ld %ld %ld %ld %lg %lg\n", cntr, a, b, i, j, ibs, jbs, tmp_re, tmp_im); fflush(0);
     // Load the matrix elements
-    mat[ibs * ist->n_xton + jbs] = CMPLX(tmp_re, tmp_im);
+    mat[ibs * ist->n_xton + jbs] = tmp_re;
 
     if (tmp_a < a)
       tmp_a = a;

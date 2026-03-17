@@ -97,6 +97,8 @@ void calc_eh_kernel_cplx(
   // fftw_plan_with_nthreads(ist->nthreads);
 
   fftwpsi = fftw_malloc(parallel->nthreads * sizeof(fftw_complex) * ngrid);
+  ALLOCATE(&planfw, parallel->nthreads, "planfw in coulomb.c");
+  ALLOCATE(&planbw, parallel->nthreads, "planbw in coulomb.c");
 
   for (j = 0; j < parallel->nthreads; j++)
   {

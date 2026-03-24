@@ -27,8 +27,8 @@ LIB = $(Linux_DYLIB) $(Linux_LIB)
 # Flags
 # ------------------------------------------------------------------------------
 Linux_OPTFLAGS = -DMKL_ILP64 -O3 -xSSE3
-Linux_CFLAGS   = $(Linux_OPTFLAGS) -qopenmp -static
-#Linux_CFLAGS  = -g -qopenmp -O0
+#Linux_CFLAGS   = $(Linux_OPTFLAGS) -qopenmp -static
+Linux_CFLAGS  = -g -qopenmp -O0
 #Linux_CFLAGS  = -g -O0  # uncomment this line to debug/valgrind
 
 # ------------------------------------------------------------------------------

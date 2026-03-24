@@ -587,6 +587,9 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
     }
   }
 
+   FILE *pf_loc;
+   pf_loc = fopen("V_loc.dat", "w");
+   
   // Compute potential minimum
   par->Vmin = 1.0e10;
   par->Vmax = -1.0e10;
@@ -596,8 +599,9 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
       par->Vmax = pot_local[jxyz];
     if (par->Vmin > pot_local[jxyz])
       par->Vmin = pot_local[jxyz];
+    fprintf(pf_loc, "%lg\n", pot_local[jxyz]);
   }
-
+  fclose(pf_loc);
   printf("\tVmin = %g Vmax = %g dV = %g \n", par->Vmin, par->Vmax, par->Vmax - par->Vmin);
 
   if (1 == flag->useStrain)

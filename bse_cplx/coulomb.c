@@ -47,6 +47,7 @@ void calc_eh_kernel_cplx(
   long i_st;
   long a_st;
   long b_st;
+  long j_st;
   long ibs;
   long jbs;
   long start;
@@ -72,6 +73,7 @@ void calc_eh_kernel_cplx(
 
   double complex *restrict rho;
   double complex *restrict pot_htree;
+  double complex sum;
 
   ALLOCATE(&rho, parallel->nthreads * ngrid, "rho in coulomb");
   ALLOCATE(&listibs, ist->n_xton, "listibs in coulomb");
@@ -224,7 +226,7 @@ void calc_eh_kernel_cplx(
 
   cntr = 0;
   double ab_start_t = omp_get_wtime();
-#pragma omp parallel for private(a, b, i, j, a_st, b_st, jg, ij, ibs, jbs)
+#pragma omp parallel for private(a, b, i, j, a_st, b_st, jg, ij, i_st, j_st, ibs, jbs, sum)
   for (ab = 0; ab < ab_tot; ab++)
   {
     long thread_id = omp_get_thread_num();
@@ -256,18 +258,16 @@ void calc_eh_kernel_cplx(
       i = listi[ij];
       j = listj[ij];
 
-      long i_st = i * nspngr;
-      long j_st = j * nspngr;
-      long ibs = listibs[(a - lidx) * n_ho + i];
-      long jbs = listibs[(b - lidx) * n_ho + j];
+      i_st = i * nspngr;
+      j_st = j * nspngr;
+      ibs = listibs[(a - lidx) * n_ho + i];
+      jbs = listibs[(b - lidx) * n_ho + j];
 
       if (ibs < jbs)
       {
         continue;
       }
 
-      long jg;
-      double complex sum;
       sum = 0.0 + 0.0 * I;
 
       // K^d_{ai,bj}=\int h_d(r) \sum_\sigma psi_{i}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
@@ -281,9 +281,8 @@ void calc_eh_kernel_cplx(
 
       direct[ibs * n_xton + jbs] = sum;
     } // end of ij
-    // // nvtxRangePop();
 
-    // fflush(0);
+#pragma omp critical {
     for (ij = 0; ij < ij_tot; ij++)
     {
       i = listi[ij];
@@ -294,218 +293,219 @@ void calc_eh_kernel_cplx(
       fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
               creal(direct[ibs * n_xton + jbs]), cimag(direct[ibs * n_xton + jbs]));
     }
-    // Every 25% of iterations, print output
-    if ((cntr == 0) || (0 == cntr % (ncycles / 4 + 1)) || (cntr == (ncycles - 1)))
-    {
-      // Print out progress
-      printf("Direct: ");
-      print_progress_bar(cntr, ncycles);
-      fflush(0);
-    }
-    cntr++;
-  } // end of ab
-  double ab_end_t = omp_get_wtime();
-
-  printf("Done with direct; duration = %lg s (%lg m)\n", (ab_end_t - ab_start_t), (ab_end_t - ab_start_t) / 60.0);
-
-  // Free
-  free(lista);
-  free(listb);
-  free(listi);
-  free(listj);
-
-  /*******************************************************************/
-  /*******************************************************************/
-  /****** BREAK ***** BREAK ***** BREAK ***** BREAK ***** BREAK ******/
-  /*******************************************************************/
-  /*******************************************************************/
-
-  for (jg = 0; jg < parallel->nthreads * ngrid; jg++)
-  {
-    rho[jg] = 0.0 + I * 0.0;
   }
-
-  printf("\nBare exchange matrix K^x | %s\n", get_time());
-  fflush(0);
-
-  omp_set_max_active_levels(1);
-  omp_set_num_threads(ist->nthreads);
-
-  long ai;
-  long bj;
-  long ai_tot = n_el * n_ho;
-  long bj_tot = n_el * n_ho;
-  long last_ai = 0;
-  long jstart;
-
-  ALLOCATE(&lista, ai_tot, "lista");
-  ALLOCATE(&listi, ai_tot, "listi");
-  ALLOCATE(&listb, ai_tot, "listb");
-  ALLOCATE(&listj, ai_tot, "listj");
-
-  // Generate the indices for flattened loop a, i
-  for (a = lidx; a < lidx + n_el; a++)
+  // Every 25% of iterations, print output
+  if ((cntr == 0) || (0 == cntr % (ncycles / 4 + 1)) || (cntr == (ncycles - 1)))
   {
-    for (i = 0; i < n_ho; i++)
-    {
-      lista[(a - lidx) * n_ho + i] = a;
-      listi[(a - lidx) * n_ho + i] = i;
-    }
-  }
-
-  // Generate the indices for flattened loop b, j
-  for (b = lidx; b < lidx + n_el; b++)
-  {
-    for (j = 0; j < n_ho; j++)
-    {
-      listb[(b - lidx) * n_ho + j] = b;
-      listj[(b - lidx) * n_ho + j] = j;
-    }
-  }
-
-  ncycles = ai_tot;
-
-  /************************************************************/
-  /******************     ENABLE RESTART   ********************/
-  /************************************************************/
-
-  sprintf(fileName, "exchange.dat");
-
-  if (flag->restartCoulomb)
-  {
-    int done_flag;
-    long a_tmp, b_tmp, i_tmp, j_tmp;
-
-    // Find start value for continuing computation
-    done_flag = load_coulomb_mat(exchange, fileName, &a_tmp, &b_tmp, &i_tmp, &j_tmp, ist);
-
-    start = 0; // Calc the new starting value from the loop trip count
-    for (ai = 0; ai < ai_tot; ai++)
-    {
-      if ((lista[ai] == a_tmp) && (listi[ai] == i_tmp))
-      {
-        break;
-      }
-      start++;
-    }
-
-    // Print out the new matrix elems to this auxiliary file
-    sprintf(fileName, "exchange_aux.dat");
-    printf("Continuing exchange matrix from ai = %ld a = %ld i = %ld | %s\n",
-           start, a_tmp, i_tmp, get_time());
-
+    // Print out progress
+    printf("Direct: ");
+    print_progress_bar(cntr, ncycles);
     fflush(0);
   }
+#pragma omp atomic
+  cntr++;
+} // end of ab
+double ab_end_t = omp_get_wtime();
 
-  /************************************************************/
-  /******************    DO K^X INTEGRAL   ********************/
-  /************************************************************/
+printf("Done with direct; duration = %lg s (%lg m)\n", (ab_end_t - ab_start_t), (ab_end_t - ab_start_t) / 60.0);
 
-  pf = fopen(fileName, "w");
+// Free
+free(lista);
+free(listb);
+free(listi);
+free(listj);
 
-  // loop over electron states a, i
-  cntr = 0;
-  double ai_start_t = omp_get_wtime();
-#pragma omp parallel for private(a, b, i, j, jg, bj, ibs, jbs)
+/*******************************************************************/
+/*******************************************************************/
+/****** BREAK ***** BREAK ***** BREAK ***** BREAK ***** BREAK ******/
+/*******************************************************************/
+/*******************************************************************/
+
+for (jg = 0; jg < parallel->nthreads * ngrid; jg++)
+{
+  rho[jg] = 0.0 + I * 0.0;
+}
+
+printf("\nBare exchange matrix K^x | %s\n", get_time());
+fflush(0);
+
+omp_set_max_active_levels(1);
+omp_set_num_threads(ist->nthreads);
+
+long ai;
+long bj;
+long ai_tot = n_el * n_ho;
+long bj_tot = n_el * n_ho;
+long last_ai = 0;
+long jstart;
+
+ALLOCATE(&lista, ai_tot, "lista");
+ALLOCATE(&listi, ai_tot, "listi");
+ALLOCATE(&listb, ai_tot, "listb");
+ALLOCATE(&listj, ai_tot, "listj");
+
+// Generate the indices for flattened loop a, i
+for (a = lidx; a < lidx + n_el; a++)
+{
+  for (i = 0; i < n_ho; i++)
+  {
+    lista[(a - lidx) * n_ho + i] = a;
+    listi[(a - lidx) * n_ho + i] = i;
+  }
+}
+
+// Generate the indices for flattened loop b, j
+for (b = lidx; b < lidx + n_el; b++)
+{
+  for (j = 0; j < n_ho; j++)
+  {
+    listb[(b - lidx) * n_ho + j] = b;
+    listj[(b - lidx) * n_ho + j] = j;
+  }
+}
+
+ncycles = ai_tot;
+
+/************************************************************/
+/******************     ENABLE RESTART   ********************/
+/************************************************************/
+
+sprintf(fileName, "exchange.dat");
+
+if (flag->restartCoulomb)
+{
+  int done_flag;
+  long a_tmp, b_tmp, i_tmp, j_tmp;
+
+  // Find start value for continuing computation
+  done_flag = load_coulomb_mat(exchange, fileName, &a_tmp, &b_tmp, &i_tmp, &j_tmp, ist);
+
+  start = 0; // Calc the new starting value from the loop trip count
   for (ai = 0; ai < ai_tot; ai++)
   {
-    long thread_id = omp_get_thread_num();
-    long thread_st = thread_id * ngrid;
-
-    a = lista[ai];
-    i = listi[ai];
-
-    a_st = a * nspngr;
-    i_st = i * nspngr;
-
-    // 1) Compute joint density and store in rho
-    for (jg = 0; jg < ngrid; jg++)
+    if ((lista[ai] == a_tmp) && (listi[ai] == i_tmp))
     {
-      rho[thread_st + jg] = conjmul(psi_qp[a_st + jg], psi_qp[i_st + jg]) + conjmul(psi_qp[a_st + jg + ngrid], psi_qp[i_st + jg + ngrid]);
+      break;
     }
-
-    // Compute the hartree potential and store in pot_htree
-    // h_d(r) = \int W(r,r') \rho_{ab}(r') d^3r' via fourier transform
-    hartree(&rho[thread_st], pot_bare, &pot_htree[thread_st], ist, planfw[thread_id], planbw[thread_id], &fftwpsi[thread_st]);
-
-    // loop over electron-hole pairs b, j
-
-    for (bj = 0; bj < bj_tot; bj++)
-    {
-      b = listb[bj];
-      j = listj[bj];
-
-      long b_st = b * nspngr;
-      long j_st = j * nspngr;
-      long ibs = listibs[(a - lidx) * n_ho + i];
-      long jbs = listibs[(b - lidx) * n_ho + j];
-
-      if (ibs < jbs)
-        continue;
-
-      long jg;
-      double complex sum;
-      sum = 0.0 + 0.0 * I;
-
-      for (jg = 0; jg < ngrid; jg++)
-      {
-        sum += pot_htree[thread_st + jg] *
-               (conjmul(psi_qp[j_st + jg], psi_qp[b_st + jg]) +
-                conjmul(psi_qp[j_st + jg + ngrid], psi_qp[b_st + jg + ngrid]));
-      }
-      sum *= dv;
-
-      exchange[ibs * n_xton + jbs] = -sum;
-    } // end of bj
-
-    for (bj = 0; bj < bj_tot; bj++)
-    {
-      b = listb[bj];
-      j = listj[bj];
-      ibs = listibs[(a - lidx) * n_ho + i];
-      jbs = listibs[(b - lidx) * n_ho + j];
-
-      if (ibs < jbs)
-        continue;
-
-      fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
-              creal(exchange[ibs * ist->n_xton + jbs]), cimag(exchange[ibs * ist->n_xton + jbs]));
-    }
-
-    // Every 25% of iterations, print the job progress
-    if ((cntr == 0) || (0 == cntr % (ncycles / 4 + 1)) || (cntr == (ncycles - 1)))
-    {
-      printf("Exchange: ");
-      print_progress_bar(cntr, ncycles);
-      fflush(0);
-    }
-
-    cntr++;
-  } // end of ai
-  double ai_end_t = omp_get_wtime();
-  fclose(pf);
-
-  printf("Done with exchange integrals; duration = %lg s (%lg m)\n", (ai_end_t - ai_start_t), (ai_end_t - ai_start_t) / 60.0);
-  fflush(0);
-
-  free(lista);
-  free(listi);
-  free(listb);
-  free(listj);
-
-  free(rho);
-  free(listibs);
-  free(fileName);
-  free(pot_htree);
-
-  fftw_free(fftwpsi);
-  for (j = 0; j < parallel->nthreads; j++)
-  {
-    fftw_destroy_plan(planfw[j]);
-    fftw_destroy_plan(planbw[j]);
+    start++;
   }
 
-  return;
+  // Print out the new matrix elems to this auxiliary file
+  sprintf(fileName, "exchange_aux.dat");
+  printf("Continuing exchange matrix from ai = %ld a = %ld i = %ld | %s\n",
+         start, a_tmp, i_tmp, get_time());
+
+  fflush(0);
+}
+
+/************************************************************/
+/******************    DO K^X INTEGRAL   ********************/
+/************************************************************/
+
+pf = fopen(fileName, "w");
+
+// loop over electron states a, i
+cntr = 0;
+double ai_start_t = omp_get_wtime();
+#pragma omp parallel for private(a, b, i, j, jg, bj, ibs, jbs)
+for (ai = 0; ai < ai_tot; ai++)
+{
+  long thread_id = omp_get_thread_num();
+  long thread_st = thread_id * ngrid;
+
+  a = lista[ai];
+  i = listi[ai];
+
+  a_st = a * nspngr;
+  i_st = i * nspngr;
+
+  // 1) Compute joint density and store in rho
+  for (jg = 0; jg < ngrid; jg++)
+  {
+    rho[thread_st + jg] = conjmul(psi_qp[a_st + jg], psi_qp[i_st + jg]) + conjmul(psi_qp[a_st + jg + ngrid], psi_qp[i_st + jg + ngrid]);
+  }
+
+  // Compute the hartree potential and store in pot_htree
+  // h_d(r) = \int W(r,r') \rho_{ab}(r') d^3r' via fourier transform
+  hartree(&rho[thread_st], pot_bare, &pot_htree[thread_st], ist, planfw[thread_id], planbw[thread_id], &fftwpsi[thread_st]);
+
+  // loop over electron-hole pairs b, j
+
+  for (bj = 0; bj < bj_tot; bj++)
+  {
+    b = listb[bj];
+    j = listj[bj];
+
+    long b_st = b * nspngr;
+    long j_st = j * nspngr;
+    long ibs = listibs[(a - lidx) * n_ho + i];
+    long jbs = listibs[(b - lidx) * n_ho + j];
+
+    if (ibs < jbs)
+      continue;
+
+    long jg;
+    double complex sum;
+    sum = 0.0 + 0.0 * I;
+
+    for (jg = 0; jg < ngrid; jg++)
+    {
+      sum += pot_htree[thread_st + jg] *
+             (conjmul(psi_qp[j_st + jg], psi_qp[b_st + jg]) +
+              conjmul(psi_qp[j_st + jg + ngrid], psi_qp[b_st + jg + ngrid]));
+    }
+    sum *= dv;
+
+    exchange[ibs * n_xton + jbs] = -sum;
+  } // end of bj
+
+#pragma omp critical {
+  for (bj = 0; bj < bj_tot; bj++)
+  {
+    b = listb[bj];
+    j = listj[bj];
+    ibs = listibs[(a - lidx) * n_ho + i];
+    jbs = listibs[(b - lidx) * n_ho + j];
+
+    fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
+            creal(exchange[ibs * ist->n_xton + jbs]), cimag(exchange[ibs * ist->n_xton + jbs]));
+  }
+}
+
+// Every 25% of iterations, print the job progress
+if ((cntr == 0) || (0 == cntr % (ncycles / 4 + 1)) || (cntr == (ncycles - 1)))
+{
+  printf("Exchange: ");
+  print_progress_bar(cntr, ncycles);
+  fflush(0);
+}
+#pragma omp atomic
+cntr++;
+} // end of ai
+double ai_end_t = omp_get_wtime();
+fclose(pf);
+
+printf("Done with exchange integrals; duration = %lg s (%lg m)\n", (ai_end_t - ai_start_t), (ai_end_t - ai_start_t) / 60.0);
+fflush(0);
+
+free(lista);
+free(listi);
+free(listb);
+free(listj);
+
+free(rho);
+free(listibs);
+free(fileName);
+free(pot_htree);
+
+fftw_free(fftwpsi);
+for (j = 0; j < parallel->nthreads; j++)
+{
+  fftw_destroy_plan(planfw[j]);
+  fftw_destroy_plan(planbw[j]);
+}
+
+return;
 }
 
 /***************************************************************************************/

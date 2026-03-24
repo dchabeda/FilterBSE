@@ -77,7 +77,7 @@ void calc_eh_kernel_cplx(
 
   ALLOCATE(&rho, parallel->nthreads * ngrid, "rho in coulomb");
   ALLOCATE(&listibs, ist->n_xton, "listibs in coulomb");
-  ALLOCATE(&pot_htree, parallel->nthreads * nspngr, "pot_htree");
+  ALLOCATE(&pot_htree, parallel->nthreads * ngrid, "pot_htree");
   // Note: strictly, only ngrid elements are needed for pot_htree
   // but in order to improve loop indexing and vectorization of
   // Coulomb integrals, the first ngrid elements will be duplicated
@@ -282,7 +282,8 @@ void calc_eh_kernel_cplx(
       direct[ibs * n_xton + jbs] = sum;
     } // end of ij
 
-#pragma omp critical {
+#pragma omp critical 
+{
     for (ij = 0; ij < ij_tot; ij++)
     {
       i = listi[ij];
@@ -407,7 +408,7 @@ pf = fopen(fileName, "w");
 // loop over electron states a, i
 cntr = 0;
 double ai_start_t = omp_get_wtime();
-#pragma omp parallel for private(a, b, i, j, jg, bj, ibs, jbs)
+#pragma omp parallel for private(a, b, i, j, jg, bj, ibs, jbs, a_st, i_st)
 for (ai = 0; ai < ai_tot; ai++)
 {
   long thread_id = omp_get_thread_num();
@@ -459,7 +460,8 @@ for (ai = 0; ai < ai_tot; ai++)
     exchange[ibs * n_xton + jbs] = -sum;
   } // end of bj
 
-#pragma omp critical {
+#pragma omp critical 
+{
   for (bj = 0; bj < bj_tot; bj++)
   {
     b = listb[bj];

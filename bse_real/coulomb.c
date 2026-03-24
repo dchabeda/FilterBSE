@@ -233,7 +233,8 @@ void calc_eh_kernel_real(
       direct[ibs * n_xton + jbs] = sum;
     } // end of ij
 
-#pragma omp critical {
+#pragma omp critical 
+{
     for (ij = 0; ij < ij_tot; ij++)
     {
       i = listi[ij];
@@ -382,7 +383,8 @@ if (!flag->calcDarkStates)
       exchange[ibs * n_xton + jbs] = -2.0 * sum;
     } // end of bj
 
-#pragma omp critical {
+#pragma omp critical 
+{
     for (bj = 0; bj < bj_tot; bj++)
     {
       b = listb[bj];

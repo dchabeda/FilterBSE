@@ -241,8 +241,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
         flag->LSD = (int)strtol(tmp, &endptr, 10);
         if (*endptr != '\0')
         {
-          if (mpir == 0)
-            printf("Error converting string to double.\n");
+          printf("Error converting string to double.\n");
           exit(EXIT_FAILURE);
         }
       }

@@ -454,6 +454,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
   double strain_factor = 1.0; // Default: when the strain factor is 1.0, it has no effect on the potential
   int scale_LR = 0;
   const int LSD = flag->LSD;
+  const int mpfl = ist->max_pot_file_len;
 
   // turn on the scale LR flag if surface Cs atoms will be scaled
   if (1.0 != par->scale_surface_Cs)
@@ -582,10 +583,10 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
               printf("\tComputing interpolated cubic/ortho potential\n");
             dist = sqrt(dist2);
             // cubic part of the function
-            sum += (1.0 - atom[jatom].geom_par) * interpolate(dist, pot->dr[2 * atom[jatom].idx], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR, ist->max_pot_file_len,
+            sum += (1.0 - atom[jatom].geom_par) * interpolate(dist, pot->dr[2 * atom[jatom].idx], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR, mpfl,
                                                               pot->file_lens[2 * atom[jatom].idx], 2 * atom[jatom].idx, scale_LR, atom[jatom].LR_par, strain_factor, flag->LR);
             // ortho part of the function
-            sum += (atom[jatom].geom_par) * interpolate(dist, pot->dr[2 * atom[jatom].idx + 1], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR, ist->max_pot_file_len,
+            sum += (atom[jatom].geom_par) * interpolate(dist, pot->dr[2 * atom[jatom].idx + 1], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR, mpfl,
                                                         pot->file_lens[2 * atom[jatom].idx + 1], 2 * atom[jatom].idx + 1, scale_LR, atom[jatom].LR_par, strain_factor, flag->LR);
           }
           // Default route without potential interpolation between geometries
@@ -594,15 +595,15 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
             if ((jxyz == 0) && (jatom == 0))
               printf("\tComputing potential without interpolating over cubic/ortho parameters\n\n");
             dist = sqrt(dist2);
-            sum += interpolate(dist, pot->dr[atom[jatom].idx], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR, ist->max_pot_file_len,
+            sum += interpolate(dist, pot->dr[atom[jatom].idx], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR, mpfl,
                                pot->file_lens[atom[jatom].idx], atom[jatom].idx, scale_LR, atom[jatom].LR_par, strain_factor, flag->LR);
 
             if (LSD == 1)
             {
               sum += interpolate(
-                  dist, LSD_dr[jat], LSD_r, pot->r_LR, LSD_pots, pot->pseudo_LR,
-                  mpl, LSD_file_lens[jat], jat,
-                  0, atom[jat].LR_par, 1.0, flag->LR);
+                  dist, LSD_dr[jatom], LSD_r, pot->r_LR, LSD_pots, pot->pseudo_LR,
+                  mpfl, LSD_file_lens[jatom], jatom,
+                  0, atom[jatom].LR_par, 1.0, flag->LR);
             }
           }
         }

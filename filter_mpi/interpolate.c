@@ -26,6 +26,7 @@ double interpolate(double r, double dr, double *vr, double *vr_LR, double *pot, 
     else
     {
       printf("WARNING: longRange flag turned on, but potential file not long enough to cover grid!");
+      exit(EXIT_FAILURE);
     }
   }
 

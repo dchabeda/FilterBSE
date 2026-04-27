@@ -210,7 +210,7 @@ void get_energy_range(
   long rand_seed = -874917403;
   double ene_old;
   double norma, Emin, Emax, tau = 0.05; // tau = 0.025
-  long max_iter = 500;
+  long max_iter = 1500;
 
   // Alloc arrays and plans for FFTs
   fftw_init_threads();

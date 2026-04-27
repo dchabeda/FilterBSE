@@ -189,7 +189,8 @@ void mod_filter(
   }
 
   init_clock = (double)clock();
-  init_wall = (double)time(NULL);
+  struct timespec init_wall_t, end_wall_t;
+  clock_gettime(CLOCK_MONOTONIC, &init_wall_t);
 
   //
   //
@@ -199,21 +200,19 @@ void mod_filter(
         psi_rank, pot_local, LS, nlc, nl, ksqr, an, zn,
         ene_targets, grid, ist, par, flag, parallel);
   }
-  // else if (1 == flag->periodic){
-  //   run_filter_cycles_k(
-  //     psi_rank, pot_local, LS, nlc, nl, ksqr, an, zn,
-  //     ene_targets, grid, G_vecs, k_vecs, ist, par, flag, parallel);
-  // }
-  //
-  //
 
   // Ensure all ranks synchronize here
   MPI_Barrier(MPI_COMM_WORLD);
 
+  clock_gettime(CLOCK_MONOTONIC, &end_wall_t);
+
+  double wall_time = (end_wall_t.tv_sec - init_wall_t.tv_sec) +
+                     (end_wall_t.tv_nsec - init_wall_t.tv_nsec) * 1e-9;
+
   if (mpir == 0)
   {
-    printf("\ndone calculating filter, CPU time (sec) %g, wall run time (sec) %g\n",
-           ((double)clock() - init_clock) / (double)(CLOCKS_PER_SEC), (double)time(NULL) - init_wall);
+    printf("\ndone calculating filter, CPU time (sec) %.4lg, wall run time (sec) %lg\n",
+           ((double)clock() - init_clock) / (double)(CLOCKS_PER_SEC), wall_time);
     fflush(stdout);
   }
 

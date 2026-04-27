@@ -38,6 +38,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->approxEnergyRange = 0;
   strcpy(par->fft_wisdom_dir, ""); // By default try to find fft wisdom in current directory
   flag->periodic = 0;
+  par->diag_k_idx = 0;
   par->box_z = 0.0;
   flag->useGaussianBasis = 0;
   flag->inputPsiFilt = 0; // By default, generate initially random states
@@ -206,6 +207,15 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
         if (*endptr != '\0')
         {
           fprintf(stderr, "Error converting string to long.\n");
+          exit(EXIT_FAILURE);
+        }
+      }
+      else if (!strcmp(field, "diagKIdx"))
+      {
+        par->diag_k_idx = (int)strtod(tmp, &endptr);
+        if (*endptr != '\0')
+        {
+          fprintf(stderr, "Error converting string to double.\n");
           exit(EXIT_FAILURE);
         }
       }
@@ -802,6 +812,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("dGrid = double (grid spacing; sets the values of dx, dy, and dz equal)\n");
           printf("dGrid = double (grid spacing; sets the values of dx, dy, and dz equal)\n");
           printf("periodic = int (0 = 0D, 1 = periodic filter)\n");
+          printf("diagKIdx = int (index of k-point to diagonalize if manually restarting job)\n");
           printf("nFilterCycles = int (number of filter cycles/number random initial wavefunctions)\n");
           printf("nCheby = int (number of terms in the Chebyshev expansion)\n");
           printf("VBmin = double (bottom of valence band energy window)\n");
@@ -811,7 +822,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("useStrain = int (if 1, calculate strain dependent pseudopots)\n");
           printf("interpolatePot = int (if 1, interpolate between cubic and orthorhombic potentials)\n");
           printf("longRange = int (if 1, the pseudopots have long range terms; no truncate)\n");
-          printf("longStructureDependent = int (if 1, the pseudopots have LSD (delta v) correction)\n");
+          printf("localStructureDependent = int (if 1, the pseudopots have LSD (delta v) correction)\n");
           printf("crystalStructure = string (name of crystal structure e.g. wurtzite)\n");
           printf("outmostMaterial = string (name of outmost layer if core-shell e.g. CdS)\n");
           printf("readProj = int (if 1, read projector data from files)\n");
@@ -903,7 +914,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->nspinngrid = ist->nspin * ist->ngrid;
   ist->complex_idx = flag->isComplex + 1;
   ist->mn_states_tot = ist->n_filter_cycles * ist->m_states_per_filter;
-  ist->n_filters_per_rank = ist->n_filter_cycles / parallel->mpi_size;
+  ist->n_filters_per_rank = (parallel->mpi_size <= ist->n_filter_cycles) ? ist->n_filter_cycles / parallel->mpi_size : 1;
   ist->n_states_per_rank = ist->n_filters_per_rank * ist->m_states_per_filter;
   ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx;
 

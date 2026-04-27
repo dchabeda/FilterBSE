@@ -210,7 +210,7 @@ int main(int argc, char *argv[])
     /************************************************************/
 
     mod_diag(
-        psitot, pot_local, eig_vals, sigma_E, &grid, LS, nlc, nl,
+        psitot, pot_local, eig_vals, sigma_E, &grid, G_vecs, k_vecs, LS, nlc, nl,
         an, zn, ene_targets, ksqr, &ist, &par, &flag, &parallel);
 
     // Save checkpoint if requested

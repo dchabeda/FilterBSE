@@ -1,31 +1,32 @@
 #include "fd.h"
 #include "hamiltonian.h"
+#include "ghamiltonian.h"
 #include "aux.h"
 
 void diag_H(
-    double*        psitot, 
-    double*        pot_local, 
-    zomplex*       LS, 
-    nlc_st*        nlc, 
-    long*          nl, 
-    double*        ksqr, 
-    double*        eval, 
-    index_st*      ist, 
-    par_st*        par, 
-    flag_st*       flag, 
-    parallel_st*   parallel
-);
+    double *psitot,
+    double *pot_local,
+    vector *G_vecs,
+    vector *k_vecs,
+    zomplex *LS,
+    nlc_st *nlc,
+    long *nl,
+    double *ksqr,
+    double *eval,
+    index_st *ist,
+    par_st *par,
+    flag_st *flag,
+    parallel_st *parallel);
 
 void diag_H_mpi(
-    double*        psitot, 
-    double*        pot_local, 
-    zomplex*       LS, 
-    nlc_st*        nlc, 
-    long*          nl, 
-    double*        ksqr, 
-    double*        eval, 
-    index_st*      ist, 
-    par_st*        par, 
-    flag_st*       flag, 
-    parallel_st*   parallel
-);
+    double *psitot,
+    double *pot_local,
+    zomplex *LS,
+    nlc_st *nlc,
+    long *nl,
+    double *ksqr,
+    double *eval,
+    index_st *ist,
+    par_st *par,
+    flag_st *flag,
+    parallel_st *parallel);

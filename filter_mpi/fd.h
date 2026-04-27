@@ -224,8 +224,9 @@ typedef struct par
   // Potential cutoff radius
   double pot_cut_rad2;
 
-  // Box dimensions
+  // Periodic parameters
   double box_z;
+  int diag_k_idx;
 
   // Band printing range
   int nb_min;

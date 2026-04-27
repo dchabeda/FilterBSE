@@ -506,7 +506,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
   const int ny = grid->ny;
   const int nz = grid->nz;
   const int nat = ist->natoms;
-  const int mpl = ist->max_pot_file_len;
+  const int mpfl = ist->max_pot_file_len;
   const int ipot = flag->interpolatePot;
   const int uS = flag->useStrain;
   const int pbc = flag->periodic;
@@ -556,8 +556,8 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
   long *LSD_file_lens = NULL;
   if (LSD == 1)
   {
-    ALLOCATE(&LSD_pots, mpl * nat, "LSD_pots");
-    ALLOCATE(&LSD_r, mpl * nat, "LSD_r");
+    ALLOCATE(&LSD_pots, mpfl * nat, "LSD_pots");
+    ALLOCATE(&LSD_r, mpfl * nat, "LSD_r");
     ALLOCATE(&LSD_dr, nat, "LSD_dr");
     ALLOCATE(&LSD_file_lens, nat, "LSD_file_lens");
 
@@ -636,12 +636,12 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
             // geom1 (cubic)
             sum += (1.0 - gpar) * interpolate(
                                       dist, pot->dr[2 * atyp_idx], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR,
-                                      mpl, pot->file_lens[2 * atyp_idx], 2 * atyp_idx,
+                                      mpfl, pot->file_lens[2 * atyp_idx], 2 * atyp_idx,
                                       scaleLR, atom[jat].LR_par, strainF, flag->LR);
             // geom2 (orthorhombic)
             sum += gpar * interpolate(
                               dist, pot->dr[2 * atyp_idx + 1], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR,
-                              mpl, pot->file_lens[2 * atyp_idx + 1], 2 * atyp_idx + 1,
+                              mpfl, pot->file_lens[2 * atyp_idx + 1], 2 * atyp_idx + 1,
                               scaleLR, atom[jat].LR_par, strainF, flag->LR);
           }
           else
@@ -651,14 +651,14 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
 
             sum += interpolate(
                 dist, pot->dr[atyp_idx], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR,
-                mpl, pot->file_lens[atyp_idx], atyp_idx,
+                mpfl, pot->file_lens[atyp_idx], atyp_idx,
                 scaleLR, atom[jat].LR_par, strainF, flag->LR);
 
             if (LSD == 1)
             {
               sum += interpolate(
                   dist, LSD_dr[jat], LSD_r, pot->r_LR, LSD_pots, pot->pseudo_LR,
-                  mpl, LSD_file_lens[jat], jat,
+                  mpfl, LSD_file_lens[jat], jat,
                   0, atom[jat].LR_par, 1.0, flag->LR);
             }
           }

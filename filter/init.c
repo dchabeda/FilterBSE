@@ -499,10 +499,10 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
   long *LSD_file_lens = NULL;
   if (LSD == 1)
   {
-    ALLOCATE(&LSD_pots, mpl * nat, "LSD_pots");
-    ALLOCATE(&LSD_r, mpl * nat, "LSD_r");
-    ALLOCATE(&LSD_dr, nat, "LSD_dr");
-    ALLOCATE(&LSD_file_lens, nat, "LSD_file_lens");
+    ALLOCATE(&LSD_pots, mpfl * ist->natoms, "LSD_pots");
+    ALLOCATE(&LSD_r, mpfl * ist->natoms, "LSD_r");
+    ALLOCATE(&LSD_dr, ist->natoms, "LSD_dr");
+    ALLOCATE(&LSD_file_lens, ist->natoms, "LSD_file_lens");
 
     read_LSD_pots(LSD_r, LSD_pots, LSD_dr, LSD_file_lens, atom, ist);
   }

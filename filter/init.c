@@ -453,6 +453,7 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
   double *vol_ref;
   double strain_factor = 1.0; // Default: when the strain factor is 1.0, it has no effect on the potential
   int scale_LR = 0;
+  const int LSD = flag->LSD;
 
   // turn on the scale LR flag if surface Cs atoms will be scaled
   if (1.0 != par->scale_surface_Cs)
@@ -488,6 +489,21 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
       fprintf(stderr, "OUT OF MEMORY: vol_ref\n");
       exit(EXIT_FAILURE);
     }
+  }
+
+  // Allocate memory for LSD potentials if needed
+  double *LSD_pots = NULL;
+  double *LSD_r = NULL;
+  double *LSD_dr = NULL;
+  long *LSD_file_lens = NULL;
+  if (LSD == 1)
+  {
+    ALLOCATE(&LSD_pots, mpl * nat, "LSD_pots");
+    ALLOCATE(&LSD_r, mpl * nat, "LSD_r");
+    ALLOCATE(&LSD_dr, nat, "LSD_dr");
+    ALLOCATE(&LSD_file_lens, nat, "LSD_file_lens");
+
+    read_LSD_pots(LSD_r, LSD_pots, LSD_dr, LSD_file_lens, atom, ist);
   }
 
   // ****** ****** ****** ****** ****** ******
@@ -580,6 +596,14 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
             dist = sqrt(dist2);
             sum += interpolate(dist, pot->dr[atom[jatom].idx], pot->r, pot->r_LR, pot->pseudo, pot->pseudo_LR, ist->max_pot_file_len,
                                pot->file_lens[atom[jatom].idx], atom[jatom].idx, scale_LR, atom[jatom].LR_par, strain_factor, flag->LR);
+
+            if (LSD == 1)
+            {
+              sum += interpolate(
+                  dist, LSD_dr[jat], LSD_r, pot->r_LR, LSD_pots, pot->pseudo_LR,
+                  mpl, LSD_file_lens[jat], jat,
+                  0, atom[jat].LR_par, 1.0, flag->LR);
+            }
           }
         }
         pot_local[jxyz] = sum;
@@ -587,9 +611,9 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
     }
   }
 
-   FILE *pf_loc;
-   pf_loc = fopen("V_loc.dat", "w");
-   
+  FILE *pf_loc;
+  pf_loc = fopen("V_loc.dat", "w");
+
   // Compute potential minimum
   par->Vmin = 1.0e10;
   par->Vmax = -1.0e10;
@@ -612,6 +636,68 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
     free(pot->a4_params);
     free(pot->a5_params);
   }
+
+  if (LSD == 1)
+  {
+    free(LSD_pots);
+    free(LSD_r);
+    free(LSD_dr);
+    free(LSD_file_lens);
+  }
+
+  return;
+}
+
+/*****************************************************************************/
+void read_LSD_pots(double *LSD_r, double *LSD_pots, double *LSD_dr, long *LSD_file_lens, atom_info *atom, index_st *ist)
+{
+  FILE *pf;
+  int jatom;
+  char str[100];
+  double r_tmp;
+  double pot_tmp;
+  int iscan;
+  long file_len;
+
+  for (jatom = 0; jatom < ist->natoms; jatom++)
+  {
+    snprintf(str, sizeof(str), "LSD/pot_LSD_%s%d.dat", atom[jatom].atyp, jatom);
+
+    pf = fopen(str, "r");
+    // Check fopen result before using the pointer
+    if (pf == NULL)
+    {
+      fprintf(stderr, "Error: could not open file '%s'\n", str);
+      return;
+    }
+
+    file_len = 0;
+    // fscanf returns the number of items matched (here 2), or EOF on failure.
+    while (1)
+    {
+      // Fix 5: bounds check before writing into LSD_pots
+      if (file_len >= ist->max_pot_file_len)
+      {
+        fprintf(stderr, "Error: file '%s' exceeds max_pot_file_len (%ld)\n",
+                str, ist->max_pot_file_len);
+        fclose(pf);
+        return;
+      }
+
+      iscan = fscanf(pf, "%lg %lg", &r_tmp, &pot_tmp);
+      if (iscan == EOF || iscan < 2)
+      {
+        break;
+      }
+      LSD_r[jatom * ist->max_pot_file_len + file_len] = r_tmp;
+      LSD_pots[jatom * ist->max_pot_file_len + file_len] = pot_tmp;
+      file_len++;
+    }
+    LSD_file_lens[jatom] = file_len;
+    LSD_dr[jatom] = LSD_r[jatom * ist->max_pot_file_len + 1] - LSD_r[jatom * ist->max_pot_file_len + 0];
+    fclose(pf);
+  }
+
   return;
 }
 

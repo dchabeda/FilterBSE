@@ -30,7 +30,7 @@ typedef struct flag
   int approxEnergyRange, readProj;
   int useFastHam, useMPIOMP;
   int periodic, readKPath;
-
+  int LSD;
 } flag_st;
 
 typedef struct index
@@ -256,6 +256,7 @@ void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *g
 void init_psi(zomplex *psi, long *rand_seed, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 double calc_dot_dimension(xyz_st *R, long n, char *dir);
 double ret_ideal_bond_len(long natyp_1, long natyp_2, int crystal_structure_int);
+void read_LSD_pots(double *LSD_r_vals, double *LSD_pots, double *LSD_dr, long *LSD_file_lens, atom_info *atom, index_st *ist);
 
 // read.c
 void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parallel_st *parallel);

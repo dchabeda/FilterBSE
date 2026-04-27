@@ -57,6 +57,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->nspin = 1;        // turning on the useSpinors flag will set nspin to 2.
   flag->SO = 0;          // computes the spin-orbit terms in the Hamiltonian
   flag->NL = 0;          // computes the non-local terms in the Hamiltonian; automatically on if SO flag on
+  flag->LSD = 0;         // By default, do not add local structure dependent corrections
   ist->nproj = 5;        // number of terms to expand projections in. converged by 5
   par->t_rev_factor = 1; // can time rev filt'rd states to get 2X eigst8. mem alloc multiplied by par.t_rev_factor
   flag->readProj = 0;
@@ -232,6 +233,16 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
         if (*endptr != '\0')
         {
           printf("Error converting string to double.\n");
+          exit(EXIT_FAILURE);
+        }
+      }
+      else if (!strcmp(field, "localStructureDependent"))
+      {
+        flag->LSD = (int)strtol(tmp, &endptr, 10);
+        if (*endptr != '\0')
+        {
+          if (mpir == 0)
+            printf("Error converting string to double.\n");
           exit(EXIT_FAILURE);
         }
       }
@@ -604,6 +615,7 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
         printf("useStrain = int (if 1, calculate strain dependent pseudopots)\n");
         printf("interpolatePot = int (if 1, interpolate between cubic and orthorhombic potentials)\n");
         printf("longRange = int (if 1, the pseudopots have long range terms; no truncate)\n");
+        printf("localStructureDependent = int (if 1, the pseudopots have LSD (delta v) correction)\n");
         printf("crystalStructure = string (name of crystal structure e.g. wurtzite)\n");
         printf("outmostMaterial = string (name of outmost layer if core-shell e.g. CdS)\n");
         printf("scaleSurfaceCs = double (fractional scaling factor of surface Cs to balance charge)\n");

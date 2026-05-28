@@ -225,8 +225,11 @@ int main(int argc, char *argv[])
     /************************************************************/
     /*******************   RUN SIGMA MODULE   *******************/
     /************************************************************/
+    /*** The periodic path computes the eigenvalue variance    ***/
+    /*** inside mod_diag (calc_sigma_E_k), so the standalone   ***/
+    /*** mod_sigma module is skipped when flag.periodic is set ***/
 
-    if (0 == mpir)
+    if ((0 == mpir) && (0 == flag.periodic))
     {
       if (1 == flag.restartFromSigma)
       {

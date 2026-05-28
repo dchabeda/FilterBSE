@@ -64,30 +64,63 @@ void mod_diag(
   init_clock = (double)clock();
   init_wall = (double)time(NULL);
 
-  // Construct Hamiltonian on single rank
-  if ((0 == flag->MPIDiag) && (0 == mpir))
+  if (1 == flag->periodic)
   {
-    diag_H(psitot, pot_local, G_vecs, k_vecs, LS, nlc, nl, ksqr, eig_vals, ist, par, flag, parallel);
-  }
-  // Construct and diagonalize Hamiltonian with distributed implementation
-  else if (1 == flag->MPIDiag)
-  {
-    diag_H_mpi(psitot, pot_local, LS, nlc, nl, ksqr, eig_vals, ist, par, flag, parallel);
-  }
-
-  if (0 == mpir)
-  {
-    normalize_all(&psitot[0], ist->mn_states_tot, ist, par, flag, parallel);
-
-    printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",
-           ((double)clock() - init_clock) / (double)(CLOCKS_PER_SEC), (double)time(NULL) - init_wall);
-    fflush(stdout);
-
-    if (1 == flag->printPsiDiag)
+    /*** Periodic path: serial (rank-0) construction & diagonalization of the ***/
+    /*** k-dependent Hamiltonian, followed by the eigenvalue variance using   ***/
+    /*** the k-aware operator. (calc_sigma_E_k replaces the mod_sigma module, ***/
+    /*** which main.c skips when flag->periodic is set.) psitot only lives on ***/
+    /*** rank 0 after the gather, so this whole block is guarded by mpir==0.  ***/
+    if (mpir == 0)
     {
-      pf = fopen("psi-diag.dat", "w");
-      fwrite(psitot, ist->mn_states_tot * ist->complex_idx, ist->nspinngrid * sizeof(double), pf);
-      fclose(pf);
+      diag_H(psitot, pot_local, G_vecs, k_vecs, LS, nlc, nl, ksqr, eig_vals, ist, par, flag, parallel);
+      normalize_all(&psitot[0], ist->mn_states_tot, ist, par, flag, parallel);
+
+      printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",
+             ((double)clock() - init_clock) / (double)(CLOCKS_PER_SEC), (double)time(NULL) - init_wall);
+      fflush(stdout);
+
+      /************************************************************/
+      /*******************     CALC SIGMA E     *******************/
+      /*** standard deviation of the eigenvalues, used to check ***/
+      /*** for ghost states                                     ***/
+      /************************************************************/
+
+      write_separation(stdout, "T");
+      printf("\n7. CALCULATING VARIANCE OF EIGENVALUES | %s\n", get_time());
+      write_separation(stdout, "B");
+      fflush(stdout);
+
+      calc_sigma_E_k(psitot, pot_local, G_vecs, k_vecs[par->diag_k_idx], grid, LS, nlc, nl, sigma_E, ist, par, flag);
+    }
+  }
+  else
+  {
+    // Construct Hamiltonian on single rank
+    if ((0 == flag->MPIDiag) && (0 == mpir))
+    {
+      diag_H(psitot, pot_local, G_vecs, k_vecs, LS, nlc, nl, ksqr, eig_vals, ist, par, flag, parallel);
+    }
+    // Construct and diagonalize Hamiltonian with distributed implementation
+    else if (1 == flag->MPIDiag)
+    {
+      diag_H_mpi(psitot, pot_local, LS, nlc, nl, ksqr, eig_vals, ist, par, flag, parallel);
+    }
+
+    if (0 == mpir)
+    {
+      normalize_all(&psitot[0], ist->mn_states_tot, ist, par, flag, parallel);
+
+      printf("\ndone calculating Hmat, CPU time (sec) %g, wall run time (sec) %g\n",
+             ((double)clock() - init_clock) / (double)(CLOCKS_PER_SEC), (double)time(NULL) - init_wall);
+      fflush(stdout);
+
+      if (1 == flag->printPsiDiag)
+      {
+        pf = fopen("psi-diag.dat", "w");
+        fwrite(psitot, ist->mn_states_tot * ist->complex_idx, ist->nspinngrid * sizeof(double), pf);
+        fclose(pf);
+      }
     }
   }
 

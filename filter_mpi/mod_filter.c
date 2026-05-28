@@ -40,6 +40,9 @@ void mod_filter(
 
   long rand_seed;
 
+  // k-point used by the periodic (flag->periodic) code path
+  vector k;
+
   char *top;
   char *bottom;
   top = malloc(2 * sizeof(top[0]));
@@ -64,8 +67,18 @@ void mod_filter(
 
   //
   //
-  get_energy_range(
-      psi, phi, pot_local, grid, LS, nlc, nl, ksqr, ist, par, flag, parallel);
+  if (1 == flag->periodic)
+  {
+    // Use the largest-magnitude k-point to bound the spectrum range
+    k = k_vecs[ist->n_k_pts - 1];
+    get_energy_range_k(
+        psi, phi, pot_local, G_vecs, k, grid, LS, nlc, nl, ist, par, flag, parallel);
+  }
+  else
+  {
+    get_energy_range(
+        psi, phi, pot_local, grid, LS, nlc, nl, ksqr, ist, par, flag, parallel);
+  }
   //
   //
 
@@ -164,7 +177,14 @@ void mod_filter(
 
     //
     //
-    time_hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par, flag, parallel);
+    if (1 == flag->periodic)
+    {
+      time_hamiltonian_k(phi, psi, pot_local, G_vecs, k, grid, LS, nlc, nl, ist, par, flag, parallel);
+    }
+    else
+    {
+      time_hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par, flag, parallel);
+    }
     //
     //
 
@@ -199,6 +219,12 @@ void mod_filter(
     run_filter_cycles(
         psi_rank, pot_local, LS, nlc, nl, ksqr, an, zn,
         ene_targets, grid, ist, par, flag, parallel);
+  }
+  else
+  {
+    run_filter_cycles_k(
+        psi_rank, pot_local, G_vecs, k_vecs, LS, nlc, nl, an, zn,
+        ene_targets, ist, par, flag, parallel);
   }
 
   // Ensure all ranks synchronize here

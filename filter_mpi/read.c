@@ -1068,7 +1068,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
     printf("\tn_atom_types = %ld\n", ist->n_atom_types);
   if (parallel->mpi_rank == 0)
     printf("\tthe atoms are [ ");
-  char atyp[3];
+  char atyp[4];
   for (int k = 0; k < ist->n_atom_types; k++)
   {
     assign_atom_type(atyp, ist->atom_types[k]);
@@ -2083,7 +2083,7 @@ void interpolate_pot(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, par
   FILE *pw;
   coeff_st *coeff;
   int atm_id, i;
-  char tmpstr[100], str[100], atyp[3];
+  char tmpstr[100], str[100], atyp[4];
   ;
 
   // Calculate the geometry parameters of the configuration
@@ -2436,6 +2436,14 @@ long assign_atom_number(char atyp[4])
     return 55;
   else if ((atyp[0] == 'P') && (atyp[1] == 'b') && (atyp[2] == '\0'))
     return 82;
+  else if ((atyp[0] == 'B') && (atyp[1] == 'r') && (atyp[2] == '0'))
+    return 100;
+  else if ((atyp[0] == 'B') && (atyp[1] == 'r') && (atyp[2] == '1'))
+    return 101;
+  else if ((atyp[0] == 'I') && (atyp[1] == '0') && (atyp[2] == '\0'))
+    return 102;
+  else if ((atyp[0] == 'I') && (atyp[1] == '1') && (atyp[2] == '\0'))
+    return 103;
   else
   {
     fprintf(stderr, "atom type %3s not in current list\n", atyp);
@@ -2492,48 +2500,56 @@ void assign_atom_type(char *atyp, long j)
     atyp[0] = 'P';
     atyp[1] = 'C';
     atyp[2] = '5';
+    atyp[3] = '\0';
   }
   else if (j == 7)
   {
     atyp[0] = 'P';
     atyp[1] = 'C';
     atyp[2] = '6';
+    atyp[3] = '\0';
   }
   else if (j == 8)
   {
     atyp[0] = 'P';
     atyp[1] = 'R';
     atyp[2] = '1';
+    atyp[3] = '\0';
   }
   else if (j == 9)
   {
     atyp[0] = 'P';
     atyp[1] = 'R';
     atyp[2] = '2';
+    atyp[3] = '\0';
   }
   else if (j == 10)
   {
     atyp[0] = 'P';
     atyp[1] = 'R';
     atyp[2] = '3';
+    atyp[3] = '\0';
   }
   else if (j == 11)
   {
     atyp[0] = 'P';
     atyp[1] = 'A';
     atyp[2] = '1';
+    atyp[3] = '\0';
   }
   else if (j == 12)
   {
     atyp[0] = 'P';
     atyp[1] = 'A';
     atyp[2] = '2';
+    atyp[3] = '\0';
   }
   else if (j == 13)
   {
     atyp[0] = 'P';
     atyp[1] = 'A';
     atyp[2] = '3';
+    atyp[3] = '\0';
   }
   else if (j == 14)
   {
@@ -2641,6 +2657,32 @@ void assign_atom_type(char *atyp, long j)
   {
     atyp[0] = 'P';
     atyp[1] = 'b';
+    atyp[2] = '\0';
+  }
+  else if (j == 100)
+  {
+    atyp[0] = 'B';
+    atyp[1] = 'r';
+    atyp[2] = '0';
+    atyp[3] = '\0';
+  }
+  else if (j == 101)
+  {
+    atyp[0] = 'B';
+    atyp[1] = 'r';
+    atyp[2] = '1';
+    atyp[3] = '\0';
+  }
+  else if (j == 102)
+  {
+    atyp[0] = 'I';
+    atyp[1] = '0';
+    atyp[2] = '\0';
+  }
+  else if (j == 103)
+  {
+    atyp[0] = 'I';
+    atyp[1] = '1';
     atyp[2] = '\0';
   }
   else

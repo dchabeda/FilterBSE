@@ -226,7 +226,7 @@ int main(int argc, char *argv[])
     if (0 == mpir)
     {
 
-      mod_diag(psitot, pot_local, eig_vals, sigma_E, G_vecs, k_vecs, &grid, LS, nlc, nl,
+      mod_diag(psitot, pot_local, eig_vals, sigma_E, G_vecs, k_vecs, &grid, LS, nlc, nl, ksqr,
                an, zn, ene_targets, &ist, &par, &flag, &parallel);
 
       // Save checkpoint if requested
@@ -251,6 +251,10 @@ int main(int argc, char *argv[])
   /*****************  OPTIONAL OUTPUT MODULE  *****************/
   /************************************************************/
 
+  if (0 == mpir)
+  {
+    mod_optional_output(psitot, &grid, &ist, &par, &flag, &parallel);
+  }
   // if (0 == mpir){
   //   mod_optional_output(
   //     psitot, R, eig_vals, sigma_E, &grid, ksqr, &ist, &par, &flag, &parallel)

@@ -77,7 +77,31 @@ void write_cube_file(double *rho, grid_st *grid, char *fileName)
     {
       atomType = 88;
     }
-    else if ((!strcmp(atomSymbol, "PA1")) || (!strcmp(atomSymbol, "PA2")) || (!strcmp(atomSymbol, "PA3")) || (!strcmp(atomSymbol, "PR1")) || (!strcmp(atomSymbol, "PR2")) || (!strcmp(atomSymbol, "PR3")))
+    else if (!strcmp(atomSymbol, "PA1"))
+    {
+      atomType = 3;
+    }
+    else if (!strcmp(atomSymbol, "PA2"))
+    {
+      atomType = 4;
+    }
+    else if (!strcmp(atomSymbol, "I0"))
+    {
+      atomType = 53;
+    }
+    else if (!strcmp(atomSymbol, "I1"))
+    {
+      atomType = 53;
+    }
+    else if (!strcmp(atomSymbol, "Br0"))
+    {
+      atomType = 35;
+    }
+    else if (!strcmp(atomSymbol, "Br1"))
+    {
+      atomType = 35;
+    }
+    else if ((!strcmp(atomSymbol, "PA3")) || (!strcmp(atomSymbol, "PR1")) || (!strcmp(atomSymbol, "PR2")) || (!strcmp(atomSymbol, "PR3")))
     {
       atomType = 1;
     }

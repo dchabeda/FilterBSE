@@ -24,7 +24,7 @@ OBJECTS = \
 	main.o mod_init.o mod_mem.o mod_pseudopot.o mod_filter.o mod_ortho.o mod_diag.o mod_output.o\
 	read.o init.o save.o projectors.o norm.o rand.o interpolate.o strain.o coeff.o \
 	energy.o hamiltonian.o filter.o ortho.o Hmat.o write.o nerror.o phamiltonian.o \
-	vector.o aux.o init_periodic.o ghamiltonian.o
+	vector.o aux.o init_periodic.o ghamiltonian.o mod_optional_output.o angular.o
 
 CUBEOBJECTS = \
 	makecube.o write.o size.o init.o nerror.o read.o save.o interpolate.o rand.o norm.o projectors.o vector.o strain.o

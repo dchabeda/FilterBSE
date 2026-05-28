@@ -3,7 +3,7 @@
 /*****************************************************************************/
 void hamiltonian_k(
     zomplex *psi_out, zomplex *psi_tmp, double *pot_local,
-    vector *G_vecs, vector k, grid_st *grid, zomplex *LS,
+    vector *G_vecs, vector k, zomplex *LS,
     nlc_st *nlc, long *nl, index_st *ist,
     par_st *par, flag_st *flag, fftw_plan_loc planfw,
     fftw_plan_loc planbw, fftw_complex *fftwpsi)
@@ -38,14 +38,6 @@ void hamiltonian_k(
     kinetic_k(&psi_out[ist->ngrid], G_vecs, k, planfw, planbw, fftwpsi, ist); // spin down
   }
 
-  // // If we are computing a periodic filter calculation,
-  // // then we apply the Hamiltonian onto Bloch states
-  // // |psi> = e^(ik.r)phi(r),
-  // // where phi(r) are our usual filter functions
-  // if (1 == flag->periodic){
-  //   e_ikr(psi_tmp, k, grid, ist, par, flag);
-  // }
-
   // write_state_dat(psi_out, ist->nspinngrid, "psi_out_kinetic.dat");
   // Calculate the action of the potential on the wavefunction: |psi_out> = V|psi_tmp>
   potential(psi_out, psi_tmp, pot_local, LS, nlc, nl, ist, par, flag);
@@ -54,7 +46,7 @@ void hamiltonian_k(
 }
 
 /*****************************************************************************/
-void p_hamiltonian_k(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, vector *G_vecs, vector k, grid_st *grid, zomplex *LS, nlc_st *nlc, long *nl,
+void p_hamiltonian_k(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, vector *G_vecs, vector k, zomplex *LS, nlc_st *nlc, long *nl,
                      index_st *ist, par_st *par, flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, int ham_threads)
 {
   /*******************************************************************
@@ -87,14 +79,6 @@ void p_hamiltonian_k(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, vect
   }
   // write_state_dat(psi_out, ist->nspinngrid, "psi_out_pkinetic.dat");
   // Calculate the action of the potential on the wavefunction: |psi_out> = V|psi_tmp>
-
-  // If we are computing a periodic filter calculation,
-  // then we apply the Hamiltonian onto Bloch states
-  // |psi> = e^(ik.r)phi(r),
-  // where phi(r) are our usual filter functions
-  // if (1 == flag->periodic){
-  //   e_ikr(psi_tmp, k, grid, ist, par, flag);
-  // }
 
   p_potential(psi_out, psi_tmp, pot_local, LS, nlc, nl, ist, par, flag, ham_threads);
 
@@ -130,13 +114,14 @@ void kinetic_k(zomplex *psi_out, vector *G_vecs, vector k, fftw_plan_loc planfw,
   // FT from r-space to k-space
   fftw_execute(planfw);
 
-  // Kinetic energy is diagonal in k-space, just multiply fftwpsi by |k+G_j|^2
+  // Kinetic energy is diagonal in k-space, just multiply fftwpsi by 0.5|k+G_j|^2 / ngrid
   for (j = 0; j < ist->ngrid; j++)
   {
     kplusG = retAddedVectors(k, G_vecs[j]);
-    kpG2 = sqr(kplusG.mag);
-    fftwpsi[j][0] *= kpG2;
-    fftwpsi[j][1] *= kpG2;
+    kpG2 = sqr(kplusG.mag) / ist->ngrid;
+    // printf("%ld %lg\n", j, kpG2);
+    fftwpsi[j][0] *= 0.5 * kpG2;
+    fftwpsi[j][1] *= 0.5 * kpG2;
   }
 
   // Inverse FT back to r-space

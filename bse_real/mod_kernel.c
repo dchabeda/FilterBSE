@@ -31,12 +31,30 @@ void mod_kernel(
   if (0 == flag->coulombDone)
   {
     if (mpir == 0)
+    {
       printf("Computing complex e-h kernel\n");
-    fflush(0);
+      fflush(0);
+    }
+    time_t init_clock = (double)clock();
+    time_t init_wall = (double)time(NULL);
+    struct timespec init_wall_t, end_wall_t;
+    clock_gettime(CLOCK_MONOTONIC, &init_wall_t);
 
     calc_eh_kernel_cplx(
         psi_qp, pot_bare, pot_screened, *direct, *exchange,
         ist, par, flag, parallel);
+
+    clock_gettime(CLOCK_MONOTONIC, &end_wall_t);
+
+    double wall_time = (end_wall_t.tv_sec - init_wall_t.tv_sec) +
+                       (end_wall_t.tv_nsec - init_wall_t.tv_nsec) * 1e-9;
+
+    if (mpir == 0)
+    {
+      printf("\ndone calculating Coulomb kernel, CPU time (sec) %g, wall run time (sec) %lg\n",
+             ((double)clock() - init_clock) / (double)(CLOCKS_PER_SEC), wall_time);
+      fflush(stdout);
+    }
   }
   else if (1 == flag->coulombDone)
   {
@@ -67,7 +85,10 @@ void mod_kernel(
 
   if (flag->calcCoulombOnly == 1)
   {
-    printf("Exitng program after computing Coulomb matrix elements | %s\n", get_time());
+    if (mpir == 0)
+    {
+      printf("Exiting program after computing Coulomb matrix elements | %s\n", get_time());
+    }
     exit(0);
   }
 

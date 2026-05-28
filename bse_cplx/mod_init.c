@@ -47,9 +47,9 @@ void mod_init(
     if (mpir == 0)
       printf("\nReading UNSAFE input from unsafe_input.par:\n");
     fflush(stdout);
-    // read_unsafe_input(
-    //     psitot, eig_vals, sigma_E, R, grid, gridx, gridy, gridz,
-    //     ist, par, flag, parallel);
+    read_unsafe_input(
+        psitot, eig_vals, sigma_E, R, grid, gridx, gridy, gridz,
+        ist, par, flag, parallel);
   }
 
   /*** Read initial setup from input.par ***/

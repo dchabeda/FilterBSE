@@ -289,7 +289,7 @@ typedef struct grid
 typedef struct atom_info
 {
   long idx;
-  char atyp[3];
+  char atyp[4];
   int Zval;
   double SO_par;
   double geom_par;

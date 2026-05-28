@@ -76,7 +76,7 @@ typedef struct par
 typedef struct atom_info
 {
   long idx;
-  char atyp[3];
+  char atyp[4];
   int Zval;
   double SO_par, geom_par, LR_par, NL_par[2];
 } atom_info;

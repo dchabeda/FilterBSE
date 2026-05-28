@@ -20,6 +20,9 @@ void mod_bse(
 
   int mpir = parallel->mpi_rank;
 
+  time_t init_clock = (double)clock();
+  time_t init_wall = (double)time(NULL);
+
   if (mpir == 0)
   {
     write_separation(stdout, "T");
@@ -43,7 +46,9 @@ void mod_bse(
   if (mpir == 0)
   {
     printf("\nDone solving BSE | %s\n", get_time());
-    fflush(0);
+    printf("\nCPU time (sec) %g, wall run time (sec) %g\n",
+           ((double)clock() - init_clock) / (double)(CLOCKS_PER_SEC), (double)time(NULL) - init_wall);
+    fflush(stdout);
   }
 
   return;

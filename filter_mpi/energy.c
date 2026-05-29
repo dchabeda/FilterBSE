@@ -1,4 +1,5 @@
 #include "energy.h"
+#include "aux.h"
 
 /*****************************************************************************/
 
@@ -32,7 +33,7 @@ double energy(
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: [double]  E = <psi|H|psi>                               *
    ********************************************************************/
@@ -86,7 +87,7 @@ void energy_all(
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -116,9 +117,7 @@ void energy_all(
       exit(EXIT_FAILURE);
     }
     // Create FFT structs and plans for Fourier transform
-    fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
-    planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-    planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+    create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
 
     j_state = jmn * ist->complex_idx * ist->nspinngrid;
 
@@ -159,9 +158,7 @@ void energy_all(
     // Free dynamically allocated memory
     free(psi);
     free(phi);
-    fftw_destroy_plan(planfw);
-    fftw_destroy_plan(planbw);
-    fftw_free(fftwpsi);
+    destroy_fft_plans(planfw, planbw, fftwpsi);
   }
 
   return;
@@ -200,7 +197,7 @@ void get_energy_range(
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -335,9 +332,7 @@ void get_energy_range(
     printf("Emin = %lg, Emax = %lg, dE = %lg\n", Emin, Emax, par->dE);
   fflush(stdout);
 
-  fftw_destroy_plan(planfw);
-  fftw_destroy_plan(planbw);
-  fftw_free(fftwpsi);
+  destroy_fft_plans(planfw, planbw, fftwpsi);
   fftw_cleanup_threads();
 
   return;
@@ -373,7 +368,7 @@ void calc_sigma_E(
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -408,9 +403,7 @@ void calc_sigma_E(
       fprintf(stderr, "\nOUT OF MEMORY: phi in calc_sigma_E\n\n");
       exit(EXIT_FAILURE);
     }
-    fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
-    planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-    planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+    create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
 
     // select the current state to compute sigma_E for
     if (1 == flag->isComplex)
@@ -497,9 +490,7 @@ void calc_sigma_E(
     // Free dynamically allocated memory
     free(psi);
     free(phi);
-    fftw_destroy_plan(planfw);
-    fftw_destroy_plan(planbw);
-    fftw_free(fftwpsi);
+    destroy_fft_plans(planfw, planbw, fftwpsi);
   }
   fflush(pf);
   fclose(pf);
@@ -535,7 +526,7 @@ void calc_sigma_E_lg_mem(
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -565,9 +556,7 @@ void calc_sigma_E_lg_mem(
     fprintf(stderr, "\nOUT OF MEMORY: phi in calc_sigma_E\n\n");
     exit(EXIT_FAILURE);
   }
-  fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
-  planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-  planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+  create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
 
   // Loop over all M*N states
   for (ims = 0; ims < ist->mn_states_tot; ims++)
@@ -664,9 +653,7 @@ void calc_sigma_E_lg_mem(
   // Free dynamically allocated memory
   free(psi);
   free(phi);
-  fftw_destroy_plan(planfw);
-  fftw_destroy_plan(planbw);
-  fftw_free(fftwpsi);
+  destroy_fft_plans(planfw, planbw, fftwpsi);
   fclose(pf);
 
   return;
@@ -702,12 +689,13 @@ double energy_k(
    *  [pot_local] ngrid-long arr holding the value of the local pot   *
    *  [nlc] nlc struct holding values for computing SO and NL pots    *
    *  [nl] natom-long arr holding the number of NL gridpts per atom   *
-   *  [ksqr] ngrid-long arr holding the values of k^2 for KE calc     *
+   *  [G_vecs] reciprocal-space grid vectors for the kinetic op       *
+   *  [k] crystal momentum (k-point) for the kinetic operator         *
    *  [ist] ptr to counters, indices, and lengths                     *
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: [double]  E = <psi|H|psi>                               *
    ********************************************************************/
@@ -753,13 +741,14 @@ void energy_all_k(
    *  [pot_local] ngrid-long arr holding the value of the local pot   *
    *  [nlc] nlc struct holding values for computing SO and NL pots    *
    *  [nl] natom-long arr holding the number of NL gridpts per atom   *
-   *  [ksqr] ngrid-long arr holding the values of k^2 for KE calc     *
+   *  [G_vecs] reciprocal-space grid vectors for the kinetic op       *
+   *  [k] crystal momentum (k-point) for the kinetic operator         *
    *  [ene_filters] ms-long array to store energies of filter states  *
    *  [ist] ptr to counters, indices, and lengths                     *
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -789,9 +778,7 @@ void energy_all_k(
       exit(EXIT_FAILURE);
     }
     // Create FFT structs and plans for Fourier transform
-    fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
-    planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-    planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+    create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
 
     j_state = jmn * ist->complex_idx * ist->nspinngrid;
 
@@ -832,9 +819,7 @@ void energy_all_k(
     // Free dynamically allocated memory
     free(psi);
     free(phi);
-    fftw_destroy_plan(planfw);
-    fftw_destroy_plan(planbw);
-    fftw_free(fftwpsi);
+    destroy_fft_plans(planfw, planbw, fftwpsi);
   }
 
   return;
@@ -856,13 +841,14 @@ void get_energy_range_k(zomplex *psi, zomplex *phi, double *pot_local, vector *G
    *  [pot_local] ngrid-long arr holding the value of the local pot   *
    *  [nlc] nlc struct holding values for computing SO and NL pots    *
    *  [nl] natom-long arr holding the number of NL gridpts per atom   *
-   *  [ksqr] ngrid-long arr holding the values of k^2 for KE calc     *
+   *  [G_vecs] reciprocal-space grid vectors for the kinetic op       *
+   *  [k] crystal momentum (k-point) for the kinetic operator         *
    *  [ene_filters] ms-long array to store energies of filter states  *
    *  [ist] ptr to counters, indices, and lengths                     *
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -883,9 +869,7 @@ void get_energy_range_k(zomplex *psi, zomplex *phi, double *pot_local, vector *G
     fftw_plan_loc planfw, planbw;
     fftw_complex *fftwpsi;
 
-    fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
-    planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-    planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+    create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
 
     // Find E_min
     pf = fopen("Emin-init.dat", "w");
@@ -1003,13 +987,14 @@ void calc_sigma_E_k(double *psitot, double *pot_local, vector *G_vecs, vector k,
    *  [pot_local] ngrid-long arr holding the value of the local pot   *
    *  [nlc] nlc struct holding values for computing SO and NL pots    *
    *  [nl] natom-long arr holding the number of NL gridpts per atom   *
-   *  [ksqr] ngrid-long arr holding the values of k^2 for KE calc     *
+   *  [G_vecs] reciprocal-space grid vectors for the kinetic op       *
+   *  [k] crystal momentum (k-point) for the kinetic operator         *
    *  [sigma_E] m*n-long array to store energies of filtered states   *
    *  [ist] ptr to counters, indices, and lengths                     *
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -1046,9 +1031,7 @@ void calc_sigma_E_k(double *psitot, double *pot_local, vector *G_vecs, vector k,
       fprintf(stderr, "\nOUT OF MEMORY: phi in calc_sigma_E\n\n");
       exit(EXIT_FAILURE);
     }
-    fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
-    planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-    planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+    create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
 
     // select the current state to compute sigma_E for
     if (1 == flag->isComplex)
@@ -1130,9 +1113,7 @@ void calc_sigma_E_k(double *psitot, double *pot_local, vector *G_vecs, vector k,
     // Free dynamically allocated memory
     free(psi);
     free(phi);
-    fftw_destroy_plan(planfw);
-    fftw_destroy_plan(planbw);
-    fftw_free(fftwpsi);
+    destroy_fft_plans(planfw, planbw, fftwpsi);
   }
 
   return;

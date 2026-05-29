@@ -78,9 +78,7 @@ void run_filter_cycles(
   /************************************************************/
 
   // Create FFT structs and plans for Fourier transform
-  fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
-  planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-  planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+  create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
 
   ALLOCATE(&psi, ist->nspinngrid, "psi in filter_mpi");
   ALLOCATE(&phi, ist->nspinngrid, "phi in filter_mpi");
@@ -101,8 +99,6 @@ void run_filter_cycles(
   omp_set_num_threads(par->ham_threads);
 
   // Loop over all of the random states handled by this mpi-rank
-  // *
-  // *
   for (jns = 0; jns < ist->n_filters_per_rank; jns++)
   {
 
@@ -144,9 +140,7 @@ void run_filter_cycles(
 
   free(psi);
   free(phi);
-  fftw_destroy_plan(planfw);
-  fftw_destroy_plan(planbw);
-  fftw_free(fftwpsi);
+  destroy_fft_plans(planfw, planbw, fftwpsi);
 
   /***********************************************************************/
 
@@ -255,7 +249,6 @@ void filter_cycle(
   const long stlen = ist->nspinngrid * ist->complex_idx;
 
   const long mpir = parallel->mpi_rank;
-  //
 
   ns_block = jns * (ms * stlen);
 
@@ -444,7 +437,7 @@ void time_hamiltonian(
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -463,10 +456,7 @@ void time_hamiltonian(
   fftw_complex *fftwpsi;
   long fft_flags = 0;
 
-  fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
-  /*** initialization for the fast Fourier transform ***/
-  planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-  planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+  create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
 
   // Copy psi_out into psi_tmp
   memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid * sizeof(psi_tmp[0]));
@@ -752,7 +742,8 @@ void run_filter_cycles_k(
    *  [pot_local] ngrid-long arr holding the value of the local pot   *
    *  [nlc] nlc struct holding values for computing SO and NL pots    *
    *  [nl] natom-long arr holding the number of NL gridpts per atom   *
-   *  [ksqr] ngrid-long arr holding the values of k^2 for KE calc     *
+   *  [G_vecs] reciprocal-space grid vectors for the kinetic op       *
+   *  [k] crystal momentum (k-point) for the kinetic operator         *
    *  [an] the Newton interpolation coefficients for the filter func  *
    *  [zn] Chebyshev polynomial support points                        *
    *  [ene_targets] target energies where filter funcs are centered   *
@@ -810,9 +801,7 @@ void run_filter_cycles_k(
   fftw_plan_with_nthreads(par->ham_threads);
 
   // Create FFT structs and plans for Fourier transform
-  fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
-  planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-  planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+  create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
 
   ALLOCATE(&psi, ist->nspinngrid, "psi in filter_mpi");
   ALLOCATE(&phi, ist->nspinngrid, "phi in filter_mpi");
@@ -833,8 +822,6 @@ void run_filter_cycles_k(
   omp_set_num_threads(par->ham_threads);
 
   // Loop over all of the random states handled by this mpi-rank
-  // *
-  // *
   for (ik = 0; ik < ist->n_k_pts; ik++)
   {
 
@@ -918,9 +905,7 @@ void run_filter_cycles_k(
 
   free(psi);
   free(phi);
-  fftw_destroy_plan(planfw);
-  fftw_destroy_plan(planbw);
-  fftw_free(fftwpsi);
+  destroy_fft_plans(planfw, planbw, fftwpsi);
   free(ene_filters);
 
   return;
@@ -958,7 +943,8 @@ void filter_cycle_k(
    *  [pot_local] ngrid-long arr holding the value of the local pot   *
    *  [nlc] nlc struct holding values for computing SO and NL pots    *
    *  [nl] natom-long arr holding the number of NL gridpts per atom   *
-   *  [ksqr] ngrid-long arr holding the values of k^2 for KE calc     *
+   *  [G_vecs] reciprocal-space grid vectors for the kinetic op       *
+   *  [k] crystal momentum (k-point) for the kinetic operator         *
    *  [an] the Newton interpolation coefficients for the filter func  *
    *  [zn] Chebyshev polynomial support points                        *
    *  [ene_targets] target energies where filter funcs are centered   *
@@ -993,7 +979,6 @@ void filter_cycle_k(
   const long stlen = ist->nspinngrid * ist->complex_idx;
 
   const long mpir = parallel->mpi_rank;
-  //
 
   ns_block = jns * (ms * stlen);
 
@@ -1174,12 +1159,13 @@ void time_hamiltonian_k(
    *  [pot_local] ngrid-long arr holding the value of the local pot   *
    *  [nlc] nlc struct holding values for computing SO and NL pots    *
    *  [nl] natom-long arr holding the number of NL gridpts per atom   *
-   *  [ksqr] ngrid-long arr holding the values of k^2 for KE calc     *
+   *  [G_vecs] reciprocal-space grid vectors for the kinetic op       *
+   *  [k] crystal momentum (k-point) for the kinetic operator         *
    *  [ist] ptr to counters, indices, and lengths                     *
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -1198,10 +1184,7 @@ void time_hamiltonian_k(
   fftw_complex *fftwpsi;
   long fft_flags = 0;
 
-  fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
-  /*** initialization for the fast Fourier transform ***/
-  planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-  planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+  create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
 
   // Copy psi_out into psi_tmp
   memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid * sizeof(psi_tmp[0]));
@@ -1230,12 +1213,10 @@ void time_hamiltonian_k(
   fflush(0);
 
   // Calculate the action of the potential operator on the wavefunction: |psi_out> = V|psi_tmp>
-  //
   if (1 == flag->periodic)
   {
     e_ikr(psi_tmp, k, grid, ist, par, flag);
   }
-  //
   if (flag->SO == 1)
   {
     // Calculate |psi_out> = V_SO|psi_tmp>

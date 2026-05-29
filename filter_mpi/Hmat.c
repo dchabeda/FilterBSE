@@ -38,7 +38,7 @@ void diag_H(
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/

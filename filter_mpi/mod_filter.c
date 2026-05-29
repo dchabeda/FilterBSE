@@ -65,8 +65,6 @@ void mod_filter(
   time_t init_clock = (double)clock();
   time_t init_wall = (double)time(NULL);
 
-  //
-  //
   if (1 == flag->periodic)
   {
     // Use the largest-magnitude k-point to bound the spectrum range
@@ -79,8 +77,6 @@ void mod_filter(
     get_energy_range(
         psi, phi, pot_local, grid, LS, nlc, nl, ksqr, ist, par, flag, parallel);
   }
-  //
-  //
 
   if (mpir == 0)
   {
@@ -103,8 +99,6 @@ void mod_filter(
 
   par->dt = sqr((double)(ist->ncheby) / (2.5 * par->dE));
 
-  //
-  //
   if (1 == flag->readCoeffs)
   {
     if (0 == mpir)
@@ -118,8 +112,6 @@ void mod_filter(
     gen_newton_coeff(an, zn, ene_targets, ist, par, parallel);
   }
 
-  //
-  //
 
   if (mpir == 0)
   {
@@ -154,11 +146,7 @@ void mod_filter(
   // Out: array of len n_filter_cycles * m_states_per_filter
   // every block of len [m_states] has the same random psi
 
-  //
-  //
   init_filter_states(psi_rank, psi, grid, &rand_seed, ist, par, flag, parallel);
-  //
-  //
 
   /************************************************************/
   /*******************   TIME HAMILTONIAN   *******************/
@@ -175,8 +163,6 @@ void mod_filter(
     // Initialize state on which to act Hamiltonian
     memcpy(&phi[0], &psi_rank[0], cidx * nspngrd * sizeof(psi_rank[0]));
 
-    //
-    //
     if (1 == flag->periodic)
     {
       time_hamiltonian_k(phi, psi, pot_local, G_vecs, k, grid, LS, nlc, nl, ist, par, flag, parallel);
@@ -185,8 +171,6 @@ void mod_filter(
     {
       time_hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par, flag, parallel);
     }
-    //
-    //
 
     if (mpir == 0)
       printf("Done timing Hamiltonian | %s\n", get_time());
@@ -212,8 +196,6 @@ void mod_filter(
   struct timespec init_wall_t, end_wall_t;
   clock_gettime(CLOCK_MONOTONIC, &init_wall_t);
 
-  //
-  //
   if (0 == flag->periodic)
   {
     run_filter_cycles(

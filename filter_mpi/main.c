@@ -183,9 +183,7 @@ int main(int argc, char *argv[])
 
       if ((1 == flag.restartFromOrtho) && (0 == flag.MPIOrtho))
       {
-        //
         restart_from_ortho(&psitot, &ist, &par, &flag, &parallel);
-        //
       }
 
       mod_ortho(

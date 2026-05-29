@@ -34,7 +34,7 @@ void hamiltonian(
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -69,7 +69,7 @@ void kinetic(zomplex *psi_out, double *ksqr, fftw_plan_loc planfw, fftw_plan_loc
    *  [ksqr] ngrid-long arr holding the values of k^2 for KE calc     *
    *  [ist] ptr to counters, indices, and lengths                     *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/

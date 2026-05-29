@@ -248,3 +248,30 @@ void load_psitot(double *psitot, index_st *ist, par_st *par)
 }
 
 /****************************************************************************/
+
+/*****************************************************************************/
+void create_fft_plans(fftw_plan_loc *planfw, fftw_plan_loc *planbw,
+                      fftw_complex **fftwpsi, index_st *ist, unsigned fft_flags)
+{
+  // Allocate the shared FFT work array and build the forward/backward 3D DFT
+  // plans over the (nz, ny, nx) grid. Both plans operate in place on *fftwpsi.
+  *fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
+  *planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, *fftwpsi, *fftwpsi, FFTW_FORWARD, fft_flags);
+  *planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, *fftwpsi, *fftwpsi, FFTW_BACKWARD, fft_flags);
+
+  return;
+}
+
+/*****************************************************************************/
+void destroy_fft_plans(fftw_plan_loc planfw, fftw_plan_loc planbw,
+                       fftw_complex *fftwpsi)
+{
+  // Release the plan pair and work array created by create_fft_plans().
+  fftw_destroy_plan(planfw);
+  fftw_destroy_plan(planbw);
+  fftw_free(fftwpsi);
+
+  return;
+}
+
+/*****************************************************************************/

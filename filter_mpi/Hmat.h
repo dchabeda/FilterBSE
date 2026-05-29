@@ -13,6 +13,8 @@ void diag_H(
     long *nl,
     double *ksqr,
     double *eval,
+    long n_states,
+    int k_idx,
     index_st *ist,
     par_st *par,
     flag_st *flag,

@@ -41,3 +41,9 @@ void read_k_path(
     par_st *par,
     flag_st *flag,
     parallel_st *parallel);
+
+void setup_k_communicators(
+    index_st *ist,
+    par_st *par,
+    flag_st *flag,
+    parallel_st *parallel);

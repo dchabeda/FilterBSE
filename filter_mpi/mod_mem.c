@@ -29,12 +29,17 @@ void mod_mem_alloc(
 
   long eig_sz = par->t_rev_factor * ist->mn_states_tot;
 
-  ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx;
-
   if (1 == flag->periodic)
   {
-    ist->psi_rank_size *= ist->n_k_pts;
-    eig_sz *= ist->n_k_pts;
+    // psi_rank_size was already computed for the grouped layout in
+    // setup_k_communicators (it includes the per-group n_k_local factor).
+    // eig_vals/sigma_E on a group master hold the per-k upper bound across its
+    // local k-points: n_k_local * t_rev_factor * mn_states_per_k.
+    eig_sz = (long)parallel->n_k_local * par->t_rev_factor * ist->mn_states_per_k;
+  }
+  else
+  {
+    ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx;
   }
 
   /************************************************************/

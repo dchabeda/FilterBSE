@@ -92,6 +92,9 @@ void mod_init(
 
   if (1 == flag->periodic){
     init_periodic(lattice, G_vecs, k_vecs, grid, ist, par, flag, parallel);
+    // Now that n_k_pts is known, split the world communicator into k-groups and
+    // recompute the per-rank filtered-state counts for the grouped layout.
+    setup_k_communicators(ist, par, flag, parallel);
   }
 
 

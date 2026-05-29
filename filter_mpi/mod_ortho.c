@@ -45,7 +45,7 @@ void mod_ortho(
 
   if ( (1 == flag->useSpinors) && (1 != flag->noTimeRev) ){
     printf("\nTime-reversing filtered states (2x no. of orthogonal states)"); fflush(0);
-    time_reverse_all(&psitot[0], &psitot[tot_sz], ist, parallel);
+    time_reverse_all(&psitot[0], &psitot[tot_sz], ist->mn_states_tot, ist, parallel);
   }
 
   /************************************************************/
@@ -67,10 +67,10 @@ void mod_ortho(
   //
   //
   if (1 == flag->isComplex){
-    ist->mn_states_tot = ortho_cplx((MKL_Complex16*)psitot, grid->dv, ist, par, flag, parallel);      
-  } 
+    ist->mn_states_tot = ortho_cplx((MKL_Complex16*)psitot, grid->dv, par->t_rev_factor * ist->mn_states_tot, ist, par, flag, parallel);
+  }
   else {
-    ist->mn_states_tot = ortho_real(psitot, grid->dv, ist, par, flag, parallel);
+    ist->mn_states_tot = ortho_real(psitot, grid->dv, par->t_rev_factor * ist->mn_states_tot, ist, par, flag, parallel);
   }
   //
   //

@@ -476,7 +476,7 @@ void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl
 
 /*****************************************************************************/
 
-void time_reverse_all(double *psitot, double *dest, index_st *ist, parallel_st *parallel)
+void time_reverse_all(double *psitot, double *dest, long n_states, index_st *ist, parallel_st *parallel)
 {
   /*******************************************************************
    * This function applies the real-space time reversal operator to   *
@@ -486,6 +486,7 @@ void time_reverse_all(double *psitot, double *dest, index_st *ist, parallel_st *
    * inputs:                                                          *
    *  [psitot] m*n*nspinngrid-long arr where all filtered states are  *
    *  [dest] ptr to where the new states will be stored               *
+   *  [n_states] number of original states in psitot to time-reverse  *
    *  [ist] ptr to struct holding counters, indices, and arr lengths  *
    *  [parallel] struct holding parallelization options               *
    * outputs: void                                                    *
@@ -496,7 +497,7 @@ void time_reverse_all(double *psitot, double *dest, index_st *ist, parallel_st *
   omp_set_dynamic(0);
   omp_set_num_threads(parallel->nthreads);
 #pragma omp parallel for private(jms, jstate, jgrid)
-  for (jms = 0; jms < ist->mn_states_tot; jms++)
+  for (jms = 0; jms < n_states; jms++)
   {
     jstate = ist->complex_idx * ngrid * jms;
     for (jgrid = 0; jgrid < ngrid; jgrid++)

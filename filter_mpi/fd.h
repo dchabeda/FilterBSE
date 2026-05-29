@@ -99,6 +99,7 @@ typedef struct index
   long m_states_per_filter;
   long n_filter_cycles;
   long mn_states_tot;
+  long mn_states_per_k;     // periodic: filtered states per k before ortho (= n_filter_cycles * m_states_per_filter)
   long n_filters_per_rank;
   long n_states_per_rank;
   long n_states_for_ortho;
@@ -392,6 +393,19 @@ typedef struct parallel
   int n_inner_threads;
   long *jns;
   long *jms;
+
+  /* --- k-point grouping (periodic path only) --- */
+  /* MPI_COMM_WORLD is split into n_k_groups sub-communicators. Each group owns a
+     contiguous block of n_k_local global k-points and gathers its filtered states to
+     its master (k_rank == 0) for orthogonalization/diagonalization. */
+  MPI_Comm k_comm;          // sub-communicator for this rank's k-group (MPI_COMM_NULL if not periodic)
+  int k_color;              // group id == world_rank / k_size
+  int k_rank;               // rank within k_comm; 0 == group master
+  int k_size;               // size of k_comm (ranks per k-group, == group_size)
+  int n_k_groups;           // number of k-groups
+  int n_k_local;            // number of global k-points this group owns
+  int k_global_start;       // first global k index owned by this group (contiguous)
+  int *k_local_to_global;   // length n_k_local; maps local k index -> global k index
 } parallel_st;
 
 /************************************************************/

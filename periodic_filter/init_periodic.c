@@ -76,6 +76,144 @@ void init_periodic(
 
 /*****************************************************************************/
 
+void setup_k_communicators(
+    index_st *ist,
+    par_st *par,
+    flag_st *flag,
+    parallel_st *parallel)
+{
+  /*******************************************************************
+   * Split MPI_COMM_WORLD into k-point groups for the periodic path.  *
+   *                                                                  *
+   * Each group owns a contiguous block of global k-points and        *
+   * gathers its filtered states to its master (k_rank == 0) for      *
+   * orthogonalization/diagonalization. Filtering stays MPI-parallel  *
+   * over n_filter_cycles within each group.                          *
+   *                                                                  *
+   * Unified policy (NF = n_filter_cycles, nk = n_k_pts):             *
+   *   group_size      = ranks per k-group                            *
+   *   n_k_groups      = mpi_size / group_size                        *
+   *   n_filters/rank  = NF / group_size                              *
+   *   color           = world_rank / group_size  (group id)          *
+   *   key             = world_rank % group_size  (rank in group)     *
+   *                                                                  *
+   *   mpi_size >= nk : group_size = mpi_size/nk, n_k_groups = nk,     *
+   *                    each group owns 1 k (NF split over the group). *
+   *   mpi_size <  nk : group_size = mpi_size, n_k_groups = 1, the     *
+   *                    single group owns all nk k and loops over them *
+   *                    (NF split over all ranks).                     *
+   ********************************************************************/
+
+  const int mpis = parallel->mpi_size;
+  const int mpir = parallel->mpi_rank;
+  const int nk = ist->n_k_pts;
+  const long NF = ist->n_filter_cycles;
+
+  int group_size;
+
+  if (nk <= 0)
+  {
+    if (mpir == 0)
+      fprintf(stderr, "ERROR: setup_k_communicators called with n_k_pts = %d\n", nk);
+    MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+  }
+
+  // v1: checkpoint/restart is not supported in the k-grouped periodic path. The
+  // checkpoint files carry no k dimension and assume a single global rank-0 block.
+  if (0 != flag->restartFromCheckpoint)
+  {
+    if (mpir == 0)
+      fprintf(stderr, "ERROR: checkpoint restart (restartFromCheckpoint=%d) is not "
+                      "supported with periodic k-grouping\n",
+              flag->restartFromCheckpoint);
+    MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+  }
+  if (1 == flag->saveCheckpoints && mpir == 0)
+    printf("\tNOTE: saveCheckpoints is ignored on the periodic path (no k-aware checkpoints yet)\n");
+
+  // Determine ranks-per-k-group from the two regimes
+  if (mpis >= nk)
+  {
+    if (mpis % nk != 0)
+    {
+      if (mpir == 0)
+        fprintf(stderr,
+                "ERROR: mpi_size (%d) must be an integer multiple of n_k_pts (%d) "
+                "when mpi_size >= n_k_pts\n",
+                mpis, nk);
+      MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    }
+    group_size = mpis / nk;
+  }
+  else
+  {
+    group_size = mpis;
+  }
+
+  // NF must distribute evenly over the ranks of a k-group
+  if (NF % group_size != 0)
+  {
+    if (mpir == 0)
+      fprintf(stderr,
+              "ERROR: ranks-per-k-group (%d) must divide n_filter_cycles (%ld)\n",
+              group_size, NF);
+    MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+  }
+
+  parallel->n_k_groups = mpis / group_size;
+  parallel->k_size = group_size; // confirmed below from k_comm
+
+  // Split the world communicator into k-groups
+  const int color = mpir / group_size;
+  const int key = mpir % group_size;
+  parallel->k_color = color;
+
+  MPI_Comm_split(MPI_COMM_WORLD, color, key, &parallel->k_comm);
+  MPI_Comm_rank(parallel->k_comm, &parallel->k_rank);
+  MPI_Comm_size(parallel->k_comm, &parallel->k_size);
+
+  // Block-distribute the nk global k-points over the n_k_groups groups
+  const int n_groups = parallel->n_k_groups;
+  const int base = nk / n_groups;
+  const int rem = nk % n_groups;
+  parallel->n_k_local = base + (color < rem ? 1 : 0);
+  parallel->k_global_start = color * base + (color < rem ? color : rem);
+
+  if ((nk % n_groups != 0) && (mpir == 0))
+    printf("\tWARNING: n_k_pts (%d) not divisible by n_k_groups (%d); "
+           "k-points distributed unevenly (%d or %d per group)\n",
+           nk, n_groups, base + 1, base);
+
+  ALLOCATE(&(parallel->k_local_to_global), (parallel->n_k_local > 0 ? parallel->n_k_local : 1),
+           "k_local_to_global");
+  for (int ikl = 0; ikl < parallel->n_k_local; ikl++)
+    parallel->k_local_to_global[ikl] = parallel->k_global_start + ikl;
+
+  // Recompute the per-rank state counts for the grouped layout. read_input set these
+  // assuming a single global pool of NF cycles over mpi_size ranks; under k-grouping
+  // the NF cycles are split over the group_size ranks of each k-group instead.
+  const long m = ist->m_states_per_filter;
+  ist->n_filters_per_rank = NF / group_size;
+  ist->n_states_per_rank = ist->n_filters_per_rank * m;
+  ist->mn_states_per_k = NF * m; // states per k gathered across the group, before ortho
+  ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx *
+                       parallel->n_k_local;
+
+  if (mpir == 0)
+  {
+    printf("\nk-point MPI grouping:\n");
+    printf("\tmpi_size = %d, n_k_pts = %d, n_filter_cycles = %ld\n", mpis, nk, NF);
+    printf("\tn_k_groups = %d, ranks per group (k_size) = %d\n", n_groups, group_size);
+    printf("\tn_filters_per_rank = %ld, n_states_per_rank = %ld, mn_states_per_k = %ld\n",
+           ist->n_filters_per_rank, ist->n_states_per_rank, ist->mn_states_per_k);
+    fflush(stdout);
+  }
+
+  return;
+}
+
+/*****************************************************************************/
+
 void gen_recip_lat_vecs(
     lattice_st *lattice,
     index_st *ist,
@@ -236,7 +374,9 @@ void gen_k_vecs(
   double k1_scale = TWOPI / lattice->a; // / ist->ngrid;
   double k2_scale = TWOPI / lattice->b; // / ist->ngrid;
   double k3_scale = TWOPI / lattice->c; // / ist->ngrid;
-  double dk1, dk2, dk3;
+  // Initialize to 0.0 so that a singleton dimension (nk == 1, n = 0) yields k = 0
+  // rather than 0 * (uninitialized) = NaN.
+  double dk1 = 0.0, dk2 = 0.0, dk3 = 0.0;
   vector k;
 
   // Generate the k grid spacing

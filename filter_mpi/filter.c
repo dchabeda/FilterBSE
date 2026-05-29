@@ -624,12 +624,47 @@ void gather_mpi_filt(
     printf("Sending states 1-by-1 w MPI_Send/Recv\n");
     fflush(0);
 
-    send_recv_lg_data(psi_rank, psitot, stlen, ist->n_states_per_rank, parallel->mpi_rank, parallel->mpi_size);
+    send_recv_lg_data(psi_rank, psitot, stlen, ist->n_states_per_rank, parallel->mpi_rank, parallel->mpi_size, MPI_COMM_WORLD, 0);
   }
 
   if (mpir == 0)
     printf("Succesfully gathered all states\n");
   fflush(0);
+
+  return;
+}
+
+/*****************************************************************************/
+
+void gather_mpi_filt_k(
+    double *psi_rank_kblock,
+    double *psitot_kslot,
+    long prs,
+    long stlen,
+    long n_states_per_rank,
+    MPI_Comm comm,
+    int root)
+{
+  /************************************************************/
+  /*** Periodic: gather one k-point's filtered states from  ***/
+  /*** the ranks of a k-group into the group master's slot. ***/
+  /*** prs = n_states_per_rank * stlen (per-rank elems).     ***/
+  /************************************************************/
+
+  int comm_rank;
+  MPI_Comm_rank(comm, &comm_rank);
+
+  // MPI_Gather takes an int count; fall back to Send/Recv when prs > INT_MAX
+  if (prs < (long)INT_MAX)
+  {
+    MPI_Gather(psi_rank_kblock, (int)prs, MPI_DOUBLE, psitot_kslot, (int)prs, MPI_DOUBLE, root, comm);
+  }
+  else
+  {
+    // send_recv_lg_data writes into (*dest) + rank*prs; psitot_kslot is the slot base
+    double *dest = psitot_kslot;
+    send_recv_lg_data(psi_rank_kblock, &dest, stlen, n_states_per_rank, comm_rank, 0 /*unused*/, comm, root);
+  }
 
   return;
 }
@@ -640,10 +675,14 @@ void send_recv_lg_data(
     long stlen,
     long n_states_per_rank,
     int mpi_rank,
-    int mpi_size)
+    int mpi_size,
+    MPI_Comm comm,
+    int root)
 {
 
   int max_mpi_sz = INT_MAX;
+  // size of the communicator this gather runs over
+  MPI_Comm_size(comm, &mpi_size);
   long psi_rank_size = n_states_per_rank * stlen;
 
   // printf("max_mpi_size = %d\n", max_mpi_sz); fflush(0);
@@ -666,11 +705,13 @@ void send_recv_lg_data(
   long nbuf = n_states_max * stlen;
   // printf("nbuf = %ld\n", nbuf); fflush(0);
 
-  if (mpi_rank == 0)
+  if (mpi_rank == root)
   {
     // Receive data from other ranks
-    for (int j = 1; j < mpi_size; j++)
+    for (int j = 0; j < mpi_size; j++)
     {
+      if (j == root)
+        continue;
       long rnk_offset = j * psi_rank_size;
       long remaining_states = n_states_per_rank;
       // printf("\n***\nrank = %d rnk_offset = %ld\n", j, rnk_offset); fflush(0);
@@ -681,14 +722,14 @@ void send_recv_lg_data(
         // printf("Rcv rank %d | recv_size = %ld\n", mpi_rank, recv_size); fflush(0);
         remaining_states -= n_states_max;
         tag = j * n_send_cycles + i;
-        MPI_Recv((*psitot) + rnk_offset + i * nbuf, recv_size, MPI_DOUBLE, j, tag, MPI_COMM_WORLD, &status);
+        MPI_Recv((*psitot) + rnk_offset + i * nbuf, recv_size, MPI_DOUBLE, j, tag, comm, &status);
       } // end of send cycles
     } // end of loop over ranks
 
     printf("Successfully received all states on rank %d\n", mpi_rank);
     fflush(0);
-    // Copy local data for rank 0
-    memcpy(*psitot, psi_rank, psi_rank_size * sizeof(double));
+    // Copy local data for the root rank into its own slot
+    memcpy((*psitot) + (long)root * psi_rank_size, psi_rank, psi_rank_size * sizeof(double));
     printf("Successfully copied psi_rank to psitot on rank %d\n", mpi_rank);
     fflush(0);
   }
@@ -706,7 +747,7 @@ void send_recv_lg_data(
       // printf("\nSnd rank %d | i = %d Send size = %ld\n", mpi_rank, i, send_size); fflush(0);
       // printf("Snd rank %d | i = %d Remaining states = %ld\n", mpi_rank, i, remaining_states); fflush(0);
       // printf("Snd rank %d | i = %d tag = %d\n", mpi_rank, i, tag); fflush(0);
-      MPI_Send(psi_rank + i * nbuf, send_size, MPI_DOUBLE, 0, tag, MPI_COMM_WORLD);
+      MPI_Send(psi_rank + i * nbuf, send_size, MPI_DOUBLE, root, tag, comm);
     }
   }
 
@@ -721,6 +762,7 @@ void send_recv_lg_data(
 void run_filter_cycles_k(
     double *psi_rank,
     double *pot_local,
+    grid_st *grid,
     vector *G_vecs,
     vector *k_vecs,
     zomplex *LS,
@@ -766,7 +808,8 @@ void run_filter_cycles_k(
   const long stlen = ist->nspinngrid * ist->complex_idx;
 
   //              Counters and array indexing
-  long ik;
+  long ikl;       // local k index (this group's k-points)
+  int ik_global;  // global k index
   long jns;
   long jms;
   long jstate;
@@ -821,23 +864,40 @@ void run_filter_cycles_k(
   // Set the number of OMP threads for Hamiltonian eval
   omp_set_num_threads(par->ham_threads);
 
-  // Loop over all of the random states handled by this mpi-rank
-  for (ik = 0; ik < ist->n_k_pts; ik++)
+  // Loop over the k-points owned by this rank's k-group. The initial random states
+  // for every local k-block were already placed in psi_rank by init_filter_states
+  // (mod_filter), with a seed that advances across ranks and k-points.
+  for (ikl = 0; ikl < parallel->n_k_local; ikl++)
   {
 
-    k = k_vecs[ik];
-    if (mpir == 0)
+    ik_global = parallel->k_local_to_global[ikl];
+    k = k_vecs[ik_global];
+    if (parallel->k_rank == 0)
     {
-      printf("ik = %ld, k = %.4lg %.4lg %.4lg\n", ik, k.x, k.y, k.z);
+      printf("ik = %d, k = %.4lg %.4lg %.4lg\n", ik_global, k.x, k.y, k.z);
     }
 
-    ik_block = ik * mn_sz;
+    ik_block = ikl * mn_sz;
+
+    // The kinetic energy is k-dependent, so the Hamiltonian spectrum range -- and
+    // therefore the Newton interpolation coefficients of the filter function -- must
+    // be recomputed for each k-point. Reusing coefficients built for a different
+    // range makes the polynomial expansion diverge during filtering.
+    get_energy_range_k(psi, phi, pot_local, G_vecs, k, grid, LS, nlc, nl, ist, par, flag, parallel);
+    par->dt = sqr((double)(ist->ncheby) / (2.5 * par->dE));
+    gen_newton_coeff(an, zn, ene_targets, ist, par, parallel);
+    if (parallel->k_rank == 0)
+    {
+      printf("  ik = %d: Emin = %.6g, dE = %.6g, sigma_filter = %.6g a.u.; regenerated %ld Newton coeffs\n",
+             ik_global, par->Vmin, par->dE, sqrt(1.0 / (2.0 * par->dt)), ist->ncheby);
+      fflush(stdout);
+    }
 
     for (jns = 0; jns < ist->n_filters_per_rank; jns++)
     {
 
       // Keep track of how many filter iterations have taken place
-      if (mpir == 0)
+      if (parallel->k_rank == 0)
       {
         printf("  Random psi %ld / %ld | %s\n", jns + 1, ist->n_filters_per_rank, get_time());
         fflush(0);
@@ -853,7 +913,7 @@ void run_filter_cycles_k(
       {
         ns_block = jns * (ms * stlen);
 
-        sprintf(str, "psi-filt-%ld-%d-%ld.dat", jns, mpir, ik);
+        sprintf(str, "psi-filt-%ld-%d-%d.dat", jns, mpir, ik_global);
         pf = fopen(str, "w");
 
         for (jms = 0; jms < ms; jms++)
@@ -869,15 +929,15 @@ void run_filter_cycles_k(
     /***********************************************************************/
 
     // normalize the states and get their energies
-    if (mpir == 0)
-      printf("\n  4.2 Normalizing filtered states\n");
+    if (parallel->k_rank == 0)
+      printf("\n  4.2 Normalizing filtered states (ik = %d)\n", ik_global);
     fflush(stdout);
 
     normalize_all(&psi_rank[ik_block], ist->n_states_per_rank, ist, par, flag, parallel);
 
     // Get the energy of all the filtered states
-    if (mpir == 0)
-      printf("\n  4.3 Computing the energies of all filtered states\n");
+    if (parallel->k_rank == 0)
+      printf("\n  4.3 Computing the energies of all filtered states (ik = %d)\n", ik_global);
     fflush(stdout);
 
     energy_all_k(
@@ -889,7 +949,7 @@ void run_filter_cycles_k(
     for (jns = 0; jns < ist->n_filters_per_rank; jns++)
     {
 
-      sprintf(fileName, "ene-filt-jns-%ld-%d-%ld.dat", jns, mpir, ik);
+      sprintf(fileName, "ene-filt-jns-%ld-%d-%d.dat", jns, mpir, ik_global);
       pf = fopen(fileName, "w");
 
       for (jms = 0; jms < ms; jms++)
@@ -901,7 +961,7 @@ void run_filter_cycles_k(
       fclose(pf);
     }
 
-  } // end of ik
+  } // end of ikl
 
   free(psi);
   free(phi);
@@ -1195,7 +1255,7 @@ void time_hamiltonian_k(
   {
     for (jspin = 0; jspin < ist->nspin; jspin++)
     {
-      kinetic_k(&psi_out[jspin * ist->ngrid], G_vecs, k, planfw, planbw, fftwpsi, ist); // spin up/down
+      kinetic_k(&psi_out[jspin * ist->ngrid], G_vecs, k, planfw, planbw, fftwpsi, ist, par); // spin up/down
     }
   }
   clock_gettime(CLOCK_MONOTONIC, &start);
@@ -1203,7 +1263,7 @@ void time_hamiltonian_k(
   {
     for (jspin = 0; jspin < ist->nspin; jspin++)
     {
-      kinetic_k(&psi_out[jspin * ist->ngrid], G_vecs, k, planfw, planbw, fftwpsi, ist); // spin up/down
+      kinetic_k(&psi_out[jspin * ist->ngrid], G_vecs, k, planfw, planbw, fftwpsi, ist, par); // spin up/down
     }
   }
   clock_gettime(CLOCK_MONOTONIC, &end);

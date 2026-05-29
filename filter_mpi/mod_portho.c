@@ -94,7 +94,7 @@ void mod_portho(
   init_clock = (double)clock();
   init_wall = (double)time(NULL);
 
-  ns_p_rnk = ortho_cplx((MKL_Complex16 *)(*psi_rank), grid->dv, ist, par, flag, parallel);
+  ns_p_rnk = ortho_cplx((MKL_Complex16 *)(*psi_rank), grid->dv, par->t_rev_factor * ist->mn_states_tot, ist, par, flag, parallel);
 
   normalize_all(*psi_rank, ist->mn_states_tot, ist, par, flag, parallel);
 

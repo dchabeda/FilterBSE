@@ -12,6 +12,8 @@ void diag_H(
     long *nl,
     double *ksqr,
     double *eval,
+    long n_states,
+    int k_idx,
     index_st *ist,
     par_st *par,
     flag_st *flag,
@@ -45,7 +47,7 @@ void diag_H(
 
   FILE *pg;
   long ims, jms, jgrid, jgrid_real, jgrid_imag;
-  const long long mn_states_tot = (int)ist->mn_states_tot, lwk = 3 * ist->mn_states_tot;
+  const long long mn_states_tot = (int)n_states, lwk = 3 * n_states;
   long long info;
   double *rwork, sumre, sumim;
   zomplex *tpsi;
@@ -71,16 +73,16 @@ void diag_H(
   // Allocate memory specific to scalar or complex arrays
   if (0 == flag->isComplex)
   {
-    H = (double *)calloc(ist->mn_states_tot * ist->mn_states_tot, sizeof(double));
+    H = (double *)calloc(n_states * n_states, sizeof(double));
     work = (double *)calloc(lwk, sizeof(double));
-    tpsi = (zomplex *)calloc(ist->mn_states_tot, sizeof(zomplex));
+    tpsi = (zomplex *)calloc(n_states, sizeof(zomplex));
   }
   if (1 == flag->isComplex)
   {
-    H_z = (MKL_Complex16 *)calloc(ist->mn_states_tot * ist->mn_states_tot, sizeof(MKL_Complex16));
+    H_z = (MKL_Complex16 *)calloc(n_states * n_states, sizeof(MKL_Complex16));
     work_z = (MKL_Complex16 *)calloc(lwk, sizeof(MKL_Complex16));
-    rwork = (double *)calloc(3 * ist->mn_states_tot, sizeof(double));
-    tpsi = (zomplex *)calloc(ist->mn_states_tot, sizeof(zomplex));
+    rwork = (double *)calloc(3 * n_states, sizeof(double));
+    tpsi = (zomplex *)calloc(n_states, sizeof(zomplex));
   }
 
   if ((psi = (zomplex *)calloc(ist->nspinngrid, sizeof(psi[0]))) == NULL)
@@ -101,7 +103,7 @@ void diag_H(
   omp_set_num_threads(parallel->nthreads);
   /*** calculate H|psi_i> ***/
 
-  for (ims = 0; ims < ist->mn_states_tot; ims++)
+  for (ims = 0; ims < n_states; ims++)
   {
 
     if (1 == flag->isComplex)
@@ -131,8 +133,8 @@ void diag_H(
     }
     else if (flag->periodic == 1)
     {
-      int k_idx = par->diag_k_idx;
-      // printf("\nk index to diagonalize %ld: k = %.6lg\n", k_idx, k_vecs[k_idx].z);
+      // k_idx is the global k-point index this Hamiltonian block is built at
+      // printf("\nk index to diagonalize %d: k = %.6lg\n", k_idx, k_vecs[k_idx].z);
       p_hamiltonian_k(phi, psi, pot_local, G_vecs, k_vecs[k_idx], LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi, parallel->nthreads);
     }
 
@@ -143,37 +145,39 @@ void diag_H(
       // Utilize Hermitian property of Hamiltonian matrix elements to reduce computation to only lower triangle
       if (0 == flag->isComplex)
       {
-        H[ims * ist->mn_states_tot + jms] = H[jms * ist->mn_states_tot + ims] = dotpreal(phi, psitot, jms, ist->nspinngrid, par->dv);
+        H[ims * n_states + jms] = H[jms * n_states + ims] = dotpreal(phi, psitot, jms, ist->nspinngrid, par->dv);
       }
       if (1 == flag->isComplex)
       {
-        H_z[ims * ist->mn_states_tot + jms] = H_z[jms * ist->mn_states_tot + ims] = dotp(phi, psitot, jms, ist->nspinngrid, par->dv);
-        H_z[jms * ist->mn_states_tot + ims].imag *= -1;
+        H_z[ims * n_states + jms] = H_z[jms * n_states + ims] = dotp(phi, psitot, jms, ist->nspinngrid, par->dv);
+        H_z[jms * n_states + ims].imag *= -1;
       }
     }
 
-    if ((ims == 0) || (0 == (ims % (ist->mn_states_tot / 4 + 1))) || (ims == (ist->mn_states_tot - 1)))
+    if ((ims == 0) || (0 == (ims % (n_states / 4 + 1))) || (ims == (n_states - 1)))
     {
-      print_progress_bar(ims, ist->mn_states_tot);
+      print_progress_bar(ims, n_states);
     }
   }
   // free dynamically allocated memory for psi and phi
   free(psi);
   free(phi);
 
-  // print out Hmat for debugging purposes
-  pg = fopen("hmat.dat", "w");
-  for (ims = 0; ims < ist->mn_states_tot; ims++)
+  // print out Hmat for debugging purposes (per-k so masters do not clobber)
+  char hmat_name[64];
+  sprintf(hmat_name, "hmat-%d.dat", k_idx);
+  pg = fopen(hmat_name, "w");
+  for (ims = 0; ims < n_states; ims++)
   {
-    for (jms = 0; jms < ist->mn_states_tot; jms++)
+    for (jms = 0; jms < n_states; jms++)
     {
       if (0 == flag->isComplex)
       {
-        fprintf(pg, "%lg ", H[ims * ist->mn_states_tot + jms]);
+        fprintf(pg, "%lg ", H[ims * n_states + jms]);
       }
       if (1 == flag->isComplex)
       {
-        fprintf(pg, "%lg+i%lg ", H_z[ims * ist->mn_states_tot + jms].real, H_z[ims * ist->mn_states_tot + jms].imag);
+        fprintf(pg, "%lg+i%lg ", H_z[ims * n_states + jms].real, H_z[ims * n_states + jms].imag);
       }
     }
     fprintf(pg, "\n");
@@ -220,7 +224,7 @@ void diag_H(
     jgrid_imag = ist->complex_idx * jgrid + 1;
 
 #pragma omp parallel for private(jms)
-    for (jms = 0; jms < ist->mn_states_tot; jms++)
+    for (jms = 0; jms < n_states; jms++)
     {
       tpsi[jms].re = psitot[ist->complex_idx * jms * ist->nspinngrid + jgrid_real];
       psitot[ist->complex_idx * jms * ist->nspinngrid + jgrid_real] = 0.0;
@@ -233,20 +237,20 @@ void diag_H(
     }
 
 #pragma omp parallel for private(jms, sumre, sumim)
-    for (jms = 0; jms < ist->mn_states_tot; jms++)
+    for (jms = 0; jms < n_states; jms++)
     {
 
       sumre = sumim = 0.0;
-      for (ims = 0; ims < ist->mn_states_tot; ims++)
+      for (ims = 0; ims < n_states; ims++)
       {
         if (0 == flag->isComplex)
         {
-          sumre += H[jms * ist->mn_states_tot + ims] * tpsi[ims].re;
+          sumre += H[jms * n_states + ims] * tpsi[ims].re;
         }
         if (1 == flag->isComplex)
         {
-          sumre += (H_z[jms * ist->mn_states_tot + ims].real * tpsi[ims].re + H_z[jms * ist->mn_states_tot + ims].imag * tpsi[ims].im);
-          sumim += (H_z[jms * ist->mn_states_tot + ims].real * tpsi[ims].im - H_z[jms * ist->mn_states_tot + ims].imag * tpsi[ims].re);
+          sumre += (H_z[jms * n_states + ims].real * tpsi[ims].re + H_z[jms * n_states + ims].imag * tpsi[ims].im);
+          sumim += (H_z[jms * n_states + ims].real * tpsi[ims].im - H_z[jms * n_states + ims].imag * tpsi[ims].re);
         }
       }
 

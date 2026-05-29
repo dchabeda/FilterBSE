@@ -64,6 +64,18 @@ int main(int argc, char *argv[])
   const int mpir = parallel.mpi_rank;
   parallel.mpi_root = 0;
 
+  // k-point grouping (periodic path) is configured later in setup_k_communicators.
+  // Default to a null communicator / single trivial group so the non-periodic path
+  // and end-of-run cleanup are always well-defined.
+  parallel.k_comm = MPI_COMM_NULL;
+  parallel.k_color = 0;
+  parallel.k_rank = parallel.mpi_rank;
+  parallel.k_size = parallel.mpi_size;
+  parallel.n_k_groups = 1;
+  parallel.n_k_local = 0;
+  parallel.k_global_start = 0;
+  parallel.k_local_to_global = NULL;
+
   /************************************************************/
   /*******************   JOB PRE-PRINTING   *******************/
   /************************************************************/
@@ -146,6 +158,18 @@ int main(int argc, char *argv[])
     if (1 == flag.calcFilterOnly)
     {
       exit(0);
+    }
+
+    // Periodic path: each k-group gathers, orthogonalizes, diagonalizes and writes
+    // its k-points' eigenvalues independently. This replaces the gather/ortho/diag/
+    // sigma/output modules below, so we exit the restart switch once it returns.
+    if (1 == flag.periodic)
+    {
+      run_periodic_postfilter(
+          psi_rank, pot_local, R, &grid, G_vecs, k_vecs, LS, nlc, nl,
+          ksqr, eig_vals, sigma_E, &ist, &par, &flag, &parallel);
+      free(psi_rank);
+      break;
     }
 
     // Gather all psi_rank from MPI ranks into psitot
@@ -270,7 +294,7 @@ int main(int argc, char *argv[])
   /*****************  OPTIONAL OUTPUT MODULE  *****************/
   /************************************************************/
 
-  if (0 == mpir)
+  if ((0 == mpir) && (0 == flag.periodic))
   {
     mod_optional_output(psitot, &grid, &ist, &par, &flag, &parallel);
   }
@@ -296,6 +320,14 @@ int main(int argc, char *argv[])
   free(sigma_E);
   free(an);
   free(zn);
+
+  // Release the per-k-group communicator and mapping (periodic path)
+  if (1 == flag.periodic)
+  {
+    if (parallel.k_comm != MPI_COMM_NULL)
+      MPI_Comm_free(&parallel.k_comm);
+    free(parallel.k_local_to_global);
+  }
 
   if (0 == mpir)
   {

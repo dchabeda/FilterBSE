@@ -56,9 +56,10 @@ void nonlocal_proj_pot(
 );
 
 void time_reverse_all(
-    double*         psitot, 
-    double*         dest, 
-    index_st*       ist, 
+    double*         psitot,
+    double*         dest,
+    long            n_states,
+    index_st*       ist,
     parallel_st*    parallel
 );
     

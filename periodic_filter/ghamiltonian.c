@@ -32,10 +32,10 @@ void hamiltonian_k(
   memcpy(&psi_tmp[0], &psi_out[0], ist->nspinngrid * sizeof(psi_tmp[0]));
 
   // Calculate the action of the kinetic energy part of the Hamiltonian on psi_tmp: |psi_out> = T|psi_tmp>
-  kinetic_k(psi_out, G_vecs, k, planfw, planbw, fftwpsi, ist); // spin up
+  kinetic_k(psi_out, G_vecs, k, planfw, planbw, fftwpsi, ist, par); // spin up
   if (1 == flag->useSpinors)
   {
-    kinetic_k(&psi_out[ist->ngrid], G_vecs, k, planfw, planbw, fftwpsi, ist); // spin down
+    kinetic_k(&psi_out[ist->ngrid], G_vecs, k, planfw, planbw, fftwpsi, ist, par); // spin down
   }
 
   // write_state_dat(psi_out, ist->nspinngrid, "psi_out_kinetic.dat");
@@ -75,7 +75,7 @@ void p_hamiltonian_k(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, vect
   // Calculate the action of the kinetic energy part of the Hamiltonian on psi_tmp: |psi_out> = T|psi_tmp>
   for (jspin = 0; jspin < ist->nspin; jspin++)
   {
-    kinetic_k(&psi_out[jspin * ist->ngrid], G_vecs, k, planfw, planbw, fftwpsi, ist); // spin up/down
+    kinetic_k(&psi_out[jspin * ist->ngrid], G_vecs, k, planfw, planbw, fftwpsi, ist, par); // spin up/down
   }
   // write_state_dat(psi_out, ist->nspinngrid, "psi_out_pkinetic.dat");
   // Calculate the action of the potential on the wavefunction: |psi_out> = V|psi_tmp>
@@ -88,7 +88,7 @@ void p_hamiltonian_k(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, vect
 /*****************************************************************************/
 // Calculates T(k)|psi_tmp> via FFT and stores result in psi_out
 
-void kinetic_k(zomplex *psi_out, vector *G_vecs, vector k, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st *ist)
+void kinetic_k(zomplex *psi_out, vector *G_vecs, vector k, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi, index_st *ist, par_st *par)
 {
   /*******************************************************************
    * This function applies the KE operator onto a state               *
@@ -106,7 +106,7 @@ void kinetic_k(zomplex *psi_out, vector *G_vecs, vector k, fftw_plan_loc planfw,
 
   long j;
   vector kplusG;
-  double kpG2;
+  double ke, mult;
 
   // Copy inputted psi to fftwpsi
   memcpy(&fftwpsi[0], &psi_out[0], ist->ngrid * sizeof(fftwpsi[0]));
@@ -114,14 +114,20 @@ void kinetic_k(zomplex *psi_out, vector *G_vecs, vector k, fftw_plan_loc planfw,
   // FT from r-space to k-space
   fftw_execute(planfw);
 
-  // Kinetic energy is diagonal in k-space, just multiply fftwpsi by 0.5|k+G_j|^2 / ngrid
+  // Kinetic energy is diagonal in k-space: multiply fftwpsi by 0.5|k+G_j|^2.
+  // The kinetic energy is capped at par->KE_max to match the non-local/real-space
+  // (non-periodic) path (init.c build_grid_ksqr), which bounds the spectrum so the
+  // Newton/Chebyshev filter stays within [Emin, Emax]. The 1/ngrid factor is the
+  // forward+backward FFT normalization.
   for (j = 0; j < ist->ngrid; j++)
   {
     kplusG = retAddedVectors(k, G_vecs[j]);
-    kpG2 = sqr(kplusG.mag) / ist->ngrid;
-    // printf("%ld %lg\n", j, kpG2);
-    fftwpsi[j][0] *= 0.5 * kpG2;
-    fftwpsi[j][1] *= 0.5 * kpG2;
+    ke = 0.5 * sqr(kplusG.mag);
+    if (ke > par->KE_max)
+      ke = par->KE_max; // KE cutoff at KE_max
+    mult = ke / ist->ngrid;
+    fftwpsi[j][0] *= mult;
+    fftwpsi[j][1] *= mult;
   }
 
   // Inverse FT back to r-space

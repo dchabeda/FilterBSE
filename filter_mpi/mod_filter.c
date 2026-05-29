@@ -67,10 +67,12 @@ void mod_filter(
 
   if (1 == flag->periodic)
   {
-    // Use the largest-magnitude k-point to bound the spectrum range
+    // The kinetic energy depends on k, so the spectrum range -- and the Newton
+    // interpolation coefficients built from it -- are computed per k-point inside
+    // run_filter_cycles_k. Here we only pick a k for the optional Hamiltonian timing.
     k = k_vecs[ist->n_k_pts - 1];
-    get_energy_range_k(
-        psi, phi, pot_local, G_vecs, k, grid, LS, nlc, nl, ist, par, flag, parallel);
+    if (mpir == 0)
+      printf("(periodic: energy range + Newton coefficients are computed per k-point)\n");
   }
   else
   {
@@ -97,30 +99,34 @@ void mod_filter(
     fflush(stdout);
   }
 
-  par->dt = sqr((double)(ist->ncheby) / (2.5 * par->dE));
-
-  if (1 == flag->readCoeffs)
+  // For the periodic path these are computed per k-point inside run_filter_cycles_k
+  // (the energy range is k-dependent). Skip the single global generation here.
+  if (0 == flag->periodic)
   {
-    if (0 == mpir)
+    par->dt = sqr((double)(ist->ncheby) / (2.5 * par->dE));
+
+    if (1 == flag->readCoeffs)
     {
-      printf("Reading in Newton interpolation coefficients from files\n");
+      if (0 == mpir)
+      {
+        printf("Reading in Newton interpolation coefficients from files\n");
+      }
+      read_newton_coeff(an, zn, ist, par);
     }
-    read_newton_coeff(an, zn, ist, par);
-  }
-  else
-  {
-    gen_newton_coeff(an, zn, ene_targets, ist, par, parallel);
-  }
+    else
+    {
+      gen_newton_coeff(an, zn, ene_targets, ist, par, parallel);
+    }
 
-
-  if (mpir == 0)
-  {
-    printf("\n  ncheby = %ld dt = %g dE = %g\n", ist->ncheby, par->dt, par->dE);
-    printf("  Energy width, sigma, of filter function = %.6g a.u.\n", sqrt(1 / (2 * par->dt)));
-    printf("  Suggested max span of spectrum for filtering = %.6g a.u.\n", ist->m_states_per_filter * sqrt(1 / (2 * par->dt)));
-    printf("  Requested span of spectrum to filter = %.6g a.u.\n",
-           (ene_targets[ntVB - 1] - ene_targets[0]) + (ene_targets[ntVB + ntCB - 1] - ene_targets[ntVB]));
-    fflush(stdout);
+    if (mpir == 0)
+    {
+      printf("\n  ncheby = %ld dt = %g dE = %g\n", ist->ncheby, par->dt, par->dE);
+      printf("  Energy width, sigma, of filter function = %.6g a.u.\n", sqrt(1 / (2 * par->dt)));
+      printf("  Suggested max span of spectrum for filtering = %.6g a.u.\n", ist->m_states_per_filter * sqrt(1 / (2 * par->dt)));
+      printf("  Requested span of spectrum to filter = %.6g a.u.\n",
+             (ene_targets[ntVB - 1] - ene_targets[0]) + (ene_targets[ntVB + ntCB - 1] - ene_targets[ntVB]));
+      fflush(stdout);
+    }
   }
 
   /************************************************************/
@@ -146,7 +152,22 @@ void mod_filter(
   // Out: array of len n_filter_cycles * m_states_per_filter
   // every block of len [m_states] has the same random psi
 
-  init_filter_states(psi_rank, psi, grid, &rand_seed, ist, par, flag, parallel);
+  if (0 == flag->periodic)
+  {
+    init_filter_states(psi_rank, psi, grid, &rand_seed, ist, par, flag, parallel);
+  }
+  else
+  {
+    // Periodic: initialize the random states for each local k-block separately.
+    // Reusing &rand_seed across blocks advances the RNG so every (k, jns) initial
+    // state is distinct, and ranks differ via the +mpir offset applied to the seed.
+    const long stlen_init = ist->nspinngrid * ist->complex_idx;
+    const long mn_sz_init = ist->n_filters_per_rank * ist->m_states_per_filter * stlen_init;
+    for (int ikl = 0; ikl < parallel->n_k_local; ikl++)
+    {
+      init_filter_states(&psi_rank[ikl * mn_sz_init], psi, grid, &rand_seed, ist, par, flag, parallel);
+    }
+  }
 
   /************************************************************/
   /*******************   TIME HAMILTONIAN   *******************/
@@ -205,7 +226,7 @@ void mod_filter(
   else
   {
     run_filter_cycles_k(
-        psi_rank, pot_local, G_vecs, k_vecs, LS, nlc, nl, an, zn,
+        psi_rank, pot_local, grid, G_vecs, k_vecs, LS, nlc, nl, an, zn,
         ene_targets, ist, par, flag, parallel);
   }
 

@@ -101,7 +101,7 @@ void get_energy_range_k(
     parallel_st *parallel);
 
 void calc_sigma_E_k(double *psitot, double *pot_local, vector *G_vecs, vector k, grid_st *grid, zomplex *LS, nlc_st *nlc, long *nl,
-                    double *sigma_E, index_st *ist, par_st *par, flag_st *flag);
+                    double *sigma_E, long n_states, index_st *ist, par_st *par, flag_st *flag);
 
 void calc_sigma_E_lg_mem(
     double *psitot,

@@ -975,7 +975,7 @@ void get_energy_range_k(zomplex *psi, zomplex *phi, double *pot_local, vector *G
 /****************************************************************************************/
 
 void calc_sigma_E_k(double *psitot, double *pot_local, vector *G_vecs, vector k, grid_st *grid, zomplex *LS, nlc_st *nlc, long *nl,
-                    double *sigma_E, index_st *ist, par_st *par, flag_st *flag)
+                    double *sigma_E, long n_states, index_st *ist, par_st *par, flag_st *flag)
 {
   /*******************************************************************
    * This function calculates the quality of the eigenstates by       *
@@ -1000,14 +1000,12 @@ void calc_sigma_E_k(double *psitot, double *pot_local, vector *G_vecs, vector k,
    ********************************************************************/
 
   long ims;
-  // Single k-point per call (k_vecs[par->diag_k_idx]); sigma_E is mn_states_tot
-  // long and indexed by state, matching calc_sigma_E. The ik*mn_states_tot
-  // offset is kept for a future multi-k generalization but is 0 here.
-  const int ik = 0;
+  // One k-point per call. sigma_E points at this k's slot (the caller applies any
+  // per-k offset), so states are written contiguously at [0, n_states).
 
-// Loop over all M*N states
+// Loop over this k-point's n_states states
 #pragma omp parallel for private(ims)
-  for (ims = 0; ims < ist->mn_states_tot; ims++)
+  for (ims = 0; ims < n_states; ims++)
   {
     long jgrid, jgrid_real, jgrid_imag, jstate;
     double eval, eval2;
@@ -1018,7 +1016,7 @@ void calc_sigma_E_k(double *psitot, double *pot_local, vector *G_vecs, vector k,
     zomplex *psi, *phi;
 
     // sig_idx is declared inside the loop so it is thread-private
-    long sig_idx = ik * ist->mn_states_tot + ims;
+    long sig_idx = ims;
     jstate = ist->complex_idx * ims * ist->nspinngrid;
 
     if ((psi = (zomplex *)calloc(ist->nspinngrid, sizeof(zomplex))) == NULL)

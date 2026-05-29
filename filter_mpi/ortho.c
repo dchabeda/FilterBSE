@@ -2,7 +2,7 @@
 
 /*****************************************************************************/
 
-long ortho_real(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel)
+long ortho_real(double *psitot, double dv, long n_cols, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel)
 {
   /*******************************************************************
    * This function computes the singular value decomposition of a     *
@@ -25,7 +25,7 @@ long ortho_real(double *psitot, double dv, index_st *ist, par_st *par, flag_st *
   long long i, cutoff;
   const long long one = 1;
   const long long ngrid = (long long)(ist->nspinngrid);
-  const long long mn_states_tot = (long long)(par->t_rev_factor * ist->mn_states_tot);
+  const long long mn_states_tot = (long long)(n_cols);
   double *S;
   double *work;
   const int mpir = parallel->mpi_rank;
@@ -86,7 +86,7 @@ long ortho_real(double *psitot, double dv, index_st *ist, par_st *par, flag_st *
 
 /*****************************************************************************/
 
-long ortho_cplx(MKL_Complex16 *psitot, double dv, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel)
+long ortho_cplx(MKL_Complex16 *psitot, double dv, long n_cols, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel)
 {
   /*******************************************************************
    * This function computes the singular value decomposition of a     *
@@ -108,7 +108,7 @@ long ortho_cplx(MKL_Complex16 *psitot, double dv, index_st *ist, par_st *par, fl
   long long lwork;
   long long info, one = 1, i, cutoff;
   long long ngrid = (long long)(ist->nspinngrid);
-  long long mn_states_tot = (long long)(par->t_rev_factor * ist->mn_states_tot);
+  long long mn_states_tot = (long long)(n_cols);
   double *S;
   MKL_Complex16 *work_z;
   double *rwork;

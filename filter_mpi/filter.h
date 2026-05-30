@@ -125,6 +125,7 @@ void run_filter_cycles_k(
 void filter_cycle_k(
     double *psi_rank,
     long jns,
+    int ik_global,
     zomplex *psi,
     zomplex *phi,
     double *pot_local,

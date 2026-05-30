@@ -2038,7 +2038,8 @@ void read_periodic_input(lattice_st *lattice, index_st *ist, par_st *par, flag_s
   {
     if (ist->n_bands == 0)
     {
-      printf("ERROR: number of bands not set!\n");
+      if (parallel->mpi_rank == 0)
+        printf("ERROR: number of bands not set!\n");
       fprintf(stderr, "ERROR: number of bands not set!\n");
       exit(EXIT_FAILURE);
     }
@@ -2046,16 +2047,20 @@ void read_periodic_input(lattice_st *lattice, index_st *ist, par_st *par, flag_s
     par->nb_max = ist->n_bands;
   }
 
-  printf("\nDone reading periodic input\n");
-  printf("\tn_bands = %d\n", ist->n_bands);
-  printf("\tnb_min = %d nb_max = %d\n", par->nb_min, par->nb_max);
-  printf("\ta = %.3f b = %.3f c = %.3f\n", lattice->a, lattice->b, lattice->c);
-  printf("\talpha = %.3f beta = %.3f gamma = %.3f\n", lattice->alpha, lattice->beta, lattice->gamma);
-  printf("\ta1 = %.4f %.4f %.4f\n", lattice->a1.x, lattice->a1.y, lattice->a1.z);
-  printf("\ta2 = %.4f %.4f %.4f\n", lattice->a2.x, lattice->a2.y, lattice->a2.z);
-  printf("\ta3 = %.4f %.4f %.4f\n", lattice->a3.x, lattice->a3.y, lattice->a3.z);
-  printf("\treadKPath = %d\n", flag->readKPath);
-  printf("\tn_k_pts = %d\n", ist->n_k_pts);
+  // Input echo: identical on every rank, so print only from the root.
+  if (parallel->mpi_rank == 0)
+  {
+    printf("\nDone reading periodic input\n");
+    printf("\tn_bands = %d\n", ist->n_bands);
+    printf("\tnb_min = %d nb_max = %d\n", par->nb_min, par->nb_max);
+    printf("\ta = %.3f b = %.3f c = %.3f\n", lattice->a, lattice->b, lattice->c);
+    printf("\talpha = %.3f beta = %.3f gamma = %.3f\n", lattice->alpha, lattice->beta, lattice->gamma);
+    printf("\ta1 = %.4f %.4f %.4f\n", lattice->a1.x, lattice->a1.y, lattice->a1.z);
+    printf("\ta2 = %.4f %.4f %.4f\n", lattice->a2.x, lattice->a2.y, lattice->a2.z);
+    printf("\ta3 = %.4f %.4f %.4f\n", lattice->a3.x, lattice->a3.y, lattice->a3.z);
+    printf("\treadKPath = %d\n", flag->readKPath);
+    printf("\tn_k_pts = %d\n", ist->n_k_pts);
+  }
 
   // Scale the lattice vectors by the lattice parameters
   lattice->a1 = retScaledVector(lattice->a1, lattice->a);

@@ -8,6 +8,14 @@ void gen_newton_coeff(
     par_st *par,
     parallel_st *parallel);
 
+void gen_newton_coeff_k(
+    zomplex *an,
+    double *zn,
+    double *ene_targets,
+    index_st *ist,
+    par_st *par,
+    parallel_st *parallel);
+
 void chebyshev_reordered(double *, double, double, long);
 
 double samp_points_ashkenazy(zomplex *point, double min, double max, long ncheby);

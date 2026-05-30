@@ -44,7 +44,8 @@ void init_periodic(
 
   gen_G_vecs(G_vecs, grid, ist, par, flag, parallel);
 
-  printf("  %d G vectors in the plane-wave basis\n", ist->n_G_vecs);
+  if (mpir == 0)
+    printf("  %d G vectors in the plane-wave basis\n", ist->n_G_vecs);
 
   write_vector_dat(*G_vecs, ist->n_G_vecs, "G_vecs.dat");
 
@@ -69,7 +70,8 @@ void init_periodic(
     gen_k_vecs(k_vecs, lattice, ist, par, flag, parallel);
   }
 
-  printf("  n_kpts = %d n-G_vecs %d\n", ist->n_k_pts, ist->n_G_vecs);
+  if (mpir == 0)
+    printf("  n_kpts = %d n-G_vecs %d\n", ist->n_k_pts, ist->n_G_vecs);
 
   return;
 }
@@ -248,10 +250,13 @@ void gen_recip_lat_vecs(
   a1xa2 = retCrossProduct(a1, a2);
   lattice->b3 = retScaledVector(a1xa2, TWOPI / V_lat);
 
-  printf("\tDirect lattice volume, V_lat = %f\n", V_lat);
-  printf("\tb1 = %.4f %.4f %.4f\n", lattice->b1.x, lattice->b1.y, lattice->b1.z);
-  printf("\tb2 = %.4f %.4f %.4f\n", lattice->b2.x, lattice->b2.y, lattice->b2.z);
-  printf("\tb3 = %.4f %.4f %.4f\n", lattice->b3.x, lattice->b3.y, lattice->b3.z);
+  if (parallel->mpi_rank == 0)
+  {
+    printf("\tDirect lattice volume, V_lat = %f\n", V_lat);
+    printf("\tb1 = %.4f %.4f %.4f\n", lattice->b1.x, lattice->b1.y, lattice->b1.z);
+    printf("\tb2 = %.4f %.4f %.4f\n", lattice->b2.x, lattice->b2.y, lattice->b2.z);
+    printf("\tb3 = %.4f %.4f %.4f\n", lattice->b3.x, lattice->b3.y, lattice->b3.z);
+  }
 
   return;
 }
@@ -420,12 +425,15 @@ void gen_k_vecs(
     exit(EXIT_FAILURE);
   }
 
-  // printf("There are %d k vectors\n", ist->n_k_pts);
-  // printf("These are the k_vecs:\n");
-  // for (i = 0; i < ist->n_k_pts; i++){
-  //     printf("  %lf %lf %lf mag = %lf\n", k_vecs[i].x, k_vecs[i].y, k_vecs[i].z, k_vecs[i].mag);
-  // }
-
+  if (parallel->mpi_rank == 0)
+  {
+    printf("There are %d k vectors\n", ist->n_k_pts);
+    printf("These are the k_vecs:\n");
+    for (i = 0; i < ist->n_k_pts; i++)
+    {
+      printf("  %lf %lf %lf mag = %lf\n", (*k_vecs)[i].x, (*k_vecs)[i].y, (*k_vecs)[i].z, (*k_vecs)[i].mag);
+    }
+  }
   return;
 }
 

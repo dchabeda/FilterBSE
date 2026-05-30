@@ -67,12 +67,12 @@ void mod_filter(
 
   if (1 == flag->periodic)
   {
-    // The kinetic energy depends on k, so the spectrum range -- and the Newton
-    // interpolation coefficients built from it -- are computed per k-point inside
-    // run_filter_cycles_k. Here we only pick a k for the optional Hamiltonian timing.
+    // The kinetic energy depends on k, so the spectrum range is computed separately
+    // for each k-point and stored in par->Emin/par->Emax (indexed by global k index).
+    get_energy_range_k(
+        psi, phi, pot_local, G_vecs, k_vecs, grid, LS, nlc, nl, ist, par, flag, parallel);
+    // Pick a k for the optional Hamiltonian timing below.
     k = k_vecs[ist->n_k_pts - 1];
-    if (mpir == 0)
-      printf("(periodic: energy range + Newton coefficients are computed per k-point)\n");
   }
   else
   {
@@ -87,6 +87,9 @@ void mod_filter(
     fflush(stdout);
   }
 
+  // Ensure all ranks synchronize here
+  MPI_Barrier(MPI_COMM_WORLD);
+
   /************************************************************/
   /*******************   GEN CHEBY COEFFS   *******************/
   /************************************************************/
@@ -99,9 +102,14 @@ void mod_filter(
     fflush(stdout);
   }
 
-  // For the periodic path these are computed per k-point inside run_filter_cycles_k
-  // (the energy range is k-dependent). Skip the single global generation here.
-  if (0 == flag->periodic)
+  if (1 == flag->periodic)
+  {
+    // The energy range is k-dependent, so build a separate set of Newton coefficients
+    // for each k-point from its range (par->Emin/par->Emax). The coefficients are
+    // stored contiguously, one block per global k index, for use in run_filter_cycles_k.
+    gen_newton_coeff_k(an, zn, ene_targets, ist, par, parallel);
+  }
+  else
   {
     par->dt = sqr((double)(ist->ncheby) / (2.5 * par->dE));
 
@@ -128,6 +136,9 @@ void mod_filter(
       fflush(stdout);
     }
   }
+
+  // Ensure all ranks synchronize here
+  MPI_Barrier(MPI_COMM_WORLD);
 
   /************************************************************/
   /*******************  INIT FILTER STATES  *******************/
@@ -197,6 +208,9 @@ void mod_filter(
       printf("Done timing Hamiltonian | %s\n", get_time());
     fflush(0);
   }
+
+  // Ensure all ranks synchronize here
+  MPI_Barrier(MPI_COMM_WORLD);
 
   /************************************************************/
   /*******************   RUN FILTER CYCLE   *******************/

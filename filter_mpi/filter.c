@@ -362,7 +362,7 @@ void filter_cycle(
     {
       if ((1 == jc) || (0 == (jc % ((long)(ist->ncheby / 4 + 1)))) || ((ist->ncheby - 1) == jc))
       {
-        print_progress_bar(jc, ist->ncheby);
+        print_progress_bar(jc, ist->ncheby, -1);
       }
     }
   }
@@ -611,18 +611,22 @@ void gather_mpi_filt(
 
   if (prs < max_mpi_sz)
   {
-
-    printf("Size of psi_rank < %d; Calling MPI_Gather\n", max_mpi_sz);
-    fflush(0);
+    if (mpir == 0)
+    {
+      printf("Size of psi_rank < %d; Calling MPI_Gather\n", max_mpi_sz);
+      fflush(0);
+    }
 
     MPI_Gather(psi_rank, prs, MPI_DOUBLE, *psitot, prs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   }
   else
   {
-
-    printf("Size of psi_rank %ld > %d\n", ist->n_states_per_rank * stlen, max_mpi_sz);
-    printf("Sending states 1-by-1 w MPI_Send/Recv\n");
-    fflush(0);
+    if (mpir == 0)
+    {
+      printf("Size of psi_rank %ld > %d\n", ist->n_states_per_rank * stlen, max_mpi_sz);
+      printf("Sending states 1-by-1 w MPI_Send/Recv\n");
+      fflush(0);
+    }
 
     send_recv_lg_data(psi_rank, psitot, stlen, ist->n_states_per_rank, parallel->mpi_rank, parallel->mpi_size, MPI_COMM_WORLD, 0);
   }
@@ -808,8 +812,8 @@ void run_filter_cycles_k(
   const long stlen = ist->nspinngrid * ist->complex_idx;
 
   //              Counters and array indexing
-  long ikl;       // local k index (this group's k-points)
-  int ik_global;  // global k index
+  long ikl;      // local k index (this group's k-points)
+  int ik_global; // global k index
   long jns;
   long jms;
   long jstate;
@@ -880,18 +884,27 @@ void run_filter_cycles_k(
     ik_block = ikl * mn_sz;
 
     // The kinetic energy is k-dependent, so the Hamiltonian spectrum range -- and
-    // therefore the Newton interpolation coefficients of the filter function -- must
-    // be recomputed for each k-point. Reusing coefficients built for a different
-    // range makes the polynomial expansion diverge during filtering.
-    get_energy_range_k(psi, phi, pot_local, G_vecs, k, grid, LS, nlc, nl, ist, par, flag, parallel);
+    // therefore the Newton interpolation coefficients of the filter function --
+    // differ for each k-point. The per-k ranges (par->Emin/par->Emax) and the
+    // contiguous per-k coefficient blocks (an/zn) were precomputed before this loop
+    // (get_energy_range_k + gen_newton_coeff_k). Here we restore the scalar spectrum
+    // parameters for this k-point (used by p_hnorm_k during the expansion) and point
+    // at its coefficient block. Reusing coefficients built for a different range
+    // makes the polynomial expansion diverge during filtering.
+    par->Vmin = par->Emin[ik_global];
+    par->dE = par->Emax[ik_global] - par->Emin[ik_global];
+    par->dE_1 = 4.0 / par->dE;
     par->dt = sqr((double)(ist->ncheby) / (2.5 * par->dE));
-    gen_newton_coeff(an, zn, ene_targets, ist, par, parallel);
-    if (parallel->k_rank == 0)
-    {
-      printf("  ik = %d: Emin = %.6g, dE = %.6g, sigma_filter = %.6g a.u.; regenerated %ld Newton coeffs\n",
-             ik_global, par->Vmin, par->dE, sqrt(1.0 / (2.0 * par->dt)), ist->ncheby);
-      fflush(stdout);
-    }
+
+    zomplex *an_k = &an[(long)ik_global * ist->ncheby * ms];
+    double *zn_k = &zn[(long)ik_global * ist->ncheby];
+
+    // if (parallel->k_rank == 0)
+    // {
+    //   printf("  ik = %d: Emin = %.6g, dE = %.6g, sigma_filter = %.6g a.u.; using precomputed %ld Newton coeffs\n",
+    //          ik_global, par->Vmin, par->dE, sqrt(1.0 / (2.0 * par->dt)), ist->ncheby);
+    //   fflush(stdout);
+    // }
 
     for (jns = 0; jns < ist->n_filters_per_rank; jns++)
     {
@@ -903,9 +916,10 @@ void run_filter_cycles_k(
         fflush(0);
       }
 
-      // Run the filter cycle (apply Hamiltonian ncheby times)
+      // Run the filter cycle (apply Hamiltonian ncheby times) using this k-point's
+      // precomputed Newton coefficient block.
       filter_cycle_k(
-          &psi_rank[ik_block], jns, psi, phi, pot_local, G_vecs, k, LS, nlc, nl, an, zn,
+          &psi_rank[ik_block], jns, ik_global, psi, phi, pot_local, G_vecs, k, LS, nlc, nl, an_k, zn_k,
           ene_targets, ist, par, flag, parallel, planfw, planbw, fftwpsi);
 
       // Print out all ms states from initial random state jns
@@ -976,6 +990,7 @@ void run_filter_cycles_k(
 void filter_cycle_k(
     double *psi_rank,
     long jns,
+    int ik_global,
     zomplex *psi,
     zomplex *phi,
     double *pot_local,
@@ -1143,11 +1158,13 @@ void filter_cycle_k(
         }
       }
     }
-    if (mpir == 0)
+    // Each k-group master prints its own progress bar, labeled by global k index so
+    // the bars from concurrently-running k-groups remain distinguishable on stdout.
+    if (parallel->k_rank == 0)
     {
       if ((1 == jc) || (0 == (jc % ((long)(ist->ncheby / 4 + 1)))) || ((ist->ncheby - 1) == jc))
       {
-        print_progress_bar(jc, ist->ncheby);
+        print_progress_bar(jc, ist->ncheby, ik_global);
       }
     }
   }

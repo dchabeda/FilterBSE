@@ -59,6 +59,15 @@ void diag_H(
 
   const long stlen = ist->nspinngrid * ist->complex_idx;
 
+  // In the periodic path diag_H runs once per k-point, concurrently on each k-group
+  // master, so tag the status lines with the k index to keep the interleaved stdout
+  // readable. The non-periodic path runs a single diagonalization, so no tag.
+  char kpfx[24];
+  if (1 == flag->periodic)
+    sprintf(kpfx, "ik=%d: ", k_idx);
+  else
+    kpfx[0] = '\0';
+
   // FFT
   long fft_flags = FFTW_MEASURE;
   fftw_plan_loc planfw, planbw;
@@ -96,7 +105,7 @@ void diag_H(
     exit(EXIT_FAILURE);
   }
 
-  printf("Constructing Hamiltonian matrix\n");
+  printf("%sConstructing Hamiltonian matrix\n", kpfx);
   fflush(stdout);
 
   omp_set_dynamic(0);
@@ -156,7 +165,7 @@ void diag_H(
 
     if ((ims == 0) || (0 == (ims % (n_states / 4 + 1))) || (ims == (n_states - 1)))
     {
-      print_progress_bar(ims, n_states);
+      print_progress_bar(ims, n_states, (1 == flag->periodic) ? k_idx : -1);
     }
   }
   // free dynamically allocated memory for psi and phi
@@ -185,7 +194,7 @@ void diag_H(
   fclose(pg);
 
   /*** diagonalize the Hamiltonian H ***/
-  printf("Diagonalizing Hamiltonian | %s\n", get_time());
+  printf("%sDiagonalizing Hamiltonian | %s\n", kpfx, get_time());
   // Use real, symmetric diagonalization routine for real wavefunctions
   if (0 == flag->isComplex)
   {
@@ -208,7 +217,7 @@ void diag_H(
   }
 
   /*** copy the new function into psitot ***/
-  printf("Diagonalization complete! | %s\n", get_time());
+  printf("%sDiagonalization complete! | %s\n", kpfx, get_time());
   fflush(stdout);
 
   // The eigenvectors have been computed in the basis of orthogonalized
@@ -217,7 +226,7 @@ void diag_H(
   // The matrix H is holding the eigenvectors, so we perform
   // (Psi_grid)_a = SUM_i H_ai * (Phi_filter)_i
   // for each grid point
-  printf("Writing out eigenvectors in the grid basis\n");
+  printf("%sWriting out eigenvectors in the grid basis\n", kpfx);
   for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++)
   {
     jgrid_real = ist->complex_idx * jgrid;
@@ -266,7 +275,7 @@ void diag_H(
     {
       current_time = time(NULL);
       c_time_string = ctime(&current_time);
-      printf("\tFinished grid point no. %ld | %s\n", jgrid, c_time_string);
+      printf("\t%sFinished grid point no. %ld | %s\n", kpfx, jgrid, c_time_string);
       fflush(stdout);
     }
   }

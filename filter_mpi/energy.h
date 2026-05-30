@@ -90,7 +90,7 @@ void get_energy_range_k(
     zomplex *phi,
     double *pot_local,
     vector *G_vecs,
-    vector k,
+    vector *k_vecs,
     grid_st *grid,
     zomplex *LS,
     nlc_st *nlc,

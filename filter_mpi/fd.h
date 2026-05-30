@@ -229,6 +229,12 @@ typedef struct par
   double box_z;
   int diag_k_idx;
 
+  // Per-k Hamiltonian spectrum bounds (n_k_pts elements each, indexed by global
+  // k index). The kinetic energy is k-dependent, so the spectrum range -- and the
+  // Newton interpolation coefficients built from it -- differ for each k-point.
+  double *Emin;
+  double *Emax;
+
   // Band printing range
   int nb_min;
   int nb_max;

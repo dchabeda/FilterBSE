@@ -827,147 +827,166 @@ void energy_all_k(
 
 /***************************************************************************/
 
-void get_energy_range_k(zomplex *psi, zomplex *phi, double *pot_local, vector *G_vecs, vector k, grid_st *grid, zomplex *LS, nlc_st *nlc, long *nl,
+void get_energy_range_k(zomplex *psi, zomplex *phi, double *pot_local, vector *G_vecs, vector *k_vecs, grid_st *grid, zomplex *LS, nlc_st *nlc, long *nl,
                         index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel)
 {
   /*******************************************************************
    * This function calculates the range of the Hamiltonian spectrum   *
    * by imaginary time evolution. Min. obtained by propagating        *
    * exp[-H]|psi>, max obtained by propagating exp[H]|psi>            *
+   * The kinetic energy is k-dependent, so the spectrum range is       *
+   * computed separately for each k-point owned by this rank's k-group *
+   * and stored in par->Emin/par->Emax, indexed by global k index.     *
    * inputs:                                                          *
    *  [psi] ngrid-long arr of double/zomplex to hold orig. wavefnc    *
    *  [phi] ngrid-long arr to hold |phi> = H|psi>                     *
-   *  [psims] ms*ngrid-long arr holding all ms wavefuncs              *
    *  [pot_local] ngrid-long arr holding the value of the local pot   *
    *  [nlc] nlc struct holding values for computing SO and NL pots    *
    *  [nl] natom-long arr holding the number of NL gridpts per atom   *
    *  [G_vecs] reciprocal-space grid vectors for the kinetic op       *
-   *  [k] crystal momentum (k-point) for the kinetic operator         *
-   *  [ene_filters] ms-long array to store energies of filter states  *
+   *  [k_vecs] crystal momenta (k-points) for the kinetic operator    *
    *  [ist] ptr to counters, indices, and lengths                     *
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
-   *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
-   *  [fftwpsi] location to store outcome of Fourier transform        *
-   * outputs: void                                                    *
+   * outputs: void (fills par->Emin[ik], par->Emax[ik])               *
    ********************************************************************/
 
   FILE *pf;
   long i, ispn, jgrid;
   long rand_seed = -874917403;
   double ene_old;
-  double norma, Emin, Emax, tau = 0.05; // tau = 0.025
+  double norma, Emin, Emax, tau;
   long max_iter = 500;
-
-  if (0 == flag->approxEnergyRange)
-  {
-    if (parallel->mpi_rank == 0)
-      printf("Iteratively determining range of Hamiltonian\n");
-
-    int fft_flags = 0;
-    fftw_plan_loc planfw, planbw;
-    fftw_complex *fftwpsi;
-
-    create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
-
-    // Find E_min
-    pf = fopen("Emin-init.dat", "w");
-    // Initialize random state to begin propagation
-    for (ispn = 0; ispn < ist->nspin; ispn++)
-    {
-      init_psi(&phi[ispn * ist->ngrid], &rand_seed, grid, ist, par, flag, parallel);
-    }
-
-    Emin = (ene_old = 0.0) + 10.0; //
-    for (i = 0; (fabs((Emin - ene_old) / Emin) > 1.0e-6) && (i < max_iter); i++)
-    {
-      // Apply the Hamiltonian, shift orig by |phi>, and normalize (equivalent to forward imag. time propagation step)
-      memcpy(&psi[0], &phi[0], ist->nspinngrid * sizeof(phi[0]));
-
-      hamiltonian_k(phi, psi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
-
-      for (ispn = 0; ispn < ist->nspin; ispn++)
-      {
-        for (jgrid = 0; jgrid < ist->ngrid; jgrid++)
-        {
-          phi[ispn * ist->ngrid + jgrid].re = psi[ispn * ist->ngrid + jgrid].re - tau * phi[ispn * ist->ngrid + jgrid].re;
-          phi[ispn * ist->ngrid + jgrid].im = psi[ispn * ist->ngrid + jgrid].im - tau * phi[ispn * ist->ngrid + jgrid].im;
-        }
-      }
-
-      norma = normalize(&phi[0], ist->nspinngrid, ist, par, flag, parallel);
-      // set Emin for next iteration
-      ene_old = Emin;
-      Emin = energy_k(phi, psi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
-      // print progress
-      fprintf(pf, "%ld %.16g %.16g %.16g\n", i, ene_old, Emin, fabs((Emin - ene_old) / Emin));
-      fflush(pf);
-
-      if ((i > 5) && (Emin - ene_old) > 0)
-      {
-        if (parallel->mpi_rank == 0)
-          printf("\nWarning: positive step in energy minimization. Check Emin-init.dat\n");
-        fprintf(pf, "Warning: positive step in energy minimization\n");
-        tau -= 0.025;
-      }
-    }
-    fclose(pf);
-
-    // Find Emax
-    pf = fopen("Emax-init.dat", "w");
-    // Initialize random state to begin propagation
-    for (ispn = 0; ispn < ist->nspin; ispn++)
-    {
-      init_psi(&psi[ispn * ist->ngrid], &rand_seed, grid, ist, par, flag, parallel);
-    }
-
-    Emax = (ene_old = 0.0) + 0.1;
-    for (i = 0; (fabs((Emax - ene_old) / Emax) > 1.0e-6) & (i < max_iter); i++)
-    {
-      // Apply the Hamiltonian and normalize (equivalent to propagation step)
-      memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
-      hamiltonian_k(psi, phi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
-
-      norma = normalize(&psi[0], ist->nspinngrid, ist, par, flag, parallel);
-      // reset the max energy after the last iteration
-      ene_old = Emax;
-      Emax = energy_k(psi, phi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
-      // print progress
-      fprintf(pf, "%ld %.16g %.16g %.16g\n", i, ene_old, Emax, fabs((Emax - ene_old) / Emax));
-      fflush(pf);
-    }
-    fclose(pf);
-  }
-  else if (1 == flag->approxEnergyRange)
-  {
-    if (parallel->mpi_rank == 0)
-      printf("Approximating energy range of Hamiltonian as [Vmin, Vmax + KE_max]\n");
-    Emin = par->Vmin + 0.5;
-    Emax = par->Vmax + par->KE_max;
-    if (1 == flag->NL)
-    {
-      Emax += 3.0;
-    }
-  }
-  else
-  {
-    fprintf(stderr, "ERROR: invalid Hamiltonian energy range strategy selected\n");
-    exit(EXIT_FAILURE);
-  }
-
-  // Expand the delta E range artificially to help algorithm convergence (less efficient, but more robust).
-  Emax *= 1.2;
-  Emin -= 0.2 * fabs(Emin);
-
-  // Set parameters for calc'ing Filter coefficients
-  par->Vmin = Emin;
-  par->dE = (Emax - Emin);
-  par->dE_1 = 4.0 / par->dE;
+  long ikl;
+  int ik_global;
+  vector k;
+  char fname[64];
 
   if (parallel->mpi_rank == 0)
-    printf("Emin = %lg, Emax = %lg, dE = %lg\n", Emin, Emax, par->dE);
-  fflush(stdout);
+    printf("Determining the Hamiltonian energy range for each k-point\n");
+
+  // Loop over the k-points owned by this rank's k-group and compute a separate
+  // spectrum range for each. par->Emin/par->Emax are indexed by global k index.
+  for (ikl = 0; ikl < parallel->n_k_local; ikl++)
+  {
+    ik_global = parallel->k_local_to_global[ikl];
+    k = k_vecs[ik_global];
+    tau = 0.05; // tau = 0.025
+
+    if (0 == flag->approxEnergyRange)
+    {
+      if (parallel->k_rank == 0)
+        printf("Iteratively determining range of Hamiltonian (ik = %d)\n", ik_global);
+
+      int fft_flags = 0;
+      fftw_plan_loc planfw, planbw;
+      fftw_complex *fftwpsi;
+
+      create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
+
+      // Find E_min
+      sprintf(fname, "Emin-init-k%d.dat", ik_global);
+      pf = fopen(fname, "w");
+      // Initialize random state to begin propagation
+      for (ispn = 0; ispn < ist->nspin; ispn++)
+      {
+        init_psi(&phi[ispn * ist->ngrid], &rand_seed, grid, ist, par, flag, parallel);
+      }
+
+      Emin = (ene_old = 0.0) + 10.0; //
+      for (i = 0; (fabs((Emin - ene_old) / Emin) > 1.0e-6) && (i < max_iter); i++)
+      {
+        // Apply the Hamiltonian, shift orig by |phi>, and normalize (equivalent to forward imag. time propagation step)
+        memcpy(&psi[0], &phi[0], ist->nspinngrid * sizeof(phi[0]));
+
+        hamiltonian_k(phi, psi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
+
+        for (ispn = 0; ispn < ist->nspin; ispn++)
+        {
+          for (jgrid = 0; jgrid < ist->ngrid; jgrid++)
+          {
+            phi[ispn * ist->ngrid + jgrid].re = psi[ispn * ist->ngrid + jgrid].re - tau * phi[ispn * ist->ngrid + jgrid].re;
+            phi[ispn * ist->ngrid + jgrid].im = psi[ispn * ist->ngrid + jgrid].im - tau * phi[ispn * ist->ngrid + jgrid].im;
+          }
+        }
+
+        norma = normalize(&phi[0], ist->nspinngrid, ist, par, flag, parallel);
+        // set Emin for next iteration
+        ene_old = Emin;
+        Emin = energy_k(phi, psi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
+        // print progress
+        fprintf(pf, "%ld %.16g %.16g %.16g\n", i, ene_old, Emin, fabs((Emin - ene_old) / Emin));
+        fflush(pf);
+
+        if ((i > 5) && (Emin - ene_old) > 0)
+        {
+          if (parallel->k_rank == 0)
+            printf("\nWarning: positive step in energy minimization. Check %s\n", fname);
+          fprintf(pf, "Warning: positive step in energy minimization\n");
+          tau -= 0.025;
+        }
+      }
+      fclose(pf);
+
+      // Find Emax
+      sprintf(fname, "Emax-init-k%d.dat", ik_global);
+      pf = fopen(fname, "w");
+      // Initialize random state to begin propagation
+      for (ispn = 0; ispn < ist->nspin; ispn++)
+      {
+        init_psi(&psi[ispn * ist->ngrid], &rand_seed, grid, ist, par, flag, parallel);
+      }
+
+      Emax = (ene_old = 0.0) + 0.1;
+      for (i = 0; (fabs((Emax - ene_old) / Emax) > 1.0e-6) & (i < max_iter); i++)
+      {
+        // Apply the Hamiltonian and normalize (equivalent to propagation step)
+        memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
+        hamiltonian_k(psi, phi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
+
+        norma = normalize(&psi[0], ist->nspinngrid, ist, par, flag, parallel);
+        // reset the max energy after the last iteration
+        ene_old = Emax;
+        Emax = energy_k(psi, phi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
+        // print progress
+        fprintf(pf, "%ld %.16g %.16g %.16g\n", i, ene_old, Emax, fabs((Emax - ene_old) / Emax));
+        fflush(pf);
+      }
+      fclose(pf);
+
+      destroy_fft_plans(planfw, planbw, fftwpsi);
+    }
+    else if (1 == flag->approxEnergyRange)
+    {
+      if (parallel->k_rank == 0)
+        printf("Approximating energy range of Hamiltonian as [Vmin, Vmax + KE_max] (ik = %d)\n", ik_global);
+      Emin = par->Vmin + 0.5;
+      Emax = par->Vmax + par->KE_max;
+      if (1 == flag->NL)
+      {
+        Emax += 3.0;
+      }
+    }
+    else
+    {
+      fprintf(stderr, "ERROR: invalid Hamiltonian energy range strategy selected\n");
+      exit(EXIT_FAILURE);
+    }
+
+    // Expand the delta E range artificially to help algorithm convergence (less efficient, but more robust).
+    Emax *= 1.2;
+    Emin -= 0.2 * fabs(Emin);
+
+    // Store the per-k spectrum bounds. The Newton interpolation coefficients are
+    // built from these ranges later (gen_newton_coeff_k), and the filter loop sets
+    // the scalar par->Vmin/dE/dE_1/dt from them for each k-point.
+    par->Emin[ik_global] = Emin;
+    par->Emax[ik_global] = Emax;
+
+    if (parallel->k_rank == 0)
+      printf("ik = %d: Emin = %lg, Emax = %lg, dE = %lg\n", ik_global, Emin, Emax, Emax - Emin);
+    fflush(stdout);
+  }
 
   return;
 }

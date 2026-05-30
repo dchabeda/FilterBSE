@@ -152,7 +152,7 @@ void diag_H_mpi(
     // Print out progress
     if (mpir == 0){
       if ( (ims == 0) || (0 == (ims % (ist->mn_states_tot/4 + 1))) || (ims == (ist->mn_states_tot - 1))){
-        print_progress_bar(ims, ist->mn_states_tot);
+        print_progress_bar(ims, ist->mn_states_tot, -1);
       }
     }
     

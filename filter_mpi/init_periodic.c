@@ -384,22 +384,27 @@ void gen_k_vecs(
   double dk1 = 0.0, dk2 = 0.0, dk3 = 0.0;
   vector k;
 
-  // Generate the k grid spacing
-
+  // Sample only the irreducible HALF of the Brillouin zone along each axis.
+  // Time-reversal symmetry gives E(k) = E(-k), so the path [0, 0.5] (Gamma ->
+  // zone boundary, in fractional reciprocal-lattice units) already determines
+  // the full zone -- no need to sample [0, 1). Each axis is a linspace from 0.0
+  // to 0.5 INCLUSIVE over nk points, so the spacing dk = 0.5/(nk-1) adapts to
+  // the requested number of points (np.linspace, not np.arange). A singleton
+  // axis (nk == 1) stays at Gamma (dk = 0, k = 0).
   if (ist->nk1 > 1)
   {
-    dk1 = 1.0 / (double)ist->nk1;
+    dk1 = 0.5 / (double)(ist->nk1 - 1);
   }
   if (ist->nk2 > 1)
   {
-    dk2 = 1.0 / (double)ist->nk2;
+    dk2 = 0.5 / (double)(ist->nk2 - 1);
   }
   if (ist->nk3 > 1)
   {
-    dk3 = 1.0 / (double)ist->nk3;
+    dk3 = 0.5 / (double)(ist->nk3 - 1);
   }
 
-  // Generate the nk1 x nk2 x nk3 kgrid
+  // Generate the nk1 x nk2 x nk3 kgrid (each axis spans fractional 0.0 -> 0.5)
   i = 0;
   k.x = k.y = k.z = k.mag = 0.0;
   for (n1 = 0; n1 < ist->nk1; n1++)

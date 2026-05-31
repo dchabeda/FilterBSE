@@ -906,6 +906,18 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
     if (flag->noTimeRev)
       par->t_rev_factor = 1;
   }
+  // Periodic Bloch states u_k(r) are intrinsically complex for any k != 0: the
+  // kinetic operator (1/2)|k+G|^2 = (1/2)|G|^2 + k.G + (1/2)|k|^2 carries a k.G
+  // cross term that makes H_k complex-Hermitian, independent of spin-orbit. Force
+  // complex storage (complex_idx = 2) so the filter accumulation, Hmat (zheev) and
+  // sigma_E retain the imaginary channel. nspin stays 1 and t_rev_factor stays 1
+  // (no spinor doubling, no time reversal) -- only the scalar wavefunction becomes
+  // complex. The Gamma point is handled correctly as a special case with a
+  // vanishing imaginary part.
+  if (1 == flag->periodic)
+  {
+    flag->isComplex = 1;
+  }
   if (flag->interpolatePot == 1)
   {
     ist->ngeoms = 2; // give double memory to pot.r and pot.pseudo vectors

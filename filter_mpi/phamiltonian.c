@@ -109,21 +109,25 @@ void p_potential(
   // TODO: Spinor version should store pot_local twice, contiguously in memory
   // so that this loop is flat over nspinngrid. Daniel C. 3.2.2025
   // NOTE: parallelizing over grid points here is not efficient. Not worthwhile
-  if (1 == flag->useSpinors){
+  // The local potential must hit the imaginary channel too whenever the wavefunction
+  // is complex (periodic k != 0, or spinor/SO runs). Previously this branched on
+  // useSpinors, so the periodic non-SO case (isComplex==1, useSpinors==0) applied V
+  // only to psi.re -- dropping V|Im(psi)>. That made V (hence H) non-Hermitian on
+  // complex states (Im<psi|V|psi> != 0), so diag_H/the filter built eigenvectors of a
+  // different operator than calc_sigma_E_k measured. Branch on isComplex to match the
+  // serial potential() in hamiltonian.c. nspinngrid == ngrid when nspin == 1, so the
+  // real path is unchanged.
+  if (1 == flag->isComplex){
     // #pragma omp parallel for private(j)
     for (j = 0; j < ist->nspinngrid; j++) {
       psi_out[j].re += (pot_local[j] * psi_tmp[j].re);
       psi_out[j].im += (pot_local[j] * psi_tmp[j].im);
     }
   }
-  else if (0 == flag->useSpinors){
-    for (j = 0; j < ist->ngrid; j++) {
+  else {
+    for (j = 0; j < ist->nspinngrid; j++) {
       psi_out[j].re += (pot_local[j] * psi_tmp[j].re);
     }
-  } else {
-    printf("ERROR: unrecognized value for flag->useSpinors: %d\n", flag->useSpinors);
-    fprintf(stderr, "ERROR: unrecognized value for flag->useSpinors: %d\n", flag->useSpinors);
-    exit(EXIT_FAILURE);
   }
   
   // write_state_dat(psi_out, ist->nspinngrid, "psi_out_ploc.dat");

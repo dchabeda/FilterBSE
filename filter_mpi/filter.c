@@ -528,34 +528,27 @@ void time_hamiltonian(
   clock_gettime(CLOCK_MONOTONIC, &start);
   for (int i = 0; i < n_iter; i++)
   {
-    if (1 == flag->useSpinors)
+    // Branch on isComplex (not useSpinors) so the timing reflects the real cost of
+    // the complex local-potential apply for periodic non-SO runs. pot_local repeats
+    // per spin channel; jspin*ngrid indexing covers nspin in {1,2}.
+    if (1 == flag->isComplex)
     {
-      for (jspin = 0; jspin < 2; jspin++)
+      for (jspin = 0; jspin < ist->nspin; jspin++)
       {
         for (j = 0; j < ist->ngrid; j++)
         {
           jtmp = jspin * ist->ngrid + j;
           psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
           psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
-          // // handle spin down component
-
-          // psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
-          // psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
         }
       }
     }
-    else if (0 == flag->useSpinors)
+    else
     {
       for (j = 0; j < ist->ngrid; j++)
       {
         psi_out[j].re += (pot_local[j] * psi_tmp[j].re);
       }
-    }
-    else
-    {
-      printf("ERROR: unrecognized value for flag->useSpinors: %d\n", flag->useSpinors);
-      fprintf(stderr, "ERROR: unrecognized value for flag->useSpinors: %d\n", flag->useSpinors);
-      exit(EXIT_FAILURE);
     }
   }
   clock_gettime(CLOCK_MONOTONIC, &end);
@@ -1336,30 +1329,26 @@ void time_hamiltonian_k(
   clock_gettime(CLOCK_MONOTONIC, &start);
   for (int i = 0; i < n_iter; i++)
   {
-    if (1 == flag->useSpinors)
+    // Branch on isComplex (not useSpinors) so the timing reflects the real cost of
+    // the complex local-potential apply for periodic non-SO runs.
+    if (1 == flag->isComplex)
     {
-      for (j = 0; j < ist->ngrid; j++)
+      for (jspin = 0; jspin < ist->nspin; jspin++)
       {
-        psi_out[j].re += (pot_local[j] * psi_tmp[j].re);
-        psi_out[j].im += (pot_local[j] * psi_tmp[j].im);
-        // handle spin down component
-        jtmp = ist->ngrid + j;
-        psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
-        psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
-      }
-    }
-    else if (0 == flag->useSpinors)
-    {
-      for (j = 0; j < ist->ngrid; j++)
-      {
-        psi_out[j].re += (pot_local[j] * psi_tmp[j].re);
+        for (j = 0; j < ist->ngrid; j++)
+        {
+          jtmp = jspin * ist->ngrid + j;
+          psi_out[jtmp].re += (pot_local[j] * psi_tmp[jtmp].re);
+          psi_out[jtmp].im += (pot_local[j] * psi_tmp[jtmp].im);
+        }
       }
     }
     else
     {
-      printf("ERROR: unrecognized value for flag->useSpinors: %d\n", flag->useSpinors);
-      fprintf(stderr, "ERROR: unrecognized value for flag->useSpinors: %d\n", flag->useSpinors);
-      exit(EXIT_FAILURE);
+      for (j = 0; j < ist->ngrid; j++)
+      {
+        psi_out[j].re += (pot_local[j] * psi_tmp[j].re);
+      }
     }
   }
   clock_gettime(CLOCK_MONOTONIC, &end);

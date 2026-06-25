@@ -26,6 +26,24 @@ void run_periodic_postfilter(
     flag_st *flag,
     parallel_st *parallel);
 
+void run_periodic_restart_from_ortho(
+    double *psi_rank,
+    double *pot_local,
+    xyz_st *R,
+    grid_st *grid,
+    vector *G_vecs,
+    vector *k_vecs,
+    zomplex *LS,
+    nlc_st *nlc,
+    long *nl,
+    double *ksqr,
+    double *eig_vals,
+    double *sigma_E,
+    index_st *ist,
+    par_st *par,
+    flag_st *flag,
+    parallel_st *parallel);
+
 void mod_diag(
     double *psitot,
     double *pot_local,

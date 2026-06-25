@@ -40,7 +40,7 @@ void hamiltonian_k(
 
   // write_state_dat(psi_out, ist->nspinngrid, "psi_out_kinetic.dat");
   // Calculate the action of the potential on the wavefunction: |psi_out> = V|psi_tmp>
-  potential(psi_out, psi_tmp, pot_local, LS, nlc, nl, ist, par, flag);
+  potential(psi_out, psi_tmp, pot_local, LS, nlc, nl, ist, par, flag, k);
 
   return;
 }
@@ -80,7 +80,7 @@ void p_hamiltonian_k(zomplex *psi_out, zomplex *psi_tmp, double *pot_local, vect
   // write_state_dat(psi_out, ist->nspinngrid, "psi_out_pkinetic.dat");
   // Calculate the action of the potential on the wavefunction: |psi_out> = V|psi_tmp>
 
-  p_potential(psi_out, psi_tmp, pot_local, LS, nlc, nl, ist, par, flag, ham_threads);
+  p_potential(psi_out, psi_tmp, pot_local, LS, nlc, nl, ist, par, flag, ham_threads, k);
 
   return;
 }

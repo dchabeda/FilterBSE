@@ -493,12 +493,12 @@ void time_hamiltonian(
     // Warmup runs
     for (j = 0; j < 3; j++)
     {
-      p_spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par, par->ham_threads);
+      p_spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par, par->ham_threads, (vector){0});
     }
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (j = 0; j < n_iter; j++)
     {
-      p_spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par, par->ham_threads);
+      p_spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par, par->ham_threads, (vector){0});
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
@@ -511,12 +511,12 @@ void time_hamiltonian(
     // Calculate |psi_out> += V_NL|psi_tmp>
     for (j = 0; j < 3; j++)
     {
-      p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, par->ham_threads);
+      p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, par->ham_threads, (vector){0});
     }
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (j = 0; j < n_iter; j++)
     {
-      p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, par->ham_threads);
+      p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, par->ham_threads, (vector){0});
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
     elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
@@ -1294,12 +1294,12 @@ void time_hamiltonian_k(
     // Warmup runs
     for (j = 0; j < 3; j++)
     {
-      p_spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par, par->ham_threads);
+      p_spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par, par->ham_threads, (vector){0});
     }
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (j = 0; j < n_iter; j++)
     {
-      p_spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par, par->ham_threads);
+      p_spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par, par->ham_threads, (vector){0});
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
@@ -1312,12 +1312,12 @@ void time_hamiltonian_k(
     // Calculate |psi_out> += V_NL|psi_tmp>
     for (j = 0; j < 3; j++)
     {
-      p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, par->ham_threads);
+      p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, par->ham_threads, (vector){0});
     }
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (j = 0; j < n_iter; j++)
     {
-      p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, par->ham_threads);
+      p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, par->ham_threads, (vector){0});
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
     elapsed_seconds = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;

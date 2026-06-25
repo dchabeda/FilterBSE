@@ -191,6 +191,20 @@ int main(int argc, char *argv[])
     /************************************************************/
     /*******************   RUN ORTHO MODULE   *******************/
     /************************************************************/
+    // Periodic restartFromOrtho: skip the filter step and read each
+    // k-point's filtered states back from psi-filt-[k].dat, then run the
+    // per-k ortho/diag/sigma/output pipeline. Mirrors run_periodic_postfilter
+    // (case 0); replaces the non-periodic ortho/diag below, so we break out
+    // of the restart switch once it returns.
+    if ((1 == flag.restartFromOrtho) && (1 == flag.periodic))
+    {
+      run_periodic_restart_from_ortho(
+          psi_rank, pot_local, R, &grid, G_vecs, k_vecs, LS, nlc, nl,
+          ksqr, eig_vals, sigma_E, &ist, &par, &flag, &parallel);
+      free(psi_rank);
+      break;
+    }
+
     if ((1 == flag.restartFromOrtho) && (1 == flag.MPIOrtho))
     {
       mod_portho(

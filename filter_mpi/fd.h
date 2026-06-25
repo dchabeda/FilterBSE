@@ -382,6 +382,11 @@ typedef struct st11
   double r2_1;
   double r2;
   double Vr;
+  // Minimum-image displacement (atom -> grid point), Bohr. Used by the periodic
+  // (k != 0) NL/SO projectors to twist them by the Bloch phase e^{-i k.delta}.
+  double dx;
+  double dy;
+  double dz;
 } nlc_st;
 
 /************************************************************/
@@ -629,7 +634,9 @@ void restart_from_save(char *file_name, int checkpoint_id, double *psitot, doubl
 void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, xyz_st *R, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 
 // write.c
+long cube_atom_number(char *atomSymbol);
 void write_cube_file(double *rho, grid_st *grid, char *fileName);
+void write_cube_super(double *rho, grid_st *grid, int N1, int N2, int N3, char *fileName);
 void write_separation(FILE *pf, char *top_bttm);
 void write_state_dat(zomplex *psi, long n_elems, char *fileName);
 void write_vector_dat(vector *vec, int n_elems, char *fileName);

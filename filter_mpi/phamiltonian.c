@@ -54,7 +54,7 @@ void p_hamiltonian(
   // write_state_dat(psi_out, ist->nspinngrid, "psi_out_pkinetic.dat");
   // Calculate the action of the potential on the wavefunction: |psi_out> = V|psi_tmp>
   
-  p_potential(psi_out, psi_tmp, pot_local, LS, nlc, nl, ist, par, flag, ham_threads);
+  p_potential(psi_out, psi_tmp, pot_local, LS, nlc, nl, ist, par, flag, ham_threads, (vector){0});
 
   return;
 }
@@ -70,9 +70,10 @@ void p_potential(
   nlc_st*         nlc, 
   long*           nl, 
   index_st*       ist,
-  par_st*         par, 
+  par_st*         par,
   flag_st*        flag,
-  int             ham_threads
+  int             ham_threads,
+  vector          k
   ){
   /*******************************************************************
   * This function calculates |psi_out> = [Vloc+V_SO+V_NL]|psi_tmp>   *
@@ -93,12 +94,12 @@ void p_potential(
 
   if(flag->SO==1){
     // Calculate |psi_out> = V_SO|psi_tmp>
-    p_spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par, ham_threads);
+    p_spin_orbit_proj_pot(psi_out, psi_tmp, LS, nlc, nl, ist, par, ham_threads, k);
     // write_state_dat(psi_out, ist->nspinngrid, "psi_out_pSO.dat");
   }
   if (flag->NL == 1){
     // Calculate |psi_out> += V_NL|psi_tmp>
-    p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, ham_threads);
+    p_nonlocal_proj_pot(psi_out, psi_tmp, nlc, nl, ist, par, ham_threads, k);
     // write_state_dat(psi_out, ist->nspinngrid, "psi_out_pNL.dat");
   }
   
@@ -137,14 +138,15 @@ void p_potential(
 
 
 void p_spin_orbit_proj_pot(
-  zomplex*        psi_out, 
+  zomplex*        psi_out,
   zomplex*        psi_tmp,
   zomplex*        LS,
-  nlc_st*         nlc, 
-  long*           nl, 
-  index_st*       ist, 
+  nlc_st*         nlc,
+  long*           nl,
+  index_st*       ist,
   par_st*         par,
-  int             ham_threads
+  int             ham_threads,
+  vector          k
   ){
   /*******************************************************************
   * This function calculates the action of the spin-orbit nonlocal   *
@@ -196,6 +198,10 @@ void p_spin_orbit_proj_pot(
     }
   }
 
+  // Bloch phase: periodic (k != 0) operator twists projectors by e^{-i k.delta}
+  // (ket) / e^{+i k.delta} (bra). has_phase == 0 reduces to the real-space form.
+  const int has_phase = (k.x != 0.0) || (k.y != 0.0) || (k.z != 0.0);
+
   omp_set_num_threads(ham_threads);
   #pragma omp parallel for private(jat, jat_off, proj, ip, j_p, s_p, m_p, NL_gpt, r_idx, r, r_p, psi_re, psi_im, y1_re, y1_im, SOproj, j, s, m, jtot, LS_loc, PLS)
   for (jat = 0; jat < nNL_at; jat++){
@@ -203,12 +209,23 @@ void p_spin_orbit_proj_pot(
     jat_off = jat * ist->n_NL_gridpts;
 
     const int nNL_gpt = nl[jat];
+
+    // Per-gridpoint phase factors cos/sin(k.delta) for this atom (thread-private).
+    double pc[nNL_gpt > 0 ? nNL_gpt : 1], ps[nNL_gpt > 0 ? nNL_gpt : 1];
+    if (has_phase)
+      for (NL_gpt = 0; NL_gpt < nNL_gpt; NL_gpt++){
+        r_idx = jat_off + NL_gpt;
+        double phi = k.x * nlc[r_idx].dx + k.y * nlc[r_idx].dy + k.z * nlc[r_idx].dz;
+        pc[NL_gpt] = cos(phi);
+        ps[NL_gpt] = sin(phi);
+      }
+
     // Compute equation 2.81 of Daniel Weinberg dissertation
     // Action of spin-orbit operator on a real space wavefunctions
     for (ip = 0; ip < 5; ip++){
       for (j_p = 0; j_p < 6; j_p++){
-        // Compute the projection of the real space wavefunction onto the basis of |lmr\sigma> 
-        // where the radial variable, r, is not computed on a grid but actually are smooth radial 
+        // Compute the projection of the real space wavefunction onto the basis of |lmr\sigma>
+        // where the radial variable, r, is not computed on a grid but actually are smooth radial
         // functions
         s_p = spin_arr[j_p];
         m_p = m_arr[j_p];
@@ -222,15 +239,21 @@ void p_spin_orbit_proj_pot(
           psi_im = psi_tmp[r].im;
 
           SOproj = nlc[r_idx].proj[ip];
-                  
+
           y1_re = nlc[r_idx].y1[m_p].re;
           y1_im = nlc[r_idx].y1[m_p].im;
-          
-          //weird signs b/c of Y_{lm}^*
-          // Calculate the integral in eq 2.81
-          // up spin
-          proj.re += SOproj * (psi_re * y1_re + psi_im * y1_im);
-          proj.im += SOproj * (psi_im * y1_re - psi_re * y1_im);
+
+          //weird signs b/c of Y_{lm}^*: term = SOproj * (psi . conj(y1))
+          double tre = SOproj * (psi_re * y1_re + psi_im * y1_im);
+          double tim = SOproj * (psi_im * y1_re - psi_re * y1_im);
+          if (has_phase){ // bra twist: x e^{+i k.delta}
+            double c = pc[NL_gpt], sph = ps[NL_gpt];
+            proj.re += tre * c - tim * sph;
+            proj.im += tre * sph + tim * c;
+          } else {
+            proj.re += tre;
+            proj.im += tim;
+          }
         }
 
         proj.re *= par->dv;
@@ -256,16 +279,29 @@ void p_spin_orbit_proj_pot(
           for (NL_gpt = 0; NL_gpt < nNL_gpt; NL_gpt++){
             r_idx = jat_off + NL_gpt;
             r_p = nlc[r_idx].jxyz + ist->ngrid * s;
-            
+
             SOproj = nlc[r_idx].proj[ip];
 
             y1_re = nlc[r_idx].y1[m].re;
             y1_im = nlc[r_idx].y1[m].im;
 
-            #pragma omp atomic
-            psi_out[r_p].re += SOproj * (y1_re * PLS.re - y1_im * PLS.im);
-            #pragma omp atomic
-            psi_out[r_p].im += SOproj * (y1_re * PLS.im + y1_im * PLS.re);
+            // out = SOproj * (y1 . PLS)
+            double ore = SOproj * (y1_re * PLS.re - y1_im * PLS.im);
+            double oim = SOproj * (y1_re * PLS.im + y1_im * PLS.re);
+            if (has_phase){ // ket twist: x e^{-i k.delta}
+              double c = pc[NL_gpt], sph = ps[NL_gpt];
+              double rre = ore * c + oim * sph;
+              double rim = oim * c - ore * sph;
+              #pragma omp atomic
+              psi_out[r_p].re += rre;
+              #pragma omp atomic
+              psi_out[r_p].im += rim;
+            } else {
+              #pragma omp atomic
+              psi_out[r_p].re += ore;
+              #pragma omp atomic
+              psi_out[r_p].im += oim;
+            }
           }
         }
       }
@@ -278,13 +314,14 @@ void p_spin_orbit_proj_pot(
 /*****************************************************************************/
 
 void p_nonlocal_proj_pot(
-  zomplex*        psi_out, 
+  zomplex*        psi_out,
   zomplex*        psi_tmp,
-  nlc_st*         nlc, 
-  long*           nl, 
-  index_st*       ist, 
+  nlc_st*         nlc,
+  long*           nl,
+  index_st*       ist,
   par_st*         par,
-  int             ham_threads
+  int             ham_threads,
+  vector          k
   ){
   /*******************************************************************
   * This function calculates the action of the angular nonlocal      *
@@ -320,6 +357,9 @@ void p_nonlocal_proj_pot(
     }
   }
 
+  // Bloch phase twist for k != 0; has_phase == 0 reduces to the real-space form.
+  const int has_phase = (k.x != 0.0) || (k.y != 0.0) || (k.z != 0.0);
+
   omp_set_num_threads(ham_threads);
   #pragma omp parallel for private(jatom, jatom_offset, proj, j, s, m, NL_gridpt, r_idx, r, r_p, psi_re, psi_im, y1_re, y1_im, NL_proj, sgn)
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
@@ -327,6 +367,16 @@ void p_nonlocal_proj_pot(
     jatom_offset = jatom * ist->n_NL_gridpts;
 
     const int nNL_gpt = nl[jatom];
+
+    // Per-gridpoint phase factors cos/sin(k.delta) for this atom (thread-private).
+    double pc[nNL_gpt > 0 ? nNL_gpt : 1], ps[nNL_gpt > 0 ? nNL_gpt : 1];
+    if (has_phase)
+      for (NL_gridpt = 0; NL_gridpt < nNL_gpt; NL_gridpt++) {
+        r_idx = jatom_offset + NL_gridpt;
+        double phi = k.x * nlc[r_idx].dx + k.y * nlc[r_idx].dy + k.z * nlc[r_idx].dz;
+        pc[NL_gridpt] = cos(phi);
+        ps[NL_gridpt] = sin(phi);
+      }
 
     for (iproj = 0; iproj < 5; iproj++) {
       for (j = 0; j < 6; j++) {
@@ -346,10 +396,18 @@ void p_nonlocal_proj_pot(
 
           y1_re = nlc[r_idx].y1[m].re;
           y1_im = nlc[r_idx].y1[m].im;
-          
-          proj.re += NL_proj * (psi_re * y1_re + psi_im * y1_im);
-          proj.im += NL_proj * (psi_im * y1_re - psi_re * y1_im);
-        } 
+
+          double tre = NL_proj * (psi_re * y1_re + psi_im * y1_im);
+          double tim = NL_proj * (psi_im * y1_re - psi_re * y1_im);
+          if (has_phase){ // bra twist: x e^{+i k.delta}
+            double c = pc[NL_gridpt], sph = ps[NL_gridpt];
+            proj.re += tre * c - tim * sph;
+            proj.im += tre * sph + tim * c;
+          } else {
+            proj.re += tre;
+            proj.im += tim;
+          }
+        }
 
         sgn = nlc[jatom_offset].NL_proj_sign[iproj];
         proj.re *= sgn * par->dv;
@@ -358,17 +416,28 @@ void p_nonlocal_proj_pot(
         for (NL_gridpt = 0; NL_gridpt < nNL_gpt; NL_gridpt++) {
           r_idx = jatom_offset + NL_gridpt;
           r_p = nlc[r_idx].jxyz + ist->ngrid * s;
-  
+
           y1_re = nlc[r_idx].y1[m].re;
           y1_im = nlc[r_idx].y1[m].im;
 
           NL_proj = nlc[r_idx].NL_proj[iproj];
-          
-          // Update thread-local psi_out
-          #pragma omp atomic
-          psi_out[r_p].re += NL_proj * (y1_re * proj.re - y1_im * proj.im);
-          #pragma omp atomic
-          psi_out[r_p].im += NL_proj * (y1_re * proj.im + y1_im * proj.re);
+
+          double ore = NL_proj * (y1_re * proj.re - y1_im * proj.im);
+          double oim = NL_proj * (y1_re * proj.im + y1_im * proj.re);
+          if (has_phase){ // ket twist: x e^{-i k.delta}
+            double c = pc[NL_gridpt], sph = ps[NL_gridpt];
+            double rre = ore * c + oim * sph;
+            double rim = oim * c - ore * sph;
+            #pragma omp atomic
+            psi_out[r_p].re += rre;
+            #pragma omp atomic
+            psi_out[r_p].im += rim;
+          } else {
+            #pragma omp atomic
+            psi_out[r_p].re += ore;
+            #pragma omp atomic
+            psi_out[r_p].im += oim;
+          }
         }
       }
     } // end of NL_gridpt

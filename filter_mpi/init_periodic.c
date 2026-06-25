@@ -122,7 +122,11 @@ void setup_k_communicators(
 
   // v1: checkpoint/restart is not supported in the k-grouped periodic path. The
   // checkpoint files carry no k dimension and assume a single global rank-0 block.
-  if (0 != flag->restartFromCheckpoint)
+  // restartFromOrtho is the exception: it is a k-aware restart that reads per-k
+  // psi-filt-[k].dat files (see run_periodic_restart_from_ortho in mod_diag.c).
+  // read_input forces restartFromCheckpoint = 1 when restartFromOrtho is set so the
+  // driver's switch jumps to its ortho stage, so allow that specific combination.
+  if ((0 != flag->restartFromCheckpoint) && (1 != flag->restartFromOrtho))
   {
     if (mpir == 0)
       fprintf(stderr, "ERROR: checkpoint restart (restartFromCheckpoint=%d) is not "

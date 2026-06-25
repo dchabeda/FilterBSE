@@ -9,8 +9,14 @@ Linux_DYLIB = -lmkl_intel_ilp64 -lmkl_lapack95_ilp64 -lmkl_blas95_ilp64 -lmkl_in
 LIB = $(Linux_DYLIB) $(Linux_LIB)
 
 # flags ...
+# -MMD -MP auto-generate per-object header dependency files (*.d): -MMD records
+# the project headers each .c includes, -MP emits phony targets for them so a
+# deleted/renamed header does not break the build. The .d files are pulled in via
+# the -include below, so editing a header (e.g. fd.h) rebuilds exactly the
+# objects that include it -- no more blanket `make clean`.
+Linux_DEPFLAGS = -MMD -MP
 Linux_OPTFLAGS = -DMKL_ILP64 -DFFTW_FFT
-Linux_CFLAGS = $(Linux_OPTFLAGS) -O3 -qopenmp -mavx2
+Linux_CFLAGS = $(Linux_OPTFLAGS) $(Linux_DEPFLAGS) -O3 -qopenmp -mavx2
 #Linux_CFLAGS = -g -qopenmp -O0 -Wall
 #Linux_CFLAGS = -g -O0 -Wall # uncomment this line to debug/valgrind
 
@@ -31,7 +37,14 @@ CUBEOBJECTS = \
 # compilation ...
 # compilation rule for all .c files
 .c.o:
-	$(Linux_CC) -DOS_$(OS) $(Linux_CFLAGS) -c $*.c  
+	$(Linux_CC) -DOS_$(OS) $(Linux_CFLAGS) -c $*.c
+
+# Pull in the auto-generated header dependencies (one .d per object, written by
+# the -MMD -MP flags above). The leading '-' silences the "no such file" notice
+# on a fresh tree where no .d files exist yet. After the first build, editing a
+# header rebuilds only the objects that include it.
+-include $(OBJECTS:.o=.d)
+-include $(CUBEOBJECTS:.o=.d)
 
 # Compile the main executable Filter.x and link libraries
 $(MAINNAM): $(OBJECTS)
@@ -43,4 +56,4 @@ cube: $(CUBEOBJECTS)
 	$(Linux_CC) -o makecube.x $(CUBEOBJECTS) $(LIB)
 
 clean:
-	/bin/rm *.o *.x
+	/bin/rm -f *.o *.x *.d

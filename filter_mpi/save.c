@@ -157,7 +157,7 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
   else
     fprintf(pf, "\tNon-local potential is OFF!\n");
 
-  if (flag->SO == 1)
+  if ((flag->SO == 1) || (flag->NL == 1))
     fprintf(pf, "\tRnlcut = %g Bohr\n", sqrt(par->R_NLcut2));
 
   if (0 == flag->isComplex)

@@ -66,8 +66,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   flag->useSpinors = 0; // default is to use non-spinor wavefunctions
   flag->isComplex = 0;
   ist->nspin = 1;        // turning on the useSpinors flag will set nspin to 2.
-  flag->SO = 0;          // computes the spin-orbit terms in the Hamiltonian
-  flag->NL = 0;          // computes the non-local terms in the Hamiltonian; automatically on if SO flag on
+  flag->SO = 0;          // computes the spin-orbit terms in the Hamiltonian (forces useSpinors on)
+  flag->NL = 0;          // computes the non-local terms in the Hamiltonian (block-diagonal in spin; independent of SO/useSpinors)
   flag->LSD = 0;         // By default, do not add local structure dependent corrections
   ist->nproj = 5;        // number of terms to expand projections in. converged by 5
   par->t_rev_factor = 1; // can time rev filt'rd states to get 2X eigst8. mem alloc multiplied by par.t_rev_factor
@@ -887,15 +887,26 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // ****** ****** ****** ****** ****** ******
   // Set dependencies based on input parameters
   // ****** ****** ****** ****** ****** ******
-  if (flag->SO == 1)
+  // Spin-orbit and nonlocal are independent switches:
+  //   - spinOrbit (SO) requires spinor wavefunctions (useSpinors -> nspin = 2,
+  //     complex storage). The SO operator couples the two spin channels via L.S.
+  //   - NonLocal (NL) is block-diagonal in spin and works with either scalar
+  //     (nspin = 1) or spinor (nspin = 2) wavefunctions. It does NOT force
+  //     useSpinors on.
+  // Either projector potential (SO or NL) needs the radial cutoff and the
+  // angular-momentum bookkeeping below; the SO-specific spin coupling (n_s/n_j)
+  // is only used by the spin-orbit operator, but is harmless to define for NL.
+  if ((flag->SO == 1) || (flag->NL == 1))
   {
-    flag->useSpinors = 1;
-    // flag->NL = 1; // SO automatically switches on NL
     par->R_NLcut2 = 1.5 + 6.0 * log(10.0) + 3.0 * grid->dx;
     // par->R_NLcut2 = 0.49 * 6.0 * log(10.0); // radius of grid points around atom for which to compute NL terms
     ist->n_s_ang_mom = 2;
     ist->n_l_ang_mom = 3;
     ist->n_j_ang_mom = ist->n_s_ang_mom * ist->n_l_ang_mom;
+  }
+  if (flag->SO == 1)
+  {
+    flag->useSpinors = 1; // spin-orbit coupling requires two-component spinors
   }
   if (flag->useSpinors == 1)
   {
@@ -1642,10 +1653,13 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
   if (parallel->mpi_rank == 0)
     printf("\n");
   // ****** ****** ****** ****** ****** ******
-  // Handle spin-orbit potentials
+  // Handle spin-orbit / non-local potentials
   // ****** ****** ****** ****** ****** ******
-  // If the spin-orbit flag is on, then SO parameters need
-  // to be read from file SO_[atomtype].par.
+  // If the spin-orbit OR non-local flag is on, then the projector parameters
+  // need to be read from file SO_[atomtype].par. That single file holds the
+  // spin-orbit scaling (SO_par) on the first line and the two non-local
+  // parameters (NL_par[0], NL_par[1]) on the following lines, so it must be
+  // read whenever either projector potential is active.
   // If the interpolatePot flag is on, then parameters need to
   // be read in from two files, SO_[atomtype]_[geomtype1].par
   // and SO_[atomtype]_[geomtype2].par. For perovskites, there
@@ -1653,7 +1667,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
   // SO_[atomtype]_cubic.par and SO_[atomtype]_ortho.par.
   for (i = 0; i < ist->natoms; i++)
   {
-    if (flag->SO == 1)
+    if ((flag->SO == 1) || (flag->NL == 1))
     {
       // Set each atom's spin orbit parameter to zero before assigning
       atom[i].SO_par = 0.0;
@@ -1712,16 +1726,18 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
           (0 == strcmp(atom[i].atyp, "C3")))
       {
         if (parallel->mpi_rank == 0)
-          fprintf(stderr, "\tWARNING: Ligand potential %s will not be assigned SO param.\n", atom[i].atyp);
+          fprintf(stderr, "\tWARNING: Ligand potential %s will not be assigned SO/NL param.\n", atom[i].atyp);
         continue;
       }
 
       if (1 != flag->interpolatePot)
       {
-        // This is a job that uses spin-orbit and NL, but does not interpolate the potentials
+        // Reads the SO scaling and non-local parameters from SO_[atom].par.
+        // Either may be active independently; the unused parameter is simply
+        // read and ignored by the corresponding (disabled) operator.
         if (i == 0)
           if (parallel->mpi_rank == 0)
-            printf("\tReading SO & non-local pot parameters\n");
+            printf("\tReading spin-orbit / non-local pot parameters\n");
 
         strcat(str, ".par");
         pf = fopen(str, "r");
@@ -2382,7 +2398,7 @@ double calc_bond_angle(long index1, long index2, long index3, xyz_st *R, paralle
 
 /*****************************************************************************/
 
-long assign_atom_number(char atyp[4])
+long assign_atom_number(char atyp_in[4])
 {
   /*******************************************************************
    * This function assigns the atomic number (ID) based on name       *
@@ -2390,6 +2406,15 @@ long assign_atom_number(char atyp[4])
    *  [char[3]] name of atom as string literal (e.g. "Cd")            *
    * outputs: [long] atom ID (Zval or fictitious for ligands)         *
    ********************************************************************/
+
+  // Copy the label into a zero-initialized buffer before matching. The checks
+  // below test atyp[1] and atyp[2] against '\0' to distinguish e.g. "C" from
+  // "C1"/"Cd", but callers do not always pass a buffer whose bytes past the
+  // string terminator are zeroed (e.g. write_cube_file's sscanf("%3s") into an
+  // uninitialized stack array leaves byte 2 as garbage for a 1-char symbol).
+  // Normalizing here makes the lookup robust to any caller buffer hygiene.
+  char atyp[4] = {0};
+  strncpy(atyp, atyp_in, 3);
 
   if ((atyp[0] == 'H') && (atyp[1] == '\0') && (atyp[2] == '\0'))
     return 1;
@@ -2399,9 +2424,9 @@ long assign_atom_number(char atyp[4])
     return 3;
   else if ((atyp[0] == 'P') && (atyp[1] == '3') && (atyp[2] == '\0'))
     return 4;
-  else if ((atyp[0] == 'P') && (atyp[1] == '4') && (atyp[2] == '\0'))
-    return 5;
   else if ((atyp[0] == 'P') && (atyp[1] == 'C') && (atyp[2] == '5'))
+    return 5;
+  else if ((atyp[0] == 'C') && (atyp[1] == '\0') && (atyp[2] == '\0'))
     return 6;
   else if ((atyp[0] == 'P') && (atyp[1] == 'C') && (atyp[2] == '6'))
     return 7;
@@ -2509,14 +2534,14 @@ void assign_atom_type(char *atyp, long j)
   else if (j == 5)
   {
     atyp[0] = 'P';
-    atyp[1] = '4';
-    atyp[2] = '\0';
+    atyp[1] = 'C';
+    atyp[2] = '5';
   }
   else if (j == 6)
   {
-    atyp[0] = 'P';
-    atyp[1] = 'C';
-    atyp[2] = '5';
+    atyp[0] = 'C';
+    atyp[1] = '\0';
+    atyp[2] = '\0';
     atyp[3] = '\0';
   }
   else if (j == 7)

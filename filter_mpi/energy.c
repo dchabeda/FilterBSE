@@ -307,10 +307,16 @@ void get_energy_range(
     Emin = par->Vmin + 0.5;
     Emin = -0.8;
     Emax = par->Vmax + par->KE_max;
+    // The projector potentials push states out of the local-potential range, so
+    // pad the upper bound for each that is active (SO and NL are independent).
     if (1 == flag->SO)
     {
       Emax += 3.5;
       // Emin += 0.2;
+    }
+    if (1 == flag->NL)
+    {
+      Emax += 3.0;
     }
   }
   else
@@ -962,6 +968,12 @@ void get_energy_range_k(zomplex *psi, zomplex *phi, double *pot_local, vector *G
         printf("Approximating energy range of Hamiltonian as [Vmin, Vmax + KE_max] (ik = %d)\n", ik_global);
       Emin = par->Vmin + 0.5;
       Emax = par->Vmax + par->KE_max;
+      // The projector potentials push states out of the local-potential range, so
+      // pad the upper bound for each that is active (SO and NL are independent).
+      if (1 == flag->SO)
+      {
+        Emax += 3.5;
+      }
       if (1 == flag->NL)
       {
         Emax += 3.0;

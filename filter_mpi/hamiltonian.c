@@ -480,11 +480,15 @@ void nonlocal_proj_pot(zomplex *psi_out, zomplex *psi_tmp, nlc_st *nlc, long *nl
         ps[NL_gridpt] = sin(phi);
       }
 
+    // The non-local potential is block-diagonal in spin: it acts independently
+    // and identically on each spin channel. Looping over ist->nspin (1 for a
+    // scalar wavefunction, 2 for spinors) keeps this correct for NL with or
+    // without spinors -- it does NOT require spin-orbit / useSpinors.
     for (iproj = 0; iproj < ist->nproj; iproj++)
     {
-      for (spin = 0; spin < 2; spin++)
+      for (spin = 0; spin < ist->nspin; spin++)
       {
-        for (m = 0; m < 3; m++)
+        for (m = 0; m < ist->n_l_ang_mom; m++)
         {
           proj.re = proj.im = 0.00;
           for (NL_gridpt = 0; NL_gridpt < nl[jatom]; NL_gridpt++)

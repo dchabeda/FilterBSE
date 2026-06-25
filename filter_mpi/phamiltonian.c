@@ -338,30 +338,27 @@ void p_nonlocal_proj_pot(
 
   long jatom, jatom_offset;
   long NL_gridpt, r_idx, r, r_p;
-  
-  int iproj, s, m, j;
+
+  int iproj, spin, m;
   int sgn;
-  int spin_arr[ist->n_j_ang_mom], m_arr[ist->n_j_ang_mom];
-  
+
   double psi_re, psi_im;
   double y1_re, y1_im;
   double NL_proj;
 
   zomplex proj;
-  
-  for (s = 0; s < ist->n_s_ang_mom; s++){
-    for (m = 0; m < ist->n_l_ang_mom; m++){
-      j = s*ist->n_l_ang_mom + m;
-      spin_arr[j] = s;
-      m_arr[j] = m; 
-    }
-  }
+
+  // The non-local potential is block-diagonal in spin: it acts independently and
+  // identically on each spin channel. We loop the spin index over ist->nspin
+  // (1 for a scalar wavefunction, 2 for spinors) rather than a fixed 2, so this
+  // is correct for NL with or without spinors and does NOT require spin-orbit /
+  // useSpinors. The angular index m runs over the n_l_ang_mom (p-channel) values.
 
   // Bloch phase twist for k != 0; has_phase == 0 reduces to the real-space form.
   const int has_phase = (k.x != 0.0) || (k.y != 0.0) || (k.z != 0.0);
 
   omp_set_num_threads(ham_threads);
-  #pragma omp parallel for private(jatom, jatom_offset, proj, j, s, m, NL_gridpt, r_idx, r, r_p, psi_re, psi_im, y1_re, y1_im, NL_proj, sgn)
+  #pragma omp parallel for private(jatom, jatom_offset, proj, spin, m, NL_gridpt, r_idx, r, r_p, psi_re, psi_im, y1_re, y1_im, NL_proj, sgn)
   for (jatom = 0; jatom < ist->n_NL_atoms; jatom++) {
 
     jatom_offset = jatom * ist->n_NL_gridpts;
@@ -378,69 +375,69 @@ void p_nonlocal_proj_pot(
         ps[NL_gridpt] = sin(phi);
       }
 
-    for (iproj = 0; iproj < 5; iproj++) {
-      for (j = 0; j < 6; j++) {
-        s = spin_arr[j];
-        m = m_arr[j];
+    for (iproj = 0; iproj < ist->nproj; iproj++) {
+      for (spin = 0; spin < ist->nspin; spin++) {
+        for (m = 0; m < ist->n_l_ang_mom; m++) {
 
-        proj.re = proj.im = 0.0;
-        for (NL_gridpt = 0; NL_gridpt < nNL_gpt; NL_gridpt++) {
+          proj.re = proj.im = 0.0;
+          for (NL_gridpt = 0; NL_gridpt < nNL_gpt; NL_gridpt++) {
 
-          r_idx = jatom_offset + NL_gridpt;
-          r = nlc[r_idx].jxyz + ist->ngrid * s;
+            r_idx = jatom_offset + NL_gridpt;
+            r = nlc[r_idx].jxyz + ist->ngrid * spin;
 
-          NL_proj = nlc[r_idx].NL_proj[iproj];
+            NL_proj = nlc[r_idx].NL_proj[iproj];
 
-          psi_re = psi_tmp[r].re;
-          psi_im = psi_tmp[r].im;
+            psi_re = psi_tmp[r].re;
+            psi_im = psi_tmp[r].im;
 
-          y1_re = nlc[r_idx].y1[m].re;
-          y1_im = nlc[r_idx].y1[m].im;
+            y1_re = nlc[r_idx].y1[m].re;
+            y1_im = nlc[r_idx].y1[m].im;
 
-          double tre = NL_proj * (psi_re * y1_re + psi_im * y1_im);
-          double tim = NL_proj * (psi_im * y1_re - psi_re * y1_im);
-          if (has_phase){ // bra twist: x e^{+i k.delta}
-            double c = pc[NL_gridpt], sph = ps[NL_gridpt];
-            proj.re += tre * c - tim * sph;
-            proj.im += tre * sph + tim * c;
-          } else {
-            proj.re += tre;
-            proj.im += tim;
+            double tre = NL_proj * (psi_re * y1_re + psi_im * y1_im);
+            double tim = NL_proj * (psi_im * y1_re - psi_re * y1_im);
+            if (has_phase){ // bra twist: x e^{+i k.delta}
+              double c = pc[NL_gridpt], sph = ps[NL_gridpt];
+              proj.re += tre * c - tim * sph;
+              proj.im += tre * sph + tim * c;
+            } else {
+              proj.re += tre;
+              proj.im += tim;
+            }
           }
-        }
 
-        sgn = nlc[jatom_offset].NL_proj_sign[iproj];
-        proj.re *= sgn * par->dv;
-        proj.im *= sgn * par->dv;
+          sgn = nlc[jatom_offset].NL_proj_sign[iproj];
+          proj.re *= sgn * par->dv;
+          proj.im *= sgn * par->dv;
 
-        for (NL_gridpt = 0; NL_gridpt < nNL_gpt; NL_gridpt++) {
-          r_idx = jatom_offset + NL_gridpt;
-          r_p = nlc[r_idx].jxyz + ist->ngrid * s;
+          for (NL_gridpt = 0; NL_gridpt < nNL_gpt; NL_gridpt++) {
+            r_idx = jatom_offset + NL_gridpt;
+            r_p = nlc[r_idx].jxyz + ist->ngrid * spin;
 
-          y1_re = nlc[r_idx].y1[m].re;
-          y1_im = nlc[r_idx].y1[m].im;
+            y1_re = nlc[r_idx].y1[m].re;
+            y1_im = nlc[r_idx].y1[m].im;
 
-          NL_proj = nlc[r_idx].NL_proj[iproj];
+            NL_proj = nlc[r_idx].NL_proj[iproj];
 
-          double ore = NL_proj * (y1_re * proj.re - y1_im * proj.im);
-          double oim = NL_proj * (y1_re * proj.im + y1_im * proj.re);
-          if (has_phase){ // ket twist: x e^{-i k.delta}
-            double c = pc[NL_gridpt], sph = ps[NL_gridpt];
-            double rre = ore * c + oim * sph;
-            double rim = oim * c - ore * sph;
-            #pragma omp atomic
-            psi_out[r_p].re += rre;
-            #pragma omp atomic
-            psi_out[r_p].im += rim;
-          } else {
-            #pragma omp atomic
-            psi_out[r_p].re += ore;
-            #pragma omp atomic
-            psi_out[r_p].im += oim;
+            double ore = NL_proj * (y1_re * proj.re - y1_im * proj.im);
+            double oim = NL_proj * (y1_re * proj.im + y1_im * proj.re);
+            if (has_phase){ // ket twist: x e^{-i k.delta}
+              double c = pc[NL_gridpt], sph = ps[NL_gridpt];
+              double rre = ore * c + oim * sph;
+              double rim = oim * c - ore * sph;
+              #pragma omp atomic
+              psi_out[r_p].re += rre;
+              #pragma omp atomic
+              psi_out[r_p].im += rim;
+            } else {
+              #pragma omp atomic
+              psi_out[r_p].re += ore;
+              #pragma omp atomic
+              psi_out[r_p].im += oim;
+            }
           }
         }
       }
-    } // end of NL_gridpt
+    } // end of iproj
   } // end of jatom
 
   return;

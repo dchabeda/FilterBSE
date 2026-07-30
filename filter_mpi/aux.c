@@ -167,14 +167,20 @@ void read_psi_dat(FILE *pf, double *psi, long start, long end, long len, int n_e
 
 /*****************************************************************************/
 
-void print_progress_bar(int cur, int tot)
+void print_progress_bar(int cur, int tot, int k_idx)
 {
-  // print the filtering progress to the output file
+  // print the filtering progress to the output file. When k_idx >= 0 the bar is
+  // labeled with its k-point index (printed just before the opening '['), so that
+  // progress bars from different k-points (or k-group masters) can be told apart
+  // when they interleave on stdout. Pass k_idx < 0 for an unlabeled bar.
   int barWidth = 16; // Width of the progress bar
   float percent = (float)cur / tot * 100;
   int pos = barWidth * cur / tot;
 
-  printf("\t  [");
+  if (k_idx >= 0)
+    printf("\t  k=%d [", k_idx);
+  else
+    printf("\t  [");
   for (int i = 0; i < barWidth; ++i)
   {
     if (i < pos)
@@ -248,3 +254,30 @@ void load_psitot(double *psitot, index_st *ist, par_st *par)
 }
 
 /****************************************************************************/
+
+/*****************************************************************************/
+void create_fft_plans(fftw_plan_loc *planfw, fftw_plan_loc *planbw,
+                      fftw_complex **fftwpsi, index_st *ist, unsigned fft_flags)
+{
+  // Allocate the shared FFT work array and build the forward/backward 3D DFT
+  // plans over the (nz, ny, nx) grid. Both plans operate in place on *fftwpsi.
+  *fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
+  *planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, *fftwpsi, *fftwpsi, FFTW_FORWARD, fft_flags);
+  *planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, *fftwpsi, *fftwpsi, FFTW_BACKWARD, fft_flags);
+
+  return;
+}
+
+/*****************************************************************************/
+void destroy_fft_plans(fftw_plan_loc planfw, fftw_plan_loc planbw,
+                       fftw_complex *fftwpsi)
+{
+  // Release the plan pair and work array created by create_fft_plans().
+  fftw_destroy_plan(planfw);
+  fftw_destroy_plan(planbw);
+  fftw_free(fftwpsi);
+
+  return;
+}
+
+/*****************************************************************************/

@@ -36,7 +36,6 @@ void mod_portho(
   const int mpir = parallel->mpi_rank;
 
   long tot_sz = ist->complex_idx * ist->nspinngrid * ist->mn_states_tot;
-  printf("tot_sz = %ld\n", tot_sz);
 
   double init_clock;
   double init_wall;
@@ -51,15 +50,19 @@ void mod_portho(
   unsigned long start;
   unsigned long end;
 
-  printf("stlen = %lu\n", stlen);
-  printf("ns_p_rank = %lu\n", ns_p_rnk);
-  printf("psi_rnk_sz = %lu\n", psi_rnk_sz);
-  printf("psi_rank_mem = %lu\n", psi_rank_mem);
-  printf("max_node_mem = %lu\n", max_node_mem);
-  printf("max_st_p_node = %lu\n", max_st_p_node);
-  fflush(0);
-
-  // 450 GiB max per node is a heuristic to not OOM on Perlmutter
+  // These sizes are identical on every rank, so print them only from the root.
+  // 450 GiB max per node is a heuristic to not OOM on Perlmutter.
+  if (mpir == 0)
+  {
+    printf("tot_sz = %ld\n", tot_sz);
+    printf("stlen = %lu\n", stlen);
+    printf("ns_p_rank = %lu\n", ns_p_rnk);
+    printf("psi_rnk_sz = %lu\n", psi_rnk_sz);
+    printf("psi_rank_mem = %lu\n", psi_rank_mem);
+    printf("max_node_mem = %lu\n", max_node_mem);
+    printf("max_st_p_node = %lu\n", max_st_p_node);
+    fflush(0);
+  }
 
   /************************************************************/
   /********************     ALLOC MEM      ********************/
@@ -73,9 +76,6 @@ void mod_portho(
 
   start = mpir * ns_p_rnk;
   end = (mpir + 1) * ns_p_rnk;
-
-  printf("start = %lu\n", start);
-  printf("end = %lu\n", end);
 
   read_psi_from_disk(*psi_rank, start, end, stlen, "psi-filt.dat");
 
@@ -94,7 +94,7 @@ void mod_portho(
   init_clock = (double)clock();
   init_wall = (double)time(NULL);
 
-  ns_p_rnk = ortho_cplx((MKL_Complex16 *)(*psi_rank), grid->dv, ist, par, flag, parallel);
+  ns_p_rnk = ortho_cplx((MKL_Complex16 *)(*psi_rank), grid->dv, par->t_rev_factor * ist->mn_states_tot, ist, par, flag, parallel);
 
   normalize_all(*psi_rank, ist->mn_states_tot, ist, par, flag, parallel);
 
@@ -257,9 +257,6 @@ void read_psi_from_disk(
     fread(&psibuf[cntr * stlen], stlen * sizeof(double), 1, pf);
     cntr++;
   }
-
-  printf("Done reading states from %s\n", filename);
-  fflush(0);
 
   fclose(pf);
 

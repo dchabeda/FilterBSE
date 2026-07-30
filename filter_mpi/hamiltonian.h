@@ -25,40 +25,44 @@ void kinetic(
 );
 
 void potential(
-    zomplex*        psi_out, 
-    zomplex*        psi_tmp, 
-    double*         pot_local, 
-    zomplex*        LS, 
-    nlc_st*         nlc, 
-    long*           nl, 
+    zomplex*        psi_out,
+    zomplex*        psi_tmp,
+    double*         pot_local,
+    zomplex*        LS,
+    nlc_st*         nlc,
+    long*           nl,
     index_st*       ist,
-    par_st*         par, 
-    flag_st*        flag
+    par_st*         par,
+    flag_st*        flag,
+    vector          k
 );
 
 void spin_orbit_proj_pot(
-    zomplex*        psi_out, 
+    zomplex*        psi_out,
     zomplex*        psi_tmp,
     zomplex*        projs,
-    nlc_st*         nlc, 
-    long*           nl, 
-    index_st*       ist, 
-    par_st*         par
+    nlc_st*         nlc,
+    long*           nl,
+    index_st*       ist,
+    par_st*         par,
+    vector          k
 );
 
 void nonlocal_proj_pot(
-    zomplex*        psi_out, 
+    zomplex*        psi_out,
     zomplex*        psi_tmp,
-    nlc_st*         nlc, 
-    long*           nl, 
-    index_st*       ist, 
-    par_st*         par
+    nlc_st*         nlc,
+    long*           nl,
+    index_st*       ist,
+    par_st*         par,
+    vector          k
 );
 
 void time_reverse_all(
-    double*         psitot, 
-    double*         dest, 
-    index_st*       ist, 
+    double*         psitot,
+    double*         dest,
+    long            n_states,
+    index_st*       ist,
     parallel_st*    parallel
 );
     
@@ -82,37 +86,40 @@ void p_hamiltonian(
 );
 
 void p_potential(
-    zomplex*        psi_out, 
-    zomplex*        psi_tmp, 
+    zomplex*        psi_out,
+    zomplex*        psi_tmp,
     double*         pot_local,
-    zomplex*        LS, 
-    nlc_st*         nlc, 
-    long*           nl, 
+    zomplex*        LS,
+    nlc_st*         nlc,
+    long*           nl,
     index_st*       ist,
-    par_st*         par, 
+    par_st*         par,
     flag_st*        flag,
-    int             ham_threads
+    int             ham_threads,
+    vector          k
 );
 
 void p_spin_orbit_proj_pot(
-    zomplex*        psi_out, 
+    zomplex*        psi_out,
     zomplex*        psi_tmp,
     zomplex*        LS,
-    nlc_st*         nlc, 
-    long*           nl, 
-    index_st*       ist, 
+    nlc_st*         nlc,
+    long*           nl,
+    index_st*       ist,
     par_st*         par,
-    int             ham_threads
+    int             ham_threads,
+    vector          k
 );
 
 void p_nonlocal_proj_pot(
-    zomplex*        psi_out, 
+    zomplex*        psi_out,
     zomplex*        psi_tmp,
-    nlc_st*         nlc, 
-    long*           nl, 
-    index_st*       ist, 
+    nlc_st*         nlc,
+    long*           nl,
+    index_st*       ist,
     par_st*         par,
-    int             ham_threads
+    int             ham_threads,
+    vector          k
 );
 
 void def_LS(

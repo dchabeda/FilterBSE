@@ -1,6 +1,7 @@
 #include "fd.h"
 #include "hamiltonian.h"
 #include "energy.h"
+#include "coeff.h"
 #include "aux.h"
 
 void run_filter_cycles(
@@ -79,19 +80,35 @@ void gather_mpi_filt(
     flag_st *flag,
     parallel_st *parallel);
 
+// Periodic: gather one k-point's filtered states from the ranks of a k-group
+// (communicator comm) into the master's psitot slot. prs = per-rank element count
+// for this k = n_states_per_rank * stlen. psitot_kslot must be preallocated on the
+// root with room for comm_size * prs doubles; ignored on non-root ranks.
+void gather_mpi_filt_k(
+    double *psi_rank_kblock,
+    double *psitot_kslot,
+    long prs,
+    long stlen,
+    long n_states_per_rank,
+    MPI_Comm comm,
+    int root);
+
 void send_recv_lg_data(
     double *psi_rank,
     double **psitot,
     long stlen,
     long n_states_per_rank,
     int mpi_rank,
-    int mpi_size);
+    int mpi_size,
+    MPI_Comm comm,
+    int root);
 
 /*************************************************************/
 
 void run_filter_cycles_k(
     double *psi_rank,
     double *pot_local,
+    grid_st *grid,
     vector *G_vecs,
     vector *k_vecs,
     zomplex *LS,
@@ -108,6 +125,7 @@ void run_filter_cycles_k(
 void filter_cycle_k(
     double *psi_rank,
     long jns,
+    int ik_global,
     zomplex *psi,
     zomplex *phi,
     double *pot_local,

@@ -29,12 +29,17 @@ void mod_mem_alloc(
 
   long eig_sz = par->t_rev_factor * ist->mn_states_tot;
 
-  ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx;
-
   if (1 == flag->periodic)
   {
-    ist->psi_rank_size *= ist->n_k_pts;
-    eig_sz *= ist->n_k_pts;
+    // psi_rank_size was already computed for the grouped layout in
+    // setup_k_communicators (it includes the per-group n_k_local factor).
+    // eig_vals/sigma_E on a group master hold the per-k upper bound across its
+    // local k-points: n_k_local * t_rev_factor * mn_states_per_k.
+    eig_sz = (long)parallel->n_k_local * par->t_rev_factor * ist->mn_states_per_k;
+  }
+  else
+  {
+    ist->psi_rank_size = ist->n_states_per_rank * ist->nspinngrid * ist->complex_idx;
   }
 
   /************************************************************/
@@ -65,9 +70,21 @@ void mod_mem_alloc(
   ALLOCATE(phi, ist->nspinngrid, "phi in mod_mem");
   ALLOCATE(pot_local, 2 * ist->ngrid, "pot_local in mod_mem");
 
-  // For Newton interpolation coefficients
-  ALLOCATE(an, ist->ncheby * ist->m_states_per_filter, "an cheby");
-  ALLOCATE(zn, ist->ncheby, "zn cheby");
+  // For Newton interpolation coefficients.
+  // In the periodic case the spectrum range is k-dependent, so a separate set of
+  // coefficients is stored per k-point. The arrays hold n_k_pts contiguous blocks:
+  // an has block ncheby*m_states_per_filter and zn has block ncheby, ordered by
+  // global k index (kpt 0, kpt 1, ...). gen_newton_coeff_k populates each block.
+  long n_coeff_blocks = (1 == flag->periodic) ? (long)ist->n_k_pts : 1;
+  ALLOCATE(an, n_coeff_blocks * ist->ncheby * ist->m_states_per_filter, "an cheby");
+  ALLOCATE(zn, n_coeff_blocks * ist->ncheby, "zn cheby");
+
+  // Per-k Hamiltonian spectrum bounds, one entry per global k-point.
+  if (1 == flag->periodic)
+  {
+    ALLOCATE(&par->Emin, ist->n_k_pts, "par Emin");
+    ALLOCATE(&par->Emax, ist->n_k_pts, "par Emax");
+  }
 
   // the quasiparticle energies and standard deviations
   ALLOCATE(eig_vals, eig_sz, "eig_vals");

@@ -36,7 +36,7 @@ void diag_H_mpi(
   *  [par] ptr to par_st holding VBmin, VBmax... params              *
   *  [flag] ptr to flag_st holding job flags                         *
   *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-  *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+  *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
   *  [fftwpsi] location to store outcome of Fourier transform        *
   * outputs: void                                                    *
   ********************************************************************/
@@ -152,7 +152,7 @@ void diag_H_mpi(
     // Print out progress
     if (mpir == 0){
       if ( (ims == 0) || (0 == (ims % (ist->mn_states_tot/4 + 1))) || (ims == (ist->mn_states_tot - 1))){
-        print_progress_bar(ims, ist->mn_states_tot);
+        print_progress_bar(ims, ist->mn_states_tot, -1);
       }
     }
     

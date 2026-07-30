@@ -2,7 +2,7 @@
 
 /*****************************************************************************/
 
-long ortho_real(double *psitot, double dv, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel)
+long ortho_real(double *psitot, double dv, long n_cols, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel)
 {
   /*******************************************************************
    * This function computes the singular value decomposition of a     *
@@ -25,22 +25,26 @@ long ortho_real(double *psitot, double dv, index_st *ist, par_st *par, flag_st *
   long long i, cutoff;
   const long long one = 1;
   const long long ngrid = (long long)(ist->nspinngrid);
-  const long long mn_states_tot = (long long)(par->t_rev_factor * ist->mn_states_tot);
+  const long long mn_states_tot = (long long)(n_cols);
   double *S;
   double *work;
-  const int mpir = parallel->mpi_rank;
+  // In the periodic path this routine runs once per k-point on each k-group master,
+  // so guard the SVD status output on the k-group master (k_rank == 0). Using the
+  // global root would print only the first k-group's k-points. In the non-periodic
+  // path k_rank == mpi_rank, so this is the global root, as before.
+  const int master = (parallel->k_rank == 0);
 
   const long long lwork = 5LL * (mn_states_tot * mn_states_tot + ngrid);
 
   S = (double *)malloc(mn_states_tot * sizeof(S[0]));
 
-  if (mpir == 0)
+  if (master)
   {
     printf("Scalar wavefunctions used. Allocating \"work\" for real SVD\n");
   }
   ALLOCATE(&work, lwork, "ortho work");
 
-  if (mpir == 0)
+  if (master)
   {
     printf("Computing real-valued SVD...\n");
     fflush(0);
@@ -57,7 +61,7 @@ long ortho_real(double *psitot, double dv, index_st *ist, par_st *par, flag_st *
     exit(EXIT_FAILURE);
   }
 
-  if (mpir == 0)
+  if (master)
     printf("Done with SVD!\n");
   fflush(0);
 
@@ -70,7 +74,7 @@ long ortho_real(double *psitot, double dv, index_st *ist, par_st *par, flag_st *
     }
   }
 
-  if (mpir == 0)
+  if (master)
   {
     printf("\nSVD cutoff (no. orthogonal vectors) is %lld\n", cutoff);
     printf("Scalar wavefunctions used. Freeing work\n");
@@ -86,7 +90,7 @@ long ortho_real(double *psitot, double dv, index_st *ist, par_st *par, flag_st *
 
 /*****************************************************************************/
 
-long ortho_cplx(MKL_Complex16 *psitot, double dv, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel)
+long ortho_cplx(MKL_Complex16 *psitot, double dv, long n_cols, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel)
 {
   /*******************************************************************
    * This function computes the singular value decomposition of a     *
@@ -108,7 +112,7 @@ long ortho_cplx(MKL_Complex16 *psitot, double dv, index_st *ist, par_st *par, fl
   long long lwork;
   long long info, one = 1, i, cutoff;
   long long ngrid = (long long)(ist->nspinngrid);
-  long long mn_states_tot = (long long)(par->t_rev_factor * ist->mn_states_tot);
+  long long mn_states_tot = (long long)(n_cols);
   double *S;
   MKL_Complex16 *work_z;
   double *rwork;
@@ -116,9 +120,13 @@ long ortho_cplx(MKL_Complex16 *psitot, double dv, index_st *ist, par_st *par, fl
   lwork = 5 * (long long)(mn_states_tot * mn_states_tot + ngrid);
   S = (double *)malloc(mn_states_tot * sizeof(S[0]));
 
-  const int mpir = parallel->mpi_rank;
+  // In the periodic path this routine runs once per k-point on each k-group master,
+  // so guard the SVD status output on the k-group master (k_rank == 0). Using the
+  // global root would print only the first k-group's k-points. In the non-periodic
+  // path k_rank == mpi_rank, so this is the global root, as before.
+  const int master = (parallel->k_rank == 0);
 
-  if (mpir == 0)
+  if (master)
     printf("Complex wavefunctions used. Allocating \"rwork & work_z\" for complex SVD\n");
   fflush(0);
 
@@ -134,7 +142,7 @@ long ortho_cplx(MKL_Complex16 *psitot, double dv, index_st *ist, par_st *par, fl
     exit(EXIT_FAILURE);
   }
 
-  if (mpir == 0)
+  if (master)
     printf("Doing complex-valued SVD...\n");
   fflush(0);
 
@@ -158,16 +166,16 @@ long ortho_cplx(MKL_Complex16 *psitot, double dv, index_st *ist, par_st *par, fl
     }
   }
 
-  if (mpir == 0)
+  if (master)
     printf("Done with SVD\n");
-  if (mpir == 0)
+  if (master)
     printf("\nSVD cutoff (no. orthogonal vectors) is %lld\n", cutoff);
   fflush(0);
 
   // Free memory
   free(S);
 
-  if (mpir == 0)
+  if (master)
     printf("Spinor wavefunctions used. Freeing rwork and work_z\n");
   fflush(0);
   free(rwork);

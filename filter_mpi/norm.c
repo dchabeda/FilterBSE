@@ -138,7 +138,10 @@ void normalize_all(double *psitot, long n_states, index_st *ist, par_st *par, fl
 
     if (flag->printNorm == 1)
     {
-      if (parallel->mpi_rank == 0)
+      // Per-k quantity in the periodic path (normalize runs per k-point on each
+      // k-group master), so print on the k-group master rather than the global root.
+      // Non-periodic: k_rank == mpi_rank, so this is the global root, as before.
+      if (parallel->k_rank == 0)
         printf("state %ld norm = %g\n", jns, norm);
       fflush(0);
     }

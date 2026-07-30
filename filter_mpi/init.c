@@ -135,7 +135,7 @@ void init_grid_params(grid_st *grid, xyz_st *R, index_st *ist, par_st *par, flag
       grid->nz = ntmp;
 
       // If nx is odd, add 1 more grid point to make it even
-      if (grid->nz % 2)
+      if (grid->nz % 2 != 0)
       {
         grid->nz += 1;
       }
@@ -1014,6 +1014,14 @@ void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *g
           if (dr2 < par->R_NLcut2)
           {
             nlc[jatom * ist->n_NL_gridpts + nl[jatom]].jxyz = jxyz;
+
+            // Store the (minimum-image) displacement for the Bloch phase k.delta
+            // used by the periodic NL/SO projectors. dz is already wrapped above;
+            // dx,dy are unwrapped (only z is periodic here), which is correct as
+            // long as k has components only along wrapped (periodic) axes.
+            nlc[jatom * ist->n_NL_gridpts + nl[jatom]].dx = dx;
+            nlc[jatom * ist->n_NL_gridpts + nl[jatom]].dy = dy;
+            nlc[jatom * ist->n_NL_gridpts + nl[jatom]].dz = dz;
 
             nlc[jatom * ist->n_NL_gridpts + nl[jatom]].r = sqrt(dr2);
 

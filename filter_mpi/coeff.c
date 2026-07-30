@@ -91,6 +91,59 @@ void gen_newton_coeff(zomplex *an, double *samp, double *ene_targets, index_st *
 
 /**************************************************************************/
 
+void gen_newton_coeff_k(zomplex *an, double *zn, double *ene_targets, index_st *ist, par_st *par, parallel_st *parallel)
+{
+  /*******************************************************************
+   * Periodic (k-point) variant of gen_newton_coeff. The Hamiltonian  *
+   * spectrum range is k-dependent (see get_energy_range_k), so a      *
+   * separate set of Newton interpolation coefficients is built for    *
+   * each k-point owned by this rank's k-group, using that k-point's   *
+   * range stored in par->Emin/par->Emax.                              *
+   *                                                                  *
+   * Coefficients are stored contiguously, ordered by global k index:  *
+   *  an: block [ik] occupies [ik*ncheby*m_states_per_filter, ...)     *
+   *  zn: block [ik] occupies [ik*ncheby, ...)                         *
+   * inputs:                                                          *
+   *  [an] all-k Newton coefficient array (n_k_pts blocks)             *
+   *  [zn] all-k Chebyshev support-point array (n_k_pts blocks)        *
+   *  [ene_targets] target energies where filter funcs are centered    *
+   *  [ist] ptr to counters, indices, and lengths                     *
+   *  [par] ptr to par_st (reads Emin/Emax, sets Vmin/dE/dE_1/dt)      *
+   *  [parallel] holds the local->global k mapping                    *
+   * outputs: void                                                    *
+   ********************************************************************/
+  const long an_block = ist->ncheby * ist->m_states_per_filter;
+  const long zn_block = ist->ncheby;
+  long ikl;
+  int ik_global;
+
+  for (ikl = 0; ikl < parallel->n_k_local; ikl++)
+  {
+    ik_global = parallel->k_local_to_global[ikl];
+
+    // Set the scalar spectrum parameters to this k-point's range so the core
+    // coefficient generator (and check_function) use consistent values.
+    par->Vmin = par->Emin[ik_global];
+    par->dE = par->Emax[ik_global] - par->Emin[ik_global];
+    par->dE_1 = 4.0 / par->dE;
+    par->dt = sqr((double)(ist->ncheby) / (2.5 * par->dE));
+
+    if (parallel->k_rank == 0)
+    {
+      printf("  ik = %d: Emin = %.6g, dE = %.6g, sigma_filter = %.6g a.u.; generating %ld Newton coeffs\n",
+             ik_global, par->Vmin, par->dE, sqrt(1.0 / (2.0 * par->dt)), ist->ncheby);
+      fflush(stdout);
+    }
+
+    gen_newton_coeff(&an[(long)ik_global * an_block], &zn[(long)ik_global * zn_block],
+                     ene_targets, ist, par, parallel);
+  }
+
+  return;
+}
+
+/**************************************************************************/
+
 void read_newton_coeff(zomplex *an, double *zn, index_st *ist, par_st *par)
 {
   FILE *pf;

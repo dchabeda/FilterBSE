@@ -40,6 +40,9 @@ void mod_filter(
 
   long rand_seed;
 
+  // k-point used by the periodic (flag->periodic) code path
+  vector k;
+
   char *top;
   char *bottom;
   top = malloc(2 * sizeof(top[0]));
@@ -62,12 +65,20 @@ void mod_filter(
   time_t init_clock = (double)clock();
   time_t init_wall = (double)time(NULL);
 
-  //
-  //
-  get_energy_range(
-      psi, phi, pot_local, grid, LS, nlc, nl, ksqr, ist, par, flag, parallel);
-  //
-  //
+  if (1 == flag->periodic)
+  {
+    // The kinetic energy depends on k, so the spectrum range is computed separately
+    // for each k-point and stored in par->Emin/par->Emax (indexed by global k index).
+    get_energy_range_k(
+        psi, phi, pot_local, G_vecs, k_vecs, grid, LS, nlc, nl, ist, par, flag, parallel);
+    // Pick a k for the optional Hamiltonian timing below.
+    k = k_vecs[ist->n_k_pts - 1];
+  }
+  else
+  {
+    get_energy_range(
+        psi, phi, pot_local, grid, LS, nlc, nl, ksqr, ist, par, flag, parallel);
+  }
 
   if (mpir == 0)
   {
@@ -75,6 +86,9 @@ void mod_filter(
            ((double)clock() - init_clock) / (double)(CLOCKS_PER_SEC), (double)time(NULL) - init_wall);
     fflush(stdout);
   }
+
+  // Ensure all ranks synchronize here
+  MPI_Barrier(MPI_COMM_WORLD);
 
   /************************************************************/
   /*******************   GEN CHEBY COEFFS   *******************/
@@ -88,35 +102,43 @@ void mod_filter(
     fflush(stdout);
   }
 
-  par->dt = sqr((double)(ist->ncheby) / (2.5 * par->dE));
-
-  //
-  //
-  if (1 == flag->readCoeffs)
+  if (1 == flag->periodic)
   {
-    if (0 == mpir)
-    {
-      printf("Reading in Newton interpolation coefficients from files\n");
-    }
-    read_newton_coeff(an, zn, ist, par);
+    // The energy range is k-dependent, so build a separate set of Newton coefficients
+    // for each k-point from its range (par->Emin/par->Emax). The coefficients are
+    // stored contiguously, one block per global k index, for use in run_filter_cycles_k.
+    gen_newton_coeff_k(an, zn, ene_targets, ist, par, parallel);
   }
   else
   {
-    gen_newton_coeff(an, zn, ene_targets, ist, par, parallel);
+    par->dt = sqr((double)(ist->ncheby) / (2.5 * par->dE));
+
+    if (1 == flag->readCoeffs)
+    {
+      if (0 == mpir)
+      {
+        printf("Reading in Newton interpolation coefficients from files\n");
+      }
+      read_newton_coeff(an, zn, ist, par);
+    }
+    else
+    {
+      gen_newton_coeff(an, zn, ene_targets, ist, par, parallel);
+    }
+
+    if (mpir == 0)
+    {
+      printf("\n  ncheby = %ld dt = %g dE = %g\n", ist->ncheby, par->dt, par->dE);
+      printf("  Energy width, sigma, of filter function = %.6g a.u.\n", sqrt(1 / (2 * par->dt)));
+      printf("  Suggested max span of spectrum for filtering = %.6g a.u.\n", ist->m_states_per_filter * sqrt(1 / (2 * par->dt)));
+      printf("  Requested span of spectrum to filter = %.6g a.u.\n",
+             (ene_targets[ntVB - 1] - ene_targets[0]) + (ene_targets[ntVB + ntCB - 1] - ene_targets[ntVB]));
+      fflush(stdout);
+    }
   }
 
-  //
-  //
-
-  if (mpir == 0)
-  {
-    printf("\n  ncheby = %ld dt = %g dE = %g\n", ist->ncheby, par->dt, par->dE);
-    printf("  Energy width, sigma, of filter function = %.6g a.u.\n", sqrt(1 / (2 * par->dt)));
-    printf("  Suggested max span of spectrum for filtering = %.6g a.u.\n", ist->m_states_per_filter * sqrt(1 / (2 * par->dt)));
-    printf("  Requested span of spectrum to filter = %.6g a.u.\n",
-           (ene_targets[ntVB - 1] - ene_targets[0]) + (ene_targets[ntVB + ntCB - 1] - ene_targets[ntVB]));
-    fflush(stdout);
-  }
+  // Ensure all ranks synchronize here
+  MPI_Barrier(MPI_COMM_WORLD);
 
   /************************************************************/
   /*******************  INIT FILTER STATES  *******************/
@@ -141,11 +163,22 @@ void mod_filter(
   // Out: array of len n_filter_cycles * m_states_per_filter
   // every block of len [m_states] has the same random psi
 
-  //
-  //
-  init_filter_states(psi_rank, psi, grid, &rand_seed, ist, par, flag, parallel);
-  //
-  //
+  if (0 == flag->periodic)
+  {
+    init_filter_states(psi_rank, psi, grid, &rand_seed, ist, par, flag, parallel);
+  }
+  else
+  {
+    // Periodic: initialize the random states for each local k-block separately.
+    // Reusing &rand_seed across blocks advances the RNG so every (k, jns) initial
+    // state is distinct, and ranks differ via the +mpir offset applied to the seed.
+    const long stlen_init = ist->nspinngrid * ist->complex_idx;
+    const long mn_sz_init = ist->n_filters_per_rank * ist->m_states_per_filter * stlen_init;
+    for (int ikl = 0; ikl < parallel->n_k_local; ikl++)
+    {
+      init_filter_states(&psi_rank[ikl * mn_sz_init], psi, grid, &rand_seed, ist, par, flag, parallel);
+    }
+  }
 
   /************************************************************/
   /*******************   TIME HAMILTONIAN   *******************/
@@ -162,16 +195,22 @@ void mod_filter(
     // Initialize state on which to act Hamiltonian
     memcpy(&phi[0], &psi_rank[0], cidx * nspngrd * sizeof(psi_rank[0]));
 
-    //
-    //
-    time_hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par, flag, parallel);
-    //
-    //
+    if (1 == flag->periodic)
+    {
+      time_hamiltonian_k(phi, psi, pot_local, G_vecs, k, grid, LS, nlc, nl, ist, par, flag, parallel);
+    }
+    else
+    {
+      time_hamiltonian(phi, psi, pot_local, LS, nlc, nl, ksqr, ist, par, flag, parallel);
+    }
 
     if (mpir == 0)
       printf("Done timing Hamiltonian | %s\n", get_time());
     fflush(0);
   }
+
+  // Ensure all ranks synchronize here
+  MPI_Barrier(MPI_COMM_WORLD);
 
   /************************************************************/
   /*******************   RUN FILTER CYCLE   *******************/
@@ -192,13 +231,17 @@ void mod_filter(
   struct timespec init_wall_t, end_wall_t;
   clock_gettime(CLOCK_MONOTONIC, &init_wall_t);
 
-  //
-  //
   if (0 == flag->periodic)
   {
     run_filter_cycles(
         psi_rank, pot_local, LS, nlc, nl, ksqr, an, zn,
         ene_targets, grid, ist, par, flag, parallel);
+  }
+  else
+  {
+    run_filter_cycles_k(
+        psi_rank, pot_local, grid, G_vecs, k_vecs, LS, nlc, nl, an, zn,
+        ene_targets, ist, par, flag, parallel);
   }
 
   // Ensure all ranks synchronize here

@@ -99,6 +99,7 @@ typedef struct index
   long m_states_per_filter;
   long n_filter_cycles;
   long mn_states_tot;
+  long mn_states_per_k;     // periodic: filtered states per k before ortho (= n_filter_cycles * m_states_per_filter)
   long n_filters_per_rank;
   long n_states_per_rank;
   long n_states_for_ortho;
@@ -227,6 +228,12 @@ typedef struct par
   // Periodic parameters
   double box_z;
   int diag_k_idx;
+
+  // Per-k Hamiltonian spectrum bounds (n_k_pts elements each, indexed by global
+  // k index). The kinetic energy is k-dependent, so the spectrum range -- and the
+  // Newton interpolation coefficients built from it -- differ for each k-point.
+  double *Emin;
+  double *Emax;
 
   // Band printing range
   int nb_min;
@@ -375,6 +382,11 @@ typedef struct st11
   double r2_1;
   double r2;
   double Vr;
+  // Minimum-image displacement (atom -> grid point), Bohr. Used by the periodic
+  // (k != 0) NL/SO projectors to twist them by the Bloch phase e^{-i k.delta}.
+  double dx;
+  double dy;
+  double dz;
 } nlc_st;
 
 /************************************************************/
@@ -392,6 +404,19 @@ typedef struct parallel
   int n_inner_threads;
   long *jns;
   long *jms;
+
+  /* --- k-point grouping (periodic path only) --- */
+  /* MPI_COMM_WORLD is split into n_k_groups sub-communicators. Each group owns a
+     contiguous block of n_k_local global k-points and gathers its filtered states to
+     its master (k_rank == 0) for orthogonalization/diagonalization. */
+  MPI_Comm k_comm;          // sub-communicator for this rank's k-group (MPI_COMM_NULL if not periodic)
+  int k_color;              // group id == world_rank / k_size
+  int k_rank;               // rank within k_comm; 0 == group master
+  int k_size;               // size of k_comm (ranks per k-group, == group_size)
+  int n_k_groups;           // number of k-groups
+  int n_k_local;            // number of global k-points this group owns
+  int k_global_start;       // first global k index owned by this group (contiguous)
+  int *k_local_to_global;   // length n_k_local; maps local k index -> global k index
 } parallel_st;
 
 /************************************************************/
@@ -609,7 +634,9 @@ void restart_from_save(char *file_name, int checkpoint_id, double *psitot, doubl
 void save_output(char *file_name, double *psitot, double *eig_vals, double *sigma_E, xyz_st *R, grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel);
 
 // write.c
+long cube_atom_number(char *atomSymbol);
 void write_cube_file(double *rho, grid_st *grid, char *fileName);
+void write_cube_super(double *rho, grid_st *grid, int N1, int N2, int N3, char *fileName);
 void write_separation(FILE *pf, char *top_bttm);
 void write_state_dat(zomplex *psi, long n_elems, char *fileName);
 void write_vector_dat(vector *vec, int n_elems, char *fileName);

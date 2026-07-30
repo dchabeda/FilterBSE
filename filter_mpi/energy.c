@@ -1,4 +1,5 @@
 #include "energy.h"
+#include "aux.h"
 
 /*****************************************************************************/
 
@@ -32,7 +33,7 @@ double energy(
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: [double]  E = <psi|H|psi>                               *
    ********************************************************************/
@@ -86,7 +87,7 @@ void energy_all(
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -116,9 +117,7 @@ void energy_all(
       exit(EXIT_FAILURE);
     }
     // Create FFT structs and plans for Fourier transform
-    fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
-    planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-    planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+    create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
 
     j_state = jmn * ist->complex_idx * ist->nspinngrid;
 
@@ -159,9 +158,7 @@ void energy_all(
     // Free dynamically allocated memory
     free(psi);
     free(phi);
-    fftw_destroy_plan(planfw);
-    fftw_destroy_plan(planbw);
-    fftw_free(fftwpsi);
+    destroy_fft_plans(planfw, planbw, fftwpsi);
   }
 
   return;
@@ -200,7 +197,7 @@ void get_energy_range(
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -310,10 +307,16 @@ void get_energy_range(
     Emin = par->Vmin + 0.5;
     Emin = -0.8;
     Emax = par->Vmax + par->KE_max;
+    // The projector potentials push states out of the local-potential range, so
+    // pad the upper bound for each that is active (SO and NL are independent).
     if (1 == flag->SO)
     {
       Emax += 3.5;
       // Emin += 0.2;
+    }
+    if (1 == flag->NL)
+    {
+      Emax += 3.0;
     }
   }
   else
@@ -335,9 +338,7 @@ void get_energy_range(
     printf("Emin = %lg, Emax = %lg, dE = %lg\n", Emin, Emax, par->dE);
   fflush(stdout);
 
-  fftw_destroy_plan(planfw);
-  fftw_destroy_plan(planbw);
-  fftw_free(fftwpsi);
+  destroy_fft_plans(planfw, planbw, fftwpsi);
   fftw_cleanup_threads();
 
   return;
@@ -373,7 +374,7 @@ void calc_sigma_E(
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -408,9 +409,7 @@ void calc_sigma_E(
       fprintf(stderr, "\nOUT OF MEMORY: phi in calc_sigma_E\n\n");
       exit(EXIT_FAILURE);
     }
-    fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
-    planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-    planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+    create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
 
     // select the current state to compute sigma_E for
     if (1 == flag->isComplex)
@@ -497,9 +496,7 @@ void calc_sigma_E(
     // Free dynamically allocated memory
     free(psi);
     free(phi);
-    fftw_destroy_plan(planfw);
-    fftw_destroy_plan(planbw);
-    fftw_free(fftwpsi);
+    destroy_fft_plans(planfw, planbw, fftwpsi);
   }
   fflush(pf);
   fclose(pf);
@@ -535,7 +532,7 @@ void calc_sigma_E_lg_mem(
    *  [par] ptr to par_st holding VBmin, VBmax... params              *
    *  [flag] ptr to flag_st holding job flags                         *
    *  [planfw] FFTW3 plan for executing 3D forward DFT                *
-   *  [planfw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
    *  [fftwpsi] location to store outcome of Fourier transform        *
    * outputs: void                                                    *
    ********************************************************************/
@@ -565,9 +562,7 @@ void calc_sigma_E_lg_mem(
     fprintf(stderr, "\nOUT OF MEMORY: phi in calc_sigma_E\n\n");
     exit(EXIT_FAILURE);
   }
-  fftwpsi = fftw_malloc(sizeof(fftw_complex) * ist->ngrid);
-  planfw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_FORWARD, fft_flags);
-  planbw = fftw_plan_dft_3d(ist->nz, ist->ny, ist->nx, fftwpsi, fftwpsi, FFTW_BACKWARD, fft_flags);
+  create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
 
   // Loop over all M*N states
   for (ims = 0; ims < ist->mn_states_tot; ims++)
@@ -664,12 +659,491 @@ void calc_sigma_E_lg_mem(
   // Free dynamically allocated memory
   free(psi);
   free(phi);
-  fftw_destroy_plan(planfw);
-  fftw_destroy_plan(planbw);
-  fftw_free(fftwpsi);
+  destroy_fft_plans(planfw, planbw, fftwpsi);
   fclose(pf);
 
   return;
 }
 
 /*****************************************************************************/
+
+/*****************************************************************************/
+/****  PERIODIC (k-point) VARIANTS  -- merged from periodic_filter         ****/
+/****  Selected at runtime via flag->periodic by the driver modules.       ****/
+/*****************************************************************************/
+
+double energy_k(
+    zomplex *psi,
+    zomplex *phi,
+    double *pot_local,
+    vector *G_vecs,
+    vector k,
+    zomplex *LS,
+    nlc_st *nlc,
+    long *nl,
+    index_st *ist,
+    par_st *par,
+    flag_st *flag, fftw_plan_loc planfw, fftw_plan_loc planbw, fftw_complex *fftwpsi)
+{
+  /*******************************************************************
+   * This function calculates Exp[E] of a filtered state by evaluating*
+   * |phi> = H|psi> ~ E|psi>, then projecting with <psi|.             *
+   * E = <psi|H|psi>                                                  *
+   * inputs:                                                          *
+   *  [psi] ngrid-long arr of double/zomplex holding orig. wavefnc    *
+   *  [phi] ngrid-long arr to hold |phi> = H|psi>                     *
+   *  [pot_local] ngrid-long arr holding the value of the local pot   *
+   *  [nlc] nlc struct holding values for computing SO and NL pots    *
+   *  [nl] natom-long arr holding the number of NL gridpts per atom   *
+   *  [G_vecs] reciprocal-space grid vectors for the kinetic op       *
+   *  [k] crystal momentum (k-point) for the kinetic operator         *
+   *  [ist] ptr to counters, indices, and lengths                     *
+   *  [par] ptr to par_st holding VBmin, VBmax... params              *
+   *  [flag] ptr to flag_st holding job flags                         *
+   *  [planfw] FFTW3 plan for executing 3D forward DFT                *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [fftwpsi] location to store outcome of Fourier transform        *
+   * outputs: [double]  E = <psi|H|psi>                               *
+   ********************************************************************/
+
+  long i;
+  double ene = 0.0;
+
+  memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
+  hamiltonian_k(phi, psi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
+
+  for (i = 0; i < ist->nspinngrid; i++)
+  {
+    ene += (psi[i].re * phi[i].re + psi[i].im * phi[i].im);
+  }
+  ene *= par->dv;
+
+  return (ene);
+}
+
+/***************************************************************************/
+
+void energy_all_k(
+    double *psitot,
+    long n_states,
+    double *pot_local,
+    vector *G_vecs,
+    vector k,
+    zomplex *LS,
+    nlc_st *nlc,
+    long *nl,
+    double *ene_filters,
+    index_st *ist,
+    par_st *par,
+    flag_st *flag,
+    parallel_st *parallel)
+{
+  /*******************************************************************
+   * This function calculates Exp[E] of all filtered states           *
+   * inputs:                                                          *
+   *  [psi] ngrid-long arr of double/zomplex to hold orig. wavefnc    *
+   *  [phi] ngrid-long arr to hold |phi> = H|psi>                     *
+   *  [psims] ms*ngrid-long arr holding all ms wavefuncs              *
+   *  [pot_local] ngrid-long arr holding the value of the local pot   *
+   *  [nlc] nlc struct holding values for computing SO and NL pots    *
+   *  [nl] natom-long arr holding the number of NL gridpts per atom   *
+   *  [G_vecs] reciprocal-space grid vectors for the kinetic op       *
+   *  [k] crystal momentum (k-point) for the kinetic operator         *
+   *  [ene_filters] ms-long array to store energies of filter states  *
+   *  [ist] ptr to counters, indices, and lengths                     *
+   *  [par] ptr to par_st holding VBmin, VBmax... params              *
+   *  [flag] ptr to flag_st holding job flags                         *
+   *  [planfw] FFTW3 plan for executing 3D forward DFT                *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [fftwpsi] location to store outcome of Fourier transform        *
+   * outputs: void                                                    *
+   ********************************************************************/
+  long jmn;
+
+  // #pragma omp parallel for private(jmn)
+  for (jmn = 0; jmn < n_states; jmn++)
+  {
+
+    // Indexes for arrays
+    long jgrid, jgrid_real, jgrid_imag, j_state;
+    // Arrays for hamiltonian evaluation
+    zomplex *psi, *phi;
+    // FFT
+    long fft_flags = 0;
+    fftw_plan_loc planfw, planbw;
+    fftw_complex *fftwpsi;
+
+    if ((psi = (zomplex *)calloc(ist->nspinngrid, sizeof(zomplex))) == NULL)
+    {
+      fprintf(stderr, "\nOUT OF MEMORY: psi in run_filter_cycle\n\n");
+      exit(EXIT_FAILURE);
+    }
+    if ((phi = (zomplex *)calloc(ist->nspinngrid, sizeof(zomplex))) == NULL)
+    {
+      fprintf(stderr, "\nOUT OF MEMORY: phi in run_filter_cycle\n\n");
+      exit(EXIT_FAILURE);
+    }
+    // Create FFT structs and plans for Fourier transform
+    create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
+
+    j_state = jmn * ist->complex_idx * ist->nspinngrid;
+
+    // copy the wavefunction for state jmn into psi
+    if (1 == flag->isComplex)
+    {
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++)
+      {
+        jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = ist->complex_idx * jgrid + 1;
+
+        psi[jgrid].re = psitot[j_state + jgrid_real];
+        psi[jgrid].im = psitot[j_state + jgrid_imag];
+      }
+    }
+    else
+    {
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++)
+      {
+        psi[jgrid].re = psitot[j_state + jgrid];
+        psi[jgrid].im = 0.0;
+      }
+    }
+
+    memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
+    hamiltonian_k(phi, psi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
+
+    // Compute the expectation value <psi|H|psi>
+    // The quantity H|psi> is stored in phi
+
+    ene_filters[jmn] = 0.0;
+    for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++)
+    {
+      ene_filters[jmn] += (psi[jgrid].re * phi[jgrid].re + psi[jgrid].im * phi[jgrid].im);
+    }
+    ene_filters[jmn] *= par->dv;
+
+    // Free dynamically allocated memory
+    free(psi);
+    free(phi);
+    destroy_fft_plans(planfw, planbw, fftwpsi);
+  }
+
+  return;
+}
+
+/***************************************************************************/
+
+void get_energy_range_k(zomplex *psi, zomplex *phi, double *pot_local, vector *G_vecs, vector *k_vecs, grid_st *grid, zomplex *LS, nlc_st *nlc, long *nl,
+                        index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel)
+{
+  /*******************************************************************
+   * This function calculates the range of the Hamiltonian spectrum   *
+   * by imaginary time evolution. Min. obtained by propagating        *
+   * exp[-H]|psi>, max obtained by propagating exp[H]|psi>            *
+   * The kinetic energy is k-dependent, so the spectrum range is       *
+   * computed separately for each k-point owned by this rank's k-group *
+   * and stored in par->Emin/par->Emax, indexed by global k index.     *
+   * inputs:                                                          *
+   *  [psi] ngrid-long arr of double/zomplex to hold orig. wavefnc    *
+   *  [phi] ngrid-long arr to hold |phi> = H|psi>                     *
+   *  [pot_local] ngrid-long arr holding the value of the local pot   *
+   *  [nlc] nlc struct holding values for computing SO and NL pots    *
+   *  [nl] natom-long arr holding the number of NL gridpts per atom   *
+   *  [G_vecs] reciprocal-space grid vectors for the kinetic op       *
+   *  [k_vecs] crystal momenta (k-points) for the kinetic operator    *
+   *  [ist] ptr to counters, indices, and lengths                     *
+   *  [par] ptr to par_st holding VBmin, VBmax... params              *
+   *  [flag] ptr to flag_st holding job flags                         *
+   * outputs: void (fills par->Emin[ik], par->Emax[ik])               *
+   ********************************************************************/
+
+  FILE *pf;
+  long i, ispn, jgrid;
+  long rand_seed = -874917403;
+  double ene_old;
+  double norma, Emin, Emax, tau;
+  long max_iter = 500;
+  long ikl;
+  int ik_global;
+  vector k;
+  char fname[64];
+
+  if (parallel->mpi_rank == 0)
+    printf("Determining the Hamiltonian energy range for each k-point\n");
+
+  // Loop over the k-points owned by this rank's k-group and compute a separate
+  // spectrum range for each. par->Emin/par->Emax are indexed by global k index.
+  for (ikl = 0; ikl < parallel->n_k_local; ikl++)
+  {
+    ik_global = parallel->k_local_to_global[ikl];
+    k = k_vecs[ik_global];
+    tau = 0.05; // tau = 0.025
+
+    if (0 == flag->approxEnergyRange)
+    {
+      if (parallel->k_rank == 0)
+        printf("Iteratively determining range of Hamiltonian (ik = %d)\n", ik_global);
+
+      int fft_flags = 0;
+      fftw_plan_loc planfw, planbw;
+      fftw_complex *fftwpsi;
+
+      create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
+
+      // Find E_min
+      sprintf(fname, "Emin-init-k%d.dat", ik_global);
+      pf = fopen(fname, "w");
+      // Initialize random state to begin propagation
+      for (ispn = 0; ispn < ist->nspin; ispn++)
+      {
+        init_psi(&phi[ispn * ist->ngrid], &rand_seed, grid, ist, par, flag, parallel);
+      }
+
+      Emin = (ene_old = 0.0) + 10.0; //
+      for (i = 0; (fabs((Emin - ene_old) / Emin) > 1.0e-6) && (i < max_iter); i++)
+      {
+        // Apply the Hamiltonian, shift orig by |phi>, and normalize (equivalent to forward imag. time propagation step)
+        memcpy(&psi[0], &phi[0], ist->nspinngrid * sizeof(phi[0]));
+
+        hamiltonian_k(phi, psi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
+
+        for (ispn = 0; ispn < ist->nspin; ispn++)
+        {
+          for (jgrid = 0; jgrid < ist->ngrid; jgrid++)
+          {
+            phi[ispn * ist->ngrid + jgrid].re = psi[ispn * ist->ngrid + jgrid].re - tau * phi[ispn * ist->ngrid + jgrid].re;
+            phi[ispn * ist->ngrid + jgrid].im = psi[ispn * ist->ngrid + jgrid].im - tau * phi[ispn * ist->ngrid + jgrid].im;
+          }
+        }
+
+        norma = normalize(&phi[0], ist->nspinngrid, ist, par, flag, parallel);
+        // set Emin for next iteration
+        ene_old = Emin;
+        Emin = energy_k(phi, psi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
+        // print progress
+        fprintf(pf, "%ld %.16g %.16g %.16g\n", i, ene_old, Emin, fabs((Emin - ene_old) / Emin));
+        fflush(pf);
+
+        if ((i > 5) && (Emin - ene_old) > 0)
+        {
+          if (parallel->k_rank == 0)
+            printf("\nWarning: positive step in energy minimization. Check %s\n", fname);
+          fprintf(pf, "Warning: positive step in energy minimization\n");
+          tau -= 0.025;
+        }
+      }
+      fclose(pf);
+
+      // Find Emax
+      sprintf(fname, "Emax-init-k%d.dat", ik_global);
+      pf = fopen(fname, "w");
+      // Initialize random state to begin propagation
+      for (ispn = 0; ispn < ist->nspin; ispn++)
+      {
+        init_psi(&psi[ispn * ist->ngrid], &rand_seed, grid, ist, par, flag, parallel);
+      }
+
+      Emax = (ene_old = 0.0) + 0.1;
+      for (i = 0; (fabs((Emax - ene_old) / Emax) > 1.0e-6) & (i < max_iter); i++)
+      {
+        // Apply the Hamiltonian and normalize (equivalent to propagation step)
+        memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
+        hamiltonian_k(psi, phi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
+
+        norma = normalize(&psi[0], ist->nspinngrid, ist, par, flag, parallel);
+        // reset the max energy after the last iteration
+        ene_old = Emax;
+        Emax = energy_k(psi, phi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
+        // print progress
+        fprintf(pf, "%ld %.16g %.16g %.16g\n", i, ene_old, Emax, fabs((Emax - ene_old) / Emax));
+        fflush(pf);
+      }
+      fclose(pf);
+
+      destroy_fft_plans(planfw, planbw, fftwpsi);
+    }
+    else if (1 == flag->approxEnergyRange)
+    {
+      if (parallel->k_rank == 0)
+        printf("Approximating energy range of Hamiltonian as [Vmin, Vmax + KE_max] (ik = %d)\n", ik_global);
+      Emin = par->Vmin + 0.5;
+      Emax = par->Vmax + par->KE_max;
+      // The projector potentials push states out of the local-potential range, so
+      // pad the upper bound for each that is active (SO and NL are independent).
+      if (1 == flag->SO)
+      {
+        Emax += 3.5;
+      }
+      if (1 == flag->NL)
+      {
+        Emax += 3.0;
+      }
+    }
+    else
+    {
+      fprintf(stderr, "ERROR: invalid Hamiltonian energy range strategy selected\n");
+      exit(EXIT_FAILURE);
+    }
+
+    // Expand the delta E range artificially to help algorithm convergence (less efficient, but more robust).
+    Emax *= 1.2;
+    Emin -= 0.2 * fabs(Emin);
+
+    // Store the per-k spectrum bounds. The Newton interpolation coefficients are
+    // built from these ranges later (gen_newton_coeff_k), and the filter loop sets
+    // the scalar par->Vmin/dE/dE_1/dt from them for each k-point.
+    par->Emin[ik_global] = Emin;
+    par->Emax[ik_global] = Emax;
+
+    if (parallel->k_rank == 0)
+      printf("ik = %d: Emin = %lg, Emax = %lg, dE = %lg\n", ik_global, Emin, Emax, Emax - Emin);
+    fflush(stdout);
+  }
+
+  return;
+}
+
+/****************************************************************************************/
+
+void calc_sigma_E_k(double *psitot, double *pot_local, vector *G_vecs, vector k, grid_st *grid, zomplex *LS, nlc_st *nlc, long *nl,
+                    double *sigma_E, long n_states, index_st *ist, par_st *par, flag_st *flag)
+{
+  /*******************************************************************
+   * This function calculates the quality of the eigenstates by       *
+   * evaluating sigma_E^2 = <psi|H^2|psi> - <psi|H|psi>^2             *
+   * inputs:                                                          *
+   *  [psi] ngrid-long arr of double/zomplex to hold orig. wavefnc    *
+   *  [phi] ngrid-long arr to hold |phi> = H|psi>                     *
+   *  [psitot] m*n*ngrid-long arr holding all wavefuncs               *
+   *  [pot_local] ngrid-long arr holding the value of the local pot   *
+   *  [nlc] nlc struct holding values for computing SO and NL pots    *
+   *  [nl] natom-long arr holding the number of NL gridpts per atom   *
+   *  [G_vecs] reciprocal-space grid vectors for the kinetic op       *
+   *  [k] crystal momentum (k-point) for the kinetic operator         *
+   *  [sigma_E] m*n-long array to store energies of filtered states   *
+   *  [ist] ptr to counters, indices, and lengths                     *
+   *  [par] ptr to par_st holding VBmin, VBmax... params              *
+   *  [flag] ptr to flag_st holding job flags                         *
+   *  [planfw] FFTW3 plan for executing 3D forward DFT                *
+   *  [planbw] FFTW3 plan for executing 3D backwards DFT              *
+   *  [fftwpsi] location to store outcome of Fourier transform        *
+   * outputs: void                                                    *
+   ********************************************************************/
+
+  long ims;
+  // One k-point per call. sigma_E points at this k's slot (the caller applies any
+  // per-k offset), so states are written contiguously at [0, n_states).
+
+// Loop over this k-point's n_states states
+#pragma omp parallel for private(ims)
+  for (ims = 0; ims < n_states; ims++)
+  {
+    long jgrid, jgrid_real, jgrid_imag, jstate;
+    double eval, eval2;
+    int fft_flags = 0;
+    fftw_plan_loc planfw, planbw;
+    fftw_complex *fftwpsi;
+    // Arrays for hamiltonian evaluation
+    zomplex *psi, *phi;
+
+    // sig_idx is declared inside the loop so it is thread-private
+    long sig_idx = ims;
+    jstate = ist->complex_idx * ims * ist->nspinngrid;
+
+    if ((psi = (zomplex *)calloc(ist->nspinngrid, sizeof(zomplex))) == NULL)
+    {
+      fprintf(stderr, "\nOUT OF MEMORY: psi in calc_sigma_E\n\n");
+      exit(EXIT_FAILURE);
+    }
+    if ((phi = (zomplex *)calloc(ist->nspinngrid, sizeof(zomplex))) == NULL)
+    {
+      fprintf(stderr, "\nOUT OF MEMORY: phi in calc_sigma_E\n\n");
+      exit(EXIT_FAILURE);
+    }
+    create_fft_plans(&planfw, &planbw, &fftwpsi, ist, fft_flags);
+
+    // select the current state to compute sigma_E for
+    if (1 == flag->isComplex)
+    {
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++)
+      {
+        jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = ist->complex_idx * jgrid + 1;
+
+        psi[jgrid].re = psitot[jstate + jgrid_real];
+
+        psi[jgrid].im = psitot[jstate + jgrid_imag];
+      }
+    }
+    else
+    {
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++)
+      {
+        psi[jgrid].re = psitot[jstate + jgrid];
+
+        psi[jgrid].im = 0.0;
+      }
+    }
+
+    memcpy(&phi[0], &psi[0], ist->nspinngrid * sizeof(phi[0]));
+    // Apply the Hamiltonian to |psi>: |phi> = H|psi>
+    hamiltonian_k(phi, psi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
+    // Calculate the expectation value of H for wavefunc psi: <psi|H|psi> = <psi|phi> = sum_{jgrid} psi[jgrid] * phi[jgrid] * dv
+    eval = 0.0;
+    if (1 == flag->isComplex)
+    {
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++)
+      {
+        jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = ist->complex_idx * jgrid + 1;
+
+        eval += psitot[jstate + jgrid_real] * phi[jgrid].re;
+        eval += psitot[jstate + jgrid_imag] * phi[jgrid].im;
+      }
+    }
+    else
+    {
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++)
+      {
+        eval += psitot[jstate + jgrid] * phi[jgrid].re;
+      }
+    }
+    eval *= par->dv;
+
+    // Apply the Hamiltonian again onto phi: H|phi> = H^2|psi>
+    memcpy(&psi[0], &phi[0], ist->nspinngrid * sizeof(psi[0]));
+    hamiltonian_k(phi, psi, pot_local, G_vecs, k, LS, nlc, nl, ist, par, flag, planfw, planbw, fftwpsi);
+    // Calculate the expectation value of H^2: <psi|H^2|psi>
+    eval2 = 0.0;
+    if (1 == flag->isComplex)
+    {
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++)
+      {
+        jgrid_real = ist->complex_idx * jgrid;
+        jgrid_imag = ist->complex_idx * jgrid + 1;
+
+        eval2 += psitot[jstate + jgrid_real] * phi[jgrid].re;
+        eval2 += psitot[jstate + jgrid_imag] * phi[jgrid].im;
+      }
+    }
+    else
+    {
+      for (jgrid = 0; jgrid < ist->nspinngrid; jgrid++)
+      {
+        eval2 += psitot[jstate + jgrid] * phi[jgrid].re;
+      }
+    }
+    eval2 *= par->dv;
+    // var = <psi|H^2|psi> - <psi|H|psi>^2
+    eval2 -= sqr(eval);
+    // sigma_E is the sqrt of the variance
+    sigma_E[sig_idx] = sqrt(fabs(eval2));
+
+    // Free dynamically allocated memory
+    free(psi);
+    free(phi);
+    destroy_fft_plans(planfw, planbw, fftwpsi);
+  }
+
+  return;
+}

@@ -54,19 +54,28 @@ void mod_pseudopot(
   /*****************    SPIN-ORBIT/NL POT    ******************/
   /************************************************************/
 
+  // Spin-orbit and non-local are independent. The spin-orbit radial projectors
+  // (and the L.S coupling matrix) are only built when SO is on, but the grid
+  // projector table (init_NL_projectors) is needed whenever EITHER potential is
+  // active: it fills both the SO grid projectors (.proj, scaled by SO_par, used
+  // only by the spin-orbit operator) and the scalar non-local grid projectors
+  // (.NL_proj, used only by the non-local operator). When SO is off, SO_projs is
+  // zero so the unused .proj entries vanish harmlessly.
   if(flag->SO==1) {
     if (mpir == 0) printf("\nSpin-orbit pseudopotential:\n");
-    
+
     init_SO_projectors(SO_projs, grid, R, atom, ist, par, flag, parallel);
-    
+
     def_LS(LS, ist, par);
 
     if (mpir == 0) printf("\tSO projectors generated.\n");
-  
+  }
+
+  if ( (flag->SO == 1) || (flag->NL == 1) ){
     if (mpir == 0) printf("\nNon-local pseudopotential:\n"); fflush(0);
-    
+
     init_NL_projectors(nlc, nl, SO_projs, grid, R, atom, ist, par, flag, parallel);
-    
+
     if (mpir == 0) printf("\tNL projectors generated.\n");
   }
   

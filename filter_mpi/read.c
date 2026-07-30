@@ -2428,7 +2428,7 @@ long assign_atom_number(char atyp_in[4])
     return 5;
   else if ((atyp[0] == 'C') && (atyp[1] == '\0') && (atyp[2] == '\0'))
     return 6;
-  else if ((atyp[0] == 'P') && (atyp[1] == 'C') && (atyp[2] == '6'))
+  else if ((atyp[0] == 'N') && (atyp[1] == '\0') && (atyp[2] == '\0'))
     return 7;
   else if ((atyp[0] == 'P') && (atyp[1] == 'R') && (atyp[2] == '1'))
     return 8;
@@ -2546,9 +2546,9 @@ void assign_atom_type(char *atyp, long j)
   }
   else if (j == 7)
   {
-    atyp[0] = 'P';
-    atyp[1] = 'C';
-    atyp[2] = '6';
+    atyp[0] = 'N';
+    atyp[1] = '\0';
+    atyp[2] = '\0';
     atyp[3] = '\0';
   }
   else if (j == 8)

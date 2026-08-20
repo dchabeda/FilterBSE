@@ -1077,6 +1077,58 @@ void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *g
   }
   fclose(pf);
 
+  // >>> NL projector spectral-bound estimate (remove this whole block to disable) >>>
+  // Estimate the extreme eigenvalues of the non-local (KB) operator so the
+  // approximate energy range (energy.c:get_energy_range[_k]) can be padded
+  // physically instead of by a fixed +3.0 guess. The NL operator is
+  //   V_NL = sum_{atom,iproj,m} sgn * dv * |b Y_1m><b Y_1m|,
+  // so each rank-1 channel has eigenvalue  lam = sgn * dv * sum_gpts b(r)^2 |Y_1m(r)|^2.
+  // We take the most negative / most positive single-channel value over all
+  // atoms/projectors/m (Weyl bound on how far V_NL shifts an eigenvalue down/up).
+  // Overlaps between neighbouring sites are neglected. Uses the exact b (NL_proj),
+  // Y (y1) and dv the Hamiltonian applies, so the result is in Hartree.
+  // Consumed via par->NL_lambda_{min,max}; if this block is removed they stay 0
+  // (set in read_input) and no NL pad is applied.
+  {
+    double lam_min = 0.0, lam_max = 0.0;
+    const double dv = grid->dv;
+    omp_set_dynamic(0);
+    omp_set_num_threads(parallel->nthreads);
+#pragma omp parallel for reduction(min : lam_min) reduction(max : lam_max) schedule(dynamic)
+    for (long jat = 0; jat < ist->n_NL_atoms; jat++)
+    {
+      for (int iproj = 0; iproj < ist->nproj; iproj++)
+      {
+        int sgn = nlc[jat * ist->n_NL_gridpts].NL_proj_sign[iproj];
+        double gm[3] = {0.0, 0.0, 0.0};
+        for (long g = 0; g < nl[jat]; g++)
+        {
+          long idx = jat * ist->n_NL_gridpts + g;
+          double b2 = nlc[idx].NL_proj[iproj] * nlc[idx].NL_proj[iproj];
+          for (int m = 0; m < ist->n_l_ang_mom; m++)
+          {
+            double yr = nlc[idx].y1[m].re, yi = nlc[idx].y1[m].im;
+            gm[m] += b2 * (yr * yr + yi * yi);
+          }
+        }
+        for (int m = 0; m < ist->n_l_ang_mom; m++)
+        {
+          double lam = (double)sgn * dv * gm[m];
+          if (lam < lam_min)
+            lam_min = lam;
+          if (lam > lam_max)
+            lam_max = lam;
+        }
+      }
+    }
+    par->NL_lambda_min = lam_min;
+    par->NL_lambda_max = lam_max;
+    if (parallel->mpi_rank == 0)
+      printf("\tNL projector spectral bounds: lambda_min = %.6g Ha, lambda_max = %.6g Ha\n",
+             lam_min, lam_max);
+  }
+  // <<< end NL projector spectral-bound estimate <<<
+
   free(vr);
 
   return;

@@ -42,6 +42,24 @@ long cube_atom_number(char *atomSymbol)
 }
 
 /****************************************************************************/
+// Phase sign for cube-file densities. Returns the sign (+1, -1, or 0) of
+// whichever of the real/imaginary components has the larger magnitude. Used to
+// give an otherwise phaseless density |psi|^2 a visible sign: a real
+// wavefunction (im == 0) recovers its +/- lobe / nodal structure via sign(re),
+// and a complex wavefunction is signed by its dominant component. Pass im == 0
+// for real-valued storage.
+
+double density_phase_sign(double re, double im)
+{
+  double dom = (fabs(re) >= fabs(im)) ? re : im;
+  if (dom > 0.0)
+    return 1.0;
+  if (dom < 0.0)
+    return -1.0;
+  return 0.0;
+}
+
+/****************************************************************************/
 //
 
 void write_cube_file(double *rho, grid_st *grid, char *fileName)

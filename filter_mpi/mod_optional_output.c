@@ -168,26 +168,31 @@ void print_eigstate_densities(double *psitot, grid_st *grid, index_st *ist, par_
   {
     // Spin Up Wavefunction
     sprintf(str, "homo-%ld-Up.cube", i);
+    long base_hu = ist->complex_idx * (ist->homo_idx - i) * ist->nspinngrid;
     for (jgrid = 0; jgrid < ist->ngrid; jgrid++)
     {
       jgrid_real = ist->complex_idx * jgrid;
       jgrid_imag = ist->complex_idx * jgrid + 1;
 
-      rho[jgrid] = sqr(psitot[ist->complex_idx * (ist->homo_idx - i) * ist->nspinngrid + jgrid_real]);
-      if (1 == flag->isComplex)
-        rho[jgrid] += sqr(psitot[ist->complex_idx * (ist->homo_idx - i) * ist->nspinngrid + jgrid_imag]);
+      double re = psitot[base_hu + jgrid_real];
+      double im = (1 == flag->isComplex) ? psitot[base_hu + jgrid_imag] : 0.0;
+      // signed density: |psi|^2 * sign(dominant component) keeps phase info.
+      rho[jgrid] = (sqr(re) + sqr(im)) * density_phase_sign(re, im);
     }
     write_cube_file(rho, grid, str);
     // Spin Down Wavefunction
     if (1 == flag->useSpinors)
     {
       sprintf(str, "homo-%ld-Dn.cube", i);
+      long base_hd = ist->complex_idx * ((ist->homo_idx - i) * ist->nspinngrid + ist->ngrid);
       for (jgrid = 0; jgrid < ist->ngrid; jgrid++)
       {
         jgrid_real = ist->complex_idx * jgrid;
         jgrid_imag = ist->complex_idx * jgrid + 1;
 
-        rho[jgrid] = sqr(psitot[ist->complex_idx * ((ist->homo_idx - i) * ist->nspinngrid + ist->ngrid) + jgrid_real]) + sqr(psitot[ist->complex_idx * ((ist->homo_idx - i) * ist->nspinngrid + ist->ngrid) + jgrid_imag]);
+        double re = psitot[base_hd + jgrid_real];
+        double im = psitot[base_hd + jgrid_imag];
+        rho[jgrid] = (sqr(re) + sqr(im)) * density_phase_sign(re, im);
       }
       write_cube_file(rho, grid, str);
     }
@@ -196,26 +201,30 @@ void print_eigstate_densities(double *psitot, grid_st *grid, index_st *ist, par_
   for (i = 0; (i < ist->total_lumo) && (i < ist->ncubes); i++)
   {
     sprintf(str, "lumo+%ld-Up.cube", i);
+    long base_lu = ist->complex_idx * (ist->lumo_idx + i) * ist->nspinngrid;
     for (jgrid = 0; jgrid < ist->ngrid; jgrid++)
     {
       jgrid_real = ist->complex_idx * jgrid;
       jgrid_imag = ist->complex_idx * jgrid + 1;
 
-      rho[jgrid] = sqr(psitot[ist->complex_idx * (ist->lumo_idx + i) * ist->nspinngrid + jgrid_real]);
-      if (1 == flag->isComplex)
-        rho[jgrid] += sqr(psitot[ist->complex_idx * (ist->lumo_idx + i) * ist->nspinngrid + jgrid_imag]);
+      double re = psitot[base_lu + jgrid_real];
+      double im = (1 == flag->isComplex) ? psitot[base_lu + jgrid_imag] : 0.0;
+      rho[jgrid] = (sqr(re) + sqr(im)) * density_phase_sign(re, im);
     }
     write_cube_file(rho, grid, str);
 
     if (1 == flag->useSpinors)
     {
       sprintf(str, "lumo+%ld-Dn.cube", i);
+      long base_ld = ist->complex_idx * ((ist->lumo_idx + i) * ist->nspinngrid + ist->ngrid);
       for (jgrid = 0; jgrid < ist->ngrid; jgrid++)
       {
         jgrid_real = ist->complex_idx * jgrid;
         jgrid_imag = ist->complex_idx * jgrid + 1;
 
-        rho[jgrid] = sqr(psitot[ist->complex_idx * ((ist->lumo_idx + i) * ist->nspinngrid + ist->ngrid) + jgrid_real]) + sqr(psitot[ist->complex_idx * ((ist->lumo_idx + i) * ist->nspinngrid + ist->ngrid) + jgrid_imag]);
+        double re = psitot[base_ld + jgrid_real];
+        double im = psitot[base_ld + jgrid_imag];
+        rho[jgrid] = (sqr(re) + sqr(im)) * density_phase_sign(re, im);
       }
       write_cube_file(rho, grid, str);
     }

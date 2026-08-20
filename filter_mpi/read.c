@@ -68,6 +68,8 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->nspin = 1;        // turning on the useSpinors flag will set nspin to 2.
   flag->SO = 0;          // computes the spin-orbit terms in the Hamiltonian (forces useSpinors on)
   flag->NL = 0;          // computes the non-local terms in the Hamiltonian (block-diagonal in spin; independent of SO/useSpinors)
+  par->NL_lambda_min = 0.0; // NL projector spectral bounds (set in init_NL_projectors); 0 => no NL energy-range pad
+  par->NL_lambda_max = 0.0;
   flag->LSD = 0;         // By default, do not add local structure dependent corrections
   ist->nproj = 5;        // number of terms to expand projections in. converged by 5
   par->t_rev_factor = 1; // can time rev filt'rd states to get 2X eigst8. mem alloc multiplied by par.t_rev_factor
@@ -890,9 +892,14 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   // Spin-orbit and nonlocal are independent switches:
   //   - spinOrbit (SO) requires spinor wavefunctions (useSpinors -> nspin = 2,
   //     complex storage). The SO operator couples the two spin channels via L.S.
-  //   - NonLocal (NL) is block-diagonal in spin and works with either scalar
-  //     (nspin = 1) or spinor (nspin = 2) wavefunctions. It does NOT force
-  //     useSpinors on.
+  //   - NonLocal (NL) is block-diagonal in spin and, for a real (non-periodic,
+  //     k = 0) Hamiltonian, is itself a REAL operator: although the l = 1 projectors
+  //     use complex spherical harmonics Y_1m, the sum over m obeys the addition
+  //     theorem  sum_m Y_1m(r) Y_1m*(r') = (3/4pi) r.r', which is real symmetric.
+  //     So NL does NOT require complex storage on its own -- isComplex is left 0 and
+  //     the run uses the real path (half the psitot memory; real dotp/dgesvd/dsyev).
+  //     Only SO (L.S spin coupling, via useSpinors below) or a periodic k != 0 Bloch
+  //     phase (below) make H genuinely complex and set isComplex = 1.
   // Either projector potential (SO or NL) needs the radial cutoff and the
   // angular-momentum bookkeeping below; the SO-specific spin coupling (n_s/n_j)
   // is only used by the spin-orbit operator, but is harmless to define for NL.
@@ -1037,14 +1044,31 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
   xd = yd = zd = 0.0;
 
   pf = fopen("conf.par", "r");
+  if (pf == NULL)
+  {
+    fprintf(stderr, "Could not open conf.par for reading! Exiting...\n");
+    fflush(0);
+    exit(EXIT_FAILURE);
+  }
   // This has already been set, but there should be no harm in overwriting it again... famous last words
-  fscanf(pf, "%ld", &ist->natoms); // reading first line so that the file pointer moves to the line with coordinates
+  if (fscanf(pf, "%ld", &ist->natoms) != 1) // reading first line so that the file pointer moves to the line with coordinates
+  {
+    fprintf(stderr, "Could not read natoms from first line of conf.par! Exiting...\n");
+    fflush(0);
+    exit(EXIT_FAILURE);
+  }
 
   // loop over all atoms in conf.par
   for (i = 0; i < ist->natoms; i++)
   {
-    // Read each line of the conf.par file
-    fscanf(pf, "%s %lf %lf %lf\n", atom[i].atyp, &R[i].x, &R[i].y, &R[i].z);
+    // Read each line of the conf.par file. Bound the symbol to 3 chars (+ null)
+    // so a malformed/long token cannot overflow atom[i].atyp (char[4]).
+    if (fscanf(pf, "%3s %lf %lf %lf\n", atom[i].atyp, &R[i].x, &R[i].y, &R[i].z) != 4)
+    {
+      fprintf(stderr, "Malformed or truncated conf.par: could not read atom %ld of %ld! Exiting...\n", i, ist->natoms);
+      fflush(0);
+      exit(EXIT_FAILURE);
+    }
     // Get the atomic number of each atom
     atom[i].Zval = assign_atom_number(atom[i].atyp);
 
@@ -1075,7 +1099,7 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
 
     // increment the n_NL_atoms parameter if NL flag is on
     // (number of atoms for which nonlocal terms will be computed)
-    if (((flag->SO == 1) || (flag->NL == 1)) && (atom[i].Zval > 13))
+    if (((flag->SO == 1) || (flag->NL == 1)) && (!is_ligand(atom[i].atyp)))
       ist->n_NL_atoms++;
 
     // add the coordinates to the dimension counter for calc'ing the COM
@@ -2394,6 +2418,33 @@ double calc_bond_angle(long index1, long index2, long index3, xyz_st *R, paralle
   }
 
   return acos(dot / (l1 * l2)) * 180.0 / PIE;
+}
+
+/*****************************************************************************/
+
+int is_ligand(char atyp[4])
+{
+  /*******************************************************************
+   * Returns 1 (true) if the atom label corresponds to a ligand      *
+   * (passivation) atom type, 0 (false) otherwise. Ligand atoms do   *
+   * not carry nonlocal/SO terms.                                    *
+   * inputs:                                                          *
+   *  [char[4]] name of atom as string literal (e.g. "P1")           *
+   * outputs: [int] 1 if ligand, 0 otherwise                         *
+   ********************************************************************/
+
+  static const char *ligand_types[] = {
+      "P1", "P2", "P3", "PC5", "PC6", "PR1", "PR2", "PR3",
+      "PA1", "PA2", "PA3", "C1", "C2", "C3"};
+  const int n_ligand_types = sizeof(ligand_types) / sizeof(ligand_types[0]);
+
+  for (int i = 0; i < n_ligand_types; i++)
+  {
+    if (strcmp(atyp, ligand_types[i]) == 0)
+      return 1;
+  }
+
+  return 0;
 }
 
 /*****************************************************************************/

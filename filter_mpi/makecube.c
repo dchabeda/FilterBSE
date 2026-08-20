@@ -133,8 +133,10 @@ int main(int argc, char *argv[])
       {
         jgrid_real = i * ist.complex_idx;
         jgrid_imag = jgrid_real + 1;
-        // sqrt is not physical, just to make values larger for visualization
-        rho[i] = sqrt(sqr(psi[jgrid_real]) + sqr(psi[jgrid_imag]));
+        double re = psi[jgrid_real], im = psi[jgrid_imag];
+        // sqrt is not physical, just to make values larger for visualization.
+        // Signed by the dominant component so the complex state keeps a phase.
+        rho[i] = sqrt(sqr(re) + sqr(im)) * density_phase_sign(re, im);
       }
       sprintf(filename, "rhoUp%i.cube", j);
       write_cube_file(rho, &grid, filename);
@@ -143,8 +145,9 @@ int main(int argc, char *argv[])
     {
       for (i = 0; i < ist.ngrid; i++)
       {
-        // sqrt is not physical, just to make values larger for visualization
-        rho[i] = sqrt(sqr(psi[i]));
+        // sqrt is not physical, just to make values larger for visualization.
+        // Real wavefunction: sign(re) recovers its +/- phase (= signed |psi|).
+        rho[i] = sqrt(sqr(psi[i])) * density_phase_sign(psi[i], 0.0);
       }
       sprintf(filename, "rhoUp%i.cube", j);
       write_cube_file(rho, &grid, filename);
@@ -158,8 +161,11 @@ int main(int argc, char *argv[])
         {
           jgrid_real = i * ist.complex_idx;
           jgrid_imag = jgrid_real + 1;
-          // sqrt is not physical, just to make values larger for visualization
-          rho[i] = sqrt(sqr(psi[ist.ngrid * ist.complex_idx + jgrid_real]) + sqr(psi[ist.ngrid * ist.complex_idx + jgrid_imag]));
+          double re = psi[ist.ngrid * ist.complex_idx + jgrid_real];
+          double im = psi[ist.ngrid * ist.complex_idx + jgrid_imag];
+          // sqrt is not physical, just to make values larger for visualization.
+          // Signed by the dominant component so the complex state keeps a phase.
+          rho[i] = sqrt(sqr(re) + sqr(im)) * density_phase_sign(re, im);
         }
         sprintf(filename, "rhoDn%i.cube", j);
         write_cube_file(rho, &grid, filename);
@@ -168,8 +174,10 @@ int main(int argc, char *argv[])
       {
         for (i = 0; i < ist.ngrid; i++)
         {
-          // sqrt is not physical, just to make values larger for visualization
-          rho[i] = sqrt(sqr(psi[ist.ngrid * ist.complex_idx + i]));
+          // sqrt is not physical, just to make values larger for visualization.
+          // Real wavefunction: sign(re) recovers its +/- phase (= signed |psi|).
+          double re = psi[ist.ngrid * ist.complex_idx + i];
+          rho[i] = sqrt(sqr(re)) * density_phase_sign(re, 0.0);
         }
         sprintf(filename, "rhoDn%i.cube", j);
         write_cube_file(rho, &grid, filename);

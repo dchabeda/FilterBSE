@@ -1,1 +1,0 @@
-../filter_mpi/ghamiltonian.c

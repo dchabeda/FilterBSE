@@ -27,6 +27,34 @@ void gen_newton_coeff(zomplex *an, double *samp, double *ene_targets, index_st *
 
   scale = (Smax - Smin) / par->dE;
 
+  // >>> filter-width sanity guard (remove this block to disable) >>>
+  // The filter is a Gaussian of energy width sigma_filter = 1/sqrt(2*dt). If it is
+  // wider than the target spacing, adjacent filtered states overlap heavily, the
+  // filtered basis becomes rank-deficient, and ortho/diag scatters the Ritz values
+  // (eigenvalues drift out of the window, sigma_E stays large). Warn when that holds.
+  {
+    double sigma_filter = sqrt(1.0 / (2.0 * par->dt));
+    double min_spacing = 1e30;
+    for (long it = 1; it < ist->m_states_per_filter; it++)
+    {
+      double d = fabs(ene_targets[it] - ene_targets[it - 1]);
+      if (d > 0.0 && d < min_spacing)
+        min_spacing = d;
+    }
+    if (parallel->k_rank == 0)
+    {
+      printf("\tFilter width: sigma_filter = %.4g Ha (dE = %.4g, nCheby = %ld); min target spacing = %.4g Ha\n",
+             sigma_filter, par->dE, ist->ncheby, min_spacing);
+      if (sigma_filter > 0.5 * min_spacing)
+        printf("\t*** WARNING: sigma_filter (%.4g Ha) > 0.5 * min target spacing (%.4g Ha): filters overlap -> "
+               "rank-deficient basis, poorly converged eigenstates. Raise nCheby to ~%.0f (sigma_filter = spacing/3) "
+               "or reduce dE.\n",
+               sigma_filter, min_spacing, 1.768 * par->dE / (min_spacing / 3.0));
+      fflush(stdout);
+    }
+  }
+  // <<< end filter-width sanity guard <<<
+
   // chebyshev_reordered(samp, Smin, Smax, ist->ncheby);
   samploc = (zomplex *)calloc(ist->ncheby, sizeof(zomplex));
   rho = samp_points_ashkenazy(samploc, Smin, Smax, ist->ncheby);

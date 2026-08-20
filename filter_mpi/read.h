@@ -22,6 +22,7 @@ void read_periodic_input(lattice_st *lattice, index_st *ist, par_st *par, flag_s
 void calc_geom_par(xyz_st *R,atom_info *atm, index_st *ist, parallel_st *parallel);
 double calc_bond_angle(long index1,long index2,long index3, xyz_st *R, parallel_st *parallel);
 long assign_atom_number(char atyp[4]);
+int is_ligand(char atyp[4]);
 void assign_atom_type(char *atype,long j);
 long get_number_of_atom_types(atom_info *atm,index_st *ist, long *list);
 int assign_crystal_structure(char *crystal_structure);

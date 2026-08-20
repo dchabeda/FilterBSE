@@ -196,6 +196,14 @@ typedef struct par
   double R_NLcut2;
   double sigma_E_cut;
 
+  // >>> NL projector spectral-bound estimate (remove with the matching blocks in
+  // init.c:init_NL_projectors and energy.c:get_energy_range[_k]) >>>
+  // Extreme eigenvalues (Ha) of the non-local (KB) operator, used to pad the
+  // approximate energy range physically. Default 0 => no NL pad added.
+  double NL_lambda_min;
+  double NL_lambda_max;
+  // <<< end NL projector spectral-bound estimate <<<
+
   // Time reversal and checkpointing
   int t_rev_factor;
   int checkpoint_id;
@@ -579,6 +587,7 @@ void read_periodic_input(lattice_st *lattice, index_st *ist, par_st *par, flag_s
 void calc_geom_par(xyz_st *R, atom_info *atm, index_st *ist, parallel_st *parallel);
 double calc_bond_angle(long index1, long index2, long index3, xyz_st *R, parallel_st *parallel);
 long assign_atom_number(char atyp[4]);
+int is_ligand(char atyp[4]);
 void assign_atom_type(char *atype, long j);
 long get_number_of_atom_types(atom_info *atm, index_st *ist, long *list);
 int assign_crystal_structure(char *crystal_structure);
@@ -635,6 +644,7 @@ void save_output(char *file_name, double *psitot, double *eig_vals, double *sigm
 
 // write.c
 long cube_atom_number(char *atomSymbol);
+double density_phase_sign(double re, double im);
 void write_cube_file(double *rho, grid_st *grid, char *fileName);
 void write_cube_super(double *rho, grid_st *grid, int N1, int N2, int N3, char *fileName);
 void write_separation(FILE *pf, char *top_bttm);

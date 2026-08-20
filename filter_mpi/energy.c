@@ -308,16 +308,30 @@ void get_energy_range(
     Emin = -0.8;
     Emax = par->Vmax + par->KE_max;
     // The projector potentials push states out of the local-potential range, so
-    // pad the upper bound for each that is active (SO and NL are independent).
+    // pad the bounds for each that is active (SO and NL are independent).
     if (1 == flag->SO)
     {
       Emax += 3.5;
       // Emin += 0.2;
     }
+    // >>> NL projector auto-pad (remove this block; restore "Emax += 3.0" to disable) >>>
+    // Pad using the estimated extreme eigenvalues of the non-local (KB) operator
+    // computed in init_NL_projectors (par->NL_lambda_{min,max}). lambda_max (>0)
+    // raises Emax; lambda_min (<0) lowers Emin -- the latter is missed by the old
+    // fixed pad and matters for attractive projectors (e.g. carbon). NL_PAD_MARGIN
+    // is a safety factor. If par->NL_lambda_* are 0 (estimate disabled), no NL pad.
     if (1 == flag->NL)
     {
-      Emax += 3.0;
+      const double NL_PAD_MARGIN = 1.15; // 15% safety
+      double dEmax = (par->NL_lambda_max > 0.0) ? NL_PAD_MARGIN * par->NL_lambda_max : 0.0;
+      double dEmin = (par->NL_lambda_min < 0.0) ? NL_PAD_MARGIN * par->NL_lambda_min : 0.0;
+      Emax += dEmax;
+      Emin += dEmin;
+      if (parallel->mpi_rank == 0)
+        printf("NL auto-pad: Emin += %.4g Ha, Emax += %.4g Ha\n", dEmin, dEmax);
     }
+    // Old fixed pad (restore if disabling the auto-pad above): if (1 == flag->NL) Emax += 3.0;
+    // <<< end NL projector auto-pad <<<
   }
   else
   {
@@ -325,9 +339,29 @@ void get_energy_range(
     exit(EXIT_FAILURE);
   }
 
-  // Expand the delta E range artificially to help algorithm convergence (less efficient, but more robust).
-  Emax *= 1.2;
-  Emin -= 0.2 * fabs(Emin);
+  // >>> trimmed range inflation for NL(-only) jobs (revert: delete the if-branch, keep the else) >>>
+  // With the projector auto-pad the range is now physically bracketed, so the blanket
+  // 20% inflation just widens dE and blurs the filter (sigma_filter ~ dE/nCheby). For
+  // an NL job without spin-orbit, trim it: Emax is a hard upper bound (KE capped at
+  // KE_max, Vmax is the true local max, lambda_max bounds NL) so 5% is ample; Emin gets
+  // a 10% pad and is then clamped to 5% below the rigorous Weyl floor
+  // (min eig >= Vmin_local + lambda_min) so the trim can never break bracketing.
+  // par->Vmin still holds the LOCAL potential minimum here (overwritten just below).
+  if ((1 == flag->NL) && (0 == flag->SO) && (par->NL_lambda_min < 0.0))
+  {
+    Emax *= 1.05;
+    Emin -= 0.1 * fabs(Emin);
+    double weyl_min = 1.05 * (par->Vmin + par->NL_lambda_min);
+    if (Emin > weyl_min)
+      Emin = weyl_min;
+  }
+  else
+  {
+    // Original behavior (SO, SO+NL, or no projectors): blanket safety inflation.
+    Emax *= 1.2;
+    Emin -= 0.2 * fabs(Emin);
+  }
+  // <<< end trimmed range inflation for NL(-only) jobs <<<
 
   // Set parameters for calc'ing Filter coefficients
   par->Vmin = Emin;
@@ -969,15 +1003,26 @@ void get_energy_range_k(zomplex *psi, zomplex *phi, double *pot_local, vector *G
       Emin = par->Vmin + 0.5;
       Emax = par->Vmax + par->KE_max;
       // The projector potentials push states out of the local-potential range, so
-      // pad the upper bound for each that is active (SO and NL are independent).
+      // pad the bounds for each that is active (SO and NL are independent).
       if (1 == flag->SO)
       {
         Emax += 3.5;
       }
+      // >>> NL projector auto-pad (remove this block; restore "Emax += 3.0" to disable) >>>
+      // See get_energy_range (non-periodic) above for the rationale. Uses the
+      // NL (KB) operator eigenvalue estimate from init_NL_projectors.
       if (1 == flag->NL)
       {
-        Emax += 3.0;
+        const double NL_PAD_MARGIN = 1.15; // 15% safety
+        double dEmax = (par->NL_lambda_max > 0.0) ? NL_PAD_MARGIN * par->NL_lambda_max : 0.0;
+        double dEmin = (par->NL_lambda_min < 0.0) ? NL_PAD_MARGIN * par->NL_lambda_min : 0.0;
+        Emax += dEmax;
+        Emin += dEmin;
+        if (parallel->k_rank == 0)
+          printf("NL auto-pad (ik = %d): Emin += %.4g Ha, Emax += %.4g Ha\n", ik_global, dEmin, dEmax);
       }
+      // Old fixed pad (restore if disabling the auto-pad above): if (1 == flag->NL) Emax += 3.0;
+      // <<< end NL projector auto-pad <<<
     }
     else
     {
@@ -985,9 +1030,24 @@ void get_energy_range_k(zomplex *psi, zomplex *phi, double *pot_local, vector *G
       exit(EXIT_FAILURE);
     }
 
-    // Expand the delta E range artificially to help algorithm convergence (less efficient, but more robust).
-    Emax *= 1.2;
-    Emin -= 0.2 * fabs(Emin);
+    // >>> trimmed range inflation for NL(-only) jobs (revert: delete the if-branch, keep the else) >>>
+    // See get_energy_range (non-periodic) for the rationale. par->Vmin still holds the
+    // LOCAL potential minimum here (kinetic >= 0, so Vmin_local + lambda_min is still a
+    // valid Weyl lower bound on the min eigenvalue at any k).
+    if ((1 == flag->NL) && (0 == flag->SO) && (par->NL_lambda_min < 0.0))
+    {
+      Emax *= 1.05;
+      Emin -= 0.1 * fabs(Emin);
+      double weyl_min = 1.05 * (par->Vmin + par->NL_lambda_min);
+      if (Emin > weyl_min)
+        Emin = weyl_min;
+    }
+    else
+    {
+      Emax *= 1.2;
+      Emin -= 0.2 * fabs(Emin);
+    }
+    // <<< end trimmed range inflation for NL(-only) jobs <<<
 
     // Store the per-k spectrum bounds. The Newton interpolation coefficients are
     // built from these ranges later (gen_newton_coeff_k), and the filter loop sets

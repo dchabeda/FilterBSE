@@ -1044,14 +1044,31 @@ void read_conf(xyz_st *R, atom_info *atom, index_st *ist, par_st *par, flag_st *
   xd = yd = zd = 0.0;
 
   pf = fopen("conf.par", "r");
+  if (pf == NULL)
+  {
+    fprintf(stderr, "Could not open conf.par for reading! Exiting...\n");
+    fflush(0);
+    exit(EXIT_FAILURE);
+  }
   // This has already been set, but there should be no harm in overwriting it again... famous last words
-  fscanf(pf, "%ld", &ist->natoms); // reading first line so that the file pointer moves to the line with coordinates
+  if (fscanf(pf, "%ld", &ist->natoms) != 1) // reading first line so that the file pointer moves to the line with coordinates
+  {
+    fprintf(stderr, "Could not read natoms from first line of conf.par! Exiting...\n");
+    fflush(0);
+    exit(EXIT_FAILURE);
+  }
 
   // loop over all atoms in conf.par
   for (i = 0; i < ist->natoms; i++)
   {
-    // Read each line of the conf.par file
-    fscanf(pf, "%s %lf %lf %lf\n", atom[i].atyp, &R[i].x, &R[i].y, &R[i].z);
+    // Read each line of the conf.par file. Bound the symbol to 3 chars (+ null)
+    // so a malformed/long token cannot overflow atom[i].atyp (char[4]).
+    if (fscanf(pf, "%3s %lf %lf %lf\n", atom[i].atyp, &R[i].x, &R[i].y, &R[i].z) != 4)
+    {
+      fprintf(stderr, "Malformed or truncated conf.par: could not read atom %ld of %ld! Exiting...\n", i, ist->natoms);
+      fflush(0);
+      exit(EXIT_FAILURE);
+    }
     // Get the atomic number of each atom
     atom[i].Zval = assign_atom_number(atom[i].atyp);
 

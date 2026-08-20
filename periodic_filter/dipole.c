@@ -1,1 +1,0 @@
-../filter_mpi/dipole.c

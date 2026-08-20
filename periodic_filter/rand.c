@@ -1,1 +1,0 @@
-../filter_mpi/rand.c

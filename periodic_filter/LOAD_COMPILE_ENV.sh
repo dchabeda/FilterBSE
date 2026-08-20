@@ -1,1 +1,0 @@
-../LOAD_COMPILE_ENV.sh

@@ -1,6 +1,23 @@
 #include "coulomb.h"
 
 /**************************************************************************/
+// How many quasiparticle states (each `state_bytes` long) may be resident on
+// the GPU at once, given a per-rank memory budget. The budget is taken from the
+// environment variable BSE_GPU_MEM_GB (gigabytes of usable device memory for
+// this MPI rank; default 32 GB, minus `fixed_bytes` of scratch that is always
+// resident). Set BSE_GPU_MEM_GB to (device_GB * fraction / ranks_per_gpu) so
+// that ranks sharing a device do not oversubscribe it. Returns at least 1.
+static long bse_gpu_states_resident(long state_bytes, long fixed_bytes){
+  double gb = 32.0;
+  const char* e = getenv("BSE_GPU_MEM_GB");
+  if (e && *e) gb = atof(e);
+  double avail = gb * 1.0e9 - (double) fixed_bytes;
+  if (avail < (double) state_bytes) return 1L;
+  long n = (long) (avail / (double) state_bytes);
+  return (n < 1L) ? 1L : n;
+}
+
+/**************************************************************************/
 //      this routine computes the coulomb coupling between
 //      single excitons.  On input - it requires the eigenstates stored in psi_qp,
 //      the eigenvalues stored in eval, and pot_hartree computed in init_elec_hole_kernel.
@@ -28,7 +45,17 @@ void calc_eh_kernel_cplx(
 	flag_st       *flag,
 	parallel_st   *parallel
 	){
-	
+
+  // Warm up the GPU: force a compute target region so the CUDA context is
+  // established on the device before any target-data mappings. Without this,
+  // in the full BSE process the runtime resolves data regions to the host
+  // while compute kernels run on the GPU, leaving mapped data absent.
+  {
+    volatile int warmup = 0;
+    #pragma omp target map(tofrom: warmup)
+    { warmup = warmup + 1; }
+  }
+
 	/************************************************************/
 	/*******************  DECLARE VARIABLES   *******************/
 	/************************************************************/
@@ -223,15 +250,48 @@ void calc_eh_kernel_cplx(
     /************************************************************/
 
 
-    // First, offload the hole states of psi_qp & listibs onto GPU
-    nvtxRangePushA("Offloading hole states to device");
+    // Offload the persistent inputs to the GPU exactly once, before the ab
+    // loop:
+    //   - the hole states of psi_qp  (states 0 .. n_ho-1, each stlen doubles)
+    //   - the exciton index map listibs (n_el*n_ho entries)
+    // and allocate device scratch that is refilled every ab iteration:
+    //   - pot_htree (complex, cngrid = cplx_idx*ngrid doubles)
+    //   - blk, the n_ho x n_ho block of results for the current (a,b)
+    //     stored interleaved re,im so only a tiny buffer crosses the PCIe
+    //     bus each iteration (the full `direct` matrix stays on the host).
+    nvtxRangePushA("Offloading direct-kernel data to device");
     int dev = omp_get_default_device();
-    printf("Offloading to GPU device %d\n", dev);
-    #pragma omp target enter data map(to: psi_qp[0:nspngr*n_ho], listibs[0:n_ho*n_ho])
-    nvtxRangePop();
-    // Allocate pot_htree once before ab loop
-    nvtxRangePushA("Allocating pot_htree");
-    #pragma omp target enter data map(alloc: pot_htree[0:ngrid])
+    int host_dev = omp_get_initial_device();
+
+    // ---- GPU state batching over the hole dimension ----
+    // The device kernel needs a "row" hole tile (ii) and a "col" hole tile (jj)
+    // resident at once. When all n_ho holes do not fit we tile the hole
+    // dimension. Rather than mapping slices of psi_qp (which trips NVHPC's
+    // present check when a tile pair straddles an unmapped gap), we allocate
+    // fixed device buffers and stream the state tiles into them with
+    // omp_target_memcpy; the kernel indexes the buffers via is_device_ptr.
+    const long state_bytes = stlen * (long) sizeof(double);
+    const long fixed_bytes = (cngrid + 2L * n_ho * n_ho) * (long) sizeof(double);
+    long slots = bse_gpu_states_resident(state_bytes, fixed_bytes);
+    long Th;
+    if (2*n_ho <= slots) { Th = n_ho; }                        // row+col both fit
+    else                 { Th = slots / 2; if (Th < 1) Th = 1; } // split row+col
+    long n_tiles = (n_ho + Th - 1) / Th;
+    printf("Direct kernel on GPU device %d: n_ho=%ld, %ld resident slots, "
+           "tile=%ld -> %ld tile(s), %ld tile-pair(s)\n",
+           dev, n_ho, slots, Th, n_tiles, n_tiles*(n_tiles+1)/2); fflush(0);
+
+    // Host result block and persistent device buffers.
+    double *blk    = (double *) calloc(2 * Th * Th, sizeof(double));
+    double *d_row  = (double *) omp_target_alloc(Th * state_bytes, dev);
+    double *d_col  = (double *) omp_target_alloc(Th * state_bytes, dev);
+    double *d_pot  = (double *) omp_target_alloc(cngrid * sizeof(double), dev);
+    double *d_blk  = (double *) omp_target_alloc(2 * Th * Th * sizeof(double), dev);
+    long   *d_lidx = (long   *) omp_target_alloc(n_el * n_ho * sizeof(long), dev);
+    if (!d_row || !d_col || !d_pot || !d_blk || !d_lidx){
+      fprintf(stderr, "ERROR: omp_target_alloc failed in direct kernel\n"); exit(EXIT_FAILURE);
+    }
+    omp_target_memcpy(d_lidx, listibs, n_el*n_ho*sizeof(long), 0, 0, dev, host_dev);
     nvtxRangePop();
 
     pf = fopen(fileName , "w");
@@ -239,7 +299,24 @@ void calc_eh_kernel_cplx(
 
     // Profile expensive loop
     nvtxRangePushA("Computing BSE direct matrix elements");
-    for (ab = start; ab < ab_tot; ab += even_size) {
+    for (long ti = 0; ti < n_tiles; ti++) {
+      long i0 = ti * Th;
+      long iN = i0 + Th; if (iN > n_ho) iN = n_ho;
+      long ilen = iN - i0;
+
+      // Copy the row hole-tile to the device once; reused for every col tile.
+      omp_target_memcpy(d_row, psi_qp, ilen*state_bytes, 0, i0*state_bytes, dev, host_dev);
+
+      for (long tj = 0; tj <= ti; tj++) {
+        long j0 = tj * Th;
+        long jN = j0 + Th; if (jN > n_ho) jN = n_ho;
+        long jlen = jN - j0;
+
+        // Copy the col hole-tile into its own device buffer.
+        omp_target_memcpy(d_col, psi_qp, jlen*state_bytes, 0, j0*state_bytes, dev, host_dev);
+
+        cntr = 0;
+        for (ab = start; ab < ab_tot; ab += even_size) {
       a = lista[ab];
       b = listb[ab];
 
@@ -289,105 +366,95 @@ void calc_eh_kernel_cplx(
       hartree(rho, pot_screened, pot_htree, ist, planfw, planbw, fftwpsi);            
       nvtxRangePop();
 
+      // Push the freshly computed Hartree potential to the device
       nvtxRangePushA("Updating pot Hartree on GPU");
-      // Update pot_htree on GPU instead of re-allocating
-      #pragma omp target update to(pot_htree[0:ngrid])
+      omp_target_memcpy(d_pot, pot_htree, cngrid*sizeof(double), 0, 0, dev, host_dev);
       nvtxRangePop();
-      // loop over hole states i, j
+
+      // K^d_{ai,bj} = dv * \int h_d(r) \sum_sigma psi_i(r,sigma) psi_j^*(r,sigma) d^3r
+      //
+      // Parallelization: each (i,j) hole pair is handled by one GPU team, and
+      // the grid integral is reduced across the threads within that team. This
+      // keeps the grid loop (the innermost, memory-bound work) coalesced.
+      // States are read from the resident device tile buffers d_row (index ii)
+      // and d_col (index jj), addressed by their local offset within the tile.
       nvtxRangePushA("i,j loop of direct");
-      
-      #pragma omp target teams distribute collapse(2) thread_limit(256) \
-      map(to: a, b, i, j, lidx, stlen, n_ho, cplx_idx, ngrid, n_xton, dv, psi_qp, pot_htree, listibs) \
-      map(tofrom: direct[0:n_xton * n_xton])
-      for (i = 0; i < n_ho; i++) {
-        // int jstart = (a == b) ? i: 0;
-        // printf("a = %ld b = %ld i = %d jstart = %d\n", a, b, i, jstart);
-				for (j = 0; j < n_ho; j++) {
-					//get the matrix indicies for {ai,bj}
-          long i_st = i * stlen;
-          long j_st = j * stlen;
-          long ibs = listibs[(a - lidx) * n_ho + i];
-          long jbs = listibs[(b - lidx) * n_ho + j];
-          
-          // Compute only the upper triangle to utilize symmetry
-          if (ibs < jbs) continue;
+      #pragma omp target teams distribute collapse(2) \
+          is_device_ptr(d_row, d_col, d_pot, d_blk, d_lidx)
+      for (long ii = i0; ii < iN; ii++) {
+        for (long jj = j0; jj < jN; jj++) {
+          long i_loc = (ii - i0) * stlen;   // offset of state ii within d_row
+          long j_loc = (jj - j0) * stlen;   // offset of state jj within d_col
+          long ibs  = d_lidx[(a - lidx) * n_ho + ii];
+          long jbs  = d_lidx[(b - lidx) * n_ho + jj];
 
-          long   jgr;
-          double tmp_re, tmp_im;
-          double sum_re, sum_im;
-          sum_re = sum_im = 0.0;
+          double sum_re = 0.0, sum_im = 0.0;
 
-          // K^d_{ai,bj}=\int h_d(r) \sum_\sigma psi_{i}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
-          // Parallelize `jgr` using `#pragma omp parallel for`
-          #pragma omp parallel for private(tmp_re, tmp_im) reduction(+:sum_re, sum_im)
-          for (jgr = 0; jgr < ngrid; jgr++){
-            long jgur = cplx_idx * jgr;
-            long jgui = jgur + 1;
-            long jgdr = jgur + cplx_idx * ngrid;
-            long jgdi = jgdr + 1;
+          // Compute only the upper triangle (symmetry); the rest is left zero
+          // and is never read back on the host.
+          if (ibs >= jbs) {
+            #pragma omp parallel for reduction(+:sum_re, sum_im)
+            for (long jgr = 0; jgr < ngrid; jgr++) {
+              long jgur = cplx_idx * jgr;
+              long jgui = jgur + 1;
+              long jgdr = jgur + cplx_idx * ngrid;
+              long jgdi = jgdr + 1;
 
-            // Grab pot_htree value at this grid point
-            double pot_h_re = pot_htree[jgur];
-            double pot_h_im = pot_htree[jgui];
+              // Hartree potential at this grid point
+              double pot_h_re = d_pot[jgur];
+              double pot_h_im = d_pot[jgui];
 
-            // Set local values for up spin
-            double psi_iur = psi_qp[i_st + jgur];        
-            double psi_iui = psi_qp[i_st + jgui];
-            double psi_jur = psi_qp[j_st + jgur];        
-            double psi_jui = psi_qp[j_st + jgui];
-            
-            // Set local values for dn spin
-            double psi_idr = psi_qp[i_st + jgdr];        
-            double psi_idi = psi_qp[i_st + jgdi];
-            double psi_jdr = psi_qp[j_st + jgdr];        
-            double psi_jdi = psi_qp[j_st + jgdi];
-            
-            // Perform integrals for up spin
-            tmp_re = (psi_jur * psi_iur + psi_jui * psi_iui);
-            tmp_im = (psi_jur * psi_iui - psi_jui * psi_iur);
-            
-            sum_re += (pot_h_re * tmp_re - pot_h_im * tmp_im);
-            sum_im += (pot_h_re * tmp_im + pot_h_im * tmp_re);
-            
-            // Perform integrals for dn spin
-            tmp_re = (psi_jdr * psi_idr + psi_jdi * psi_idi);
-            tmp_im = (psi_jdr * psi_idi - psi_jdi * psi_idr);
-            
-            sum_re += (pot_h_re * tmp_re - pot_h_im * tmp_im);
-            sum_im += (pot_h_re * tmp_im + pot_h_im * tmp_re);                              
+              // up spin
+              double psi_iur = d_row[i_loc + jgur];
+              double psi_iui = d_row[i_loc + jgui];
+              double psi_jur = d_col[j_loc + jgur];
+              double psi_jui = d_col[j_loc + jgui];
+              // dn spin
+              double psi_idr = d_row[i_loc + jgdr];
+              double psi_idi = d_row[i_loc + jgdi];
+              double psi_jdr = d_col[j_loc + jgdr];
+              double psi_jdi = d_col[j_loc + jgdi];
+
+              double tmp_re, tmp_im;
+              // up spin
+              tmp_re = (psi_jur * psi_iur + psi_jui * psi_iui);
+              tmp_im = (psi_jur * psi_iui - psi_jui * psi_iur);
+              sum_re += (pot_h_re * tmp_re - pot_h_im * tmp_im);
+              sum_im += (pot_h_re * tmp_im + pot_h_im * tmp_re);
+              // dn spin
+              tmp_re = (psi_jdr * psi_idr + psi_jdi * psi_idi);
+              tmp_im = (psi_jdr * psi_idi - psi_jdi * psi_idr);
+              sum_re += (pot_h_re * tmp_re - pot_h_im * tmp_im);
+              sum_im += (pot_h_re * tmp_im + pot_h_im * tmp_re);
+            }
+            sum_re *= dv;
+            sum_im *= dv;
           }
 
-					sum_re *= dv;
-					sum_im *= dv;
-					
-					direct[ibs * n_xton + jbs].re = sum_re;
-          direct[ibs * n_xton + jbs].im = sum_im;
-				} // end of j
-			} // end of i
+          d_blk[2 * ((ii - i0) * jlen + (jj - j0))]     = sum_re;
+          d_blk[2 * ((ii - i0) * jlen + (jj - j0)) + 1] = sum_im;
+        } // end of jj
+      } // end of ii
       nvtxRangePop();
 
-      for (loop_idx = ab; loop_idx < ab + 1; loop_idx++){
-        a = lista[loop_idx];
-        b = listb[loop_idx];
-        for (i = 0; i < n_ho; i++){
-          for (j = 0; j < n_ho; j++){
-            ibs = listibs[(a - lidx) * n_ho + i];
-            jbs = listibs[(b - lidx) * n_ho + j];
-            if (ibs < jbs){
-              continue;
-            }
+      // Pull the small block back and scatter it into the host direct matrix.
+      omp_target_memcpy(blk, d_blk, 2*ilen*jlen*sizeof(double), 0, 0, host_dev, dev);
 
-            fprintf(pf,"%lu %lu %lu %lu %lu %lu %.16g %.16g\n", a, b, i, j, ibs, jbs, \
-                direct[ibs * ist->n_xton + jbs].re, direct[ibs * ist->n_xton + jbs].im
-            );
+      for (i = i0; i < iN; i++){
+        for (j = j0; j < jN; j++){
+          ibs = listibs[(a - lidx) * n_ho + i];
+          jbs = listibs[(b - lidx) * n_ho + j];
+          if (ibs < jbs){
+            continue;
           }
+
+          direct[ibs * n_xton + jbs].re = blk[2 * ((i - i0) * jlen + (j - j0))];
+          direct[ibs * n_xton + jbs].im = blk[2 * ((i - i0) * jlen + (j - j0)) + 1];
         }
       }
-      fflush(0);
-      
 
-      // Print progress
-      if (even_rank == 0){
+      // Print progress (only during the first tile-pair to avoid duplicates)
+      if (even_rank == 0 && ti == 0 && tj == 0){
         if ( (cntr == 0) || (0 == cntr % (ncycles/8+1)) || (cntr == (ncycles - 1)) ){
           print_progress_bar(cntr, ncycles);
           fflush(0);
@@ -395,18 +462,46 @@ void calc_eh_kernel_cplx(
         cntr++;
       }
 		} // end of ab
-    
-		fclose(pf);
-    printf("  Done computing direct mat\n"); 
+
+      } // end of tj
+    } // end of ti
+    nvtxRangePop();
+
+    // Write the completed direct matrix for this rank. Rows are complete once
+    // all tile-pairs are done; format matches the original per-(a,b) output so
+    // load_coulomb_mat / restart can still read it.
+    for (ab = start; ab < ab_tot; ab += even_size) {
+      a = lista[ab];
+      b = listb[ab];
+      for (i = 0; i < n_ho; i++){
+        for (j = 0; j < n_ho; j++){
+          ibs = listibs[(a - lidx) * n_ho + i];
+          jbs = listibs[(b - lidx) * n_ho + j];
+          if (ibs < jbs) continue;
+          fprintf(pf,"%lu %lu %lu %lu %lu %lu %.16g %.16g\n", a, b, i, j, ibs, jbs, \
+              direct[ibs * n_xton + jbs].re, direct[ibs * n_xton + jbs].im
+          );
+        }
+      }
+    }
     fflush(0);
-    
-    // Free 
+
+		fclose(pf);
+    printf("  Done computing direct mat\n");
+    fflush(0);
+
+    // Free
     free(lista);
     free(listb);
 
-    // Cleanup GPU memory
-    #pragma omp target exit data map(delete: psi_qp[0:nspngr*n_ho], listibs[0:n_ho*n_ho], pot_htree[0:ngrid])  // Free after loop
-    nvtxRangePop(); // End marker
+    // Cleanup persistent GPU memory
+    omp_target_free(d_row,  dev);
+    omp_target_free(d_col,  dev);
+    omp_target_free(d_pot,  dev);
+    omp_target_free(d_blk,  dev);
+    omp_target_free(d_lidx, dev);
+
+    free(blk);
 
   } // end of even MPI ranks
 
@@ -487,10 +582,71 @@ void calc_eh_kernel_cplx(
     /******************    DO K^X INTEGRAL   ********************/
     /************************************************************/
 
+    // Offload persistent inputs once. The exchange kernel reads both the
+    // electron states (index b) and hole states (index j) of psi_qp, so the
+    // whole basis up to the last electron (lidx + n_el) must be mapped.
+    // pot_htree is refilled every ai iteration; blk_x holds the n_el x n_ho
+    // block of results for the current (a,i), interleaved re,im.
+    nvtxRangePushA("Offloading exchange-kernel data to device");
+    int dev = omp_get_default_device();
+    int host_dev = omp_get_initial_device();
+
+    // ---- GPU state batching over electron (bb) and hole (jj) dimensions ----
+    // The exchange kernel needs one electron tile and one hole tile resident at
+    // once. As in the direct kernel we stream state tiles into fixed device
+    // buffers (d_elec, d_hole) with omp_target_memcpy and index them via
+    // is_device_ptr; electron tiles persist across the hole tiles.
+    const long state_bytes = stlen * (long) sizeof(double);
+    const long fixed_bytes = (cngrid + 2L * n_el * n_ho) * (long) sizeof(double);
+    long slots = bse_gpu_states_resident(state_bytes, fixed_bytes);
+    long Te, Th;
+    if (n_el + n_ho <= slots) { Te = n_el; Th = n_ho; }
+    else {
+      Te = slots / 2; Th = slots / 2;
+      if (Te > n_el) Te = n_el;  if (Th > n_ho) Th = n_ho;
+      if (Te < 1)    Te = 1;     if (Th < 1)    Th = 1;
+    }
+    long ne_tiles = (n_el + Te - 1) / Te;
+    long nh_tiles = (n_ho + Th - 1) / Th;
+    printf("Exchange kernel on GPU device %d: n_el=%ld n_ho=%ld, %ld resident slots, "
+           "elec-tile=%ld hole-tile=%ld -> %ld x %ld tiles\n",
+           dev, n_el, n_ho, slots, Te, Th, ne_tiles, nh_tiles); fflush(0);
+
+    // Host result block and persistent device buffers.
+    double *blk_x   = (double *) calloc(2 * Te * Th, sizeof(double));
+    double *d_elec  = (double *) omp_target_alloc(Te * state_bytes, dev);
+    double *d_hole  = (double *) omp_target_alloc(Th * state_bytes, dev);
+    double *d_pot   = (double *) omp_target_alloc(cngrid * sizeof(double), dev);
+    double *d_blkx  = (double *) omp_target_alloc(2 * Te * Th * sizeof(double), dev);
+    long   *d_lidx  = (long   *) omp_target_alloc(n_el * n_ho * sizeof(long), dev);
+    if (!d_elec || !d_hole || !d_pot || !d_blkx || !d_lidx){
+      fprintf(stderr, "ERROR: omp_target_alloc failed in exchange kernel\n"); exit(EXIT_FAILURE);
+    }
+    omp_target_memcpy(d_lidx, listibs, n_el*n_ho*sizeof(long), 0, 0, dev, host_dev);
+    nvtxRangePop();
+
     pf = fopen(fileName , "w");
     printf("Starting at ai = %lu on odd rank %d\n", start, odd_rank); fflush(0);
-    //loop over electron states a, i
-    for (ai = start; ai < ai_tot; ai += odd_size) {
+
+    for (long te = 0; te < ne_tiles; te++) {
+      long e0 = te * Te;
+      long eN = e0 + Te; if (eN > n_el) eN = n_el;
+      long elen = eN - e0;
+
+      // Copy this electron tile (physical slots lidx+e0 ..) into d_elec.
+      omp_target_memcpy(d_elec, psi_qp, elen*state_bytes, 0, (lidx+e0)*state_bytes, dev, host_dev);
+
+      for (long th = 0; th < nh_tiles; th++) {
+        long j0 = th * Th;
+        long jN = j0 + Th; if (jN > n_ho) jN = n_ho;
+        long jlen = jN - j0;
+
+        // Copy this hole tile into d_hole.
+        omp_target_memcpy(d_hole, psi_qp, jlen*state_bytes, 0, j0*state_bytes, dev, host_dev);
+
+        cntr = 0;
+        //loop over electron states a, i
+        for (ai = start; ai < ai_tot; ai += odd_size) {
       // printf("\n\nai = %lu\n", ai);
       a = lista[ai];
       i = listi[ai];
@@ -529,113 +685,134 @@ void calc_eh_kernel_cplx(
         rho[jgui] += psi_adr * psi_idi - psi_adi * psi_idr;
       }
 
-      // Compute the hartree potential and store in pot_htree 
+      // Compute the hartree potential and store in pot_htree
       // h_d(r) = \int W(r,r') \rho_{ab}(r') d^3r' via fourier transform
-      hartree(rho, pot_bare, pot_htree, ist, planfw, planbw, fftwpsi);            
-            
-      // loop over electron-hole pairs b, j
-      #pragma omp parallel for private(b, j)
-      for (b = lidx; b < lidx + n_el; b++) {
-        for (j = 0; j < n_ho; j++) {
-          long b_st = b * stlen;
-          long j_st = j * stlen;
-          long ibs = listibs[(a-lidx) * n_ho + i];
-          long jbs = listibs[(b-lidx) * n_ho + j];
-          
-          // Compute only the upper triangle to utilize symmetry
-          if (ibs < jbs) continue;
-          
-          long   jgr;
-          double tmp_re, tmp_im;
-          double sum_re, sum_im;
-          sum_re = sum_im = 0.0;
+      hartree(rho, pot_bare, pot_htree, ist, planfw, planbw, fftwpsi);
 
-          // Declare local psi_qp values for reduced mem lookup
-          double psi_bur, psi_bui;
-          double psi_jur, psi_jui;
-          double psi_bdr, psi_bdi;
-          double psi_jdr, psi_jdi;
-          double pot_h_re, pot_h_im;
+      // Push the freshly computed potential to the device
+      omp_target_memcpy(d_pot, pot_htree, cngrid*sizeof(double), 0, 0, dev, host_dev);
 
-          //integrate the effective potential to get K^x_{ai,bj}=\int h_x(r) \sum_\sigma psi_{b}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
-          for (jgr = 0; jgr < ngrid; jgr++){
-            jgur = cplx_idx * jgr;
-            jgui = jgur + 1;
-            jgdr = jgur + cplx_idx * ngrid;
-            jgdi = jgdr + 1;
+      // K^x_{ai,bj} = -dv * \int h_x(r) \sum_sigma psi_b(r,sigma) psi_j^*(r,sigma) d^3r
+      //
+      // One team per electron-hole pair (b,j); the grid integral is reduced
+      // across the threads of the team. Electron states are read from the
+      // resident device tile d_elec (local index bb-e0, physical b=lidx+bb) and
+      // hole states from d_hole (local index jj-j0).
+      nvtxRangePushA("b,j loop of exchange");
+      #pragma omp target teams distribute collapse(2) \
+          is_device_ptr(d_elec, d_hole, d_pot, d_blkx, d_lidx)
+      for (long bb = e0; bb < eN; bb++) {
+        for (long jj = j0; jj < jN; jj++) {
+          long b_loc = (bb - e0) * stlen;   // offset of elec bb within d_elec
+          long j_loc = (jj - j0) * stlen;   // offset of hole jj within d_hole
+          long ibs  = d_lidx[(a - lidx) * n_ho + i];
+          long jbs  = d_lidx[bb * n_ho + jj];
 
-            // Grab pot_htree value at this grid point
-            pot_h_re = pot_htree[jgur];
-            pot_h_im = pot_htree[jgui];
+          double sum_re = 0.0, sum_im = 0.0;
 
-            // Set local values for up spin
-            psi_bur = psi_qp[b_st + jgur];         psi_bui = psi_qp[b_st + jgui];
-            psi_jur = psi_qp[j_st + jgur];         psi_jui = psi_qp[j_st + jgui];
-            
-            // Set local values for dn spin
-            psi_bdr = psi_qp[b_st + jgdr];        psi_bdi = psi_qp[b_st + jgdi];
-            psi_jdr = psi_qp[j_st + jgdr];        psi_jdi = psi_qp[j_st + jgdi];
-            
-            // Perform integrals for up spin
-            tmp_re = (psi_jur * psi_bur + psi_jui * psi_bui);
-            tmp_im = (psi_jur * psi_bui - psi_jui * psi_bur);
-            
-            sum_re += (pot_h_re * tmp_re -  pot_h_im * tmp_im);
-            sum_im += (pot_h_re * tmp_im +  pot_h_im * tmp_re);
-            
-            // Handle dn spin
-            tmp_re = (psi_jdr * psi_bdr + psi_jdi * psi_bdi);
-            tmp_im = (psi_jdr * psi_bdi - psi_jdi * psi_bdr);
-            
-            sum_re += (pot_h_re * tmp_re -  pot_h_im * tmp_im);
-            sum_im += (pot_h_re * tmp_im +  pot_h_im * tmp_re);                              
+          // Compute only the upper triangle (symmetry); the rest stays zero
+          if (ibs >= jbs) {
+            #pragma omp parallel for reduction(+:sum_re, sum_im)
+            for (long jgr = 0; jgr < ngrid; jgr++) {
+              long jgur = cplx_idx * jgr;
+              long jgui = jgur + 1;
+              long jgdr = jgur + cplx_idx * ngrid;
+              long jgdi = jgdr + 1;
+
+              // Hartree potential at this grid point
+              double pot_h_re = d_pot[jgur];
+              double pot_h_im = d_pot[jgui];
+
+              // up spin
+              double psi_bur = d_elec[b_loc + jgur];
+              double psi_bui = d_elec[b_loc + jgui];
+              double psi_jur = d_hole[j_loc + jgur];
+              double psi_jui = d_hole[j_loc + jgui];
+              // dn spin
+              double psi_bdr = d_elec[b_loc + jgdr];
+              double psi_bdi = d_elec[b_loc + jgdi];
+              double psi_jdr = d_hole[j_loc + jgdr];
+              double psi_jdi = d_hole[j_loc + jgdi];
+
+              double tmp_re, tmp_im;
+              // up spin
+              tmp_re = (psi_jur * psi_bur + psi_jui * psi_bui);
+              tmp_im = (psi_jur * psi_bui - psi_jui * psi_bur);
+              sum_re += (pot_h_re * tmp_re - pot_h_im * tmp_im);
+              sum_im += (pot_h_re * tmp_im + pot_h_im * tmp_re);
+              // dn spin
+              tmp_re = (psi_jdr * psi_bdr + psi_jdi * psi_bdi);
+              tmp_im = (psi_jdr * psi_bdi - psi_jdi * psi_bdr);
+              sum_re += (pot_h_re * tmp_re - pot_h_im * tmp_im);
+              sum_im += (pot_h_re * tmp_im + pot_h_im * tmp_re);
+            }
+            sum_re *= dv;
+            sum_im *= dv;
           }
-                
-          sum_re *= par->dv;
-          sum_im *= par->dv;
 
-          exchange[ibs * n_xton + jbs].re = - 1.0 * sum_re;
-          exchange[ibs * n_xton + jbs].im = - 1.0 * sum_im;
-        } // end of b
-      } // end of j
-      
-      // Print progress
-      if (odd_rank == 0){
+          // K^x carries an overall minus sign
+          d_blkx[2 * ((bb - e0) * jlen + (jj - j0))]     = -sum_re;
+          d_blkx[2 * ((bb - e0) * jlen + (jj - j0)) + 1] = -sum_im;
+        } // end of jj
+      } // end of bb
+      nvtxRangePop();
+
+      // Pull the result block back and scatter into the exchange matrix
+      omp_target_memcpy(blk_x, d_blkx, 2*elen*jlen*sizeof(double), 0, 0, host_dev, dev);
+      for (b = lidx + e0; b < lidx + eN; b++) {
+        long bb = b - lidx;
+        for (j = j0; j < jN; j++) {
+          long ibs = listibs[(a - lidx) * n_ho + i];
+          long jbs = listibs[(b - lidx) * n_ho + j];
+          if (ibs < jbs) continue;
+          exchange[ibs * n_xton + jbs].re = blk_x[2 * ((bb - e0) * jlen + (j - j0))];
+          exchange[ibs * n_xton + jbs].im = blk_x[2 * ((bb - e0) * jlen + (j - j0)) + 1];
+        }
+      }
+
+      // Print progress (only during the first tile block to avoid duplicates)
+      if (odd_rank == 0 && te == 0 && th == 0){
         if ( (cntr == 0) || (0 == cntr % (ncycles/8 + 1)) || (cntr == (ncycles - 1)) ){
             print_progress_bar(cntr, ncycles);
             fflush(0);
         }
         cntr++;
       }
-
-      for (loop_idx = ai; loop_idx < ai + 1; loop_idx++){
-        // printf("This is ai: %lu\n", ai);
-        a = lista[loop_idx];
-        i = listi[loop_idx];
-        for (b = lidx; b < lidx + n_el; b++){
-          for (j = 0; j < n_ho; j++){
-            // printf("a %lu b %lu i %lu j %lu\n", a, b, i, j);
-            ibs = listibs[(a - lidx) * n_ho + i];
-            jbs = listibs[(b - lidx) * n_ho + j];
-            // printf("This is ibs = %lu and jbs = %lu\n", ibs, jbs);
-            if (ibs < jbs){
-              continue;
-            }
-            // printf("printing exchange %lu %lu %lu %lu\n", loop_idx, b, i, j);
-            fprintf(pf,"%lu %lu %lu %lu %lu %lu %.16g %.16g\n", a, b, i, j, ibs, jbs, \
-                exchange[ibs * ist->n_xton + jbs].re, exchange[ibs * ist->n_xton + jbs].im
-            );
-          }
-        }
-      }
-      fflush(0);
-      
     } // end of ai
 
+      } // end of th
+    } // end of te
+
+    // Write the completed exchange matrix for this rank. Format matches the
+    // original per-(a,i) output so load_coulomb_mat / restart can still read it.
+    for (ai = start; ai < ai_tot; ai += odd_size){
+      a = lista[ai];
+      i = listi[ai];
+      for (b = lidx; b < lidx + n_el; b++){
+        for (j = 0; j < n_ho; j++){
+          ibs = listibs[(a - lidx) * n_ho + i];
+          jbs = listibs[(b - lidx) * n_ho + j];
+          if (ibs < jbs) continue;
+          fprintf(pf,"%lu %lu %lu %lu %lu %lu %.16g %.16g\n", a, b, i, j, ibs, jbs, \
+              exchange[ibs * n_xton + jbs].re, exchange[ibs * n_xton + jbs].im
+          );
+        }
+      }
+    }
+    fflush(0);
+
 	  fclose(pf);
-  	printf("  Done computing exchange mat\n"); 
+  	printf("  Done computing exchange mat\n");
 	  fflush(0);
 
+    // Cleanup persistent GPU memory
+    omp_target_free(d_elec, dev);
+    omp_target_free(d_hole, dev);
+    omp_target_free(d_pot,  dev);
+    omp_target_free(d_blkx, dev);
+    omp_target_free(d_lidx, dev);
+
+    free(blk_x);
     free(lista);
     free(listi);
 

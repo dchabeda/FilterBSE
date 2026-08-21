@@ -37,7 +37,9 @@ void diag(const int n, int nthreads, double _Complex *mat, double *eval) {
   //   mat_conv[i] = mat[i].re + mat[i].im * I;
   // }
 
-  zheev_(&jobz, &uplo, &N, &mat[0], &N, &eval[0], &work_z[0], &lwork, &rwork[0], &info);
+  // The Cray lapack.h prototype includes the two hidden Fortran string-length
+  // arguments for jobz/uplo (each a single char), so pass 1, 1 at the end.
+  zheev_(&jobz, &uplo, &N, &mat[0], &N, &eval[0], &work_z[0], &lwork, &rwork[0], &info, 1, 1);
   
   // Error handling
   if (info){

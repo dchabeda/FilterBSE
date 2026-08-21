@@ -13,8 +13,18 @@
 #include <fftw3.h>
 #include <lapack.h>
 #include <mpi.h>
-#include <nvToolsExt.h>
 #include <omp.h>
+
+/* NVTX profiling markers are optional. Compile with -DUSE_NVTX (and the
+ * nvtx3 include path, e.g. CUDA's include dir) to enable them. Otherwise
+ * they compile to no-ops so the code builds without libnvToolsExt, which
+ * no longer ships as a linkable library in CUDA >= 12. */
+#if defined(USE_NVTX)
+#include <nvtx3/nvToolsExt.h>
+#else
+static inline void nvtxRangePushA(const char *s) { (void) s; }
+static inline void nvtxRangePop(void) { }
+#endif
 #include "unistd.h"
 
 /*****************************************************************************/
@@ -115,7 +125,13 @@ typedef struct par {
   int   nb_min;
   int   nb_max;
 
-  // Redundant parameter (possibly for convenience)
+  // Dielectric screening constants (read from input, used in init.c)
+  double  epsX, epsY, epsZ;
+
+  // Redundant grid-spacing mirrors (written by read_input for convenience;
+  // the authoritative copies live in grid_st).
+  double  dx, dy, dz, dr, dkx, dky, dkz;
+  double  xmin, ymin, zmin, xmax, ymax, zmax;
   double  dv;
 } par_st;
 

@@ -126,10 +126,10 @@ void calc_elec_dipole(
             // __builtin_prefetch(&ist->jgui[jg + 8], 0, 1);
             // __builtin_prefetch(&ist->jgdr[jg + 8], 0, 1);
             // __builtin_prefetch(&ist->jgdi[jg + 8], 0, 1);
-            jgur = ist->jgur[jg];
-            jgui = ist->jgui[jg];
-            jgdr = ist->jgdr[jg];
-            jgdi = ist->jgdi[jg];
+            jgur = cplx_idx * jg;           // jgrid up real
+            jgui = jgur + 1;                // jgrid up imag
+            jgdr = jgur + cplx_idx * ngrid; // jgrid dn real
+            jgdi = jgdr + 1;                // jgrid dn imag
 
             // Prefetch psi_qp values
 

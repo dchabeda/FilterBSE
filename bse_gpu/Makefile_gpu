@@ -1,0 +1,53 @@
+SHELL = /bin/sh
+
+#==========================
+# Files
+#==========================
+SRC = *.c
+# libraries ...
+Linux_LIB = -mp -gpu=managed -lpthread -lfftw3 -lfftw3_threads -lfftw3_omp -L$(CRAY_LIBSCI_PREFIX_DIR)/lib -lsci_cray
+Linux_DYLIB = -lm
+MKL = -L$MKLROOT/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core
+#Linux_LIB = -qmkl -lpthread -lfftw3 -lfftw3_threads -lfftw3_omp
+#Linux_DYLIB = -lm
+
+LIB = $(Linux_DYLIB) $(Linux_LIB)
+#LIB = -lfftw3 -lfftw3_threads -lfftw3_omp
+
+OS = Linux
+CC = cc
+
+OPENMP:=n
+
+CFLAGS += -O3 -DUSEFFTW3
+
+CFLAGS += -mp=gpu -gpu=cc80 -Minfo
+
+EXE = BSE_gpu
+
+OBJECTS = \
+        main.o write.o save.o read.o basis.o init.o dipole.o coulomb.o hartree.o angular.o bethe-salpeter.o diag.o optical.o aux.o
+
+#==========================
+# Compiler commands
+#==========================
+CLD         = $(CC)
+
+#==========================
+# Compilation rule
+#==========================
+.c.o:
+	$(Linux_CC) -DOS_$(OS) $(Linux_CFLAGS) -c $*.c
+
+#==========================
+# Make the executable
+#==========================
+$(EXE): $(OBJECTS)
+	echo $(SRC)
+	$(CLD) $(CFLAGS) -o $(EXE).x $(OBJECTS) $(LIB)
+
+#==========================
+#remove all objs
+#==========================
+clean:
+	/bin/rm -f *.o *.x

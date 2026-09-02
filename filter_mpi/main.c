@@ -172,6 +172,20 @@ int main(int argc, char *argv[])
       break;
     }
 
+    // Distributed (MPI) non-periodic ortho/diag/sigma pipeline. Keeps the
+    // filtered states column-distributed (never gathered to one rank), does a
+    // distributed SVD orthogonalization and a distributed diagonalization, and
+    // writes the grid-basis eigenvectors to psi.dat via MPI-IO. This replaces
+    // the gather/ortho/diag/sigma/output modules below, so we exit the restart
+    // switch once it returns.
+    if (1 == flag.MPIOrtho)
+    {
+      run_dist_postfilter(&psi_rank, pot_local, R, &grid, LS, nlc, nl, ksqr,
+                          eig_vals, sigma_E, &ist, &par, &flag, &parallel);
+      free(psi_rank);
+      break;
+    }
+
     // Gather all psi_rank from MPI ranks into psitot
     gather_mpi_filt(psi_rank, &psitot, &ist, &par, &flag, &parallel);
     free(psi_rank);
@@ -207,9 +221,34 @@ int main(int argc, char *argv[])
 
     if ((1 == flag.restartFromOrtho) && (1 == flag.MPIOrtho))
     {
-      mod_portho(
-          &psitot, &psi_rank, pot_local, eig_vals, sigma_E, R, LS, nlc, nl,
-          ksqr, &grid, &ist, &par, &flag, &parallel);
+      // Distributed restart-from-ortho: read this rank's contiguous block of
+      // filtered states from psi-filt.dat, then run the distributed
+      // ortho/diag/sigma pipeline (writes psi.dat via MPI-IO). Replaces the
+      // serial ortho/diag/sigma/output path below, so break out once done.
+      if (0 != (ist.n_states_for_ortho % parallel.mpi_size))
+      {
+        if (0 == mpir)
+          fprintf(stderr, "ERROR: MPIOrtho restart needs n_states_for_ortho (%ld) "
+                          "divisible by mpi_size (%d)\n",
+                  ist.n_states_for_ortho, parallel.mpi_size);
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+      }
+      long nloc = ist.n_states_for_ortho / parallel.mpi_size;
+      unsigned long stlen = (unsigned long)ist.complex_idx * ist.nspinngrid;
+      ist.n_states_per_rank = nloc;
+      ist.mn_states_tot = ist.n_states_for_ortho;
+      psi_rank = (double *)realloc(psi_rank, (size_t)nloc * stlen * sizeof(double));
+      if (NULL == psi_rank)
+      {
+        fprintf(stderr, "OUT OF MEMORY: psi_rank restart realloc (rank %d)\n", mpir);
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+      }
+      read_psi_from_disk(psi_rank, (unsigned long)mpir * nloc,
+                         (unsigned long)(mpir + 1) * nloc, stlen, "psi-filt.dat");
+      run_dist_postfilter(&psi_rank, pot_local, R, &grid, LS, nlc, nl, ksqr,
+                          eig_vals, sigma_E, &ist, &par, &flag, &parallel);
+      free(psi_rank);
+      break;
     }
 
     if (mpir == 0) // subsequent modules performed on a single rank
@@ -308,7 +347,11 @@ int main(int argc, char *argv[])
   /*****************  OPTIONAL OUTPUT MODULE  *****************/
   /************************************************************/
 
-  if ((0 == mpir) && (0 == flag.periodic))
+  // The distributed (MPIOrtho) path keeps eigenvectors column-distributed and
+  // has already written psi.dat/eval.dat via MPI-IO; psitot is never gathered
+  // to rank 0 there, so the rank-0 optional output (which reads psitot) is
+  // skipped. Cube/optional output at that scale must be produced separately.
+  if ((0 == mpir) && (0 == flag.periodic) && (1 != flag.MPIOrtho))
   {
     mod_optional_output(psitot, &grid, &ist, &par, &flag, &parallel);
   }

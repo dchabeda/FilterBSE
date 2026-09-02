@@ -1,21 +1,21 @@
 main.o: main.c main.h fd.h \
   /opt/cray/pe/fftw/3.3.10.8/x86_milan/include/fftw3.h vector.h \
-  /opt/cray/pe/mpich/9.0.1/ofi/intel/2022.1/include/mpi.h \
-  /opt/cray/pe/mpich/9.0.1/ofi/intel/2022.1/include/cray_version.h \
-  /opt/cray/pe/mpich/9.0.1/ofi/intel/2022.1/include/mpi_proto.h \
-  /opt/cray/pe/mpich/9.0.1/ofi/intel/2022.1/include/mpio.h aux.h \
+  /opt/cray/pe/mpich/9.1.0/ofi/intel/2022.1/include/mpi.h \
+  /opt/cray/pe/mpich/9.1.0/ofi/intel/2022.1/include/cray_version.h \
+  /opt/cray/pe/mpich/9.1.0/ofi/intel/2022.1/include/mpi_proto.h \
+  /opt/cray/pe/mpich/9.1.0/ofi/intel/2022.1/include/mpio.h aux.h \
   mod_init.h read.h init.h init_periodic.h mod_mem.h mod_pseudopot.h \
   hamiltonian.h mod_filter.h energy.h ghamiltonian.h filter.h coeff.h \
   mod_ortho.h ortho.h mod_portho.h Hmat.h mod_sigma.h mod_output.h \
-  mod_diag.h mod_optional_output.h angular.h
+  dist_linalg.h mod_diag.h mod_optional_output.h angular.h
 main.h:
 fd.h:
 /opt/cray/pe/fftw/3.3.10.8/x86_milan/include/fftw3.h:
 vector.h:
-/opt/cray/pe/mpich/9.0.1/ofi/intel/2022.1/include/mpi.h:
-/opt/cray/pe/mpich/9.0.1/ofi/intel/2022.1/include/cray_version.h:
-/opt/cray/pe/mpich/9.0.1/ofi/intel/2022.1/include/mpi_proto.h:
-/opt/cray/pe/mpich/9.0.1/ofi/intel/2022.1/include/mpio.h:
+/opt/cray/pe/mpich/9.1.0/ofi/intel/2022.1/include/mpi.h:
+/opt/cray/pe/mpich/9.1.0/ofi/intel/2022.1/include/cray_version.h:
+/opt/cray/pe/mpich/9.1.0/ofi/intel/2022.1/include/mpi_proto.h:
+/opt/cray/pe/mpich/9.1.0/ofi/intel/2022.1/include/mpio.h:
 aux.h:
 mod_init.h:
 read.h:
@@ -35,6 +35,7 @@ mod_portho.h:
 Hmat.h:
 mod_sigma.h:
 mod_output.h:
+dist_linalg.h:
 mod_diag.h:
 mod_optional_output.h:
 angular.h:

@@ -2435,7 +2435,7 @@ int is_ligand(char atyp[4])
 
   static const char *ligand_types[] = {
       "P1", "P2", "P3", "PC5", "PC6", "PR1", "PR2", "PR3",
-      "PA1", "PA2", "PA3", "C1", "C2", "C3"};
+      "PA1", "PA2", "PA3", "H"};
   const int n_ligand_types = sizeof(ligand_types) / sizeof(ligand_types[0]);
 
   for (int i = 0; i < n_ligand_types; i++)

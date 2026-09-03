@@ -304,8 +304,7 @@ void get_energy_range(
   {
     if (parallel->mpi_rank == 0)
       printf("\nApproximating energy range of Hamiltonian as [Vmin, Vmax + KE_max]\n");
-    Emin = par->Vmin + 0.5;
-    Emin = -0.8;
+    Emin = par->Vmin;
     Emax = par->Vmax + par->KE_max;
     // The projector potentials push states out of the local-potential range, so
     // pad the bounds for each that is active (SO and NL are independent).

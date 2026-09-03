@@ -279,17 +279,35 @@ void get_qp_basis(
    ********************************************************************/
 
   FILE *pf;
-  long i, cntr, state_idx, offset;
+  long i, cntr, state_idx, offset, base;
   const unsigned long nspngr = ist->nspinngrid;
 
-  pf = fopen("output.dat", "r");
+  // Normal path: the selected wavefunctions live in the filter output.dat after
+  // a header, so the base offset is par->psi_file_pos. Unsafe path: they live in
+  // the raw psi.par with no header, so the base offset is 0. In both cases state
+  // s occupies s * nspinngrid * sizeof(complex) bytes past the base.
+  if (flag->initUnsafe)
+  {
+    pf = fopen("psi.par", "r");
+    base = 0;
+  }
+  else
+  {
+    pf = fopen("output.dat", "r");
+    base = par->psi_file_pos;
+  }
+  if (NULL == pf)
+  {
+    fprintf(stderr, "ERROR: get_qp_basis could not open the wavefunction file\n");
+    exit(EXIT_FAILURE);
+  }
 
   // Copy the hole states
   cntr = 0;
   for (i = 0; i < ist->n_holes; i++)
   {
     state_idx = ist->eval_hole_idxs[i];
-    offset = par->psi_file_pos + state_idx * nspngr * (long)sizeof(psi_qp[0]);
+    offset = base + state_idx * nspngr * (long)sizeof(psi_qp[0]);
     fseek(pf, offset, SEEK_SET);
     fread(&psi_qp[i * nspngr], sizeof(psi_qp[0]), nspngr, pf);
     cntr++;
@@ -299,7 +317,7 @@ void get_qp_basis(
   for (i = 0; i < ist->n_elecs; i++)
   {
     state_idx = ist->eval_elec_idxs[i];
-    offset = par->psi_file_pos + state_idx * nspngr * (long)sizeof(psi_qp[0]);
+    offset = base + state_idx * nspngr * (long)sizeof(psi_qp[0]);
     fseek(pf, offset, SEEK_SET);
     fread(&psi_qp[cntr * nspngr], sizeof(psi_qp[0]), nspngr, pf);
     cntr++;

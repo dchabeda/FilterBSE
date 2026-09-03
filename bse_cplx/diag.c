@@ -16,10 +16,15 @@ void diag(const int n, int nthreads, double complex *mat, double *eval) {
   //MKL_Complex16 *work; // dimension (MAX(1,lwork))
   double *rwork; //dimension (MAX(1,3*n-2))
 
-  // Use multiple threads
+  // Use multiple threads. cray-libsci is OpenMP-threaded and honors the OMP
+  // thread count; MKL uses its own control. LAPACKE_zheev itself is identical.
+#if defined(USE_LIBSCI)
+  omp_set_num_threads(nthreads);
+#else
   //mkl_set_dynamic(0);
   mkl_set_num_threads(nthreads);
   //omp_set_nested(1);
+#endif
 
   // Allocate memmory for work array
   //rwork = (double *) calloc(3*n-2,sizeof(double));

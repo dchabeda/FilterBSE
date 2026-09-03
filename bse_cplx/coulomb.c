@@ -1,5 +1,34 @@
 #include "coulomb.h"
 
+#ifdef USE_GPU_OFFLOAD
+/**************************************************************************/
+// How many full quasiparticle states (nspngr `double complex` each) fit in the
+// per-rank GPU memory budget, after reserving `scratch_bytes` for the transient
+// per-iteration buffers (Hartree potential, the result block, the index map).
+//
+// The budget is env BSE_GPU_MEM_GB (default 36 GB -- a Perlmutter A100-40GB with
+// headroom); pass the true per-GPU memory on other cards. A 10% cushion is kept
+// for the CUDA/OpenMP runtime context. This single number lets each kernel size
+// its own state tiling automatically: the user sets nothing beyond the srun GPU
+// binding. Returns 0 if not even one state fits.
+//
+// States are always mapped as one or more *disjoint contiguous* slices of
+// psi_qp (never overlapping slices), which sidesteps NVHPC's present-check abort
+// (the bse_gpu lesson).
+static long bse_gpu_state_capacity(long nspngr, long scratch_bytes)
+{
+  double gb = 36.0;
+  const char *e = getenv("BSE_GPU_MEM_GB");
+  if (e && *e)
+    gb = atof(e);
+  double avail = gb * 0.9e9 - (double)scratch_bytes; // 10% headroom for runtime
+  double per = (double)nspngr * (double)sizeof(double complex);
+  if (avail < per)
+    return 0;
+  return (long)(avail / per);
+}
+#endif
+
 /**************************************************************************/
 //      this routine computes the coulomb coupling between
 //      single excitons.  On input - it requires the eigenstates stored in psi_qp,
@@ -65,6 +94,29 @@ void calc_eh_kernel_cplx(
   long *listibs;
 
   const double dv = par->dv;
+
+  // Runtime GPU-offload decision: requested via input.par (gpuAccel), gated by
+  // actual device availability so a CPU-only node (or OMP_TARGET_OFFLOAD=DISABLED,
+  // which makes omp_get_num_devices() return 0) transparently runs the host path.
+#ifdef USE_GPU_OFFLOAD
+  int use_gpu = flag->useGpu && (omp_get_num_devices() > 0);
+#else
+  const int use_gpu = 0; // this binary was built without GPU offload
+#endif
+  if (mpir == 0)
+  {
+#ifdef USE_GPU_OFFLOAD
+    if (use_gpu)
+      printf("Coulomb kernel: GPU offload ENABLED (%d device(s) visible)\n", omp_get_num_devices());
+    else if (flag->useGpu)
+      printf("Coulomb kernel: GPU requested but no device available -> running on CPU\n");
+    else
+      printf("Coulomb kernel: running on CPU (gpuAccel = 0)\n");
+#else
+    printf("Coulomb kernel: running on CPU (binary built without GPU offload)\n");
+#endif
+    fflush(stdout);
+  }
 
   char *fileName;
   fileName = (char *)malloc(30 * sizeof(char) + 1);
@@ -294,6 +346,175 @@ void calc_eh_kernel_cplx(
     }
     // Profile expensive loop
     // nvtxRangePushA("Computing BSE direct matrix elements");
+
+    // ---- Auto GPU sizing for the direct kernel ----
+    // A direct integral reads two hole states (i and j), so ALL hole states must
+    // be resident on the device. If they all fit the per-rank budget we keep the
+    // proven single-map fast path (each ab iteration streams back only a small
+    // n_ho x n_ho block). If they do not fit, we tile the holes and stream
+    // tile-pairs through the GPU (see the dir_tiled branch). Sizing is automatic
+    // from BSE_GPU_MEM_GB; the user configures nothing but the srun GPU binding.
+#ifdef USE_GPU_OFFLOAD
+    const long dir_blk_len = n_ho * n_ho;
+    const long dir_scratch = (long)(dir_blk_len + ngrid) * (long)sizeof(double complex) +
+                             (long)n_xton * (long)sizeof(long);
+    const long dir_cap = use_gpu ? bse_gpu_state_capacity(nspngr, dir_scratch) : 0;
+    const int gpu_dir = use_gpu && (n_ho <= dir_cap);            // all holes resident: fast path
+    const int dir_tiled = use_gpu && !gpu_dir && (dir_cap >= 2); // stream hole tiles
+    const long dir_ht = dir_tiled ? (dir_cap / 2) : n_ho;        // holes per resident tile
+    double complex *dir_blk = NULL;
+    if (use_gpu && !gpu_dir && !dir_tiled && even_rank == 0)
+      printf("  (direct: GPU budget below 2 states -> CPU fallback)\n");
+    if (dir_tiled && even_rank == 0)
+    {
+      printf("  (direct: %ld holes exceed GPU budget -> streaming %ld-state tiles, %ld passes)\n",
+             n_ho, dir_ht, ((n_ho + dir_ht - 1) / dir_ht) * ((n_ho + dir_ht - 1) / dir_ht));
+      fflush(stdout);
+    }
+
+    if (dir_tiled)
+    {
+      // ---- Tiled GPU direct ----
+      // The hole set is too large to keep resident, so holes are partitioned
+      // into tiles of dir_ht. For each tile-pair the i-tile and j-tile are copied
+      // into two SEPARATE contiguous device buffers (drow, dcol) -- distinct
+      // arrays, never two slices of psi_qp (NVHPC mistranslates a second slice of
+      // the same base pointer -> illegal address). We then sweep this rank's
+      // strided ab-iterations, recomputing the (cheap, host) Hartree potential
+      // each pass. The checkpoint file is written once at completion (mid-run
+      // restart is not checkpointed in this path).
+      if (flag->restartCoulomb && even_rank == 0)
+        printf("  (direct: tiled path -> writing one checkpoint at completion)\n");
+
+      const long ntile = (n_ho + dir_ht - 1) / dir_ht;
+      const long dbuf = dir_ht * nspngr;
+      double complex *blk = (double complex *)malloc(dir_ht * dir_ht * sizeof(double complex));
+      double complex *drow = (double complex *)malloc(dbuf * sizeof(double complex));
+      double complex *dcol = (double complex *)malloc(dbuf * sizeof(double complex));
+      {
+        volatile int w = 0;
+#pragma omp target map(tofrom : w)
+        {
+          w = w + 1;
+        }
+      }
+#pragma omp target enter data map(to : listibs[0 : n_xton]) \
+    map(alloc : drow[0 : dbuf], dcol[0 : dbuf])
+
+      double ab_start_t = omp_get_wtime();
+      for (long tj = 0; tj < ntile; tj++)
+      {
+        const long j0 = tj * dir_ht;
+        const long jlen = (n_ho - j0 < dir_ht) ? (n_ho - j0) : dir_ht;
+        memcpy(dcol, &psi_qp[j0 * nspngr], jlen * nspngr * sizeof(double complex));
+#pragma omp target update to(dcol[0 : jlen * nspngr])
+        for (long ti = 0; ti < ntile; ti++)
+        {
+          const long i0 = ti * dir_ht;
+          const long ilen = (n_ho - i0 < dir_ht) ? (n_ho - i0) : dir_ht;
+          memcpy(drow, &psi_qp[i0 * nspngr], ilen * nspngr * sizeof(double complex));
+#pragma omp target update to(drow[0 : ilen * nspngr])
+          for (long abt = even_rank; abt < ab_tot; abt += even_size)
+          {
+            const long a = lista[abt];
+            const long b = listb[abt];
+            const long a_st = a * nspngr;
+            const long b_st = b * nspngr;
+            for (long jg = 0; jg < ngrid; jg++)
+              rho[jg] = conjmul(psi_qp[a_st + jg], psi_qp[b_st + jg]) +
+                        conjmul(psi_qp[a_st + jg + ngrid], psi_qp[b_st + jg + ngrid]);
+            hartree(rho, pot_screened, pot_htree, ist, planfw, planbw, fftwpsi);
+#pragma omp target teams distribute collapse(2) \
+    map(to : pot_htree[0 : ngrid]) map(from : blk[0 : ilen * jlen])
+            for (long ii = 0; ii < ilen; ii++)
+              for (long jj = 0; jj < jlen; jj++)
+              {
+                const long ibs = listibs[(a - lidx) * n_ho + (i0 + ii)];
+                const long jbs = listibs[(b - lidx) * n_ho + (j0 + jj)];
+                double complex val = 0.0 + 0.0 * I;
+                if (ibs >= jbs)
+                {
+                  const long ri = ii * nspngr;
+                  const long cj = jj * nspngr;
+                  double sre = 0.0, sim = 0.0;
+#pragma omp parallel for reduction(+ : sre, sim)
+                  for (long jg = 0; jg < ngrid; jg++)
+                  {
+                    double complex t = pot_htree[jg] *
+                                       (conj(dcol[cj + jg]) * drow[ri + jg] +
+                                        conj(dcol[cj + jg + ngrid]) * drow[ri + jg + ngrid]);
+                    sre += creal(t);
+                    sim += cimag(t);
+                  }
+                  val = (sre + sim * I) * dv;
+                }
+                blk[ii * jlen + jj] = val;
+              }
+            for (long ii = 0; ii < ilen; ii++)
+              for (long jj = 0; jj < jlen; jj++)
+              {
+                const long ibs = listibs[(a - lidx) * n_ho + (i0 + ii)];
+                const long jbs = listibs[(b - lidx) * n_ho + (j0 + jj)];
+                if (ibs < jbs)
+                  continue;
+                direct[ibs * n_xton + jbs] = blk[ii * jlen + jj];
+              }
+          } // abt
+        } // ti
+        if (even_rank == 0)
+        {
+          printf("Direct (tiled): ");
+          print_progress_bar(tj, ntile);
+          fflush(0);
+        }
+      } // tj
+#pragma omp target exit data map(delete : listibs[0 : n_xton], drow[0 : dbuf], dcol[0 : dbuf])
+      free(blk);
+      free(drow);
+      free(dcol);
+      double ab_end_t = omp_get_wtime();
+
+      // Write this rank's checkpoint in canonical (strided ab, ij) order so the
+      // file matches the fast/CPU paths byte-for-byte.
+      for (long abt = even_rank; abt < ab_tot; abt += even_size)
+      {
+        const long a = lista[abt], b = listb[abt];
+        for (long ij = 0; ij < ij_tot; ij++)
+        {
+          const long i = listi[ij], j = listj[ij];
+          const long ibs = listibs[(a - lidx) * n_ho + i];
+          const long jbs = listibs[(b - lidx) * n_ho + j];
+          // The fast/CPU direct path writes every ij pair (lower triangle stays
+          // zero), so do NOT skip ibs<jbs here -- keep the file byte-identical.
+          fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
+                  creal(direct[ibs * n_xton + jbs]), cimag(direct[ibs * n_xton + jbs]));
+        }
+      }
+      fclose(pf);
+      if (even_rank == 0)
+        printf("Done with direct (tiled); duration = %lg s (%lg m)\n", (ab_end_t - ab_start_t), (ab_end_t - ab_start_t) / 60.0);
+    }
+    else
+#else
+    const int gpu_dir = 0;
+#endif
+    {
+#ifdef USE_GPU_OFFLOAD
+      if (gpu_dir)
+      {
+        dir_blk = (double complex *)malloc(dir_blk_len * sizeof(double complex));
+        // Warm up the device context before the first data region (bse_gpu lesson).
+        {
+          volatile int w = 0;
+#pragma omp target map(tofrom : w)
+          {
+            w = w + 1;
+          }
+        }
+#pragma omp target enter data map(to : psi_qp[0 : n_ho * nspngr], listibs[0 : n_xton])
+      }
+#endif
+
     cntr = 0;
     double ab_start_t = omp_get_wtime();
     for (ab = start; ab < ab_tot; ab += even_size)
@@ -322,40 +543,96 @@ void calc_eh_kernel_cplx(
       hartree(rho, pot_screened, pot_htree, ist, planfw, planbw, fftwpsi);
 // // nvtxRangePop();
 
-// loop over hole states i, j
+      // loop over hole states i, j
+      if (gpu_dir)
+      {
+#ifdef USE_GPU_OFFLOAD
+        // GPU: one team per (i,j) hole pair; the grid integral is reduced
+        // across the threads within that team (OpenMP C has no complex
+        // reduction, so we reduce the real/imag parts as two doubles). Native
+        // double complex arithmetic runs on the device (NVHPC >= 26). pot_htree
+        // is refreshed each iteration; hole states + listibs are resident.
+        // The push freshly computed Hartree potential and pull only the small
+        // block back keep host<->device traffic tiny.
+#pragma omp target teams distribute collapse(2) \
+    map(to : pot_htree[0 : ngrid]) map(from : dir_blk[0 : dir_blk_len])
+        for (long i = 0; i < n_ho; i++)
+        {
+          for (long j = 0; j < n_ho; j++)
+          {
+            long ibs = listibs[(a - lidx) * n_ho + i];
+            long jbs = listibs[(b - lidx) * n_ho + j];
+            double complex val = 0.0 + 0.0 * I;
+            // Compute only the upper triangle (Hermitian symmetry); the rest is
+            // filled by build_BSE_mat on the host, exactly as in the CPU path.
+            if (ibs >= jbs)
+            {
+              long i_st = i * nspngr;
+              long j_st = j * nspngr;
+              double sre = 0.0, sim = 0.0;
+#pragma omp parallel for reduction(+ : sre, sim)
+              for (long jg = 0; jg < ngrid; jg++)
+              {
+                double complex t = pot_htree[jg] *
+                                   (conj(psi_qp[j_st + jg]) * psi_qp[i_st + jg] +
+                                    conj(psi_qp[j_st + jg + ngrid]) * psi_qp[i_st + jg + ngrid]);
+                sre += creal(t);
+                sim += cimag(t);
+              }
+              val = (sre + sim * I) * dv;
+            }
+            dir_blk[i * n_ho + j] = val;
+          }
+        }
+        // Scatter the block into the host direct matrix (upper triangle only,
+        // matching the CPU path so the two are bit-for-bit comparable).
+        for (i = 0; i < n_ho; i++)
+          for (j = 0; j < n_ho; j++)
+          {
+            long ibs = listibs[(a - lidx) * n_ho + i];
+            long jbs = listibs[(b - lidx) * n_ho + j];
+            if (ibs < jbs)
+              continue;
+            direct[ibs * n_xton + jbs] = dir_blk[i * n_ho + j];
+          }
+#endif
+      }
+      else
+      {
 // // nvtxRangePushA("i,j loop of direct");
 #pragma omp parallel for private(i, j) // schedule(dynamic, chunk_size)
-      for (ij = 0; ij < ij_tot; ij++)
-      {
-        // get the matrix indicies for {ai,bj}
-        i = listi[ij];
-        j = listj[ij];
-
-        long i_st = i * nspngr;
-        long j_st = j * nspngr;
-        long ibs = listibs[(a - lidx) * n_ho + i];
-        long jbs = listibs[(b - lidx) * n_ho + j];
-
-        if (ibs < jbs)
+        for (ij = 0; ij < ij_tot; ij++)
         {
-          continue;
-        }
+          // get the matrix indicies for {ai,bj}
+          i = listi[ij];
+          j = listj[ij];
 
-        long jg;
-        double complex sum;
-        sum = 0.0 + 0.0 * I;
+          long i_st = i * nspngr;
+          long j_st = j * nspngr;
+          long ibs = listibs[(a - lidx) * n_ho + i];
+          long jbs = listibs[(b - lidx) * n_ho + j];
 
-        // K^d_{ai,bj}=\int h_d(r) \sum_\sigma psi_{i}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
-        for (jg = 0; jg < ngrid; jg++)
-        {
-          sum += pot_htree[jg] *
-                 (conjmul(psi_qp[j_st + jg], psi_qp[i_st + jg]) +
-                  conjmul(psi_qp[j_st + jg + ngrid], psi_qp[i_st + jg + ngrid]));
-        }
-        sum *= dv;
+          if (ibs < jbs)
+          {
+            continue;
+          }
 
-        direct[ibs * n_xton + jbs] = sum;
-      } // end of ij
+          long jg;
+          double complex sum;
+          sum = 0.0 + 0.0 * I;
+
+          // K^d_{ai,bj}=\int h_d(r) \sum_\sigma psi_{i}(r,\sigma) psi_{j}^{*}(r,\sigma) d^3r
+          for (jg = 0; jg < ngrid; jg++)
+          {
+            sum += pot_htree[jg] *
+                   (conjmul(psi_qp[j_st + jg], psi_qp[i_st + jg]) +
+                    conjmul(psi_qp[j_st + jg + ngrid], psi_qp[i_st + jg + ngrid]));
+          }
+          sum *= dv;
+
+          direct[ibs * n_xton + jbs] = sum;
+        } // end of ij
+      }
       // // nvtxRangePop();
 
       // fflush(0);
@@ -388,6 +665,15 @@ void calc_eh_kernel_cplx(
     {
       printf("Done with direct; duration = %lg s (%lg m)\n", (ab_end_t - ab_start_t), (ab_end_t - ab_start_t) / 60.0);
     }
+
+#ifdef USE_GPU_OFFLOAD
+    if (gpu_dir)
+    {
+#pragma omp target exit data map(delete : psi_qp[0 : n_ho * nspngr], listibs[0 : n_xton])
+      free(dir_blk);
+    }
+#endif
+    } // end of fast/CPU direct path (vs. dir_tiled)
 
     // Free
     free(lista);
@@ -533,6 +819,210 @@ void calc_eh_kernel_cplx(
 
     pf = fopen(fileName, "w");
 
+    // ---- Auto GPU sizing for the exchange kernel ----
+    // An exchange integral reads one hole state (j) and one electron state (b),
+    // so BOTH the hole set and the electron set must be resident. If holes+elecs
+    // all fit the per-rank budget we keep the proven single-map fast path. If
+    // not, we hold a tile of holes resident and stream electron tiles through it
+    // (and tile the holes too if even they do not fit) -- see the exc_tiled
+    // branch. Sizing is automatic from BSE_GPU_MEM_GB.
+#ifdef USE_GPU_OFFLOAD
+    const long exc_nstates = lidx + n_el; // holes [0,n_ho) + electrons [lidx,lidx+n_el)
+    const long exc_blk_len = n_el * n_ho;
+    const long exc_scratch = (long)(exc_blk_len + ngrid) * (long)sizeof(double complex) +
+                             (long)n_xton * (long)sizeof(long);
+    const long exc_cap = use_gpu ? bse_gpu_state_capacity(nspngr, exc_scratch) : 0;
+    const int gpu_exc = use_gpu && (exc_nstates <= exc_cap);      // all resident: fast path
+    const int exc_tiled = use_gpu && !gpu_exc && (exc_cap >= 2);  // stream tiles
+    // Split the device budget between the resident hole tile (dcol) and electron
+    // tile (drow) so as to MINIMIZE the number of tile-passes ncol*nrow: the host
+    // Hartree potential is recomputed once per pass, so redundant work scales with
+    // the pass count. (Filling the budget with holes maximizes the electron-tile
+    // count and is usually far from optimal, e.g. 13 passes vs 4 for 64_64.) A
+    // cheap exhaustive scan over the hole-tile size finds the true minimum.
+    long exc_ct = n_ho, exc_rt = n_el; // holes/col tile, elecs/row tile
+    if (exc_tiled)
+    {
+      long best_passes = n_ho * n_el + 1;
+      for (long ct = 1; ct <= n_ho && ct < exc_cap; ct++)
+      {
+        long rt = exc_cap - ct;
+        if (rt > n_el) rt = n_el;
+        if (rt < 1) continue;
+        long passes = ((n_ho + ct - 1) / ct) * ((n_el + rt - 1) / rt);
+        if (passes < best_passes)
+        {
+          best_passes = passes;
+          exc_ct = ct;
+          exc_rt = rt;
+        }
+      }
+    }
+    double complex *exc_blk = NULL;
+    if (use_gpu && !gpu_exc && !exc_tiled && odd_rank == 0)
+      printf("  (exchange: GPU budget below 2 states -> CPU fallback)\n");
+    if (exc_tiled && odd_rank == 0)
+    {
+      printf("  (exchange: %ld states exceed GPU budget -> tiling holes x %ld, elecs x %ld -> %ld passes)\n",
+             exc_nstates, (n_ho + exc_ct - 1) / exc_ct, (n_el + exc_rt - 1) / exc_rt,
+             ((n_ho + exc_ct - 1) / exc_ct) * ((n_el + exc_rt - 1) / exc_rt));
+      fflush(stdout);
+    }
+
+    if (exc_tiled)
+    {
+      // ---- Tiled GPU exchange ----
+      // Keep a hole-column tile resident (the whole hole set when it fits) and
+      // stream electron-row tiles through it. Holes and electrons live in two
+      // SEPARATE contiguous device buffers (dcol, drow) -- distinct arrays, never
+      // two slices of psi_qp (NVHPC mistranslates a second slice of the same base
+      // pointer -> illegal address). dcol is refreshed once per hole-column tile;
+      // drow once per electron-row tile. Host Hartree is recomputed each pass;
+      // the checkpoint file is written once at completion.
+      if (flag->restartCoulomb && odd_rank == 0)
+        printf("  (exchange: tiled path -> writing one checkpoint at completion)\n");
+
+      const long ncol = (n_ho + exc_ct - 1) / exc_ct;
+      const long nrow = (n_el + exc_rt - 1) / exc_rt;
+      const long cbuf = exc_ct * nspngr;
+      const long rbuf = exc_rt * nspngr;
+      double complex *eblk = (double complex *)malloc(exc_ct * exc_rt * sizeof(double complex));
+      double complex *dcol = (double complex *)malloc(cbuf * sizeof(double complex));
+      double complex *drow = (double complex *)malloc(rbuf * sizeof(double complex));
+      {
+        volatile int w = 0;
+#pragma omp target map(tofrom : w)
+        {
+          w = w + 1;
+        }
+      }
+#pragma omp target enter data map(to : listibs[0 : n_xton]) \
+    map(alloc : dcol[0 : cbuf], drow[0 : rbuf])
+
+      double ai_start_t = omp_get_wtime();
+      for (long cj = 0; cj < ncol; cj++)
+      {
+        const long j0 = cj * exc_ct;
+        const long jlen = (n_ho - j0 < exc_ct) ? (n_ho - j0) : exc_ct;
+        memcpy(dcol, &psi_qp[j0 * nspngr], jlen * nspngr * sizeof(double complex));
+#pragma omp target update to(dcol[0 : jlen * nspngr])
+        for (long rb = 0; rb < nrow; rb++)
+        {
+          const long b0 = rb * exc_rt;
+          const long blen = (n_el - b0 < exc_rt) ? (n_el - b0) : exc_rt;
+          memcpy(drow, &psi_qp[(lidx + b0) * nspngr], blen * nspngr * sizeof(double complex));
+#pragma omp target update to(drow[0 : blen * nspngr])
+          const long ai_pass = cj * nrow + rb + 1;
+          const long ai_npass = ncol * nrow;
+          const long ai_local = (ai_tot - odd_rank + odd_size - 1) / odd_size; // # ai this rank does
+          const long ai_quarter = ai_local / 4 + 1;
+          long ai_done = 0;
+          if (odd_rank == 0)
+          {
+            printf("Exchange (tiled) pass %ld/%ld [holes %ld-%ld x elecs %ld-%ld] | %s\n",
+                   ai_pass, ai_npass, j0, j0 + jlen - 1, b0, b0 + blen - 1, get_time());
+            fflush(stdout);
+          }
+          for (long ait = odd_rank; ait < ai_tot; ait += odd_size)
+          {
+            const long a = lista[ait];
+            const long i = listi[ait];
+            const long a_st = a * nspngr;
+            const long i_st = i * nspngr;
+            for (long jg = 0; jg < ngrid; jg++)
+              rho[jg] = conjmul(psi_qp[a_st + jg], psi_qp[i_st + jg]) +
+                        conjmul(psi_qp[a_st + jg + ngrid], psi_qp[i_st + jg + ngrid]);
+            hartree(rho, pot_bare, pot_htree, ist, planfw, planbw, fftwpsi);
+#pragma omp target teams distribute collapse(2) \
+    map(to : pot_htree[0 : ngrid]) map(from : eblk[0 : blen * jlen])
+            for (long bl = 0; bl < blen; bl++)
+              for (long jj = 0; jj < jlen; jj++)
+              {
+                const long ibs = listibs[(a - lidx) * n_ho + i];
+                const long jbs = listibs[(b0 + bl) * n_ho + (j0 + jj)];
+                double complex val = 0.0 + 0.0 * I;
+                if (ibs >= jbs)
+                {
+                  const long ri = bl * nspngr;
+                  const long cjx = jj * nspngr;
+                  double sre = 0.0, sim = 0.0;
+#pragma omp parallel for reduction(+ : sre, sim)
+                  for (long jg = 0; jg < ngrid; jg++)
+                  {
+                    double complex t = pot_htree[jg] *
+                                       (conj(dcol[cjx + jg]) * drow[ri + jg] +
+                                        conj(dcol[cjx + jg + ngrid]) * drow[ri + jg + ngrid]);
+                    sre += creal(t);
+                    sim += cimag(t);
+                  }
+                  val = -(sre + sim * I) * dv;
+                }
+                eblk[bl * jlen + jj] = val;
+              }
+            for (long bl = 0; bl < blen; bl++)
+              for (long jj = 0; jj < jlen; jj++)
+              {
+                const long ibs = listibs[(a - lidx) * n_ho + i];
+                const long jbs = listibs[(b0 + bl) * n_ho + (j0 + jj)];
+                if (ibs < jbs)
+                  continue;
+                exchange[ibs * n_xton + jbs] = eblk[bl * jlen + jj];
+              }
+            if (odd_rank == 0 && (ai_done % ai_quarter == 0 || ai_done == ai_local - 1))
+            {
+              printf("  Exchange pass %ld/%ld: ", ai_pass, ai_npass);
+              print_progress_bar(ai_done, ai_local);
+              fflush(0);
+            }
+            ai_done++;
+          } // ait
+        } // rb
+      } // cj
+#pragma omp target exit data map(delete : listibs[0 : n_xton], dcol[0 : cbuf], drow[0 : rbuf])
+      free(eblk);
+      free(dcol);
+      free(drow);
+      double ai_end_t = omp_get_wtime();
+
+      // Write this rank's checkpoint in canonical (strided ai, bj) order.
+      for (long ait = odd_rank; ait < ai_tot; ait += odd_size)
+      {
+        const long a = lista[ait], i = listi[ait];
+        for (long bj = 0; bj < bj_tot; bj++)
+        {
+          const long b = listb[bj], j = listj[bj];
+          const long ibs = listibs[(a - lidx) * n_ho + i];
+          const long jbs = listibs[(b - lidx) * n_ho + j];
+          if (ibs < jbs)
+            continue;
+          fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
+                  creal(exchange[ibs * n_xton + jbs]), cimag(exchange[ibs * n_xton + jbs]));
+        }
+      }
+      fclose(pf);
+      if (odd_rank == 0)
+        printf("Done with exchange (tiled) on rank %d; duration = %lg s (%lg m)\n", odd_rank, (ai_end_t - ai_start_t), (ai_end_t - ai_start_t) / 60.0);
+    }
+    else
+#else
+    const int gpu_exc = 0;
+#endif
+    {
+#ifdef USE_GPU_OFFLOAD
+      if (gpu_exc)
+      {
+        exc_blk = (double complex *)malloc(exc_blk_len * sizeof(double complex));
+        {
+          volatile int w = 0;
+#pragma omp target map(tofrom : w)
+          {
+            w = w + 1;
+          }
+        }
+#pragma omp target enter data map(to : psi_qp[0 : exc_nstates * nspngr], listibs[0 : n_xton])
+      }
+#endif
+
     // loop over electron states a, i
     cntr = 0;
     double ai_start_t = omp_get_wtime();
@@ -555,35 +1045,86 @@ void calc_eh_kernel_cplx(
       // h_d(r) = \int W(r,r') \rho_{ab}(r') d^3r' via fourier transform
       hartree(rho, pot_bare, pot_htree, ist, planfw, planbw, fftwpsi);
 
-// loop over electron-hole pairs b, j
-#pragma omp parallel for private(b, j) // schedule(dynamic, chunk_size)
-      for (bj = 0; bj < bj_tot; bj++)
+      // loop over electron-hole pairs b, j
+      if (gpu_exc)
       {
-        b = listb[bj];
-        j = listj[bj];
-
-        long b_st = b * nspngr;
-        long j_st = j * nspngr;
-        long ibs = listibs[(a - lidx) * n_ho + i];
-        long jbs = listibs[(b - lidx) * n_ho + j];
-
-        if (ibs < jbs)
-          continue;
-
-        long jg;
-        double complex sum;
-        sum = 0.0 + 0.0 * I;
-
-        for (jg = 0; jg < ngrid; jg++)
+#ifdef USE_GPU_OFFLOAD
+        // GPU: one team per (b,j) pair; grid integral reduced over team threads.
+        // a and i are fixed for this ai iteration. K^x carries an overall minus.
+#pragma omp target teams distribute collapse(2) \
+    map(to : pot_htree[0 : ngrid]) map(from : exc_blk[0 : exc_blk_len])
+        for (long bb = 0; bb < n_el; bb++)
         {
-          sum += pot_htree[jg] *
-                 (conjmul(psi_qp[j_st + jg], psi_qp[b_st + jg]) +
-                  conjmul(psi_qp[j_st + jg + ngrid], psi_qp[b_st + jg + ngrid]));
+          for (long j = 0; j < n_ho; j++)
+          {
+            long b = lidx + bb;
+            long ibs = listibs[(a - lidx) * n_ho + i];
+            long jbs = listibs[bb * n_ho + j];
+            double complex val = 0.0 + 0.0 * I;
+            if (ibs >= jbs)
+            {
+              long b_st = b * nspngr;
+              long j_st = j * nspngr;
+              double sre = 0.0, sim = 0.0;
+#pragma omp parallel for reduction(+ : sre, sim)
+              for (long jg = 0; jg < ngrid; jg++)
+              {
+                double complex t = pot_htree[jg] *
+                                   (conj(psi_qp[j_st + jg]) * psi_qp[b_st + jg] +
+                                    conj(psi_qp[j_st + jg + ngrid]) * psi_qp[b_st + jg + ngrid]);
+                sre += creal(t);
+                sim += cimag(t);
+              }
+              val = -(sre + sim * I) * dv;
+            }
+            exc_blk[bb * n_ho + j] = val;
+          }
         }
-        sum *= dv;
+        for (b = lidx; b < lidx + n_el; b++)
+        {
+          long bb = b - lidx;
+          for (j = 0; j < n_ho; j++)
+          {
+            long ibs = listibs[(a - lidx) * n_ho + i];
+            long jbs = listibs[bb * n_ho + j];
+            if (ibs < jbs)
+              continue;
+            exchange[ibs * n_xton + jbs] = exc_blk[bb * n_ho + j];
+          }
+        }
+#endif
+      }
+      else
+      {
+#pragma omp parallel for private(b, j) // schedule(dynamic, chunk_size)
+        for (bj = 0; bj < bj_tot; bj++)
+        {
+          b = listb[bj];
+          j = listj[bj];
 
-        exchange[ibs * n_xton + jbs] = -sum;
-      } // end of bj
+          long b_st = b * nspngr;
+          long j_st = j * nspngr;
+          long ibs = listibs[(a - lidx) * n_ho + i];
+          long jbs = listibs[(b - lidx) * n_ho + j];
+
+          if (ibs < jbs)
+            continue;
+
+          long jg;
+          double complex sum;
+          sum = 0.0 + 0.0 * I;
+
+          for (jg = 0; jg < ngrid; jg++)
+          {
+            sum += pot_htree[jg] *
+                   (conjmul(psi_qp[j_st + jg], psi_qp[b_st + jg]) +
+                    conjmul(psi_qp[j_st + jg + ngrid], psi_qp[b_st + jg + ngrid]));
+          }
+          sum *= dv;
+
+          exchange[ibs * n_xton + jbs] = -sum;
+        } // end of bj
+      }
 
       for (bj = 0; bj < bj_tot; bj++)
       {
@@ -642,6 +1183,15 @@ void calc_eh_kernel_cplx(
       printf("Done with exchange integrals on rank %d; duration = %lg s (%lg m)\n", odd_rank, (ai_end_t - ai_start_t), (ai_end_t - ai_start_t) / 60.0);
       fflush(0);
     }
+
+#ifdef USE_GPU_OFFLOAD
+    if (gpu_exc)
+    {
+#pragma omp target exit data map(delete : psi_qp[0 : exc_nstates * nspngr], listibs[0 : n_xton])
+      free(exc_blk);
+    }
+#endif
+    } // end of fast/CPU exchange path (vs. exc_tiled)
 
     free(lista);
     free(listi);

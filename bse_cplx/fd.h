@@ -16,8 +16,15 @@
 // #include <lapack.h>
 #include <mpi.h>
 #include <omp.h>
-//#include <nvToolsExt.h>
+// Dense eigensolver interface (LAPACKE_zheev). The NVHPC/GPU build links
+// cray-libsci (define USE_LIBSCI); the legacy Intel build links MKL. Both
+// provide LAPACKE + lapack_int/lapack_complex_double, so diag.c is unchanged
+// aside from the thread-count call (see diag.c).
+#if defined(USE_LIBSCI)
+#include <lapacke.h>
+#else
 #include <mkl.h>
+#endif
 
 /*****************************************************************************/
 typedef struct flag
@@ -29,6 +36,7 @@ typedef struct flag
   int timingSpecs, saveCheckpoints, restartFromChk, saveOutput;
   int restartCoulomb, coulombDone, calcCoulombOnly, noCalcExciton;
   int initUnsafe;
+  int useGpu; // request GPU offload of the Coulomb kernel (auto-gated by device availability)
 } flag_st;
 
 typedef struct grid
@@ -91,6 +99,13 @@ typedef struct parallel
 {
   long nthreads;
   int mpi_rank, mpi_size, mpi_root;
+  // Node-local (shared-memory) communicator and the MPI-3 shared window that
+  // backs psi_qp: one physical copy of the quasiparticle wavefunctions per node,
+  // shared read-only by every rank on that node (removes the N-fold psi_qp
+  // duplication that OOMs at large basis sizes).
+  MPI_Comm node_comm;
+  int node_rank, node_size;
+  MPI_Win psi_win;
 } parallel_st;
 
 /*****************************************************************************/

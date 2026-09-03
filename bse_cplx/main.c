@@ -75,6 +75,14 @@ int main(int argc, char *argv[])
   const int mpir = parallel.mpi_rank;
   parallel.mpi_root = 0;
 
+  // Node-local communicator: all ranks that share physical memory (one per
+  // compute node). Used to back psi_qp with a single shared copy per node.
+  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, parallel.mpi_rank,
+                      MPI_INFO_NULL, &parallel.node_comm);
+  MPI_Comm_rank(parallel.node_comm, &parallel.node_rank);
+  MPI_Comm_size(parallel.node_comm, &parallel.node_size);
+  parallel.psi_win = MPI_WIN_NULL;
+
   /************************************************************/
   /*********************    START JOB     *********************/
   /************************************************************/
@@ -206,7 +214,11 @@ int main(int argc, char *argv[])
   }
   MPI_Barrier(MPI_COMM_WORLD);
   // /***********************************************************************/
-  free(psi_qp);
+  // psi_qp lives in the node-shared window: release the passive epoch and free
+  // the window (not free()) -- the memory is owned by MPI, not malloc.
+  MPI_Win_unlock_all(parallel.psi_win);
+  MPI_Win_free(&parallel.psi_win);
+  psi_qp = NULL;
   free(eig_vals);
   free(grid.x);
   free(grid.y);
@@ -235,6 +247,7 @@ int main(int argc, char *argv[])
     write_separation(stdout, "B");
   }
 
+  MPI_Comm_free(&parallel.node_comm);
   MPI_Finalize();
 
   return 0;

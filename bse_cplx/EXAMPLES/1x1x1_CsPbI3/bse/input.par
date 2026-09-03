@@ -16,3 +16,4 @@ deltaEelec = 0.04
 KEmax = 10.0
 coulombDone = 0
 restartCoulomb = 0
+gpuAccel = 1

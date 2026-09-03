@@ -59,6 +59,9 @@ void read_input(
   flag->coulombDone = 0;
   flag->calcCoulombOnly = 0;
   flag->noCalcExciton = 0;
+  flag->useGpu = 1; // default: attempt GPU offload of the Coulomb kernel;
+                    // automatically falls back to CPU if no device is available
+                    // (e.g. CPU-only node or OMP_TARGET_OFFLOAD=DISABLED).
 
   //                           Optional output flags
   flag->calcDarkStates = 0;
@@ -128,6 +131,7 @@ void read_input(
       read_field(field, "coulombDone", &flag->coulombDone, INT_TYPE, tmp, &fk);
       read_field(field, "calcCoulombOnly", &flag->calcCoulombOnly, INT_TYPE, tmp, &fk);
       read_field(field, "noCalcExciton", &flag->noCalcExciton, INT_TYPE, tmp, &fk);
+      read_field(field, "gpuAccel", &flag->useGpu, INT_TYPE, tmp, &fk);
       // ****** ****** ****** ****** ****** ******
       // Handle exceptions
       // ****** ****** ****** ****** ****** ******
@@ -160,6 +164,7 @@ void read_input(
         printf("restartCoulomb = int, (if 1, Coulomb matrix elements will be read to restart job).\n");
         printf("coulombDone = int, (if 1, then Kernel has already been calc'd, will compute BSE).\n");
         printf("noCalcExciton = int, (if 1, then job will not compute Coulomb integrals or BSE).\n");
+        printf("gpuAccel = int, (if 1 (default), offload the Coulomb kernel to GPU when a device is available; 0 forces CPU).\n");
 
         fflush(stdout);
         exit(EXIT_FAILURE);
@@ -251,16 +256,11 @@ void read_unsafe_input(
 
   unsigned long stlen;
   unsigned long j;
-  unsigned long cntr;
   unsigned long itmp;
-  unsigned long homo_idx;
-  unsigned long vb_mindex;
-  unsigned long cb_maxdex;
   unsigned long nst_tot;
   unsigned long nholes = 0;
   unsigned long nelecs = 0;
 
-  double dbltmp;
   double Rx, Ry, Rz;
 
   if (access("unsafe_input.par", F_OK) != -1)
@@ -329,16 +329,17 @@ void read_unsafe_input(
     exit(EXIT_FAILURE);
   }
 
-  // Assign and construct system size variables
-  if ((nholes != 0) && (nelecs != 0))
-  {
-    ist->mn_states_tot = nholes + nelecs;
-  }
-  else
-  {
-    printf("ERROR: unsafe_input has 0 nholes or 0 nelecs!\n");
-    exit(EXIT_FAILURE);
-  }
+  // Assign and construct system size variables.
+  // NOTE: mn_states_tot is the FULL number of filtered states (nst_tot), exactly
+  // as in the normal (output.dat) path. nHoles/nElecs are only window hints and
+  // must NOT set mn_states_tot. The actual quasiparticle window is chosen later
+  // by get_qp_basis_indices() (after input.par is read), which skips
+  // unconverged/ghost states by the sigma cutoff, and get_qp_basis() then loads
+  // only those few wavefunctions from psi.par. This keeps the wavefunction read
+  // windowed while still selecting the correct (non-ghost) states.
+  ist->mn_states_tot = nst_tot;
+  (void)nholes;
+  (void)nelecs;
 
   ist->nx = grid->nx;
   ist->ny = grid->ny;
@@ -385,7 +386,11 @@ void read_unsafe_input(
   (*gridy) = (double *)calloc(grid->ny, sizeof(double));
   (*gridz) = (double *)calloc(grid->nz, sizeof(double));
 
-  (*psitot) = (double complex *)calloc(ist->mn_states_tot * stlen, sizeof(double complex));
+  // psitot is deliberately NOT allocated or read here. The quasiparticle
+  // wavefunctions are loaded on demand by get_qp_basis() (from psi.par), just
+  // like the normal path loads them from output.dat. Loading a windowed block
+  // here would (a) force a contiguous window that cannot skip ghost states and
+  // (b) be immediately overwritten by the psi_qp allocation in mod_init().
 
   (*eig_vals) = (double *)calloc(nst_tot, sizeof(double));
   (*sigma_E) = (double *)calloc(nst_tot, sizeof(double));
@@ -435,49 +440,43 @@ void read_unsafe_input(
     exit(EXIT_FAILURE);
   }
 
-  // Get the indices of the homo and lumo
-  get_fmo_idxs(*eig_vals, *sigma_E, par->fermi_E, par->sigma_E_cut, nst_tot, &homo_idx);
-
-  // Read in psitot from psi.par
-
-  // 1. Get the indices of the first and last states
-  vb_mindex = homo_idx - nholes + 1;
-  cb_maxdex = vb_mindex + ist->mn_states_tot;
-
-  // printf("vb_mindex = %lu cb_maxdex = %lu\n", vb_mindex, cb_maxdex);
-
-  if (access("psi.par", F_OK) != -1)
-  {
-    pf = fopen("psi.par", "r");
-    fseek(pf, vb_mindex * stlen * sizeof(double complex), SEEK_SET);
-    fread((*psitot), stlen * sizeof(double complex), ist->mn_states_tot, pf);
-    fclose(pf);
-  }
-  else
+  // The eigenvalues/sigmas for all nst_tot states are now in memory (full
+  // arrays). The homo/lumo and the quasiparticle window are determined later by
+  // get_qp_basis_indices(), after input.par supplies fermiEnergy, sigmaECut, and
+  // maxHole/maxElecStates. Here we only confirm psi.par is present and correctly
+  // sized so that get_qp_basis() can seek into it by absolute state index.
+  //
+  // psi.par stores the raw wavefunctions with no header: state s occupies the
+  // byte range [s*stlen*sizeof(complex), (s+1)*stlen*sizeof(complex)). Hence the
+  // base file offset is 0 (see get_qp_basis(), which uses 0 when flag->initUnsafe).
+  if (access("psi.par", F_OK) == -1)
   {
     printf("PROGRAM EXITING: psi.par does not exist in directory\n");
     fprintf(stderr, "PROGRAM EXITING: psi.par does not exist in directory\n");
     exit(EXIT_FAILURE);
   }
-
-  // Read in the short eig_vals and sigma_E
-
-  pf = fopen("eval.par", "r");
-  cntr = 0;
-  for (j = 0; j < nst_tot; j++)
+  else
   {
-    if ((j >= vb_mindex) && (j < cb_maxdex))
+    long psi_bytes, expected_bytes;
+    pf = fopen("psi.par", "r");
+    fseek(pf, 0, SEEK_END);
+    psi_bytes = ftell(pf);
+    fclose(pf);
+    expected_bytes = (long)nst_tot * (long)stlen * (long)sizeof(double complex);
+    if (mpir == 0)
     {
-      fscanf(pf, "%lu %lg %lg", &itmp, &((*eig_vals)[cntr]), &((*sigma_E)[cntr]));
-      // printf("eig_vals[j = %lu] = %lg\n",j, ((*eig_vals)[cntr]) );
-      cntr++;
+      printf("psi.par size verified: %ld bytes = %ld states x %lu complex/state\n",
+             psi_bytes, nst_tot, stlen);
     }
-    else
+    if (psi_bytes != expected_bytes)
     {
-      fscanf(pf, "%lu %lg %lg", &itmp, &dbltmp, &dbltmp);
+      printf("PROGRAM EXITING: psi.par is %ld bytes but expected %ld bytes "
+             "(nst_tot=%ld states x nspinngrid=%lu complex/state).\n",
+             psi_bytes, expected_bytes, nst_tot, stlen);
+      fprintf(stderr, "PROGRAM EXITING: psi.par size mismatch\n");
+      exit(EXIT_FAILURE);
     }
   }
-  fclose(pf);
 
   // Read in atomic configuration
   if (access("conf.par", F_OK) != -1)
@@ -505,11 +504,6 @@ void read_unsafe_input(
   {
     printf("Done with function read_unsafe_input\n");
     fflush(0);
-  }
-
-  for (j = 0; j < ist->mn_states_tot; j++)
-  {
-    printf("%ld %lg %lg\n", j, (*eig_vals)[j], (*sigma_E)[j]);
   }
 
   return;

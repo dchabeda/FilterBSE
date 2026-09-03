@@ -41,3 +41,43 @@ You would set nThreads = 64 in bse/input.par and run
 srun -n 16 -c 128 --cpu-bind=cores ./bse_cplx.x
 or
 mpirun -n 16 -c 128 --cpu-bind=cores ./bse_cplx.x
+
+
+# ============================================================================
+# RUNNING ON GPU (Perlmutter A100)
+# ============================================================================
+# bse_cplx can offload the Coulomb kernel (the N^4 bottleneck) to a GPU while
+# keeping native double-complex results identical to the CPU path. See
+# ../../BSE_CPLX_GPU.md for the full write-up. Quick start:
+#
+# 1) Build the GPU executable (NVHPC + cray-libsci toolchain). From bse_cplx/:
+#      source LOAD_COMPILE_ENV_NVHPC.sh      # sets PrgEnv-nvidia + cray-fftw/libsci
+#      make clean && make                    # -> bse_cplx_gpu.x
+#    (`make clean` matters: the GPU and Intel/MKL builds share .o names. The
+#     original CPU build is still available via `make -f Makefile_mkl`.)
+#
+# 2) In ./bse, link the inputs and the GPU executable:
+#      ln -s PATH_TO_FILTER/filter/output.dat .
+#      ln -s /global/common/software/m4868/FilterBSE/bse_cplx/bse_cplx_gpu.x .
+#
+# 3) The GPU is requested by `gpuAccel = 1` in input.par (already set here) and
+#    is auto-gated by device availability -- on a CPU-only node it silently runs
+#    the host path. Submit the batch script (edit -A account / paths as needed):
+#      sbatch submit_bse_gpu.sh
+#    or, in an interactive GPU allocation:
+#      source /global/common/software/m4868/FilterBSE/bse_cplx/LOAD_COMPILE_ENV_NVHPC.sh
+#      export BSE_GPU_MEM_GB=36
+#      srun -n 1 ./bse_cplx_gpu.x | tee run.dat
+#    The log prints which path ran, e.g.
+#      "Coulomb kernel: GPU offload ENABLED (1 device(s) visible)"
+#
+# 4) Verify correctness -- the GPU result must match the CPU path exactly.
+#    Run the SAME binary twice and diff the eigenvalues:
+#      OMP_TARGET_OFFLOAD=DISABLED srun -n 1 ./bse_cplx_gpu.x > run_cpu.dat   # host
+#      mv BSEeval.par BSEeval_cpu.par
+#      srun -n 1 ./bse_cplx_gpu.x > run_gpu.dat                              # device
+#      diff BSEeval_cpu.par BSEeval.par        # -> no output = identical
+#
+# NOTE: 1x1x1 is a tiny validation case; the GPU offload only *wins* at
+# production grid/basis sizes (large NCs, ~100+ e-/h+). Here it checks
+# correctness, not speed.

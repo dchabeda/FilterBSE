@@ -1280,15 +1280,9 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
     assign_atom_type(atype, iatm); // atype now contains the atomic symbol. Ex. if iatm = 48, atype = Cd.
 
     /* ****** ****** ****** *****/
-    // Handle ligand potentials.
-    if ((0 == strcmp(atype, "P1")) || (0 == strcmp(atype, "P2")) ||
-        (0 == strcmp(atype, "P3")) || (0 == strcmp(atype, "P4")) ||
-        (0 == strcmp(atype, "PC5")) || (0 == strcmp(atype, "PC6")) ||
-        (0 == strcmp(atype, "PA1")) || (0 == strcmp(atype, "PR1")) ||
-        (0 == strcmp(atype, "PA2")) || (0 == strcmp(atype, "PR2")) ||
-        (0 == strcmp(atype, "PA3")) || (0 == strcmp(atype, "PR3")) ||
-        (0 == strcmp(atype, "C1")) || (0 == strcmp(atype, "C2")) ||
-        (0 == strcmp(atype, "C3")))
+    // Handle ligand potentials. Classification is centralized in is_ligand()
+    // so this branch stays in sync with the rest of the code (e.g. line ~1102).
+    if (is_ligand(atype))
     {
       // Get the name of the ligand potential (stored in atype)
       sprintf(str, "pot%c%c%c", atype[0], atype[1], atype[2]);
@@ -1740,14 +1734,7 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
       }
 
       // Ligands do not get SO potentials
-      if ((0 == strcmp(atom[i].atyp, "P1")) || (0 == strcmp(atom[i].atyp, "P2")) ||
-          (0 == strcmp(atom[i].atyp, "P3")) || (0 == strcmp(atom[i].atyp, "P4")) ||
-          (0 == strcmp(atom[i].atyp, "PC5")) || (0 == strcmp(atom[i].atyp, "PC6")) ||
-          (0 == strcmp(atom[i].atyp, "PA1")) || (0 == strcmp(atom[i].atyp, "PR1")) ||
-          (0 == strcmp(atom[i].atyp, "PA2")) || (0 == strcmp(atom[i].atyp, "PR2")) ||
-          (0 == strcmp(atom[i].atyp, "PA3")) || (0 == strcmp(atom[i].atyp, "PR3")) ||
-          (0 == strcmp(atom[i].atyp, "C1")) || (0 == strcmp(atom[i].atyp, "C2")) ||
-          (0 == strcmp(atom[i].atyp, "C3")))
+      if (is_ligand(atom[i].atyp))
       {
         if (parallel->mpi_rank == 0)
           fprintf(stderr, "\tWARNING: Ligand potential %s will not be assigned SO/NL param.\n", atom[i].atyp);
@@ -2529,6 +2516,8 @@ long assign_atom_number(char atyp_in[4])
     return 55;
   else if ((atyp[0] == 'P') && (atyp[1] == 'b') && (atyp[2] == '\0'))
     return 82;
+  else if ((atyp[0] == 'C') && (atyp[1] == 'v') && (atyp[2] == '\0'))
+    return 86;
   else if ((atyp[0] == 'B') && (atyp[1] == 'r') && (atyp[2] == '0'))
     return 100;
   else if ((atyp[0] == 'B') && (atyp[1] == 'r') && (atyp[2] == '1'))
@@ -2750,6 +2739,12 @@ void assign_atom_type(char *atyp, long j)
   {
     atyp[0] = 'P';
     atyp[1] = 'b';
+    atyp[2] = '\0';
+  }
+  else if (j == 86)
+  {
+    atyp[0] = 'C';
+    atyp[1] = 's';
     atyp[2] = '\0';
   }
   else if (j == 100)

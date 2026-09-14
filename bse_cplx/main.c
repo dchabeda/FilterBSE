@@ -120,12 +120,11 @@ int main(int argc, char *argv[])
   /*********************   MOD DIPOLE     *********************/
   /************************************************************/
 
-  if (mpir == 0)
-  {
-    mod_dipole(
-        psi_qp, eig_vals, &grid, &elec_dip, &mag_dip, &rot_strength,
-        &ist, &par, &flag, &parallel);
-  }
+  // mod_dipole is COLLECTIVE: the transition-dipole grid integrals are
+  // distributed round-robin over ranks and Allreduced (rank 0 does the I/O).
+  mod_dipole(
+      psi_qp, eig_vals, &grid, &elec_dip, &mag_dip, &rot_strength,
+      &ist, &par, &flag, &parallel);
 
   if (flag.noCalcExciton)
   {
@@ -148,70 +147,103 @@ int main(int argc, char *argv[])
   mod_kernel(
       psi_qp, &direct, &exchange, pot_bare, pot_screened, &ist, &par, &flag, &parallel);
 
+  /*************************************************************************/
+  /* Distributed BSE solve: mod_bse is now COLLECTIVE (all ranks) so the      */
+  /* ScaLAPACK eigensolve uses every rank. The downstream optical/angular      */
+  /* properties still run on rank 0 (Phase 2 distributes those).              */
+  /*************************************************************************/
+  mod_bse(
+      psi_qp, direct, exchange, &bsmat, &bs_coeff, &h0mat, &xton_ene, eig_vals,
+      &grid, &ist, &par, &flag, &parallel);
+
+  // direct/exchange are consumed inside mod_bse; free them now on every rank to
+  // free ~2 N^2 before the exciton-basis pass (which broadcasts bs_coeff).
+  free(direct);
+  free(exchange);
+  direct = NULL;
+  exchange = NULL;
+
+  /* Optical properties: cheap O(N^2); run on rank 0 where bs_coeff lives. */
   if (parallel.mpi_rank == 0)
   {
-    /*************************************************************************/
-    /*************************************************************************/
-    mod_bse(
-        psi_qp, direct, exchange, &bsmat, &bs_coeff, &h0mat, &xton_ene, eig_vals,
-        &grid, &ist, &par, &flag, &parallel);
+    write_separation(stdout, "T");
+    printf("\n  -  COMPUTING XTON OPTICAL PROPERTIES | %s\n", get_time());
+    write_separation(stdout, "B");
+    fflush(stdout);
+    calc_optical_exc(bs_coeff, xton_ene, eig_vals, elec_dip, mag_dip, &ist, &par);
+  }
 
-    if (mpir == 0)
+  /* Angular-momentum properties: COLLECTIVE (distributed over all ranks). */
+  if (1 == flag.calcSpinAngStat)
+  {
+    if (parallel.mpi_rank == 0)
     {
       write_separation(stdout, "T");
-      printf("\n  -  COMPUTING XTON OPTICAL PROPERTIES | %s\n", get_time());
+      printf("\n  -  COMPUTING ANG.MOM. PROPERTIES | %s\n", get_time());
       write_separation(stdout, "B");
       fflush(stdout);
     }
-    calc_optical_exc(bs_coeff, xton_ene, eig_vals, elec_dip, mag_dip, &ist, &par);
 
-    if (1 == flag.calcSpinAngStat)
+    long mat_size = sqr(ist.n_holes) + sqr(ist.n_elecs);
+
+    ALLOCATE(&l_mom, mat_size, "l_mom");   //<psi_r|L|psi_s>
+    ALLOCATE(&l2_mom, mat_size, "l2_mom"); //<psi_r|L2|psi_s>
+    ALLOCATE(&s_mom, mat_size, "s_mom");   //<psi_r|S|psi_s>
+    ALLOCATE(&ldots, mat_size, "ldots");   //<psi_r|L.S|psi_s>
+
+    if (parallel.mpi_rank == 0)
+      printf("\n  -  Quasiparticle angular momenta | %s\n", get_time());
+
+    // QP matrix elements read the node-shared psi_qp: distributed + Allreduced.
+    calc_qp_spin_mtrx(psi_qp, s_mom, &grid, &ist, &par, &parallel);
+    calc_qp_ang_mom_mtrx(psi_qp, l_mom, l2_mom, ldots, &grid, &ist, &par, &parallel);
+
+    // The exciton-basis contractions need the full bs_coeff on every rank. In
+    // the distributed path it currently lives on rank 0 only, so broadcast it
+    // (row by row via a derived type to keep the element count within int).
+#ifdef USE_SCALAPACK
+    if (parallel.mpi_size > 1)
     {
-      if (mpir == 0)
-      {
-        write_separation(stdout, "T");
-        printf("\n  -  COMPUTING ANG.MOM. PROPERTIES | %s\n", get_time());
-        write_separation(stdout, "B");
-        fflush(stdout);
-      }
-
-      long mat_size = sqr(ist.n_holes) + sqr(ist.n_elecs);
-
-      ALLOCATE(&l_mom, mat_size, "l_mom");   //<psi_r|L|psi_s>
-      ALLOCATE(&l2_mom, mat_size, "l2_mom"); //<psi_r|L2|psi_s>
-      ALLOCATE(&s_mom, mat_size, "s_mom");   //<psi_r|S|psi_s>
-      ALLOCATE(&ldots, mat_size, "ldots");   //<psi_r|L.S|psi_s>
-
-      if (mpir == 0)
-      {
-        printf("\n  -  Quasiparticle angular momenta | %s\n", get_time());
-      }
-      // Compute spin matrix elements, e.g. <j|Sx|i>
-      calc_qp_spin_mtrx(psi_qp, s_mom, &grid, &ist, &par);
-      // Compute angular momentum matrix elements, e.g. <j|Lx|i>
-      calc_qp_ang_mom_mtrx(psi_qp, l_mom, l2_mom, ldots, &grid, &ist, &par);
-
-      if (mpir == 0)
-      {
-        printf("\n  -  Exciton angular momenta | %s\n", get_time());
-      }
-
-      calc_xton_spin_mtrx(bs_coeff, s_mom, &ist, &par, &flag, &parallel);
-      calc_xton_ang_mom_mtrx(bs_coeff, s_mom, l_mom, l2_mom, ldots, &ist, &par, &flag, &parallel);
-      free(s_mom);
-      free(l_mom);
-      free(l2_mom);
-      free(ldots);
+      const long N = ist.n_xton;
+      if (parallel.mpi_rank != 0)
+        ALLOCATE(&bs_coeff, N * N, "bs_coeff (bcast target)");
+      MPI_Datatype row_t;
+      MPI_Type_contiguous((int)(2 * N), MPI_DOUBLE, &row_t);
+      MPI_Type_commit(&row_t);
+      MPI_Bcast(bs_coeff, (int)N, row_t, 0, MPI_COMM_WORLD);
+      MPI_Type_free(&row_t);
     }
+#endif
 
+    if (parallel.mpi_rank == 0)
+      printf("\n  -  Exciton angular momenta | %s\n", get_time());
+
+    calc_xton_spin_mtrx(bs_coeff, s_mom, &ist, &par, &flag, &parallel);
+    calc_xton_ang_mom_mtrx(bs_coeff, s_mom, l_mom, l2_mom, ldots, &ist, &par, &flag, &parallel);
+
+    free(s_mom);
+    free(l_mom);
+    free(l2_mom);
+    free(ldots);
+#ifdef USE_SCALAPACK
+    if (parallel.mpi_size > 1 && parallel.mpi_rank != 0)
+    {
+      free(bs_coeff);
+      bs_coeff = NULL;
+    }
+#endif
+  }
+
+  if (parallel.mpi_rank == 0)
+  {
     free(elec_dip);
     free(mag_dip);
     free(rot_strength);
-    free(xton_ene);
     free(bs_coeff);
     free(bsmat);
     free(h0mat);
   }
+  free(xton_ene); /* allocated on every rank (eigenvalues) */
   MPI_Barrier(MPI_COMM_WORLD);
   // /***********************************************************************/
   // psi_qp lives in the node-shared window: release the passive epoch and free
@@ -226,8 +258,7 @@ int main(int argc, char *argv[])
   free(R);
   free(pot_bare);
   free(pot_screened);
-  free(direct);
-  free(exchange);
+  // direct/exchange were freed right after mod_bse (see above)
   // free(ist.eval_elec_idxs);
   // free(ist.eval_hole_idxs);
   free(ist.atom_types);

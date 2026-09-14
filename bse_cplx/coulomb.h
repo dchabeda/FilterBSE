@@ -2,6 +2,9 @@
 #include "aux.h"
 #include "hartree.h"
 #include "write.h"
+#ifdef USE_SCALAPACK
+#include "pbse.h"
+#endif
 
 void calc_eh_kernel_cplx(
 	double complex* psi_qp, 

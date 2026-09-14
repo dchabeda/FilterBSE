@@ -9,7 +9,8 @@ void calc_qp_spin_mtrx(
     xyz_st *restrict s_mom,
     grid_st *grid,
     index_st *ist,
-    par_st *par)
+    par_st *par,
+    parallel_st *parallel)
 {
 
   /*******************************************************************
@@ -62,18 +63,22 @@ void calc_qp_spin_mtrx(
 
   const double dv = grid->dv;
 
-  pfx = fopen("sx.dat", "w");
-  pfy = fopen("sy.dat", "w");
-  pfz = fopen("sz.dat", "w");
+  const int mpir = parallel->mpi_rank;
+  const int mpi_size = parallel->mpi_size;
+  const long mat_size = sqr(n_ho) + sqr(n_el);
 
-  write_state_dat(psi_qp, 4 * nspngr, "psi_qp_all.dat");
+  // Each rank fills a disjoint set of rows; complete with Allreduce(SUM) below.
+  memset(s_mom, 0, (size_t)mat_size * sizeof(xyz_st));
+
+  if (mpir == 0)
+    write_state_dat(psi_qp, 4 * nspngr, "psi_qp_all.dat");
 /************************************************************/
 /*******************    CALC HOLE SPINS   *******************/
 /************************************************************/
 
-// nvtxRangePushA("Calc qp hole spin mat elems");
+// Distribute hole rows round-robin over MPI ranks; OpenMP threads within.
 #pragma omp parallel for private(i, j, i_st, j_st, jg, jsg)
-  for (i = 0; i < n_ho; i++)
+  for (i = mpir; i < n_ho; i += mpi_size)
   {
     for (j = 0; j < n_ho; j++)
     {
@@ -131,31 +136,14 @@ void calc_qp_spin_mtrx(
     }
   }
   // nvtxRangePop();
-  /************************************************************/
-  /*******************   PRINT HOLE OUTPUT  *******************/
-  /************************************************************/
-
-  for (i = 0; i < n_ho; i++)
-  {
-    for (j = 0; j < n_ho; j++)
-    {
-      idx = i * n_ho + j;
-      fprintf(pfx, "%ld %ld % .10g % .10g\n", i, j, creal(s_mom[idx].x), cimag(s_mom[idx].x));
-      fprintf(pfy, "%ld %ld % .10g % .10g\n", i, j, creal(s_mom[idx].y), cimag(s_mom[idx].y));
-      fprintf(pfz, "%ld %ld % .10g % .10g\n", i, j, creal(s_mom[idx].z), cimag(s_mom[idx].z));
-    }
-  }
-  fflush(pfx);
-  fflush(pfy);
-  fflush(pfz);
 
 /************************************************************/
 /*******************    CALC ELEC SPINS   *******************/
 /************************************************************/
 
-// nvtxRangePushA("Calc qp elec spins");
-#pragma omp parallel for collapse(2) private(a, b, a_st, b_st, idx, jg, jsg)
-  for (a = lidx; a < lidx + n_el; a++)
+// Distribute electron rows round-robin over MPI ranks; OpenMP threads within.
+#pragma omp parallel for private(a, b, a_st, b_st, idx, jg, jsg)
+  for (a = lidx + mpir; a < lidx + n_el; a += mpi_size)
   {
     for (b = lidx; b < lidx + n_el; b++)
     {
@@ -204,29 +192,40 @@ void calc_qp_spin_mtrx(
     }
   }
   // nvtxRangePop();
+
+  // Complete the spin matrix across ranks (disjoint rows summed).
+  MPI_Allreduce(MPI_IN_PLACE, s_mom, (int)(6 * mat_size), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
   /************************************************************/
-  /*******************   PRINT ELEC OUTPUT  *******************/
+  /*******************      PRINT OUTPUT    *******************/
   /************************************************************/
 
-  for (a = lidx; a < lidx + n_el; a++)
+  if (mpir == 0)
   {
-    for (b = lidx; b < lidx + n_el; b++)
-    {
-      idx = sqr(n_ho) + (a - lidx) * n_el + (b - lidx);
-      fprintf(pfx, "%ld %ld % .10g % .10g\n", a, b, creal(s_mom[idx].x), cimag(s_mom[idx].x));
-      fprintf(pfy, "%ld %ld % .10g % .10g\n", a, b, creal(s_mom[idx].y), cimag(s_mom[idx].y));
-      fprintf(pfz, "%ld %ld % .10g % .10g\n", a, b, creal(s_mom[idx].z), cimag(s_mom[idx].z));
-    }
+    pfx = fopen("sx.dat", "w");
+    pfy = fopen("sy.dat", "w");
+    pfz = fopen("sz.dat", "w");
+
+    for (i = 0; i < n_ho; i++)
+      for (j = 0; j < n_ho; j++)
+      {
+        idx = i * n_ho + j;
+        fprintf(pfx, "%ld %ld % .10g % .10g\n", i, j, creal(s_mom[idx].x), cimag(s_mom[idx].x));
+        fprintf(pfy, "%ld %ld % .10g % .10g\n", i, j, creal(s_mom[idx].y), cimag(s_mom[idx].y));
+        fprintf(pfz, "%ld %ld % .10g % .10g\n", i, j, creal(s_mom[idx].z), cimag(s_mom[idx].z));
+      }
+    for (a = lidx; a < lidx + n_el; a++)
+      for (b = lidx; b < lidx + n_el; b++)
+      {
+        idx = sqr(n_ho) + (a - lidx) * n_el + (b - lidx);
+        fprintf(pfx, "%ld %ld % .10g % .10g\n", a, b, creal(s_mom[idx].x), cimag(s_mom[idx].x));
+        fprintf(pfy, "%ld %ld % .10g % .10g\n", a, b, creal(s_mom[idx].y), cimag(s_mom[idx].y));
+        fprintf(pfz, "%ld %ld % .10g % .10g\n", a, b, creal(s_mom[idx].z), cimag(s_mom[idx].z));
+      }
+    fclose(pfx);
+    fclose(pfy);
+    fclose(pfz);
   }
-  fflush(pfx);
-  fflush(pfy);
-  fflush(pfz);
-
-  // Free memory allocated to FILE pointers
-
-  fclose(pfx);
-  fclose(pfy);
-  fclose(pfz);
 
   return;
 }
@@ -240,7 +239,8 @@ void calc_qp_ang_mom_mtrx(
     double complex *restrict ldots,
     grid_st *grid,
     index_st *ist,
-    par_st *par)
+    par_st *par,
+    parallel_st *parallel)
 {
 
   /************************************************************/
@@ -332,23 +332,32 @@ void calc_qp_ang_mom_mtrx(
   ALLOCATE(&temp1, ngrid, "temp1");
   ALLOCATE(&temp2, ngrid, "temp2");
 
-  FILE *pfx = fopen("lx.dat", "w");
-  FILE *pfy = fopen("ly.dat", "w");
-  FILE *pfz = fopen("lz.dat", "w");
-  FILE *pfsqr = fopen("lsqr.dat", "w");
-  FILE *pfls = fopen("ls.dat", "w");
+  const int mpir = parallel->mpi_rank;
+  const int mpi_size = parallel->mpi_size;
+  const long mat_size = sqr(n_ho) + sqr(n_el);
+
+  FILE *pfx = NULL, *pfy = NULL, *pfz = NULL, *pfsqr = NULL, *pfls = NULL;
+
+  // Each rank fills a disjoint set of upper-triangle rows; the arrays are
+  // completed with one Allreduce(SUM) below, then the lower triangle is filled.
+  memset(l_mom, 0, (size_t)mat_size * sizeof(xyz_st));
+  memset(l2_mom, 0, (size_t)mat_size * sizeof(double complex));
+  memset(ldots, 0, (size_t)mat_size * sizeof(double complex));
 
   /************************************************************/
   /******************    CALC HOLE <L>     ********************/
   /************************************************************/
 
-  printf("Hole States:\n");
-  printf("i       j         Lx.re           Ly.re           Lz.re          L^2.re           L.S.re\n");
-  fflush(0);
+  if (mpir == 0)
+  {
+    printf("Hole States:\n");
+    printf("i       j         Lx.re           Ly.re           Lz.re          L^2.re           L.S.re\n");
+    fflush(0);
+  }
 
-  // nvtxRangePushA("Calc qp hole L elems");
-  // Compute <j|Lx|i>, <j|Ly|i>, <j|Lz|i>, <j|Lx^2|i>, <j|Ly^2|i>, <j|Lz^2|i>
-  for (i = 0; i < n_ho; i++)
+  // nvtxRangePushA("Calc qp hole L elems")
+  // Distribute hole states round-robin over MPI ranks (each does its L|i> FFTs).
+  for (i = mpir; i < n_ho; i += mpi_size)
   {
     // nvtxRangePushA("loop over i");
     i_st = i * nspngr;
@@ -454,60 +463,18 @@ void calc_qp_ang_mom_mtrx(
   // nvtxRangePop();
 
   /************************************************************/
-  /*******************   FILL LOWER TRIANG  *******************/
-  /************************************************************/
-
-  for (i = 0; i < n_ho; i++)
-  {
-    for (j = i + 1; j < n_ho; j++)
-    {
-      // Populate the lower triangle with the complex conj. of upper tri
-
-      long lt = j * n_ho + i; // lower triangle
-      long ut = i * n_ho + j; // upper triangle
-
-      // transpose
-      l_mom[lt].x = conj(l_mom[ut].x);
-      l_mom[lt].y = conj(l_mom[ut].y);
-      l_mom[lt].z = conj(l_mom[ut].z);
-      l2_mom[lt] = conj(l2_mom[ut]);
-      ldots[lt] = conj(ldots[ut]);
-    }
-  }
-
-  /************************************************************/
-  /*******************   PRINT HOLE OUTPUT  *******************/
-  /************************************************************/
-
-  for (i = 0; i < n_ho; i++)
-  {
-    for (j = 0; j < n_ho; j++)
-    {
-      fprintf(pfx, "%ld\t%ld\t%lf\t%lf\n", i, j, creal(l_mom[i * n_ho + j].x), cimag(l_mom[i * n_ho + j].x));
-      fprintf(pfy, "%ld\t%ld\t%lf\t%lf\n", i, j, creal(l_mom[i * n_ho + j].y), cimag(l_mom[i * n_ho + j].y));
-      fprintf(pfz, "%ld\t%ld\t%lf\t%lf\n", i, j, creal(l_mom[i * n_ho + j].z), cimag(l_mom[i * n_ho + j].z));
-      fprintf(pfsqr, "%ld\t%ld\t%lf\t%lf\n", i, j, creal(l2_mom[i * n_ho + j]), cimag(l2_mom[i * n_ho + j]));
-      fprintf(pfls, "%ld\t%ld\t%lf\t%lf\n", i, j, creal(ldots[i * n_ho + j]), cimag(ldots[i * n_ho + j]));
-
-      if (i == j)
-      {
-        printf("%ld\t%ld\t%lf\t%lf\t%lf\t%lf\t%lf\n",
-               i, j, creal(l_mom[i * n_ho + j].x), creal(l_mom[i * n_ho + j].y), creal(l_mom[i * n_ho + j].z),
-               creal(l2_mom[i * n_ho + j]), creal(ldots[i * n_ho + j]));
-      }
-    }
-  }
-  fflush(0);
-
-  /************************************************************/
   /******************    CALC ELEC <L>     ********************/
   /************************************************************/
 
-  printf("Electron States:\n");
-  printf("a       b         Lx.re           Ly.re           Lz.re          L^2.re           L.S.re\n");
-  fflush(0);
-  // nvtxRangePushA("Calc qp elec L elems");
-  for (a = lidx; a < lidx + n_el; a++)
+  if (mpir == 0)
+  {
+    printf("Electron States:\n");
+    printf("a       b         Lx.re           Ly.re           Lz.re          L^2.re           L.S.re\n");
+    fflush(0);
+  }
+  // nvtxRangePushA("Calc qp elec L elems")
+  // Distribute electron states round-robin over MPI ranks.
+  for (a = lidx + mpir; a < lidx + n_el; a += mpi_size)
   {
     // nvtxRangePushA("loop over a");
     a_st = a * nspngr;
@@ -611,60 +578,93 @@ void calc_qp_ang_mom_mtrx(
   // nvtxRangePop();
 
   /************************************************************/
+  /*******************   REDUCE OVER RANKS  *******************/
+  /************************************************************/
+
+  // Complete the upper-triangle matrices across ranks (disjoint rows summed).
+  MPI_Allreduce(MPI_IN_PLACE, l_mom, (int)(6 * mat_size), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, l2_mom, (int)(2 * mat_size), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, ldots, (int)(2 * mat_size), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+  /************************************************************/
   /*******************   FILL LOWER TRIANG  *******************/
   /************************************************************/
 
-  for (a = lidx; a < lidx + n_el; a++)
-  {
-    for (b = a + 1; b < lidx + n_el; b++)
+  // Holes, then electrons: lower triangle = conj(upper triangle). Cheap; every
+  // rank does it so the full matrices are available for the exciton pass.
+  for (i = 0; i < n_ho; i++)
+    for (j = i + 1; j < n_ho; j++)
     {
-      // Populate the lower triangle with the complex conj. of upper tri
-
-      long lt = sqr(n_ho) + (b - lidx) * n_el + (a - lidx); // lower triangle
-      long ut = sqr(n_ho) + (a - lidx) * n_el + (b - lidx); // upper triangle
-      // transpose
+      long lt = j * n_ho + i, ut = i * n_ho + j;
       l_mom[lt].x = conj(l_mom[ut].x);
       l_mom[lt].y = conj(l_mom[ut].y);
       l_mom[lt].z = conj(l_mom[ut].z);
       l2_mom[lt] = conj(l2_mom[ut]);
       ldots[lt] = conj(ldots[ut]);
     }
-  }
-
-  /************************************************************/
-  /*******************   PRINT ELEC OUTPUT  *******************/
-  /************************************************************/
-
   for (a = lidx; a < lidx + n_el; a++)
-  {
-    for (b = lidx; b < lidx + n_el; b++)
+    for (b = a + 1; b < lidx + n_el; b++)
     {
-      idx = sqr(n_ho) + (a - lidx) * n_el + (b - lidx);
-      fprintf(pfx, "%ld\t%ld\t%lf\t%lf\n", a, b, creal(l_mom[idx].x), cimag(l_mom[idx].x));
-      fprintf(pfy, "%ld\t%ld\t%lf\t%lf\n", a, b, creal(l_mom[idx].y), cimag(l_mom[idx].y));
-      fprintf(pfz, "%ld\t%ld\t%lf\t%lf\n", a, b, creal(l_mom[idx].z), cimag(l_mom[idx].z));
-      fprintf(pfsqr, "%ld\t%ld\t%lf\t%lf\n", a, b, creal(l2_mom[idx]), cimag(l2_mom[idx]));
-      fprintf(pfls, "%ld\t%ld\t%lf\t%lf\n", a, b, creal(ldots[idx]), cimag(ldots[idx]));
-
-      if (a == b)
-      {
-        printf("%ld\t%ld\t%lf\t%lf\t%lf\t%lf\t%lf\n",
-               a, b, creal(l_mom[idx].x), creal(l_mom[idx].y), creal(l_mom[idx].z),
-               creal(l2_mom[idx]), creal(ldots[idx]));
-      }
+      long lt = sqr(n_ho) + (b - lidx) * n_el + (a - lidx);
+      long ut = sqr(n_ho) + (a - lidx) * n_el + (b - lidx);
+      l_mom[lt].x = conj(l_mom[ut].x);
+      l_mom[lt].y = conj(l_mom[ut].y);
+      l_mom[lt].z = conj(l_mom[ut].z);
+      l2_mom[lt] = conj(l2_mom[ut]);
+      ldots[lt] = conj(ldots[ut]);
     }
+
+  /************************************************************/
+  /*******************      PRINT OUTPUT    *******************/
+  /************************************************************/
+
+  if (mpir == 0)
+  {
+    pfx = fopen("lx.dat", "w");
+    pfy = fopen("ly.dat", "w");
+    pfz = fopen("lz.dat", "w");
+    pfsqr = fopen("lsqr.dat", "w");
+    pfls = fopen("ls.dat", "w");
+
+    for (i = 0; i < n_ho; i++)
+      for (j = 0; j < n_ho; j++)
+      {
+        idx = i * n_ho + j;
+        fprintf(pfx, "%ld\t%ld\t%lf\t%lf\n", i, j, creal(l_mom[idx].x), cimag(l_mom[idx].x));
+        fprintf(pfy, "%ld\t%ld\t%lf\t%lf\n", i, j, creal(l_mom[idx].y), cimag(l_mom[idx].y));
+        fprintf(pfz, "%ld\t%ld\t%lf\t%lf\n", i, j, creal(l_mom[idx].z), cimag(l_mom[idx].z));
+        fprintf(pfsqr, "%ld\t%ld\t%lf\t%lf\n", i, j, creal(l2_mom[idx]), cimag(l2_mom[idx]));
+        fprintf(pfls, "%ld\t%ld\t%lf\t%lf\n", i, j, creal(ldots[idx]), cimag(ldots[idx]));
+        if (i == j)
+          printf("%ld\t%ld\t%lf\t%lf\t%lf\t%lf\t%lf\n", i, j,
+                 creal(l_mom[idx].x), creal(l_mom[idx].y), creal(l_mom[idx].z),
+                 creal(l2_mom[idx]), creal(ldots[idx]));
+      }
+    for (a = lidx; a < lidx + n_el; a++)
+      for (b = lidx; b < lidx + n_el; b++)
+      {
+        idx = sqr(n_ho) + (a - lidx) * n_el + (b - lidx);
+        fprintf(pfx, "%ld\t%ld\t%lf\t%lf\n", a, b, creal(l_mom[idx].x), cimag(l_mom[idx].x));
+        fprintf(pfy, "%ld\t%ld\t%lf\t%lf\n", a, b, creal(l_mom[idx].y), cimag(l_mom[idx].y));
+        fprintf(pfz, "%ld\t%ld\t%lf\t%lf\n", a, b, creal(l_mom[idx].z), cimag(l_mom[idx].z));
+        fprintf(pfsqr, "%ld\t%ld\t%lf\t%lf\n", a, b, creal(l2_mom[idx]), cimag(l2_mom[idx]));
+        fprintf(pfls, "%ld\t%ld\t%lf\t%lf\n", a, b, creal(ldots[idx]), cimag(ldots[idx]));
+        if (a == b)
+          printf("%ld\t%ld\t%lf\t%lf\t%lf\t%lf\t%lf\n", a, b,
+                 creal(l_mom[idx].x), creal(l_mom[idx].y), creal(l_mom[idx].z),
+                 creal(l2_mom[idx]), creal(ldots[idx]));
+      }
+    fclose(pfx);
+    fclose(pfy);
+    fclose(pfz);
+    fclose(pfsqr);
+    fclose(pfls);
   }
   fflush(0);
 
   /************************************************************/
   /*******************   FREE DYNAMIC MEM   *******************/
   /************************************************************/
-
-  fclose(pfx);
-  fclose(pfy);
-  fclose(pfz);
-  fclose(pfsqr);
-  fclose(pfls);
 
   free(gx);
   free(gy);
@@ -725,14 +725,18 @@ void calc_xton_spin_mtrx(
   const long lidx = ist->lumo_idx;
 
   const double dv = par->dv;
+  (void)dv;
 
-  double complex spintot;
-  double complex tmp;
+  const int mpi_size = parallel->mpi_size;
 
-  xyz_st spin;
-  xyz_st stmp;
+  xyz_st *spin_arr;
+  double complex *spintot_arr;
 
   ALLOCATE(&listibs, n_xton, "listibs in angular spins");
+  ALLOCATE(&spin_arr, n_xton, "spin_arr");
+  ALLOCATE(&spintot_arr, n_xton, "spintot_arr");
+  memset(spin_arr, 0, (size_t)n_xton * sizeof(xyz_st));
+  memset(spintot_arr, 0, (size_t)n_xton * sizeof(double complex));
 
   for (ibs = 0, a = lidx; a < lidx + n_el; a++)
   {
@@ -746,10 +750,12 @@ void calc_xton_spin_mtrx(
   /*******************    CALC XTON SPIN    *******************/
   /************************************************************/
 
-  pf = fopen("spins.dat", "w");
-
-  for (n = 0; n < n_xton; n++)
+  // Distribute excitons round-robin over MPI ranks; OpenMP threads within.
+#pragma omp parallel for private(a, b, i, j, ibs, jbs, index, indexba, indexji)
+  for (n = mpir; n < n_xton; n += mpi_size)
   {
+    xyz_st spin, stmp;
+    double complex spintot, tmp;
     spin.x = spin.y = spin.z = 0.0 + 0.0 * I;
     spintot = 0.0 + 0.0 * I;
 
@@ -823,13 +829,30 @@ void calc_xton_spin_mtrx(
       } // end of i
     } // end of a
 
-    fprintf(pf, "%ld\t%-10.5lg\t%-10.5lg\t%-10.5lg\t%-10.5lg\t%-10.5lg\t%-10.5lg\t", n, creal(spin.x), cimag(spin.x), creal(spin.y), cimag(spin.y), creal(spin.z), cimag(spin.z));
-    fprintf(pf, "%-10.5lg\t (%-10.5lg)\n", 1.5 + 2.0 * creal(spintot), 2.0 * cimag(spintot));
+    spin_arr[n] = spin;
+    spintot_arr[n] = spintot;
   } // end of n
 
-  fclose(pf);
+  // Complete the per-exciton results across ranks (disjoint excitons summed).
+  MPI_Allreduce(MPI_IN_PLACE, spin_arr, (int)(6 * n_xton), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, spintot_arr, (int)(2 * n_xton), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+  if (mpir == 0)
+  {
+    pf = fopen("spins.dat", "w");
+    for (n = 0; n < n_xton; n++)
+    {
+      fprintf(pf, "%ld\t%-10.5lg\t%-10.5lg\t%-10.5lg\t%-10.5lg\t%-10.5lg\t%-10.5lg\t", n,
+              creal(spin_arr[n].x), cimag(spin_arr[n].x), creal(spin_arr[n].y), cimag(spin_arr[n].y),
+              creal(spin_arr[n].z), cimag(spin_arr[n].z));
+      fprintf(pf, "%-10.5lg\t (%-10.5lg)\n", 1.5 + 2.0 * creal(spintot_arr[n]), 2.0 * cimag(spintot_arr[n]));
+    }
+    fclose(pf);
+  }
 
   free(listibs);
+  free(spin_arr);
+  free(spintot_arr);
 
   return;
 }
@@ -877,6 +900,7 @@ void calc_xton_ang_mom_mtrx(
   const long lidx = ist->lumo_idx;
 
   const double dv = par->dv;
+  (void)dv;
 
   double complex orbittot;
   double complex lstot;
@@ -886,7 +910,19 @@ void calc_xton_ang_mom_mtrx(
   xyz_st orbit;
   xyz_st ltmp;
 
+  const int mpi_size = parallel->mpi_size;
+
+  xyz_st *orbit_arr;
+  double complex *orbittot_arr;
+  double complex *lstot_arr;
+
   ALLOCATE(&listibs, n_xton, "listibs in angular spins");
+  ALLOCATE(&orbit_arr, n_xton, "orbit_arr");
+  ALLOCATE(&orbittot_arr, n_xton, "orbittot_arr");
+  ALLOCATE(&lstot_arr, n_xton, "lstot_arr");
+  memset(orbit_arr, 0, (size_t)n_xton * sizeof(xyz_st));
+  memset(orbittot_arr, 0, (size_t)n_xton * sizeof(double complex));
+  memset(lstot_arr, 0, (size_t)n_xton * sizeof(double complex));
 
   for (ibs = 0, a = lidx; a < lidx + n_el; a++)
   {
@@ -900,10 +936,10 @@ void calc_xton_ang_mom_mtrx(
   /*******************   CALC XTON L, L2   ********************/
   /************************************************************/
 
-  pf = fopen("orbital.dat", "w");
-
-#pragma omp parallel for private(a, b, i, j, ibs, jbs, indexba, indexji, ltmp, ctmp, orbit, orbittot)
-  for (n = 0; n < n_xton; n++)
+  // Distribute excitons round-robin over MPI ranks; OpenMP threads within.
+  // (`index` must be private -- it was shared in the original pragma, a race.)
+#pragma omp parallel for private(a, b, i, j, ibs, jbs, index, indexba, indexji, ltmp, ctmp, orbit, orbittot)
+  for (n = mpir; n < n_xton; n += mpi_size)
   {
 
     orbit.x = orbit.y = orbit.z = 0.0 + 0.0 * I;
@@ -987,20 +1023,16 @@ void calc_xton_ang_mom_mtrx(
         } // end of b
       } // end of i
     } // end of a
-    fprintf(pf, "%ld\t%-10.5lf\t%-10.5lf\t%-10.5lf\t", n, creal(orbit.x), creal(orbit.y), creal(orbit.z));
-    fprintf(pf, "%-10.5lf\t (%-10.5lf)\n", creal(orbittot), cimag(orbittot));
+    orbit_arr[n] = orbit;
+    orbittot_arr[n] = orbittot;
   }
-
-  fclose(pf);
 
   /************************************************************/
   /*******************   CALC XTON LdotS   ********************/
   /************************************************************/
 
-  lspf = fopen("couple.dat", "w");
-
 #pragma omp parallel for private(a, b, i, j, ibs, jbs, indexba, indexji, lstmp, ctmp, lstot)
-  for (n = 0; n < n_xton; n++)
+  for (n = mpir; n < n_xton; n += mpi_size)
   {
     lstot = 0.0 + 0.0 * I;
     for (a = lidx; a < lidx + n_el; a++)
@@ -1047,11 +1079,35 @@ void calc_xton_ang_mom_mtrx(
         } // end of b
       } // end of i
     } // end of a
-    fprintf(lspf, "%ld\t%-10.5lf\t (%-10.5lf)\n", n, creal(lstot), cimag(lstot));
+    lstot_arr[n] = lstot;
   } // end of n
-  fclose(lspf);
+
+  // Complete the per-exciton results across ranks (disjoint excitons summed).
+  MPI_Allreduce(MPI_IN_PLACE, orbit_arr, (int)(6 * n_xton), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, orbittot_arr, (int)(2 * n_xton), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, lstot_arr, (int)(2 * n_xton), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+  if (mpir == 0)
+  {
+    pf = fopen("orbital.dat", "w");
+    for (n = 0; n < n_xton; n++)
+    {
+      fprintf(pf, "%ld\t%-10.5lf\t%-10.5lf\t%-10.5lf\t", n,
+              creal(orbit_arr[n].x), creal(orbit_arr[n].y), creal(orbit_arr[n].z));
+      fprintf(pf, "%-10.5lf\t (%-10.5lf)\n", creal(orbittot_arr[n]), cimag(orbittot_arr[n]));
+    }
+    fclose(pf);
+
+    lspf = fopen("couple.dat", "w");
+    for (n = 0; n < n_xton; n++)
+      fprintf(lspf, "%ld\t%-10.5lf\t (%-10.5lf)\n", n, creal(lstot_arr[n]), cimag(lstot_arr[n]));
+    fclose(lspf);
+  }
 
   free(listibs);
+  free(orbit_arr);
+  free(orbittot_arr);
+  free(lstot_arr);
 
   return;
 }

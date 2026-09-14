@@ -22,6 +22,12 @@ Linux_CFLAGS = $(Linux_OPTFLAGS) $(Linux_DEPFLAGS) -O3 -qopenmp -mavx2
 
 MAINNAM = Filter
 
+# Force the default goal to the executable. The -include of the *.d files below
+# pulls in per-object rules (e.g. `main.o: ...`) whose first target would
+# otherwise become the default goal, so bare `make` would only build main.o and
+# never link. Setting this explicitly keeps `make` building the executable.
+.DEFAULT_GOAL := $(MAINNAM)
+
 # compiler ...
 Linux_CC = cc
 

@@ -49,6 +49,10 @@ void bethe_salpeter(
 
   long *listibs;
 
+  /* Serial single-rank path only. The multi-rank distributed build + solve is
+   * dispatched from mod_bse (bethe_salpeter_dist), which assembles the BSE
+   * matrix straight into the block-cyclic layout; this function is never called
+   * with mpi_size > 1. */
   omp_set_num_threads(parallel->nthreads);
 
   ALLOCATE(&listibs, n_xton, "listibs in bethe-salpeter");

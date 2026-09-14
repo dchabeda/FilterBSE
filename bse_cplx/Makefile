@@ -28,7 +28,11 @@ OS = Linux
 # libraries ...
 FFTW_PREFIX  = $(CRAY_FFTW_PREFIX)/x86_64
 FFTW_INCLUDE = -I$(FFTW_PREFIX)/include/
-Linux_LIB    = -lpthread -L$(FFTW_PREFIX)/lib/ -lfftw3 -lfftw3_threads -lfftw3_omp -L$(CRAY_LIBSCI_PREFIX_DIR)/lib -lsci_nvidia
+# cray-libsci is auto-linked by the Cray `cc` wrapper: with cray-mpich loaded
+# and -mp on the command line it selects the threaded, ScaLAPACK-capable
+# variant (libsci_nvidia_mpi_mp) that pbse.c / pzheevd needs. We therefore do
+# NOT add -lsci explicitly -- doing so double-links libsci (CRAYBLAS_WARNING).
+Linux_LIB    = -lpthread -L$(FFTW_PREFIX)/lib/ -lfftw3 -lfftw3_threads -lfftw3_omp
 Linux_DYLIB  = -lm
 
 LIB = $(Linux_DYLIB) $(Linux_LIB)
@@ -37,7 +41,9 @@ LIB = $(Linux_DYLIB) $(Linux_LIB)
 # USE_LIBSCI      -> fd.h pulls <lapacke.h> (cray-libsci) instead of <mkl.h>,
 #                    and diag.c uses omp_set_num_threads instead of mkl_set_num_threads.
 # USE_GPU_OFFLOAD -> compiles the OpenMP-target offload path in coulomb.c.
-Linux_OPTFLAGS = -DFFTW_FFT -DUSE_LIBSCI -DUSE_GPU_OFFLOAD
+# USE_SCALAPACK -> compiles the distributed ScaLAPACK BSE eigensolve (pbse.c),
+#                  auto-selected at runtime whenever mpi_size > 1.
+Linux_OPTFLAGS = -DFFTW_FFT -DUSE_LIBSCI -DUSE_GPU_OFFLOAD -DUSE_SCALAPACK
 Linux_GPUFLAGS = -mp=gpu -gpu=cc80
 Linux_CFLAGS   = $(Linux_OPTFLAGS) -O3 -fast $(Linux_GPUFLAGS) -Minfo=mp $(FFTW_INCLUDE)
 
@@ -51,7 +57,7 @@ OBJECTS = \
 	main.o aux.o read.o write.o init.o basis.o save.o \
 	mod_init.o spin.o mod_dipole.o dipole.o angular.o ang_mom_operators.o \
 	mod_pot.o coulomb.o hartree.o mod_kernel.o \
-	mod_bse.o bethe-salpeter.o diag.o optical.o
+	mod_bse.o bethe-salpeter.o pbse.o diag.o optical.o
 
 # compilation rule for all .c files
 .c.o:

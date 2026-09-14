@@ -11,7 +11,8 @@ void calc_elec_dipole(
     grid_st *grid,
     index_st *ist,
     par_st *par,
-    flag_st *flag);
+    flag_st *flag,
+    parallel_st *parallel);
 
 /**************************************************************/
 
@@ -22,7 +23,8 @@ void calc_mag_dipole(
     grid_st *grid,
     index_st *ist,
     par_st *par,
-    flag_st *flag);
+    flag_st *flag,
+    parallel_st *parallel);
 
 /**************************************************************/
 

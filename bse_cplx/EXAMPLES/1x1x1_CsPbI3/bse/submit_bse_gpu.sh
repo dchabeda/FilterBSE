@@ -39,5 +39,5 @@ BSE_EXE=/global/common/software/m4868/FilterBSE/bse_cplx/bse_cplx_gpu.x
 # Run from this directory (must hold input.par, conf.dat, output.dat).
 # NOTE: 1x1x1 is a tiny validation case -- the GPU offload only *wins* at
 # production grid/basis sizes; here it exists to check correctness, not speed.
-srun ${BSE_EXE} 2> error.dat > run.dat
+srun -n 4 --gpus-per-task=1 ${BSE_EXE} 2> error.dat > run.dat
 wait

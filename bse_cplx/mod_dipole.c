@@ -26,10 +26,13 @@ void mod_dipole(
   /*******************  DECLARE VARIABLES   *******************/
   /************************************************************/
 
-  write_separation(stdout, "T");
-  printf("\n4.\tCOMPUTING SINGLE-PARTICLE PROPERTIES | %s\n", get_time());
-  write_separation(stdout, "B");
-  fflush(stdout);
+  if (mpir == 0)
+  {
+    write_separation(stdout, "T");
+    printf("\n4.\tCOMPUTING SINGLE-PARTICLE PROPERTIES | %s\n", get_time());
+    write_separation(stdout, "B");
+    fflush(stdout);
+  }
 
   /************************************************************/
   /*****************   ALLOC MEM MTRX ELEMS   *****************/
@@ -55,19 +58,21 @@ void mod_dipole(
   {
     printf("\nElectric transition dipole moment...\n");
   }
-  calc_elec_dipole(*elec_dip, psi_qp, eig_vals, grid, ist, par, flag);
+  calc_elec_dipole(*elec_dip, psi_qp, eig_vals, grid, ist, par, flag, parallel);
 
   if (mpir == 0)
   {
     printf("\nMagnetic transition dipole moment...\n");
   }
-  calc_mag_dipole(*mag_dip, psi_qp, eig_vals, grid, ist, par, flag);
+  calc_mag_dipole(*mag_dip, psi_qp, eig_vals, grid, ist, par, flag, parallel);
 
+  // Rotational strength is cheap and purely local (elec_dip/mag_dip are already
+  // Allreduced onto every rank); write it from rank 0 only.
   if (mpir == 0)
   {
     printf("\nRotational strengths...\n");
+    calc_rotational_strength(*rot_strength, *elec_dip, *mag_dip, eig_vals, ist);
   }
-  calc_rotational_strength(*rot_strength, *elec_dip, *mag_dip, eig_vals, ist);
 
   return;
 }

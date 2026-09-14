@@ -14,7 +14,7 @@ void calc_elec_dipole(
   flag_st*        flag
   ){
   /*******************************************************************
-  * This function computes the electric transition dipole matrix     *
+  * THIS function computes the electric transition dipole matrix     *
   * matrix elements.                                                 *
   * inputs:                                                          *
   *  [elec_dip] array to hold matrix elems in x, y, z direction  *

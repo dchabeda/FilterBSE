@@ -11,7 +11,8 @@ void calc_elec_dipole(
     grid_st *grid,
     index_st *ist,
     par_st *par,
-    flag_st *flag)
+    flag_st *flag,
+    parallel_st *parallel)
 {
   /*******************************************************************
    * This function computes the electric transition dipole matrix     *
@@ -55,20 +56,22 @@ void calc_elec_dipole(
 
   const double dv = par->dv;
 
-  // Output will be written to these files
-  pf = fopen("OS0.dat", "w");
-
-  fprintf(pf, "i  a   sqrt(mu2)     Ea-Ei 	  f_osc       mu_x.re     mu_x.im     mu_y.re     mu_y.im     mu_z.re     mu_z.im\n");
+  const int mpir = parallel->mpi_rank;
+  const int mpi_size = parallel->mpi_size;
 
   /************************************************************/
   /*******************   CALC ELEC DIPOLE   *******************/
   /************************************************************/
 
+  // Each rank fills a disjoint set of hole rows; the full matrix is completed
+  // with an Allreduce(SUM) below (zeros elsewhere), so start from zero.
+  memset(elec_dip, 0, (size_t)n_ho * n_el * sizeof(xyz_st));
+
   double start = omp_get_wtime();
 
-// nvtxRangePushA("Calc elec dipole");
+// Distribute hole rows round-robin over MPI ranks; OpenMP threads within a row.
 #pragma omp parallel for private(a, i_st, a_st, x, y, z, idx)
-  for (i = 0; i < n_ho; i++)
+  for (i = mpir; i < n_ho; i += mpi_size)
   {
     for (a = lidx; a < lidx + n_el; a++)
     {
@@ -126,31 +129,42 @@ void calc_elec_dipole(
     }
   }
 
+  // Combine each rank's disjoint hole-row contributions into the full matrix.
+  MPI_Allreduce(MPI_IN_PLACE, elec_dip, (int)(6 * n_ho * n_el), MPI_DOUBLE,
+                MPI_SUM, MPI_COMM_WORLD);
+
   double end = omp_get_wtime();
-  printf("Duration of computing dipole: %f s (%f s per transition)\n", end - start, (end - start) / (n_el * n_ho));
-  // nvtxRangePop();
 
   /************************************************************/
   /*******************     PRINT VALUES     *******************/
   /************************************************************/
 
-  for (i = 0; i < n_ho; i++)
+  if (mpir == 0)
   {
-    for (a = lidx; a < lidx + n_el; a++)
+    printf("Duration of computing dipole: %f s (%f s per transition)\n", end - start, (end - start) / (n_el * n_ho));
+    // nvtxRangePop();
+
+    pf = fopen("OS0.dat", "w");
+    fprintf(pf, "i  a   sqrt(mu2)     Ea-Ei 	  f_osc       mu_x.re     mu_x.im     mu_y.re     mu_y.im     mu_z.re     mu_z.im\n");
+
+    for (i = 0; i < n_ho; i++)
     {
-      idx = i * n_el + (a - lidx);
+      for (a = lidx; a < lidx + n_el; a++)
+      {
+        idx = i * n_el + (a - lidx);
 
-      E_ia = eig_vals[a] - eig_vals[i];
-      mu2 = cnorm(elec_dip[idx].x) + cnorm(elec_dip[idx].y) + cnorm(elec_dip[idx].z);
+        E_ia = eig_vals[a] - eig_vals[i];
+        mu2 = cnorm(elec_dip[idx].x) + cnorm(elec_dip[idx].y) + cnorm(elec_dip[idx].z);
 
-      fprintf(pf, "%ld % ld  %.8f %.12f % .8f % .8f % .8f % .8f % .8f % .8f % .8f\n",
-              i, a, sqrt(mu2), E_ia, (2.0 / 3.0) * E_ia * mu2,
-              creal(elec_dip[idx].x), cimag(elec_dip[idx].x),
-              creal(elec_dip[idx].y), cimag(elec_dip[idx].y),
-              creal(elec_dip[idx].z), cimag(elec_dip[idx].z));
+        fprintf(pf, "%ld % ld  %.8f %.12f % .8f % .8f % .8f % .8f % .8f % .8f % .8f\n",
+                i, a, sqrt(mu2), E_ia, (2.0 / 3.0) * E_ia * mu2,
+                creal(elec_dip[idx].x), cimag(elec_dip[idx].x),
+                creal(elec_dip[idx].y), cimag(elec_dip[idx].y),
+                creal(elec_dip[idx].z), cimag(elec_dip[idx].z));
+      }
     }
+    fclose(pf);
   }
-  fclose(pf);
 
   return;
 }
@@ -164,11 +178,21 @@ void calc_mag_dipole(
     grid_st *grid,
     index_st *ist,
     par_st *par,
-    flag_st *flag)
+    flag_st *flag,
+    parallel_st *parallel)
 {
   // This function calculates the magnetic dipole matrix elements between the
-  // single-particle electron (a) and hole (i) states: <psi_a|m|psi_i>
-  // where m = -1/2*L = -1/2 * (r x p) where x is the cross product.
+  // single-particle hole (i) and electron (a) states: <psi_i|m|psi_a>.
+  //
+  // For spinor wavefunctions (spin-orbit coupling) the magnetic dipole operator
+  // has both an orbital and a spin contribution:
+  //     m = -mu_B (L + g_s S) = -(1/2)(L + 2 S) = -(1/2) L - S   (atomic units,
+  //                                                mu_B = 1/2, g_s = 2)
+  // Following the sign/prefactor convention already used for the orbital term in
+  // this code (stored as +(1/2)<i|L|a>), the spin term enters with the SAME
+  // relative sign as +<i|S|a> (because (1/2) g_s S = S). The stored quantity is
+  // therefore
+  //     mag_dip = (1/2)<i|L|a> + <i|S|a>,   with S = (1/2) sigma.
 
   /************************************************************/
   /*******************  DECLARE VARIABLES   *******************/
@@ -240,16 +264,19 @@ void calc_mag_dipole(
   ALLOCATE(&Lypsi, nspngr, "Lypsi in mag_dipole");
   ALLOCATE(&Lzpsi, nspngr, "Lzpsi in mag_dipole");
 
-  // Output will be written to this file
-  pf = fopen("M0.dat", "w");
-  // fprintf(pf, "  i   a    sqrt(ms)       Ea-Ei         m_x.re      m_x.im      m_y.re      m_y.im      m_z.re      m_z.im\n");
+  const int mpir = parallel->mpi_rank;
+  const int mpi_size = parallel->mpi_size;
 
   /************************************************************/
   /********************     CALC MAG DIP    *******************/
   /************************************************************/
-  // nvtxRangePushA("Calc mag dipole");
+  // Each rank fills a disjoint set of electron columns (its share of the L|a>
+  // FFTs); the full matrix is completed with an Allreduce(SUM) below.
+  memset(mag_dip, 0, (size_t)n_ho * n_el * sizeof(xyz_st));
+
+  // nvtxRangePushA("Calc mag dipole")  -- distribute electrons round-robin over MPI.
   double start = omp_get_wtime();
-  for (a = lidx; a < lidx + n_el; a++)
+  for (a = lidx + mpir; a < lidx + n_el; a += mpi_size)
   {
     // nvtxRangePushA("loop over i");
     a_st = a * nspngr;
@@ -267,12 +294,19 @@ void calc_mag_dipole(
       // nvtxRangePushA("loop over a");
       i_st = i * nspngr;
 
-      double complex m_x; // <a|m|i>_x
-      double complex m_y; // <a|m|i>_y
-      double complex m_z; // <a|m|i>_z
+      double complex m_x; // <i|L|a>_x  (orbital)
+      double complex m_y; // <i|L|a>_y
+      double complex m_z; // <i|L|a>_z
+
+      double complex s_x; // <i|S|a>_x  (spin, S = (1/2) sigma)
+      double complex s_y; // <i|S|a>_y
+      double complex s_z; // <i|S|a>_z
 
       m_x = m_y = m_z = 0.0 + 0.0 * I;
+      s_x = s_y = s_z = 0.0 + 0.0 * I;
 
+      // Orbital part: <i|L|a> contracted over both spin channels (the L
+      // operator was applied to each spin channel of |a> separately above).
 #pragma omp simd safelen(8) aligned(psi_qp, Lxpsi, Lypsi, Lzpsi : BYTE_BOUNDARY) reduction(+ : m_x, m_y, m_z)
       for (jg = 0; jg < nspngr; jg++)
       {
@@ -281,44 +315,69 @@ void calc_mag_dipole(
         m_z += conjmul(psi_qp[i_st + jg], Lzpsi[jg]);
       }
 
-      m_x *= 0.5 * dv;
-      m_y *= 0.5 * dv;
-      m_z *= 0.5 * dv;
+      // Spin part: <i|S|a> with S = (1/2) sigma acting on the ket |a>. Pairing
+      // the spin-up channel [0, ngrid) with the spin-down channel [ngrid, 2ngrid)
+      // at each spatial grid point:
+      //   Sx|a> = (1/2)( a_dn, a_up )
+      //   Sy|a> = (i/2)( -a_dn, a_up )
+      //   Sz|a> = (1/2)( a_up, -a_dn )
+#pragma omp simd safelen(8) aligned(psi_qp : BYTE_BOUNDARY) reduction(+ : s_x, s_y, s_z)
+      for (jg = 0; jg < ngrid; jg++)
+      {
+        double complex iu = psi_qp[i_st + jg];         // hole, spin up
+        double complex id = psi_qp[i_st + jg + ngrid]; // hole, spin down
+        double complex au = psi_qp[a_st + jg];         // elec, spin up
+        double complex ad = psi_qp[a_st + jg + ngrid]; // elec, spin down
+
+        s_x += 0.5 * (conj(iu) * ad + conj(id) * au);
+        s_y += 0.5 * I * (conj(id) * au - conj(iu) * ad);
+        s_z += 0.5 * (conj(iu) * au - conj(id) * ad);
+      }
 
       idx = i * n_el + (a - lidx);
 
-      mag_dip[idx].x = m_x;
-      mag_dip[idx].y = m_y;
-      mag_dip[idx].z = m_z;
+      // mag_dip = (1/2)<i|L|a> + <i|S|a>
+      mag_dip[idx].x = dv * (0.5 * m_x + s_x);
+      mag_dip[idx].y = dv * (0.5 * m_y + s_y);
+      mag_dip[idx].z = dv * (0.5 * m_z + s_z);
       // nvtxRangePop();
     }
     // nvtxRangePop();
   }
   // nvtxRangePop();
+
+  MPI_Allreduce(MPI_IN_PLACE, mag_dip, (int)(6 * n_ho * n_el), MPI_DOUBLE,
+                MPI_SUM, MPI_COMM_WORLD);
+
   double end = omp_get_wtime();
-  printf("Duration of computing mag dipole: %f s (%f s per transition)\n", end - start, (end - start) / (n_el * n_ho));
 
   /************************************************************/
   /*******************     PRINT VALUES     *******************/
   /************************************************************/
 
-  for (a = lidx; a < lidx + n_el; a++)
+  if (mpir == 0)
   {
-    for (i = 0; i < n_ho; i++)
+    printf("Duration of computing mag dipole: %f s (%f s per transition)\n", end - start, (end - start) / (n_el * n_ho));
+
+    pf = fopen("M0.dat", "w");
+    for (a = lidx; a < lidx + n_el; a++)
     {
-      idx = i * n_el + (a - lidx);
+      for (i = 0; i < n_ho; i++)
+      {
+        idx = i * n_el + (a - lidx);
 
-      ms = cnorm(mag_dip[idx].x) + cnorm(mag_dip[idx].y) + cnorm(mag_dip[idx].z);
+        ms = cnorm(mag_dip[idx].x) + cnorm(mag_dip[idx].y) + cnorm(mag_dip[idx].z);
 
-      E_ia = eig_vals[a] - eig_vals[i];
+        E_ia = eig_vals[a] - eig_vals[i];
 
-      fprintf(pf, "%3ld %3ld  %+.8f %+.12f %+.8f %+.8f %+.8f %+.8f %+.8f %+.8f %+.8f\n", i, a, sqrt(ms), E_ia, (4.0 / 3.0) * E_ia * ms,
-              creal(mag_dip[idx].x), cimag(mag_dip[idx].x),
-              creal(mag_dip[idx].y), cimag(mag_dip[idx].y),
-              creal(mag_dip[idx].z), cimag(mag_dip[idx].z));
+        fprintf(pf, "%3ld %3ld  %+.8f %+.12f %+.8f %+.8f %+.8f %+.8f %+.8f %+.8f %+.8f\n", i, a, sqrt(ms), E_ia, (4.0 / 3.0) * E_ia * ms,
+                creal(mag_dip[idx].x), cimag(mag_dip[idx].x),
+                creal(mag_dip[idx].y), cimag(mag_dip[idx].y),
+                creal(mag_dip[idx].z), cimag(mag_dip[idx].z));
+      }
     }
+    fclose(pf);
   }
-  fclose(pf);
 
   // Free dynamically allocated memory
   free(Lxpsi);

@@ -118,6 +118,28 @@ void calc_eh_kernel_cplx(
     fflush(stdout);
   }
 
+  // Distributed storage mode: when running on >1 rank (and built with
+  // ScaLAPACK), `direct`/`exchange` on entry are this rank's block-cyclic tile
+  // (NOT the full n_xton^2 matrix). Computed elements are binned by their
+  // block-cyclic owner in a router and placed with one MPI_Alltoallv at the end
+  // (replacing the old full-matrix MPI_Reduce). The compute distribution,
+  // GPU tiling and even/odd split are unchanged. When !dist (single rank), the
+  // original full-matrix path runs verbatim.
+#ifdef USE_SCALAPACK
+  const int dist = (parallel->mpi_size > 1);
+#else
+  const int dist = 0;
+#endif
+#ifdef USE_SCALAPACK
+  bc_router Sdir, Sexc;
+  if (dist)
+  {
+    bse_setup_blockcyclic(parallel, ist->n_xton); /* idempotent (mod_kernel set it up) */
+    router_init(&Sdir, parallel->mpi_size);
+    router_init(&Sexc, parallel->mpi_size);
+  }
+#endif
+
   char *fileName;
   fileName = (char *)malloc(30 * sizeof(char) + 1);
   fileName[30] = '\0';
@@ -294,11 +316,18 @@ void calc_eh_kernel_cplx(
     sprintf(fileName, "direct-%d.dat", even_rank);
     if (flag->restartCoulomb)
     {
-      int done_flag;
-      long a_tmp, b_tmp, i_tmp, j_tmp;
+      int done_flag = 0;
+      long a_tmp = 0, b_tmp = 0, i_tmp = 0, j_tmp = 0;
 
-      // Find start value for continuing computation
-      done_flag = load_coulomb_mat(direct, fileName, &a_tmp, &b_tmp, &i_tmp, &j_tmp, ist);
+      // Find start value for continuing computation. In dist mode this rank's
+      // own prior dump is re-pushed into the router (owners re-resolved); in the
+      // single-rank path it is loaded back into the full matrix.
+#ifdef USE_SCALAPACK
+      if (dist)
+        router_load_file(&Sdir, parallel, fileName, &a_tmp, &b_tmp, &i_tmp, &j_tmp, ist);
+      else
+#endif
+        done_flag = load_coulomb_mat(direct, fileName, &a_tmp, &b_tmp, &i_tmp, &j_tmp, ist);
 
       if (done_flag == 0)
       {
@@ -457,7 +486,18 @@ void calc_eh_kernel_cplx(
                 const long jbs = listibs[(b - lidx) * n_ho + (j0 + jj)];
                 if (ibs < jbs)
                   continue;
-                direct[ibs * n_xton + jbs] = blk[ii * jlen + jj];
+#ifdef USE_SCALAPACK
+                if (dist)
+                {
+                  // route to the block-cyclic owner and stream the checkpoint
+                  router_push(&Sdir, parallel, ibs, jbs, blk[ii * jlen + jj]);
+                  fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n",
+                          a, b, i0 + ii, j0 + jj, ibs, jbs,
+                          creal(blk[ii * jlen + jj]), cimag(blk[ii * jlen + jj]));
+                }
+                else
+#endif
+                  direct[ibs * n_xton + jbs] = blk[ii * jlen + jj];
               }
           } // abt
         } // ti
@@ -475,19 +515,24 @@ void calc_eh_kernel_cplx(
       double ab_end_t = omp_get_wtime();
 
       // Write this rank's checkpoint in canonical (strided ab, ij) order so the
-      // file matches the fast/CPU paths byte-for-byte.
-      for (long abt = even_rank; abt < ab_tot; abt += even_size)
+      // file matches the fast/CPU paths byte-for-byte. In dist mode the
+      // checkpoint was already streamed from the copy-out loop above (the full
+      // matrix no longer exists to read back), so skip it here.
+      if (!dist)
       {
-        const long a = lista[abt], b = listb[abt];
-        for (long ij = 0; ij < ij_tot; ij++)
+        for (long abt = even_rank; abt < ab_tot; abt += even_size)
         {
-          const long i = listi[ij], j = listj[ij];
-          const long ibs = listibs[(a - lidx) * n_ho + i];
-          const long jbs = listibs[(b - lidx) * n_ho + j];
-          // The fast/CPU direct path writes every ij pair (lower triangle stays
-          // zero), so do NOT skip ibs<jbs here -- keep the file byte-identical.
-          fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
-                  creal(direct[ibs * n_xton + jbs]), cimag(direct[ibs * n_xton + jbs]));
+          const long a = lista[abt], b = listb[abt];
+          for (long ij = 0; ij < ij_tot; ij++)
+          {
+            const long i = listi[ij], j = listj[ij];
+            const long ibs = listibs[(a - lidx) * n_ho + i];
+            const long jbs = listibs[(b - lidx) * n_ho + j];
+            // The fast/CPU direct path writes every ij pair (lower triangle stays
+            // zero), so do NOT skip ibs<jbs here -- keep the file byte-identical.
+            fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
+                    creal(direct[ibs * n_xton + jbs]), cimag(direct[ibs * n_xton + jbs]));
+          }
         }
       }
       fclose(pf);
@@ -499,6 +544,13 @@ void calc_eh_kernel_cplx(
     const int gpu_dir = 0;
 #endif
     {
+      // In dist mode the per-ab block of n_ho x n_ho elements is staged in a
+      // block buffer (indexed by ij = i*n_ho + j, matching dir_blk), then routed
+      // + checkpointed serially. The GPU path already stages into dir_blk; the
+      // CPU path (below, inside an OpenMP parallel loop) stages into cpu_blk.
+      double complex *cpu_blk = NULL;
+      if (dist && !gpu_dir)
+        ALLOCATE(&cpu_blk, ij_tot, "cpu_blk (dist direct)");
 #ifdef USE_GPU_OFFLOAD
       if (gpu_dir)
       {
@@ -585,16 +637,18 @@ void calc_eh_kernel_cplx(
           }
         }
         // Scatter the block into the host direct matrix (upper triangle only,
-        // matching the CPU path so the two are bit-for-bit comparable).
-        for (i = 0; i < n_ho; i++)
-          for (j = 0; j < n_ho; j++)
-          {
-            long ibs = listibs[(a - lidx) * n_ho + i];
-            long jbs = listibs[(b - lidx) * n_ho + j];
-            if (ibs < jbs)
-              continue;
-            direct[ibs * n_xton + jbs] = dir_blk[i * n_ho + j];
-          }
+        // matching the CPU path so the two are bit-for-bit comparable). In dist
+        // mode dir_blk is left as-is and routed/checkpointed in the loop below.
+        if (!dist)
+          for (i = 0; i < n_ho; i++)
+            for (j = 0; j < n_ho; j++)
+            {
+              long ibs = listibs[(a - lidx) * n_ho + i];
+              long jbs = listibs[(b - lidx) * n_ho + j];
+              if (ibs < jbs)
+                continue;
+              direct[ibs * n_xton + jbs] = dir_blk[i * n_ho + j];
+            }
 #endif
       }
       else
@@ -630,22 +684,47 @@ void calc_eh_kernel_cplx(
           }
           sum *= dv;
 
-          direct[ibs * n_xton + jbs] = sum;
+          if (dist)
+            cpu_blk[ij] = sum;
+          else
+            direct[ibs * n_xton + jbs] = sum;
         } // end of ij
       }
       // // nvtxRangePop();
 
       // fflush(0);
-      for (ij = 0; ij < ij_tot; ij++)
+#ifdef USE_SCALAPACK
+      if (dist)
       {
-        i = listi[ij];
-        j = listj[ij];
-        ibs = listibs[(a - lidx) * n_ho + i];
-        jbs = listibs[(b - lidx) * n_ho + j];
-
-        fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
-                creal(direct[ibs * n_xton + jbs]), cimag(direct[ibs * n_xton + jbs]));
+        // Route this ab block to its block-cyclic owners and stream the
+        // per-rank checkpoint (lower triangle only). dir_blk (GPU) / cpu_blk
+        // (CPU) are both indexed by ij = i*n_ho + j.
+        const double complex *blkptr = gpu_dir ? dir_blk : cpu_blk;
+        for (ij = 0; ij < ij_tot; ij++)
+        {
+          i = listi[ij];
+          j = listj[ij];
+          ibs = listibs[(a - lidx) * n_ho + i];
+          jbs = listibs[(b - lidx) * n_ho + j];
+          if (ibs < jbs)
+            continue;
+          router_push(&Sdir, parallel, ibs, jbs, blkptr[ij]);
+          fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
+                  creal(blkptr[ij]), cimag(blkptr[ij]));
+        }
       }
+      else
+#endif
+        for (ij = 0; ij < ij_tot; ij++)
+        {
+          i = listi[ij];
+          j = listj[ij];
+          ibs = listibs[(a - lidx) * n_ho + i];
+          jbs = listibs[(b - lidx) * n_ho + j];
+
+          fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
+                  creal(direct[ibs * n_xton + jbs]), cimag(direct[ibs * n_xton + jbs]));
+        }
       // Every 25% of iterations, print output
       if ((cntr == 0) || (0 == cntr % (ncycles / 4 + 1)) || (cntr == (ncycles - 1)))
       {
@@ -673,6 +752,8 @@ void calc_eh_kernel_cplx(
       free(dir_blk);
     }
 #endif
+      if (cpu_blk)
+        free(cpu_blk);
     } // end of fast/CPU direct path (vs. dir_tiled)
 
     // Free
@@ -781,11 +862,16 @@ void calc_eh_kernel_cplx(
 
     if (flag->restartCoulomb)
     {
-      int done_flag;
-      long a_tmp, b_tmp, i_tmp, j_tmp;
+      long a_tmp = 0, b_tmp = 0, i_tmp = 0, j_tmp = 0;
 
-      // Find start value for continuing computation
-      done_flag = load_coulomb_mat(exchange, fileName, &a_tmp, &b_tmp, &i_tmp, &j_tmp, ist);
+      // Find start value for continuing computation. In dist mode re-push this
+      // rank's own prior dump into the router; else load into the full matrix.
+#ifdef USE_SCALAPACK
+      if (dist)
+        router_load_file(&Sexc, parallel, fileName, &a_tmp, &b_tmp, &i_tmp, &j_tmp, ist);
+      else
+#endif
+        load_coulomb_mat(exchange, fileName, &a_tmp, &b_tmp, &i_tmp, &j_tmp, ist);
 
       start = 0; // Calc the new starting value from the loop trip count
       for (ai = 0; ai < ai_tot; ai++)
@@ -966,7 +1052,17 @@ void calc_eh_kernel_cplx(
                 const long jbs = listibs[(b0 + bl) * n_ho + (j0 + jj)];
                 if (ibs < jbs)
                   continue;
-                exchange[ibs * n_xton + jbs] = eblk[bl * jlen + jj];
+#ifdef USE_SCALAPACK
+                if (dist)
+                {
+                  router_push(&Sexc, parallel, ibs, jbs, eblk[bl * jlen + jj]);
+                  fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n",
+                          a, lidx + b0 + bl, i, j0 + jj, ibs, jbs,
+                          creal(eblk[bl * jlen + jj]), cimag(eblk[bl * jlen + jj]));
+                }
+                else
+#endif
+                  exchange[ibs * n_xton + jbs] = eblk[bl * jlen + jj];
               }
             if (odd_rank == 0 && (ai_done % ai_quarter == 0 || ai_done == ai_local - 1))
             {
@@ -984,19 +1080,23 @@ void calc_eh_kernel_cplx(
       free(drow);
       double ai_end_t = omp_get_wtime();
 
-      // Write this rank's checkpoint in canonical (strided ai, bj) order.
-      for (long ait = odd_rank; ait < ai_tot; ait += odd_size)
+      // Write this rank's checkpoint in canonical (strided ai, bj) order. In
+      // dist mode the checkpoint was already streamed from the copy-out above.
+      if (!dist)
       {
-        const long a = lista[ait], i = listi[ait];
-        for (long bj = 0; bj < bj_tot; bj++)
+        for (long ait = odd_rank; ait < ai_tot; ait += odd_size)
         {
-          const long b = listb[bj], j = listj[bj];
-          const long ibs = listibs[(a - lidx) * n_ho + i];
-          const long jbs = listibs[(b - lidx) * n_ho + j];
-          if (ibs < jbs)
-            continue;
-          fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
-                  creal(exchange[ibs * n_xton + jbs]), cimag(exchange[ibs * n_xton + jbs]));
+          const long a = lista[ait], i = listi[ait];
+          for (long bj = 0; bj < bj_tot; bj++)
+          {
+            const long b = listb[bj], j = listj[bj];
+            const long ibs = listibs[(a - lidx) * n_ho + i];
+            const long jbs = listibs[(b - lidx) * n_ho + j];
+            if (ibs < jbs)
+              continue;
+            fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
+                    creal(exchange[ibs * n_xton + jbs]), cimag(exchange[ibs * n_xton + jbs]));
+          }
         }
       }
       fclose(pf);
@@ -1008,6 +1108,11 @@ void calc_eh_kernel_cplx(
     const int gpu_exc = 0;
 #endif
     {
+      // dist staging block for the exchange CPU path (indexed by bj = bb*n_ho+j,
+      // matching exc_blk). The GPU path stages into exc_blk.
+      double complex *cpu_eblk = NULL;
+      if (dist && !gpu_exc)
+        ALLOCATE(&cpu_eblk, bj_tot, "cpu_eblk (dist exchange)");
 #ifdef USE_GPU_OFFLOAD
       if (gpu_exc)
       {
@@ -1080,18 +1185,20 @@ void calc_eh_kernel_cplx(
             exc_blk[bb * n_ho + j] = val;
           }
         }
-        for (b = lidx; b < lidx + n_el; b++)
-        {
-          long bb = b - lidx;
-          for (j = 0; j < n_ho; j++)
+        // In dist mode exc_blk is left as-is and routed/checkpointed below.
+        if (!dist)
+          for (b = lidx; b < lidx + n_el; b++)
           {
-            long ibs = listibs[(a - lidx) * n_ho + i];
-            long jbs = listibs[bb * n_ho + j];
-            if (ibs < jbs)
-              continue;
-            exchange[ibs * n_xton + jbs] = exc_blk[bb * n_ho + j];
+            long bb = b - lidx;
+            for (j = 0; j < n_ho; j++)
+            {
+              long ibs = listibs[(a - lidx) * n_ho + i];
+              long jbs = listibs[bb * n_ho + j];
+              if (ibs < jbs)
+                continue;
+              exchange[ibs * n_xton + jbs] = exc_blk[bb * n_ho + j];
+            }
           }
-        }
 #endif
       }
       else
@@ -1122,25 +1229,46 @@ void calc_eh_kernel_cplx(
           }
           sum *= dv;
 
-          exchange[ibs * n_xton + jbs] = -sum;
+          if (dist)
+            cpu_eblk[bj] = -sum;
+          else
+            exchange[ibs * n_xton + jbs] = -sum;
         } // end of bj
       }
 
-      for (bj = 0; bj < bj_tot; bj++)
+#ifdef USE_SCALAPACK
+      if (dist)
       {
-        b = listb[bj];
-        j = listj[bj];
-        ibs = listibs[(a - lidx) * n_ho + i];
-        jbs = listibs[(b - lidx) * n_ho + j];
-
-        if (ibs < jbs)
-          continue;
-        // printf("printing exchange %lu %lu %lu %lu\n", loop_idx, b, i, j);
-        fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
-                creal(exchange[ibs * ist->n_xton + jbs]), cimag(exchange[ibs * ist->n_xton + jbs]));
-        // fprintf(pf, "%ld %ld %ld %ld %ld %ld %.16g %.16g\n", a, b, i, j, ibs, jbs,
-        //         creal(exchange[ibs * ist->n_xton + jbs]), cimag(exchange[ibs * ist->n_xton + jbs]));
+        // Route this ai row block to its block-cyclic owners and stream the
+        // checkpoint. exc_blk (GPU) / cpu_eblk (CPU) are indexed by bj.
+        const double complex *blkptr = gpu_exc ? exc_blk : cpu_eblk;
+        for (bj = 0; bj < bj_tot; bj++)
+        {
+          b = listb[bj];
+          j = listj[bj];
+          ibs = listibs[(a - lidx) * n_ho + i];
+          jbs = listibs[(b - lidx) * n_ho + j];
+          if (ibs < jbs)
+            continue;
+          router_push(&Sexc, parallel, ibs, jbs, blkptr[bj]);
+          fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
+                  creal(blkptr[bj]), cimag(blkptr[bj]));
+        }
       }
+      else
+#endif
+        for (bj = 0; bj < bj_tot; bj++)
+        {
+          b = listb[bj];
+          j = listj[bj];
+          ibs = listibs[(a - lidx) * n_ho + i];
+          jbs = listibs[(b - lidx) * n_ho + j];
+
+          if (ibs < jbs)
+            continue;
+          fprintf(pf, "%03ld %03ld %03ld %03ld %ld %ld %.12f %.12f\n", a, b, i, j, ibs, jbs,
+                  creal(exchange[ibs * ist->n_xton + jbs]), cimag(exchange[ibs * ist->n_xton + jbs]));
+        }
 
       // Every 25% of iterations, print the job progress
       if ((cntr == 0) || (0 == cntr % (ncycles / 4 + 1)) || (cntr == (ncycles - 1)))
@@ -1191,6 +1319,8 @@ void calc_eh_kernel_cplx(
       free(exc_blk);
     }
 #endif
+      if (cpu_eblk)
+        free(cpu_eblk);
     } // end of fast/CPU exchange path (vs. exc_tiled)
 
     free(lista);
@@ -1205,63 +1335,79 @@ void calc_eh_kernel_cplx(
   /************************************************************/
   MPI_Barrier(MPI_COMM_WORLD);
 
-  // Reduction for even ranks (to rank 0 in even_comm)
-  if (rank_parity == 0)
+#ifdef USE_SCALAPACK
+  if (dist)
   {
-    // Use MPI_Reduce to sum data from all even ranks into rank 0
+    // Distributed assembly: route every computed element to its block-cyclic
+    // owner. Both flushes are collective over COMM_WORLD -- even ranks feed
+    // Sdir (Sexc empty), odd ranks feed Sexc (Sdir empty). On return `direct`
+    // and `exchange` are this rank's block-cyclic tile (descA), never the full
+    // n_xton^2 matrix. This replaces the old full-matrix MPI_Reduce/MPI_Send.
+    router_flush(&Sdir, direct, MPI_COMM_WORLD);
+    router_flush(&Sexc, exchange, MPI_COMM_WORLD);
+    router_free(&Sdir);
+    router_free(&Sexc);
     if (mpir == 0)
-    {
-      MPI_Reduce(MPI_IN_PLACE, direct, 2 * sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, even_comm);
-    }
-    else
-    {
-      MPI_Reduce(direct, direct, 2 * sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, even_comm);
-    }
+      printf("\n\nRedistributed direct/exchange into block-cyclic tiles | %s\n", get_time());
+    fflush(0);
   }
-  if (mpir == 0)
-    printf("\n\nSuccessfully reduced direct mat from even ranks | %s\n", get_time());
-  fflush(0);
-
-  // Reduction for odd ranks (to rank 1 in odd_comm)
-  if (rank_parity == 1)
+  else
+#endif
   {
-    // Use MPI_Reduce to sum data from all odd ranks into rank 1
-    if (mpir == 1)
+    // Reduction for even ranks (to rank 0 in even_comm)
+    if (rank_parity == 0)
     {
-      MPI_Reduce(MPI_IN_PLACE, exchange, 2 * sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, odd_comm);
-    }
-    else
-    {
-      MPI_Reduce(exchange, exchange, 2 * sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, odd_comm);
-    }
-  }
-  if (mpir == 1)
-    printf("Successfully reduced exchange mat from odd ranks | %s\n", get_time());
-  fflush(0);
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  // If multiple ranks were used to compute the kernel
-  // Send exchange data from rank 1 to rank 0
-  if (parallel->mpi_size > 1)
-  {
-    if (mpir == 1)
-    {
-      MPI_Send(exchange, 2 * sqr(ist->n_xton), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+      // Use MPI_Reduce to sum data from all even ranks into rank 0
+      if (mpir == 0)
+      {
+        MPI_Reduce(MPI_IN_PLACE, direct, 2 * sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, even_comm);
+      }
+      else
+      {
+        MPI_Reduce(direct, direct, 2 * sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, even_comm);
+      }
     }
     if (mpir == 0)
-    {
-      MPI_Recv(exchange, 2 * sqr(ist->n_xton), MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    }
-  }
-  // else{
-  //     printf("ERROR: mpi_size < 1 (how are you using MPI code? u gon seg bruh)\n");
-  //     exit(EXIT_FAILURE);
-  // }
+      printf("\n\nSuccessfully reduced direct mat from even ranks | %s\n", get_time());
+    fflush(0);
 
-  if (mpir == 0)
-    printf("Successfully sent exchange mat to mpi_rank 0 | %s\n", get_time());
-  fflush(0);
+    // Reduction for odd ranks (to rank 1 in odd_comm)
+    if (rank_parity == 1)
+    {
+      // Use MPI_Reduce to sum data from all odd ranks into rank 1
+      if (mpir == 1)
+      {
+        MPI_Reduce(MPI_IN_PLACE, exchange, 2 * sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, odd_comm);
+      }
+      else
+      {
+        MPI_Reduce(exchange, exchange, 2 * sqr(ist->n_xton), MPI_DOUBLE, MPI_SUM, 0, odd_comm);
+      }
+    }
+    if (mpir == 1)
+      printf("Successfully reduced exchange mat from odd ranks | %s\n", get_time());
+    fflush(0);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // If multiple ranks were used to compute the kernel
+    // Send exchange data from rank 1 to rank 0
+    if (parallel->mpi_size > 1)
+    {
+      if (mpir == 1)
+      {
+        MPI_Send(exchange, 2 * sqr(ist->n_xton), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+      }
+      if (mpir == 0)
+      {
+        MPI_Recv(exchange, 2 * sqr(ist->n_xton), MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      }
+    }
+
+    if (mpir == 0)
+      printf("Successfully sent exchange mat to mpi_rank 0 | %s\n", get_time());
+    fflush(0);
+  }
 
   MPI_Barrier(MPI_COMM_WORLD);
 

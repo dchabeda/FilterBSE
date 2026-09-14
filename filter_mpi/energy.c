@@ -310,7 +310,7 @@ void get_energy_range(
     // pad the bounds for each that is active (SO and NL are independent).
     if (1 == flag->SO)
     {
-      Emax += 3.5;
+      Emax += 2.0;
       // Emin += 0.2;
     }
     // >>> NL projector auto-pad (remove this block; restore "Emax += 3.0" to disable) >>>
@@ -321,7 +321,7 @@ void get_energy_range(
     // is a safety factor. If par->NL_lambda_* are 0 (estimate disabled), no NL pad.
     if (1 == flag->NL)
     {
-      const double NL_PAD_MARGIN = 1.15; // 15% safety
+      const double NL_PAD_MARGIN = 1.10; // 10% safety
       double dEmax = (par->NL_lambda_max > 0.0) ? NL_PAD_MARGIN * par->NL_lambda_max : 0.0;
       double dEmin = (par->NL_lambda_min < 0.0) ? NL_PAD_MARGIN * par->NL_lambda_min : 0.0;
       Emax += dEmax;

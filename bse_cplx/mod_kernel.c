@@ -25,6 +25,73 @@ void mod_kernel(
   if (mpir == 0)
     printf("\nThe number of electron-hole pairs in the exciton basis = %ld\n", ist->n_xton);
 
+#ifdef USE_SCALAPACK
+  const int dist = (parallel->mpi_size > 1);
+#else
+  const int dist = 0;
+#endif
+
+#ifdef USE_SCALAPACK
+  if (dist)
+  {
+    // Distributed storage: allocate only this rank's block-cyclic tile of the
+    // direct/exchange matrices (~n_xton^2 / P), never the full matrix. The
+    // Coulomb kernel routes computed elements into these tiles; pzheevd
+    // consumes them in place. ALLOCATE zero-fills, so the (unfilled) upper
+    // triangle is 0 as pzheevd(uplo='L') requires.
+    bse_setup_blockcyclic(parallel, ist->n_xton);
+    const long ls = bc_local_size(parallel);
+    ALLOCATE(direct, ls, "direct (block-cyclic tile)");
+    ALLOCATE(exchange, ls, "exchange (block-cyclic tile)");
+
+    if (0 == flag->coulombDone)
+    {
+      if (mpir == 0)
+      {
+        printf("Computing complex e-h kernel (distributed block-cyclic)\n");
+        fflush(0);
+      }
+      struct timespec init_wall_t, end_wall_t;
+      clock_gettime(CLOCK_MONOTONIC, &init_wall_t);
+      calc_eh_kernel_cplx(psi_qp, pot_bare, pot_screened, *direct, *exchange,
+                          ist, par, flag, parallel);
+      clock_gettime(CLOCK_MONOTONIC, &end_wall_t);
+      double wall_time = (end_wall_t.tv_sec - init_wall_t.tv_sec) +
+                         (end_wall_t.tv_nsec - init_wall_t.tv_nsec) * 1e-9;
+      if (mpir == 0)
+      {
+        printf("\ndone calculating kernel, wall run time (sec) %lg\n", wall_time);
+        fflush(stdout);
+      }
+    }
+    else
+    {
+      // Distribute-on-read: every rank scans the merged checkpoint and keeps
+      // only the lower-triangle elements it owns in the block-cyclic layout.
+      if (mpir == 0)
+      {
+        printf("\nflag.coulombDone is on -> distribute-on-read from files | %s\n", get_time());
+        fflush(0);
+      }
+      if (!bc_load_owned(*direct, "direct.dat", parallel, ist) ||
+          !bc_load_owned(*exchange, "exchange.dat", parallel, ist))
+      {
+        if (mpir == 0)
+          fprintf(stderr, "ERROR: could not distribute-on-read direct/exchange matrices\n");
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+      }
+    }
+
+    if (flag->calcCoulombOnly == 1)
+    {
+      if (mpir == 0)
+        printf("Exiting program after computing Coulomb matrix elements | %s\n", get_time());
+      exit(0);
+    }
+    return;
+  }
+#endif
+
   ALLOCATE(direct, ist->n_xton * ist->n_xton, "direct");
   ALLOCATE(exchange, ist->n_xton * ist->n_xton, "exchange");
 

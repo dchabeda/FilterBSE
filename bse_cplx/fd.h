@@ -106,6 +106,19 @@ typedef struct parallel
   MPI_Comm node_comm;
   int node_rank, node_size;
   MPI_Win psi_win;
+  // 2D block-cyclic layout for the distributed BSE kernel/solve (set by
+  // bse_setup_blockcyclic when mpi_size > 1). The kernel writes direct/exchange
+  // straight into this layout so no rank ever holds the full n_xton^2 matrix,
+  // and pzheevd consumes it in place. bc_ready == 0 until set up.
+  int bc_ready;
+  int bc_ctxt;              // BLACS 2D context (Row-major over MPI_COMM_WORLD)
+  int bc_nprow, bc_npcol;   // process grid dimensions (nprow*npcol == mpi_size)
+  int bc_myrow, bc_mycol;   // this rank's grid coordinates
+  int bc_nb;                // block size (MB == NB)
+  int bc_mloc, bc_nloc;     // this rank's local rows/cols
+  int bc_lld;               // local leading dimension (== bc_mloc, min 1)
+  int bc_desc[9];           // ScaLAPACK array descriptor for an n_xton^2 matrix
+  long bc_N;                // n_xton
 } parallel_st;
 
 /*****************************************************************************/

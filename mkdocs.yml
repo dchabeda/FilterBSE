@@ -73,7 +73,7 @@ nav:
       - Input files: filter_mpi/input-files.md
       - Job options: filter_mpi/job-options.md
       - Codebase & module layout: filter_mpi/codebase.md
-      - Pipeline: filter → ortho → diag: filter_mpi/pipeline.md
+      - "Pipeline: filter → ortho → diag": filter_mpi/pipeline.md
       - Parallelization: filter_mpi/parallelization.md
       - Outputs: filter_mpi/outputs.md
   - bse_cplx:

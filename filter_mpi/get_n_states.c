@@ -21,8 +21,10 @@ int main(int argc, char *argv[]){
   
   long nspinngrid;
   long offset;
-  
-  char fileName[50];
+
+  char fileName[1024];
+  char evalInName[1024];
+  char evalOutName[1024];
 
   //command line input parsing
   if (argc!=6){
@@ -78,7 +80,58 @@ int main(int argc, char *argv[]){
   }
 
   fclose(pf_in);
-  fclose(pf_out);  
+  fclose(pf_out);
+
+  // Generate a clipped eval.dat holding only the selected window of states.
+  // eval.dat is a plain-text companion to psi.dat: one line per state,
+  // "index eigenvalue variance" (see write_eval_dat in write.c). It lives in
+  // the same directory as the input psi file, so derive its path from argv[5].
+  {
+    FILE *pf_eval_in;
+    FILE *pf_eval_out;
+    char *slash;
+    long idx;
+    double eval_loc, sigma_loc;
+    long written;
+
+    strcpy(evalInName, argv[5]);
+    slash = strrchr(evalInName, '/');
+    if (slash != NULL){
+      // keep the directory portion (including trailing '/'), append eval.dat
+      strcpy(slash + 1, "eval.dat");
+    }
+    else {
+      strcpy(evalInName, "eval.dat");
+    }
+
+    pf_eval_in = fopen(evalInName, "r");
+    if (pf_eval_in == NULL){
+      printf("Warning: could not open %s; skipping clipped eval.dat\n", evalInName);
+    }
+    else {
+      sprintf(evalOutName, "eval_%d-%d.dat", start, end);
+      pf_eval_out = fopen(evalOutName, "w");
+      if (pf_eval_out == NULL){
+        printf("ERROR opening %s for writing\n", evalOutName);
+        exit(EXIT_FAILURE);
+      }
+
+      idx = 0;
+      written = 0;
+      // Read every line; copy only those in [start, end], renumbering the
+      // index from 0 so line i matches state i of the clipped psi file.
+      while (fscanf(pf_eval_in, "%ld %lg %lg", &idx, &eval_loc, &sigma_loc) == 3){
+        if (idx >= start && idx <= end){
+          fprintf(pf_eval_out, "%ld %.16lg %lg\n", written, eval_loc, sigma_loc);
+          written++;
+        }
+      }
+
+      fclose(pf_eval_in);
+      fclose(pf_eval_out);
+      printf("Wrote %s (%ld states)\n", evalOutName, written);
+    }
+  }
 
   printf("Done with get_n_states.x\n");
 

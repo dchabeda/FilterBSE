@@ -1,0 +1,78 @@
+site_name: FilterBSE
+site_description: Filter-diagonalization + Bethe–Salpeter equation codes for semiconductor nanostructures
+site_url: https://dchabeda.github.io/FilterBSE/
+repo_url: https://github.com/dchabeda/FilterBSE
+repo_name: dchabeda/FilterBSE
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - navigation.indexes
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.keys
+
+plugins:
+  - search
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  - filter_mpi:
+      - Overview: filter_mpi/index.md
+      - Input files: filter_mpi/input-files.md
+      - Job options: filter_mpi/job-options.md
+      - Codebase & module layout: filter_mpi/codebase.md
+      - Pipeline: filter → ortho → diag: filter_mpi/pipeline.md
+      - Parallelization: filter_mpi/parallelization.md
+      - Outputs: filter_mpi/outputs.md

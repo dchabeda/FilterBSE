@@ -21,10 +21,11 @@ The pipeline runs in two steps:
     diagonalize pipeline that produces quasiparticle states (`psi.dat`) and
     energies (`eval.dat`).
 
-- :material-atom-variant: **bse_cplx** *(coming next)*
+- :material-atom-variant: **[bse_cplx](bse_cplx/index.md)**
 
     The complex Bethe–Salpeter solver that consumes the filter output to compute
-    excitons and optical properties.
+    excitons and optical properties (energies, oscillator strengths, angular
+    momentum). MPI + ScaLAPACK + optional GPU offload.
 
 </div>
 

@@ -76,3 +76,11 @@ nav:
       - Pipeline: filter → ortho → diag: filter_mpi/pipeline.md
       - Parallelization: filter_mpi/parallelization.md
       - Outputs: filter_mpi/outputs.md
+  - bse_cplx:
+      - Overview: bse_cplx/index.md
+      - Input files: bse_cplx/input-files.md
+      - Job options: bse_cplx/job-options.md
+      - Codebase & module layout: bse_cplx/codebase.md
+      - Pipeline: bse_cplx/pipeline.md
+      - Parallelization: bse_cplx/parallelization.md
+      - Outputs: bse_cplx/outputs.md

@@ -111,30 +111,9 @@ void bethe_salpeter(
   printf("Done diagonalizing BSE matrix | %s\n", format_duration(end_t - start_t));
   fflush(0);
 
-  // Prints the coefficients for the first 100 (or n_xton) lowest energy excitonic states
-  long numExcStatesToPrint = 100;
-  if (n_xton < numExcStatesToPrint)
-    numExcStatesToPrint = n_xton;
-
-  pf = fopen("BSEcoeffRE.dat", "w");
-  for (i = 0; i < n_xton; i++, fprintf(pf, "\n"))
-  {
-    for (j = 0; j < n_xton; j++)
-    {
-      fprintf(pf, "%.*g\t", PR_LEN, creal(bs_coeff[i * n_xton + j]));
-    }
-  }
-  fclose(pf);
-
-  pf = fopen("BSEcoeffIM.dat", "w");
-  for (i = 0; i < n_xton; i++, fprintf(pf, "\n"))
-  {
-    for (j = 0; j < n_xton; j++)
-    {
-      fprintf(pf, "%.*g\t", PR_LEN, cimag(bs_coeff[i * n_xton + j]));
-    }
-  }
-  fclose(pf);
+  // Write the full set of exciton coefficients (eigenvectors) as a single
+  // complex file (re, im pairs) that filter/carrier_dens.c reads back.
+  write_BSE_coeff(bs_coeff, n_xton, "BSEcoeff.dat");
 
   /************************************************************/
   /******************    GROUND XTON ENE    *******************/

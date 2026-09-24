@@ -3,9 +3,11 @@
 void calc_qp_spin_mtrx(
     double complex *restrict psi_qp,
     xyz_st *restrict s_mom,
+    double complex *restrict s2_mom,
     grid_st *grid,
     index_st *ist,
     par_st *par,
+    flag_st *flag,
     parallel_st *parallel);
 
 void calc_qp_ang_mom_mtrx(
@@ -16,6 +18,7 @@ void calc_qp_ang_mom_mtrx(
     grid_st *grid,
     index_st *ist,
     par_st *par,
+    flag_st *flag,
     parallel_st *parallel);
 
 void l_operator(

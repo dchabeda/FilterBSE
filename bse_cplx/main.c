@@ -51,6 +51,7 @@ int main(int argc, char *argv[])
 
   //                  Double Arrays
   double complex *l2_mom;
+  double complex *s2_mom;
   double *eig_vals = NULL;
   double *sigma_E = NULL;
   double *xton_ene;
@@ -173,6 +174,19 @@ int main(int argc, char *argv[])
     calc_optical_exc(bs_coeff, xton_ene, eig_vals, elec_dip, mag_dip, &ist, &par);
   }
 
+  /* Fixed-point exciton carrier densities (cube files): rank-0 post-processing.
+   * bs_coeff (full) lives on rank 0; psi_qp is the node-shared copy readable
+   * here. Writes rhoElec<n>.cube + rhoHole<n>.cube for the lowest
+   * ist.n_FP_density excitons (nExcitonDensities in input.par). */
+  if (parallel.mpi_rank == 0 && ist.n_FP_density > 0)
+  {
+    write_separation(stdout, "T");
+    printf("\n  -  WRITING EXCITON FIXED-POINT DENSITIES | %s\n", get_time());
+    write_separation(stdout, "B");
+    fflush(stdout);
+    write_exciton_densities(bs_coeff, psi_qp, &grid, &ist, &par, &flag, &parallel);
+  }
+
   /* Angular-momentum properties: COLLECTIVE (distributed over all ranks). */
   if (1 == flag.calcSpinAngStat)
   {
@@ -189,14 +203,15 @@ int main(int argc, char *argv[])
     ALLOCATE(&l_mom, mat_size, "l_mom");   //<psi_r|L|psi_s>
     ALLOCATE(&l2_mom, mat_size, "l2_mom"); //<psi_r|L2|psi_s>
     ALLOCATE(&s_mom, mat_size, "s_mom");   //<psi_r|S|psi_s>
+    ALLOCATE(&s2_mom, mat_size, "s2_mom"); //<psi_r|S2|psi_s>
     ALLOCATE(&ldots, mat_size, "ldots");   //<psi_r|L.S|psi_s>
 
     if (parallel.mpi_rank == 0)
       printf("\n  -  Quasiparticle angular momenta | %s\n", get_time());
 
     // QP matrix elements read the node-shared psi_qp: distributed + Allreduced.
-    calc_qp_spin_mtrx(psi_qp, s_mom, &grid, &ist, &par, &parallel);
-    calc_qp_ang_mom_mtrx(psi_qp, l_mom, l2_mom, ldots, &grid, &ist, &par, &parallel);
+    calc_qp_spin_mtrx(psi_qp, s_mom, s2_mom, &grid, &ist, &par, &flag, &parallel);
+    calc_qp_ang_mom_mtrx(psi_qp, l_mom, l2_mom, ldots, &grid, &ist, &par, &flag, &parallel);
 
     // The exciton-basis contractions need the full bs_coeff on every rank. In
     // the distributed path it currently lives on rank 0 only, so broadcast it
@@ -222,6 +237,7 @@ int main(int argc, char *argv[])
     calc_xton_ang_mom_mtrx(bs_coeff, s_mom, l_mom, l2_mom, ldots, &ist, &par, &flag, &parallel);
 
     free(s_mom);
+    free(s2_mom);
     free(l_mom);
     free(l2_mom);
     free(ldots);

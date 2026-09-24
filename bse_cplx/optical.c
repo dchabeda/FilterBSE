@@ -25,6 +25,10 @@ void calc_optical_exc(
   double os, mos;
   char str[50];
 
+  // Sum-rule accumulators (derivation Eq. 25): sum_n R_n must equal sum_ia r_ia.
+  double sum_Rn = 0.0;  // total exciton rotational strength
+  double sum_ria = 0.0; // total single-particle rotational strength (const in n)
+
   // Calculate and print the electric and magnetic dipole strengths and the rotational strength
   pf = fopen("OS.dat", "w");
   pf1 = fopen("M.dat", "w");
@@ -60,17 +64,13 @@ void calc_optical_exc(
         m_sum.y += bs_coeff[ibs * n_xton + j_xton] * m[idx].y;
         m_sum.z += bs_coeff[ibs * n_xton + j_xton] * m[idx].z;
 
-        // Exciton rotational strength: an incoherent, |c_ia|^2-weighted sum of
-        // the single-particle rotational strengths R_ia = Im(mu_ia . m_ia^*).
-        // Weighting the (already real) single-particle R_ia by the BSE
-        // populations |c_ia|^2 -- in analogy to the exciton oscillator strength
-        // -- avoids the spurious 4-body cross terms (ia != jb) that arise from
-        // taking Im(mu_exc . m_exc^*) on the coherent exciton dipoles.
-        double c2 = cnorm(bs_coeff[ibs * n_xton + j_xton]);
-        double rs_ia = cimag(mu[idx].x * conj(m[idx].x))
-                     + cimag(mu[idx].y * conj(m[idx].y))
-                     + cimag(mu[idx].z * conj(m[idx].z));
-        rs += c2 * rs_ia;
+        // Accumulate the total single-particle rotational strength once, for
+        // the sum-rule check sum_n R_n = sum_ia r_ia (derivation Eq. 24-25).
+        // r_ia = Im(mu_ia . m_ia^*) is independent of the exciton index n.
+        if (j_xton == 0)
+          sum_ria += cimag(mu[idx].x * conj(m[idx].x))
+                   + cimag(mu[idx].y * conj(m[idx].y))
+                   + cimag(mu[idx].z * conj(m[idx].z));
 
         if (j_xton < 10)
         {
@@ -86,6 +86,20 @@ void calc_optical_exc(
     os = (cnorm(mu_sum.x) + cnorm(mu_sum.y) + cnorm(mu_sum.z));
     mos = (cnorm(m_sum.x) + cnorm(m_sum.y) + cnorm(m_sum.z));
 
+    // Exciton rotational strength (derivation Eq. 22, compact form):
+    //   R_n = Im[ mu_n . m_n^* ],  mu_n = sum_ia C^n_ia mu_ia,  m_n = sum_ia C^n_ia m_ia
+    // This is the FULL bilinear contraction: expanding the product reproduces
+    //   R_n = sum_ia sum_jb Im[ C^n_ia (C^n_jb)^* mu_ia . m_jb^* ],
+    // i.e. the diagonal (|C|^2-weighted single-particle) piece PLUS the
+    // off-diagonal (ia != jb) interference terms that dominate excitonic CD.
+    // mu_sum = mu_n and m_sum = m_n are the same C-contractions used for OS/M;
+    // mag_dip / elec_dip are both stored as <i|O|a> so no extra conjugation is
+    // needed beyond the one m_n^* from the Rosenfeld formula.
+    rs = cimag(mu_sum.x * conj(m_sum.x)
+             + mu_sum.y * conj(m_sum.y)
+             + mu_sum.z * conj(m_sum.z));
+    sum_Rn += rs;
+
     fprintf(pf, "%ld % .8f % .8f % .8f % .12f % .12f % .12f % .12f % .12f % .12f\n", j_xton, sqrt(os), xton_ene[j_xton], (2.0 / 3.0) * xton_ene[j_xton] * os,
             creal(mu_sum.x), cimag(mu_sum.x),
             creal(mu_sum.y), cimag(mu_sum.y),
@@ -96,7 +110,7 @@ void calc_optical_exc(
             creal(m_sum.y), cimag(m_sum.y),
             creal(m_sum.z), cimag(m_sum.z));
 
-    // rs was accumulated above as sum_ia |c_ia|^2 Im(mu_ia . m_ia^*).
+    // R_n = Im[mu_n . m_n^*], the full bilinear exciton rotational strength.
     fprintf(pf2, "%ld %.8f % .16f\n", j_xton, xton_ene[j_xton], rs);
 
     if (j_xton < 10)
@@ -108,4 +122,12 @@ void calc_optical_exc(
   fclose(pf);
   fclose(pf1);
   fclose(pf2);
+
+  // Mandatory numerical check (derivation Eq. 25): the BSE only redistributes
+  // rotational strength among excitons, so sum_n R_n must equal sum_ia r_ia.
+  // (Both the full and diagonal-only formulas satisfy this, so it verifies the
+  // implementation is internally consistent rather than distinguishing them.)
+  printf("  Exciton CD sum rule: sum_n R_n = % .10g | sum_ia r_ia = % .10g | diff = % .2e\n",
+         sum_Rn, sum_ria, sum_Rn - sum_ria);
+  fflush(stdout);
 }

@@ -19,9 +19,38 @@ The \(\langle H_{\text{dir}}\rangle\), \(\langle H_{\text{exc}}\rangle\),
 \(\langle H_0\rangle\) columns are the direct, exchange, and diagonal expectation
 values per exciton.
 
+### `BSEcoeff.dat`
+
+The full set of exciton coefficients (BSE eigenvectors), written by both the
+serial and distributed (ScaLAPACK) solve paths. One row per two-particle basis
+component \(i\), one column per exciton \(j\); each entry is the complex
+coefficient \(C_{i}^{j}\) written as a `re, im` pair (row `i`, column `j` holds
+component `i` of exciton `j`). Consumed by `filter/carrier_dens.c`
+(`fscanf("%lg, %lg")`).
+
 ### `BSEeval.par`
 
 The selected QP basis (from stage 1): `idx  eigval  sigma` per state.
+
+### Fixed-point exciton densities (`rhoElec<n>.cube`, `rhoHole<n>.cube`)
+
+Set `nExcitonDensities = M` to write Gaussian cube files of the fixed-point
+carrier densities for the lowest `M` excitons (`n = 0 … M-1`). For each exciton
+two cubes are written:
+
+- `rhoElec<n>.cube` — **electron** carrier density (hole integrated out):
+  \(\rho^e_n(\mathbf r_e) = \sum_i \sum_\sigma \big|\sum_a C^n_{ia}\,\phi^\sigma_a(\mathbf r_e)\big|^2\)
+- `rhoHole<n>.cube` — **hole** carrier density (electron integrated out):
+  \(\rho^h_n(\mathbf r_h) = \sum_a \sum_\sigma \big|\sum_i C^n_{ia}\,\phi^\sigma_i(\mathbf r_h)\big|^2\)
+
+Integrating out the other carrier collapses the two-particle sum by QP
+orthonormality (\(\int d\mathbf r\,\phi_i^*\phi_j = \delta_{ij}\)), so each density
+is real and non-negative. The cube value is the **signed density** rendered with
+the same method as `filter_mpi/makecube`
+(\(\sqrt{\mathrm{Re}^2+\mathrm{Im}^2}\cdot\mathrm{sign}\)), not the squared
+density. Written by rank 0 as a post-processing step after the BSE solve (needs
+`conf.par` in the run directory, the same config file the rest of the run
+reads); works in both the serial and distributed paths.
 
 ## Optical properties (exciton)
 
@@ -29,7 +58,7 @@ The selected QP basis (from stage 1): `idx  eigval  sigma` per state.
 |---|---|
 | `OS.dat` | electric oscillator strengths: `n  sqrt(|μ|²)  E_n  f_osc  Re/Im(μx,μy,μz)` |
 | `M.dat` | magnetic dipole / magnetic OS (same layout, \((4/3)E|m|^2\)) |
-| `rs.dat` | rotational strengths: `n  E_n  R` |
+| `rs.dat` | exciton rotational strengths (CD): `n  E_n  R_n`, with the full bilinear \(R_n=\mathrm{Im}[\boldsymbol\mu_n\cdot\mathbf m_n^*]\) including electron–hole interference; conserves \(\sum_n R_n=\sum_{ia} r_{ia}\) (sum-rule line printed to stdout) |
 | `bs-coeff-<n>.dat` | per-exciton BSE coefficients (for the first 10 excitons): `hole  elec  E_ia  Re(C)  Im(C)  |C|²` |
 
 ## Single-particle (QP) properties
@@ -43,9 +72,10 @@ The selected QP basis (from stage 1): `idx  eigval  sigma` per state.
 
 ## Angular momentum (`calcSpinAngStat = 1`)
 
-**QP-basis matrices:**
+**QP-basis matrices** (each line `i  j  Re  Im`, holes then electrons):
 
 - `sx.dat`, `sy.dat`, `sz.dat` — spin matrices
+- `ssqr.dat` — \(S^2\) (diagonal = \(3/4\) for spin-½ QP states; a normalization/orthonormality check)
 - `lx.dat`, `ly.dat`, `lz.dat` — orbital angular-momentum matrices
 - `lsqr.dat` — \(L^2\)
 - `ls.dat` — \(L\cdot S\)
@@ -55,6 +85,12 @@ The selected QP basis (from stage 1): `idx  eigval  sigma` per state.
 - `spins.dat` — `n  Re/Im(Sx,Sy,Sz)  S_tot`
 - `orbital.dat` — `n  Lx  Ly  Lz  L_tot`
 - `couple.dat` — `n  <L·S>`
+
+The QP-basis grid integrals (both the spin matrices and the angular-momentum
+matrix elements) are offloaded to the GPU when `gpuAccel = 1` and a device is
+visible, using the same resident-state technique as the Coulomb kernel (the
+FFT-based \(L|\psi\rangle\) operators stay on the CPU); the result is
+bit-identical to the CPU path and it falls back to CPU automatically.
 
 ## Kernel checkpoints
 
@@ -70,7 +106,6 @@ See [Job options → Restarting](job-options.md#restarting-and-checkpointing).
 - `h0.dat` — the diagonal \(h_0\) matrix
 - `bsRE.dat`, `bsIM.dat` — the assembled BSE matrix (real/imag)
 - `HBSmatRE.dat`, `HBSmatIM.dat` — BSE matrix (serial path only)
-- `BSEcoeffRE.dat`, `BSEcoeffIM.dat` — exciton coefficients (serial path only)
 
 ## stdout / stderr
 

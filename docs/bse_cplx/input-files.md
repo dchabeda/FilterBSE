@@ -109,7 +109,8 @@ gpuAccel = 1
 |---|---|---|---|
 | `calcSpinAngStat` | int | compute spin / angular-momentum statistics | 1 |
 | `calcDarkStates` | int | compute the dark (spin-forbidden) manifold | 0 |
-| `printFPDensity` | int | print fixed-point exciton densities | 0 |
+| `printFPDensity` | int | print fixed-point exciton densities (auto-set when `nExcitonDensities > 0`) | 0 |
+| `nExcitonDensities` | int | number of lowest excitons to write electron+hole fixed-point density cubes for (0 = off) | 0 |
 | `timingSpecs` | int | print per-step BSE transform timings | 0 |
 
 ### Parallelization

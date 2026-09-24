@@ -562,6 +562,11 @@ void bethe_salpeter_dist(
     for (long j = 0; j < N; j++)
       for (long i = 0; i < N; i++)
         bs_coeff[i * N + j] = src[i + j * N]; /* component i of exciton j */
+
+    /* Same single-file coefficient output as the serial path. */
+    write_BSE_coeff(bs_coeff, N, "BSEcoeff.dat");
+    printf("  wrote BSEcoeff.dat (%ld x %ld coefficients) | %s\n", N, N, get_time());
+    fflush(stdout);
   }
 
   /* --- expectation-value diagonals for exciton.dat --- */

@@ -123,6 +123,7 @@ void read_input(
       // ****** ****** ****** ****** ****** ******
       read_field(field, "timingSpecs", &flag->timingSpecs, INT_TYPE, tmp, &fk);
       read_field(field, "printFPDensity", &flag->printFPDensity, INT_TYPE, tmp, &fk);
+      read_field(field, "nExcitonDensities", &ist->n_FP_density, INT_TYPE, tmp, &fk);
       read_field(field, "calcDarkStates", &flag->calcDarkStates, INT_TYPE, tmp, &fk);
       read_field(field, "calcSpinAngStat", &flag->calcSpinAngStat, INT_TYPE, tmp, &fk);
       read_field(field, "saveCheckpoints", &flag->saveCheckpoints, INT_TYPE, tmp, &fk);
@@ -156,7 +157,7 @@ void read_input(
         printf("NonLocal = int (0 for no non-local, 1 for non-local potential)\n");
         printf("timingSpecs = int (if 1 print timing specs)\n");
         printf("printFPDensity = int (1 to print fixed point exciton densities, 0 to not)\n");
-        printf("If printCubes = 1, the next entry MUST specify the number of excitons to print\n");
+        printf("nExcitonDensities = int (number of lowest excitons to write electron+hole fixed-point density cubes for; 0 = off)\n");
         printf("calcDarkStates = int (if 1, calculate dark (spin-forbidden) manifold of excitons)\n");
         printf("calcSpinAngStat = int (if 1, calculate spin and ang. mom. statistics for eigenstates)\n");
         printf("saveCheckpoints = int, if 1 then save states will be generated along the job run.\n");
@@ -204,6 +205,13 @@ void read_input(
     flag->isComplex = 1; // psi is complex: doubles x2
     ist->nspin = 2;      // two-spins per state: ngrid x2
   }
+
+  // nExcitonDensities drives fixed-point-density output; keep printFPDensity
+  // (used in the job summary) consistent with the requested count.
+  if (ist->n_FP_density > 0)
+    flag->printFPDensity = 1;
+  else if (flag->printFPDensity == 0)
+    ist->n_FP_density = 0;
 
   ist->ngrid_1 = 1.0 / (double)(ist->ngrid);
   ist->nthreads = parallel->nthreads;

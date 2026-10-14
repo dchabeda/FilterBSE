@@ -1300,17 +1300,12 @@ void read_pot(pot_st *pot, xyz_st *R, atom_info *atom, index_st *ist, par_st *pa
       }
       else
       {
-        // If there is no file for the ligands in the directory, construct the ligand potentials by using hardcoded
-        // Gaussian parameters a and b
-        if (parallel->mpi_rank == 0)
-          printf("\n\tNo ligand potential file %s\n\t Using default Gaussian parameters a = %lg b = %lg\n", str, a[iatm - 2], b[iatm - 2]);
-        pot->file_lens[atyp_idx] = pot->file_lens[0];
-        for (i = 0; i < pot->file_lens[atyp_idx]; i++)
-        {
-          pot->r[atyp_idx * ist->max_pot_file_len + i] = pot->r[i];
-          pot->pseudo[atyp_idx * ist->max_pot_file_len + i] = (a[iatm - 2] * exp(-sqr(pot->r[atyp_idx * ist->max_pot_file_len + i] - c[iatm - 2]) / b[iatm - 2]));
-        }
-        pot->dr[atyp_idx] = pot->r[atyp_idx * ist->max_pot_file_len + 1] - pot->r[atyp_idx * ist->max_pot_file_len];
+        // No potential file was found for this ligand atom type. Rather than
+        // fabricating a potential from hardcoded Gaussian parameters, abort so
+        // the missing file is caught explicitly.
+        fprintf(stderr, "No potential file corresponding to atom type %c%c%c found! Exiting...\n", atype[0], atype[1], atype[2]);
+        fflush(0);
+        exit(EXIT_FAILURE);
       }
     }
     // ******* ******* ******* ******* ******* ******* ******* *******

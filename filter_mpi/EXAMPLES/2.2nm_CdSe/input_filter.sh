@@ -19,6 +19,9 @@ dGrid="0.8"
 # Set options for the pseudopotentials
 interpolatePot="0"
 useStrain="0"
+longRange="0"               # if 1, pseudopotentials carry long-range terms (no truncation)
+localStructureDependent="0" # if 1, apply the local-structure-dependent (delta-v) correction
+readProj="0"                # if 1, read SO/NL projector data from files instead of generating them
 crystalStructure="wurzite"
 outmostMaterial="CdSe"
 
@@ -38,11 +41,18 @@ setTargets="1"
 # more energy targets in the VB to improve convergence for less computational time
 msVB="10"; msCB="6" 
 nCheby='2048'
+# KEmax caps the kinetic energy 0.5|k+G|^2; raising it can improve the wavefunctions
+KEmax="20.0"
+# approxEnergyRange: if 1, approximate the Chebyshev energy range from the local potential
+approxEnergyRange="0"
 fermiEnergy="-0.18" # CdSe fermi energy differs depending on what potential is used, but somewhere between -0.16 and -0.18
 setSeed="0"; randSeed=""
 
 # Options for parallelization
 nThreads=$1
+hamThreads="1"
+# MPIOrtho: 0 = orthogonalize on a single node, 1 = distributed ortho across MPI ranks
+MPIOrtho="0"
 
 # Options for spin-orbit calculation
 SOFlag="0"
@@ -57,6 +67,9 @@ calcPotOverlap="0"
 getAllStates="1" # If you only want to print out converged states, make this 0
 sigmaECut="0.001" # This is the convergence cutoff for what makes a "true eigenstate"
 timeHamiltonian="0"
+printPsiFilt="1"     # if 1, write the filtered wavefunctions to disk
+calcFilterOnly="0"   # if 1, terminate the job after the filtering step (no ortho/diag)
+restartFromOrtho="0" # if 1, read psi-filt.dat from disk and restart from the ortho step
 
 # Print an input.par file for a filter-diagonalization calculation
 cat > $cwd/filter_input.par << EOF
@@ -72,13 +85,14 @@ VBmax = $vbMax
 CBmin = $cbMin 
 CBmax = $cbMax
 nThreads = $nThreads
+hamThreads = $hamThreads
 spinOrbit = $SOFlag
 NonLocal = $NLFlag
 interpolatePot = $interpolatePot
 setTargets = $setTargets $msVB $msCB
 calcPotOverlap = $calcPotOverlap
 getAllStates = $getAllStates
-sigmaECut = $sigmaECut 
+sigmaECut = $sigmaECut
 timeHamiltonian = $timeHamiltonian
 fermiEnergy = $fermiEnergy
 setSeed = $setSeed $randSeed
@@ -88,5 +102,14 @@ saveCheckpoints = $saveCheckpoints
 useStrain = $useStrain
 crystalStructure = $crystalStructure
 outmostMaterial = $outmostMaterial
+longRange = $longRange
+localStructureDependent = $localStructureDependent
+readProj = $readProj
+KEmax = $KEmax
+approxEnergyRange = $approxEnergyRange
+printPsiFilt = $printPsiFilt
+calcFilterOnly = $calcFilterOnly
+restartFromOrtho = $restartFromOrtho
+MPIOrtho = $MPIOrtho
 EOF
 

@@ -19,6 +19,9 @@ dGrid="0.5"
 # Set options for the pseudopotentials
 interpolatePot="0"
 useStrain="0"
+longRange="0"               # if 1, pseudopotentials carry long-range terms (no truncation)
+localStructureDependent="0" # if 1, apply the local-structure-dependent (delta-v) correction
+readProj="0"                # if 1, read SO/NL projector data from files instead of generating them
 crystalStructure=""
 outmostMaterial=""
 
@@ -38,12 +41,20 @@ setTargets="1"
 # more energy targets in the VB to improve convergence for less computational time
 msVB="10"; msCB="6" 
 nCheby='2048'
+# KEmax caps the kinetic energy 0.5|k+G|^2; raising it can improve the wavefunctions
+KEmax="20.0"
+# approxEnergyRange: if 1, approximate the Chebyshev energy range from the local potential
+approxEnergyRange="0"
 fermiEnergy="-0.2" # CdSe fermi energy differs depending on what potential is used, but somewhere between -0.16 and -0.18
 setSeed="1"; randSeed="123"
 
 # Options for parallelization
+# nThreads (arg 1) and hamThreads (arg 2) are passed by run_filter.sh; hamThreads
+# defaults to 1 if a second argument is not supplied.
 nThreads=$1
-hamThreads=$2
+hamThreads=${2:-1}
+# MPIOrtho: 0 = orthogonalize on a single node, 1 = distributed ortho across MPI ranks
+MPIOrtho="0"
 
 # Options for spin-orbit calculation
 SOFlag="1"
@@ -58,6 +69,17 @@ calcPotOverlap="0"
 getAllStates="1" # If you only want to print out converged states, make this 0
 sigmaECut="0.001" # This is the convergence cutoff for what makes a "true eigenstate"
 timeHamiltonian="0"
+printPsiFilt="1"     # if 1, write the filtered wavefunctions to disk
+calcFilterOnly="0"   # if 1, terminate the job after the filtering step (no ortho/diag)
+restartFromOrtho="0" # if 1, read psi-filt.dat from disk and restart from the ortho step
+
+# crystalStructure/outmostMaterial are only meaningful for strain-dependent
+# potentials (useStrain = 1). CsPbI3 here uses useStrain = 0, so they are left
+# unset; emit the lines only when a value is actually provided, otherwise the
+# code falls back to its "unknown" default.
+crystalLine=""; outmostLine=""
+if [ -n "$crystalStructure" ]; then crystalLine="crystalStructure = $crystalStructure"; fi
+if [ -n "$outmostMaterial" ]; then outmostLine="outmostMaterial = $outmostMaterial"; fi
 
 # Print an input.par file for a filter-diagonalization calculation
 cat > $cwd/filter_input.par << EOF
@@ -88,7 +110,16 @@ printNorm = $printNorm
 printCubes = $printCubes $ncubes
 saveCheckpoints = $saveCheckpoints
 useStrain = $useStrain
-crystalStructure = $crystalStructure
-outmostMaterial = $outmostMaterial
+$crystalLine
+$outmostLine
+longRange = $longRange
+localStructureDependent = $localStructureDependent
+readProj = $readProj
+KEmax = $KEmax
+approxEnergyRange = $approxEnergyRange
+printPsiFilt = $printPsiFilt
+calcFilterOnly = $calcFilterOnly
+restartFromOrtho = $restartFromOrtho
+MPIOrtho = $MPIOrtho
 EOF
 

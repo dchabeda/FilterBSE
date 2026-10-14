@@ -14,6 +14,9 @@ export OMP_NUM_THREADS=16
 export OMP_PLACES=threads
 export OMP_PROC_BIND=spread
 
+# Number of OMP threads used to parallelize the Hamiltonian (passed to input_filter.sh)
+hamThreads=1
+
 # Make necessary home and scratch directories
 sFilterDir="$scratchDir/filter"
 hFilterDir="$cwd/filter"
@@ -24,7 +27,7 @@ mkdir -p $hFilterDir
 
 # Make input.par files
 cd $cwd
-bash input_filter.sh $OMP_NUM_THREADS
+bash input_filter.sh $OMP_NUM_THREADS $hamThreads
 
 # Copy all required input and executable files into the scratch directories
 cp $cwd/filter_input.par $sFilterDir/input.par

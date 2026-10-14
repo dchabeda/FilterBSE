@@ -2,7 +2,7 @@ import numpy as np
 import sys
 
 if len(sys.argv) != 5:
-  print("\nusage: python make_gaussian_lig_pot.py [a] [b] [dr] [filename]\n")
+  print("\nusage: python make_gaussian_lig_pot.py [a] [b] [r_max] [filename]\n")
   exit()
 
 a = float(sys.argv[1])
@@ -12,7 +12,7 @@ filename = sys.argv[4]
 
 # First and last distance in Bohr
 r_initial = 0.0
-n_points = 4096
+n_points = 1024
 
 r = np.linspace(r_initial, r_max, n_points)
 pot = a * np.exp(-b * r**2)

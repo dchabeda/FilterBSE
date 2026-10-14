@@ -943,9 +943,11 @@ void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *g
         }
         else
         {
-          if (55 != atom[jatom].Zval)
+          if (!is_ligand(atom[jatom].atyp))
           {
-            // If any atom not a Cs atom is missing its file, this is BAD
+            // Ligands have no SO/NL potential and so no projector files; a
+            // missing file is only acceptable when the atom is a ligand.
+            // Any non-ligand atom missing its file is BAD.
             printf("Cannot open %s file %s\n", atom[jatom].atyp, projNL_file);
             fprintf(stderr, "Cannot open %s file %s\n", atom[jatom].atyp, projNL_file);
             exit(EXIT_FAILURE);
@@ -974,9 +976,11 @@ void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *g
       }
       else
       {
-        if (55 != atom[jatom].Zval)
+        if (!is_ligand(atom[jatom].atyp))
         {
-          // If any atom not a Cs atom is missing its file, this is BAD
+          // Ligands have no SO/NL potential and so no projector files; a
+          // missing file is only acceptable when the atom is a ligand.
+          // Any non-ligand atom missing its file is BAD.
           printf("Cannot open %s file %s\n", atom[jatom].atyp, sgnNL_file);
           fprintf(stderr, "Cannot open %s file %s\n", atom[jatom].atyp, sgnNL_file);
           exit(EXIT_FAILURE);

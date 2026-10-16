@@ -1,10 +1,25 @@
 SHELL = /bin/sh
 
+# Machine-specific overrides. Settings for the local cluster live in the
+# untracked file machine.mk at the repo root (ignored by git, so pulls never
+# clobber it). Any variable below set with ?= can be overridden there, e.g.
+#   Linux_CC   = mpiicx
+#   ARCHFLAGS  = -xCORE-AVX512 -qopt-zmm-usage=high
+#   FFTW_LIBS  =
+#   MKL_LIBDIR = -L$(MKLROOT)/lib
+# Without machine.mk the Perlmutter defaults are used.
+-include $(dir $(lastword $(MAKEFILE_LIST)))../machine.mk
+
+Linux_CC   ?= cc
+ARCHFLAGS  ?= -mavx2
+FFTW_LIBS  ?= -lfftw3_omp -lfftw3
+MKL_LIBDIR ?=
+
 OS=Linux
 
 # libraries ...
-Linux_LIB = -qmkl -qopenmp -lpthread -lfftw3_omp -lfftw3 -lm
-Linux_DYLIB = -lmkl_intel_ilp64 -lmkl_lapack95_ilp64 -lmkl_blas95_ilp64 -lmkl_intel_thread -lmkl_core -lm
+Linux_LIB = -qmkl -qopenmp -lpthread $(FFTW_LIBS) -lm
+Linux_DYLIB = $(MKL_LIBDIR) -lmkl_intel_ilp64 -lmkl_lapack95_ilp64 -lmkl_blas95_ilp64 -lmkl_intel_thread -lmkl_core -lm
 
 LIB = $(Linux_DYLIB) $(Linux_LIB)
 
@@ -16,7 +31,7 @@ LIB = $(Linux_DYLIB) $(Linux_LIB)
 # objects that include it -- no more blanket `make clean`.
 Linux_DEPFLAGS = -MMD -MP
 Linux_OPTFLAGS = -DMKL_ILP64 -DFFTW_FFT
-Linux_CFLAGS = $(Linux_OPTFLAGS) $(Linux_DEPFLAGS) -O3 -qopenmp -mavx2
+Linux_CFLAGS = $(Linux_OPTFLAGS) $(Linux_DEPFLAGS) -O3 -qopenmp $(ARCHFLAGS)
 #Linux_CFLAGS = -g -qopenmp -O0 -Wall
 #Linux_CFLAGS = -g -O0 -Wall # uncomment this line to debug/valgrind
 
@@ -27,9 +42,6 @@ MAINNAM = Filter
 # otherwise become the default goal, so bare `make` would only build main.o and
 # never link. Setting this explicitly keeps `make` building the executable.
 .DEFAULT_GOAL := $(MAINNAM)
-
-# compiler ...
-Linux_CC = cc
 
 OBJECTS = \
 	main.o mod_init.o mod_mem.o mod_pseudopot.o mod_filter.o mod_ortho.o mod_diag.o mod_sigma.o mod_output.o mod_optional_output.o mod_portho.o\
@@ -55,7 +67,6 @@ CUBEOBJECTS = \
 # Compile the main executable Filter.x and link libraries
 $(MAINNAM): $(OBJECTS)
 	$(Linux_CC) -o $(MAINNAM)_mpi.x $(OBJECTS) $(LIB)
-
 
 # If desired, run make cube to build the makecube.x executable
 cube: $(CUBEOBJECTS)

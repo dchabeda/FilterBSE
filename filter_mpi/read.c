@@ -55,6 +55,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
   ist->outmost_material_int = -1;
   ist->ngeoms = 1;             // number of different psuedopotential geometries (eg. cubic/ortho) for interpolating psuedopotentials
   par->scale_surface_Cs = 1.0; // By default, do not charge balance the surface Cs atoms
+  flag->chargeShift = 0;          // By default, do not apply the rigid charge-neutralizing shift V_Q
+  par->charge_shift = 0.0;        // Value of V_Q actually applied (Ha); set in build_local_pot
+  par->charge_shift_kappa = 1.0;  // Geometric prefactor kappa in V_Q = -kappa*Q/R_eff (1=shell, 3/2=ball)
+  par->charge_shift_value = 0.0;  // If nonzero, overrides the auto-computed V_Q with this constant (Ha)
   flag->readProj = 0;
   flag->readCoeffs = 0;
   par->psi_zero_cut = 1e-16;
@@ -269,6 +273,39 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
         {
           if (mpir == 0)
             printf("Error converting string to double.\n");
+          exit(EXIT_FAILURE);
+        }
+      }
+      // Rigid charge-neutralizing shift V_Q = -kappa*Q/R_eff (jellium background,
+      // constant-shift form). chargeShift turns it on; Q and R_eff are determined
+      // automatically from the loaded pseudopotentials + coordinates (no charges needed).
+      else if (!strcmp(field, "chargeShift"))
+      {
+        flag->chargeShift = (int)strtol(tmp, &endptr, 10);
+        if (*endptr != '\0')
+        {
+          if (mpir == 0)
+            printf("Error converting chargeShift to int.\n");
+          exit(EXIT_FAILURE);
+        }
+      }
+      else if (!strcmp(field, "chargeShiftKappa"))
+      {
+        par->charge_shift_kappa = strtod(tmp, &endptr);
+        if (*endptr != '\0')
+        {
+          if (mpir == 0)
+            printf("Error converting chargeShiftKappa to double.\n");
+          exit(EXIT_FAILURE);
+        }
+      }
+      else if (!strcmp(field, "chargeShiftValue"))
+      {
+        par->charge_shift_value = strtod(tmp, &endptr);
+        if (*endptr != '\0')
+        {
+          if (mpir == 0)
+            printf("Error converting chargeShiftValue to double.\n");
           exit(EXIT_FAILURE);
         }
       }
@@ -830,6 +867,10 @@ void read_input(flag_st *flag, grid_st *grid, index_st *ist, par_st *par, parall
           printf("readProj = int (if 1, read projector data from files)\n");
           printf("readCoeffs = int (if 1, read Newton coeffs and sample points from files)\n");
           printf("scaleSurfaceCs = double (fractional scaling factor of surface Cs to balance charge)\n");
+          printf("chargeShift = int (if 1, add rigid charge-neutralizing shift V_Q=-kappa*Q/R_eff to H;\n");
+          printf("              Q and R_eff auto-determined from the potentials+coords, no charges needed)\n");
+          printf("chargeShiftKappa = double (geometric prefactor in V_Q; default 1=shell, 3/2=uniform ball)\n");
+          printf("chargeShiftValue = double (if nonzero, use this V_Q (Ha) directly instead of auto-computing)\n");
           printf("nThreads = 1-128 (number of total OMP threads)\n");
           printf("nestedOMP = int (0 for no nested parallelism, 1 for nested)\n");
           printf("hamThreads = 1-16 (number of OMP threads to parallelize Ham over)\n");

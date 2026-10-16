@@ -478,6 +478,77 @@ void set_ene_targets(double *ene_targets, index_st *ist, par_st *par, flag_st *f
 }
 
 /*****************************************************************************/
+/* Rigid charge-neutralizing shift for non-neutral NCs (jellium background in
+ * its constant-shift form). See jellium_background_theory.md, sec 10.
+ *
+ * Returns V_Q = -kappa * Q / R_eff, where:
+ *   - Q = sum_i c_mu(i) is the NC net pseudo-charge. Each species charge c_mu is
+ *     read straight off the tail of the already-loaded pseudopotential table:
+ *     at large r the erf(lambda r)/r tail -> c_mu/r, so c_mu = r * V(r) at the
+ *     last tabulated point. No charges are supplied by the user.
+ *   - R_eff = sqrt(5/3 <r^2>) is the NC charge radius from the atomic coordinates.
+ * On the first call it prints Q, R_eff and V_Q (rank 0 only).
+ */
+static double compute_charge_shift(pot_st *pot, xyz_st *R, atom_info *atom,
+                                   index_st *ist, par_st *par, flag_st *flag,
+                                   parallel_st *parallel)
+{
+  const int nat = ist->natoms;
+  const int mpfl = ist->max_pot_file_len;
+  const int ipot = flag->interpolatePot;
+  const int scaleLR = (par->scale_surface_Cs != 1.0); // LR tail lives in pot->pseudo_LR when set
+
+  // --- Net pseudo-charge Q from the pseudopotential tails ---
+  double Q = 0.0;
+  for (int ia = 0; ia < nat; ia++)
+  {
+    // Table index: cubic table (2*idx) when interpolating, else idx. The Coulomb
+    // tail charge is identical for the cubic/ortho tables, so the cubic one suffices.
+    long ti = ipot ? 2L * atom[ia].idx : (long)atom[ia].idx;
+    long len = pot->file_lens[ti];
+    if (len < 1)
+      continue;
+    long k = ti * (long)mpfl + (len - 1); // last tabulated radial point
+    if (scaleLR)
+      // SR/LR split: entire Coulomb tail is in the LR table; surface-Cs rescaling
+      // is carried per atom by atom[ia].LR_par, so include it to match the grid.
+      Q += atom[ia].LR_par * pot->r_LR[k] * pot->pseudo_LR[k];
+    else
+      // Combined table already contains the erf(lambda r)/r tail.
+      Q += pot->r[k] * pot->pseudo[k];
+  }
+
+  // --- Charge radius R_eff = sqrt(5/3 <r^2>) about the geometric centroid ---
+  double cx = 0.0, cy = 0.0, cz = 0.0;
+  for (int ia = 0; ia < nat; ia++)
+  {
+    cx += R[ia].x;
+    cy += R[ia].y;
+    cz += R[ia].z;
+  }
+  cx /= nat;
+  cy /= nat;
+  cz /= nat;
+  double r2 = 0.0;
+  for (int ia = 0; ia < nat; ia++)
+  {
+    double ddx = R[ia].x - cx, ddy = R[ia].y - cy, ddz = R[ia].z - cz;
+    r2 += ddx * ddx + ddy * ddy + ddz * ddz;
+  }
+  r2 /= nat;
+  double Reff = sqrt(5.0 / 3.0 * r2);
+
+  double V_Q = (Reff > 0.0) ? -par->charge_shift_kappa * Q / Reff : 0.0;
+
+  if (parallel->mpi_rank == 0)
+    printf("\tCharge shift: Q = %.5lg (sum of LR tail charges), R_eff = %.5lg bohr, "
+           "kappa = %.3lg  =>  V_Q = %.6lg Ha\n",
+           Q, Reff, par->charge_shift_kappa, V_Q);
+
+  return V_Q;
+}
+
+/*****************************************************************************/
 void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
                      grid_st *grid, index_st *ist, par_st *par, flag_st *flag, parallel_st *parallel)
 {
@@ -665,6 +736,42 @@ void build_local_pot(double *pot_local, pot_st *pot, xyz_st *R, atom_info *atom,
         }
         pot_local[jxyz] = pot_local[ist->ngrid + jxyz] = sum;
       }
+    }
+  }
+
+  // --- Rigid charge-neutralizing shift V_Q added to the Hamiltonian ---
+  // (jellium background, constant-shift form; see jellium_background_theory.md sec 10).
+  // Added to every grid point BEFORE the Vmin/Vmax scan so the Chebyshev spectral
+  // bounds shift with it and the filter scaling stays self-consistent automatically.
+  // Eigenvectors/densities/gaps are unchanged; only the energy zero moves by V_Q, so
+  // VBmin/VBmax/CBmin/CBmax/fermiEnergy are then specified in the corrected (neutral) frame.
+  par->charge_shift = 0.0;
+  if (flag->chargeShift)
+  {
+    if (!flag->LR && mpir == 0)
+      printf("\tWARNING: chargeShift requested but longRange is off; the grid potential "
+             "carries no net-charge tail to correct. Proceeding anyway.\n");
+
+    double V_Q;
+    if (par->charge_shift_value != 0.0)
+    {
+      V_Q = par->charge_shift_value; // user-supplied constant overrides auto-computation
+      if (mpir == 0)
+        printf("\tCharge shift: using user-supplied V_Q = %.6lg Ha (chargeShiftValue)\n", V_Q);
+    }
+    else
+    {
+      V_Q = compute_charge_shift(pot, R, atom, ist, par, flag, parallel);
+    }
+
+    par->charge_shift = V_Q;
+    if (V_Q != 0.0)
+    {
+      if (mpir == 0)
+        printf("\tApplying rigid charge shift V_Q = %.6lg Ha to the Hamiltonian\n", V_Q);
+      // pot_local holds both spin copies ([0,ngrid) and [ngrid,2*ngrid)); shift both.
+      for (jxyz = 0; jxyz < 2L * ist->ngrid; jxyz++)
+        pot_local[jxyz] += V_Q;
     }
   }
 
@@ -922,65 +1029,69 @@ void init_NL_projectors(nlc_st *nlc, long *nl, double *SO_projectors, grid_st *g
     }
     else if (1 == flag->readProj)
     {
-      char projNL_file[50], sgnNL_file[50];
-      FILE *pNL, *pSgn;
-      double eig, scratch;
-      int tmp;
+      // An atom contributes to the non-local potential only when at least one
+      // of its NL coefficients is nonzero. This mirrors the gate in
+      // gen_nlc_projectors (projectors.c, the readProj == 0 path) and the NL
+      // operator in hamiltonian.c: a zero NL coefficient means zero NL
+      // contribution. Such atoms have no projectorNL_* / NL_Proj_Eigs files
+      // on disk, so we skip them entirely -- their projectors and signs stay
+      // zero from the calloc above, exactly as gen_nlc_projectors would set
+      // them. (Ligands fall out as a subset: they are assigned zero NL
+      // coefficients in read.c.) A nonzero-NL atom MUST have its files, so a
+      // missing file for such an atom is always fatal.
+      const int atom_has_NL =
+          (atom[jatom].NL_par[0] != 0.0) || (atom[jatom].NL_par[1] != 0.0);
 
-      // Read projector info from files
-      // NL projectors
-      for (iproj = 0; iproj < ist->nproj; iproj++)
+      if (atom_has_NL)
       {
-        sprintf(projNL_file, "projectorNL_%ld_%d.dat", jatom, iproj);
-        pNL = fopen(projNL_file, "r");
-        if (pNL != NULL)
+        char projNL_file[50], sgnNL_file[50];
+        FILE *pNL, *pSgn;
+        double eig, scratch;
+        int tmp;
+
+        // Read projector info from files
+        // NL projectors
+        for (iproj = 0; iproj < ist->nproj; iproj++)
         {
-          for (rpoint = 0; rpoint < PROJ_LEN; rpoint++)
+          sprintf(projNL_file, "projectorNL_%ld_%d.dat", jatom, iproj);
+          pNL = fopen(projNL_file, "r");
+          if (pNL != NULL)
           {
-            fscanf(pNL, "%lf %lf\n", &scratch, &nlcprojectors[PROJ_LEN * iproj + rpoint]);
+            for (rpoint = 0; rpoint < PROJ_LEN; rpoint++)
+            {
+              fscanf(pNL, "%lf %lf\n", &scratch, &nlcprojectors[PROJ_LEN * iproj + rpoint]);
+            }
+            fclose(pNL);
           }
-          fclose(pNL);
-        }
-        else
-        {
-          if (!is_ligand(atom[jatom].atyp))
+          else
           {
-            // Ligands have no SO/NL potential and so no projector files; a
-            // missing file is only acceptable when the atom is a ligand.
-            // Any non-ligand atom missing its file is BAD.
             printf("Cannot open %s file %s\n", atom[jatom].atyp, projNL_file);
             fprintf(stderr, "Cannot open %s file %s\n", atom[jatom].atyp, projNL_file);
             exit(EXIT_FAILURE);
           }
         }
-      }
 
-      // NL_projector signs
-      sprintf(sgnNL_file, "NL_Proj_Eigs%ld-sorted.dat", jatom);
-      pSgn = fopen(sgnNL_file, "r");
-      if (pSgn != NULL)
-      {
-        for (iproj = 0; iproj < ist->nproj; iproj++)
+        // NL_projector signs
+        sprintf(sgnNL_file, "NL_Proj_Eigs%ld-sorted.dat", jatom);
+        pSgn = fopen(sgnNL_file, "r");
+        if (pSgn != NULL)
         {
-          fscanf(pSgn, "%d %lf %lf\n", &tmp, &scratch, &eig);
-          if (eig < 0.0)
+          for (iproj = 0; iproj < ist->nproj; iproj++)
           {
-            sgnProj[iproj] = -1;
+            fscanf(pSgn, "%d %lf %lf\n", &tmp, &scratch, &eig);
+            if (eig < 0.0)
+            {
+              sgnProj[iproj] = -1;
+            }
+            else
+            {
+              sgnProj[iproj] = 1;
+            }
           }
-          else
-          {
-            sgnProj[iproj] = 1;
-          }
+          fclose(pSgn);
         }
-        fclose(pSgn);
-      }
-      else
-      {
-        if (!is_ligand(atom[jatom].atyp))
+        else
         {
-          // Ligands have no SO/NL potential and so no projector files; a
-          // missing file is only acceptable when the atom is a ligand.
-          // Any non-ligand atom missing its file is BAD.
           printf("Cannot open %s file %s\n", atom[jatom].atyp, sgnNL_file);
           fprintf(stderr, "Cannot open %s file %s\n", atom[jatom].atyp, sgnNL_file);
           exit(EXIT_FAILURE);

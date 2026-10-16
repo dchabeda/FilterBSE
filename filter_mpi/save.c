@@ -53,6 +53,15 @@ void print_input_state(FILE *pf, flag_st *flag, grid_st *grid, par_st *par, inde
     fprintf(pf, "\tLong range component of surface Cs atom potentials scaled by %lg\n", par->scale_surface_Cs);
   else
     fprintf(pf, "\tSurface Cs atoms NOT rescaled for charge balancing\n");
+  if (flag->chargeShift)
+  {
+    if (par->charge_shift_value != 0.0)
+      fprintf(pf, "\tRigid charge-neutralizing shift ON: V_Q = %lg Ha (user-supplied chargeShiftValue)\n", par->charge_shift_value);
+    else
+      fprintf(pf, "\tRigid charge-neutralizing shift ON: V_Q = -kappa*Q/R_eff auto-computed from potentials (kappa = %lg)\n", par->charge_shift_kappa);
+  }
+  else
+    fprintf(pf, "\tRigid charge-neutralizing shift OFF\n");
   if (flag->readProj == 1)
     fprintf(pf, "\tProjector functions will be read from files\n");
   else

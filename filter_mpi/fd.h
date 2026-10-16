@@ -41,6 +41,7 @@ typedef struct flag
   int NL;
   int LR;
   int LSD;
+  int chargeShift; // apply a rigid charge-neutralizing shift V_Q to the Hamiltonian (jellium background, constant-shift form)
   int useSpinors;
   int isComplex;
 
@@ -177,6 +178,16 @@ typedef struct par
 
   // Surface scaling factor
   double scale_surface_Cs;
+
+  // Rigid charge-neutralizing shift V_Q = -kappa * Q / R_eff added to the Hamiltonian
+  // (jellium background in its constant-shift form; see jellium_background_theory.md sec 10).
+  // charge_shift holds the value actually applied (Ha), set in build_local_pot when
+  // flag->chargeShift is on. charge_shift_kappa is the geometric prefactor (1 = shell,
+  // 3/2 = uniform ball; default 1). charge_shift_value, if nonzero, overrides the
+  // auto-computed V_Q with a user-supplied constant.
+  double charge_shift;
+  double charge_shift_kappa;
+  double charge_shift_value;
 
   // Target states for valence and conduction bands
   long n_targets_VB;
